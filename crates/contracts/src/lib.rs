@@ -411,6 +411,58 @@ pub struct Credential {
     pub value: String,
     /// Expiration timestamp (0 = no expiration).
     pub expires_at: u64,
+    /// Credential scope (optional).
+    pub scope: Option<String>,
+}
+
+/// Health status for a provider.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum HealthStatus {
+    /// Provider is healthy.
+    Healthy,
+    /// Provider is degraded.
+    Degraded,
+    /// Provider is unhealthy.
+    Unhealthy,
+    /// Provider status unknown.
+    Unknown,
+}
+
+/// Health check result.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HealthCheck {
+    /// Provider identifier.
+    pub provider_id: String,
+    /// Health status.
+    pub status: HealthStatus,
+    /// Last check timestamp.
+    pub last_check: u64,
+    /// Optional message.
+    pub message: Option<String>,
+}
+
+/// Retry policy for provider requests.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RetryPolicy {
+    /// Maximum number of retry attempts.
+    pub max_attempts: u32,
+    /// Initial backoff delay in milliseconds.
+    pub initial_backoff_ms: u64,
+    /// Maximum backoff delay in milliseconds.
+    pub max_backoff_ms: u64,
+    /// Whether to use exponential backoff.
+    pub exponential_backoff: bool,
+}
+
+/// Fallback configuration.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FallbackConfig {
+    /// Primary provider ID.
+    pub primary_provider: String,
+    /// Fallback provider IDs (in order of preference).
+    pub fallback_providers: Vec<String>,
+    /// Whether to failover automatically.
+    pub auto_failover: bool,
 }
 
 /// Quota information for a provider.

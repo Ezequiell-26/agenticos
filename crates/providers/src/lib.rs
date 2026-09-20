@@ -4,8 +4,8 @@
 //! model/provider adapters boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    ContractError, Credential, ModelEntry, ModelProvider, ModelRequest, ModelResponse,
-    ProviderEntry, QuotaInfo,
+    ContractError, Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry,
+    ModelProvider, ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -140,6 +140,14 @@ impl CredentialPool {
             .cloned()
             .collect()
     }
+
+    /// Remove expired credentials.
+    pub async fn remove_expired(&self, now: u64) -> Result<usize, ContractError> {
+        let mut credentials = self.credentials.write().await;
+        let before = credentials.len();
+        credentials.retain(|_, c| c.expires_at == 0 || c.expires_at > now);
+        Ok(before - credentials.len())
+    }
 }
 
 impl Default for CredentialPool {
@@ -188,6 +196,144 @@ impl QuotaTracker {
 }
 
 impl Default for QuotaTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Health checker for providers.
+#[derive(Debug)]
+pub struct HealthChecker {
+    health_checks: Arc<RwLock<HashMap<String, HealthCheck>>>,
+}
+
+impl HealthChecker {
+    /// Create a new health checker.
+    pub fn new() -> Self {
+        Self {
+            health_checks: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Update health status for a provider.
+    pub async fn update(&self, check: HealthCheck) -> Result<(), ContractError> {
+        let mut health_checks = self.health_checks.write().await;
+        health_checks.insert(check.provider_id.clone(), check);
+        Ok(())
+    }
+
+    /// Get health status for a provider.
+    pub async fn get(&self, provider_id: &str) -> Option<HealthCheck> {
+        let health_checks = self.health_checks.read().await;
+        health_checks.get(provider_id).cloned()
+    }
+
+    /// Check if a provider is healthy.
+    pub async fn is_healthy(&self, provider_id: &str) -> bool {
+        let health_checks = self.health_checks.read().await;
+        match health_checks.get(provider_id) {
+            Some(check) => matches!(check.status, HealthStatus::Healthy),
+            None => false,
+        }
+    }
+}
+
+impl Default for HealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Retry manager for provider requests.
+#[derive(Debug)]
+pub struct RetryManager {
+    policies: Arc<RwLock<HashMap<String, RetryPolicy>>>,
+}
+
+impl RetryManager {
+    /// Create a new retry manager.
+    pub fn new() -> Self {
+        Self {
+            policies: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Set retry policy for a provider.
+    pub async fn set_policy(
+        &self,
+        provider_id: String,
+        policy: RetryPolicy,
+    ) -> Result<(), ContractError> {
+        let mut policies = self.policies.write().await;
+        policies.insert(provider_id, policy);
+        Ok(())
+    }
+
+    /// Get retry policy for a provider.
+    pub async fn get_policy(&self, provider_id: &str) -> Option<RetryPolicy> {
+        let policies = self.policies.read().await;
+        policies.get(provider_id).cloned()
+    }
+}
+
+impl Default for RetryManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Fallback manager for provider failover.
+#[derive(Debug)]
+pub struct FallbackManager {
+    configs: Arc<RwLock<HashMap<String, FallbackConfig>>>,
+}
+
+impl FallbackManager {
+    /// Create a new fallback manager.
+    pub fn new() -> Self {
+        Self {
+            configs: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Set fallback configuration.
+    pub async fn set_config(&self, config: FallbackConfig) -> Result<(), ContractError> {
+        let mut configs = self.configs.write().await;
+        configs.insert(config.primary_provider.clone(), config);
+        Ok(())
+    }
+
+    /// Get fallback configuration for a provider.
+    pub async fn get_config(&self, primary_provider: &str) -> Option<FallbackConfig> {
+        let configs = self.configs.read().await;
+        configs.get(primary_provider).cloned()
+    }
+
+    /// Get the next provider to try from fallback list.
+    pub async fn get_next_provider(
+        &self,
+        primary_provider: &str,
+        current_provider: &str,
+    ) -> Option<String> {
+        let configs = self.configs.read().await;
+        if let Some(config) = configs.get(primary_provider) {
+            let current_index = config
+                .fallback_providers
+                .iter()
+                .position(|p| p == current_provider);
+            if let Some(index) = current_index {
+                if index + 1 < config.fallback_providers.len() {
+                    return Some(config.fallback_providers[index + 1].clone());
+                }
+            } else if !config.fallback_providers.is_empty() {
+                return Some(config.fallback_providers[0].clone());
+            }
+        }
+        None
+    }
+}
+
+impl Default for FallbackManager {
     fn default() -> Self {
         Self::new()
     }
@@ -302,6 +448,7 @@ mod tests {
                 credential_type: "api_key".to_string(),
                 value: "secret-key".to_string(),
                 expires_at: 0,
+                scope: Some("read".to_string()),
             };
 
             pool.add(credential.clone()).await.unwrap();
@@ -359,6 +506,76 @@ mod tests {
 
             assert_eq!(response.request_id, "req-1");
             assert!(response.output.contains("Test input"));
+        });
+    }
+
+    #[test]
+    fn test_health_checker() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let checker = HealthChecker::new();
+
+            let check = HealthCheck {
+                provider_id: "test-provider".to_string(),
+                status: HealthStatus::Healthy,
+                last_check: 12345,
+                message: Some("All good".to_string()),
+            };
+
+            checker.update(check.clone()).await.unwrap();
+
+            let retrieved = checker.get("test-provider").await.unwrap();
+            assert_eq!(retrieved.status, HealthStatus::Healthy);
+
+            assert!(checker.is_healthy("test-provider").await);
+        });
+    }
+
+    #[test]
+    fn test_retry_manager() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let manager = RetryManager::new();
+
+            let policy = RetryPolicy {
+                max_attempts: 3,
+                initial_backoff_ms: 100,
+                max_backoff_ms: 1000,
+                exponential_backoff: true,
+            };
+
+            manager
+                .set_policy("test-provider".to_string(), policy.clone())
+                .await
+                .unwrap();
+
+            let retrieved = manager.get_policy("test-provider").await.unwrap();
+            assert_eq!(retrieved.max_attempts, 3);
+        });
+    }
+
+    #[test]
+    fn test_fallback_manager() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let manager = FallbackManager::new();
+
+            let config = FallbackConfig {
+                primary_provider: "primary".to_string(),
+                fallback_providers: vec!["fallback1".to_string(), "fallback2".to_string()],
+                auto_failover: true,
+            };
+
+            manager.set_config(config.clone()).await.unwrap();
+
+            let retrieved = manager.get_config("primary").await.unwrap();
+            assert_eq!(retrieved.fallback_providers.len(), 2);
+
+            let next = manager
+                .get_next_provider("primary", "primary")
+                .await
+                .unwrap();
+            assert_eq!(next, "fallback1");
         });
     }
 }

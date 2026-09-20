@@ -65,3 +65,9 @@ The next AI must continue from this file and the append-only journal, not from m
 - Functional Step 1 remains locked until architecture-foundation verification is complete.
 - No project code or data was deleted by this operation.
 
+## Continuity enforcement checkpoint
+
+- Foundation gate now explicitly requires the continuity verifier and journal integrity checks.
+- Architecture documentation indexes the continuity protocol.
+- Latest code checkpoint before the next journal append: `d30ade971a2e4225cc3cd00b901d3b3548c13d0c`.
+

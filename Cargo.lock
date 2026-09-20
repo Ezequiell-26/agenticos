@@ -191,6 +191,10 @@ name = "agenticos-source-forge"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

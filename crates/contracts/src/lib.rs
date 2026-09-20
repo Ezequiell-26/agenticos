@@ -675,6 +675,73 @@ pub trait ProtocolTransport: Send + Sync {
     async fn receive(&self) -> Result<Option<ProtocolMessage>, ContractError>;
 }
 
+/// Sandbox execution request.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SandboxRequest {
+    /// Request identifier.
+    pub request_id: String,
+    /// Code to execute.
+    pub code: String,
+    /// Execution timeout in milliseconds.
+    pub timeout_ms: u64,
+    /// Memory limit in bytes.
+    pub memory_limit_bytes: u64,
+    /// Allowed capabilities.
+    pub allowed_capabilities: Vec<String>,
+}
+
+/// Sandbox execution response.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SandboxResponse {
+    /// Request identifier (echoed).
+    pub request_id: String,
+    /// Execution success status.
+    pub success: bool,
+    /// Output from execution.
+    pub output: String,
+    /// Error message if failed.
+    pub error: Option<String>,
+    /// Resource usage statistics.
+    pub resource_usage: ResourceUsage,
+}
+
+/// Resource usage statistics.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResourceUsage {
+    /// CPU time in milliseconds.
+    pub cpu_time_ms: u64,
+    /// Memory used in bytes.
+    pub memory_used_bytes: u64,
+    /// Execution time in milliseconds.
+    pub execution_time_ms: u64,
+}
+
+/// Sandbox execution boundary.
+#[async_trait::async_trait]
+pub trait Sandbox: Send + Sync {
+    /// Execute code in sandbox.
+    async fn execute(&self, request: SandboxRequest) -> Result<SandboxResponse, ContractError>;
+
+    /// Check if sandbox is available.
+    async fn is_available(&self) -> Result<bool, ContractError>;
+
+    /// Get sandbox status.
+    async fn get_status(&self) -> Result<SandboxStatus, ContractError>;
+}
+
+/// Sandbox status.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SandboxStatus {
+    /// Sandbox is ready.
+    Ready,
+    /// Sandbox is busy.
+    Busy,
+    /// Sandbox is unavailable.
+    Unavailable,
+    /// Sandbox is in error state.
+    Error(String),
+}
+
 /// Quota information for a provider.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QuotaInfo {

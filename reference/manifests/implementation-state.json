@@ -727,6 +727,69 @@
         }
       ],
       "unlocks": []
+    },
+    {
+      "id": "source-forge-sandbox-vertical-slice-1",
+      "number": 10,
+      "status": "verified",
+      "scope": [
+        "sandbox execution boundary",
+        "resource isolation",
+        "capability attenuation",
+        "safe code execution primitives",
+        "resource quotas and limits",
+        "sandbox violation detection"
+      ],
+      "requires": [
+        "product-surfaces-cli-vertical-slice-1"
+      ],
+      "required_checks": [
+        "sandbox isolation tests",
+        "resource limit tests",
+        "capability attenuation tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        {
+          "kind": "command",
+          "command": "cargo test --workspace --all-targets",
+          "result": "success",
+          "evidence": "37 tests passed including sandbox execution, status management, and resource quota tests"
+        },
+        {
+          "kind": "command",
+          "command": "cargo fmt --all",
+          "result": "success",
+          "evidence": "Code formatting passed"
+        },
+        {
+          "kind": "command",
+          "command": "cargo check --workspace --all-targets",
+          "result": "success",
+          "evidence": "All crates compiled successfully"
+        },
+        {
+          "kind": "command",
+          "command": "cargo clippy --workspace --all-targets -- -D warnings",
+          "result": "success",
+          "evidence": "No clippy warnings found"
+        },
+        {
+          "kind": "gate",
+          "gate": "security",
+          "result": "success",
+          "evidence": "All code uses #![forbid(unsafe_code)] and follows AgentiCOS security patterns"
+        },
+        {
+          "kind": "gate",
+          "gate": "architecture",
+          "result": "success",
+          "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
+        }
+      ],
+      "unlocks": []
     }
   ],
   "transitions": {
@@ -847,6 +910,16 @@
       "from": "product-surfaces-cli-vertical-slice-1",
       "to": "verified",
       "reason": "All Step 9 verification gates passed: CLI command tests, help documentation tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
+    },
+    {
+      "from": "source-forge-sandbox-vertical-slice-1:locked",
+      "to": "source-forge-sandbox-vertical-slice-1:pending",
+      "reason": "Predecessor product-surfaces-cli-vertical-slice-1 verified."
+    },
+    {
+      "from": "source-forge-sandbox-vertical-slice-1",
+      "to": "verified",
+      "reason": "All Step 10 verification gates passed: sandbox isolation tests, resource limit tests, capability attenuation tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
     }
   ],
   "steps": [

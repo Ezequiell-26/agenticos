@@ -66,6 +66,8 @@ const REQUIRED_CRATE_NAMES = [
 
 export async function assertArchitectureReadiness(root = process.cwd()): Promise<void> {
   await readRequired(root, "Cargo.toml");
+  await readRequired(root, "Cargo.lock");
+  await readRequired(root, "LICENSE");
   await readRequired(root, "rust-toolchain.toml");
   await readRequired(root, "contracts/registry.json");
   await readRequired(root, "reference/manifests/mit-repositories.json");
@@ -114,7 +116,9 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
     await readRequired(root, "reference/manifests/implementation-state.json"),
   ) as ImplementationState;
 
+  const projectState = await readRequired(root, "reference/PROJECT-STATE.md");
   assertImplementationState(state);
+  assertProjectStateConsistency(state, projectState);
 }
 
 
@@ -155,6 +159,17 @@ function assertReferenceCorpusIntegrity(value: {
         },
       );
     }
+    if (!item.license.toUpperCase().includes("MIT")) {
+      throw new AgentiCOSError(
+        `Non-MIT license present in MIT reference corpus: ${item.repository} (${item.license}).`,
+        {
+          code: "NON_MIT_REFERENCE_IN_MIT_CORPUS",
+          category: "SECURITY",
+          severity: "critical",
+        },
+      );
+    }
+
     if (item.license_verification.artifact_sha === "0000000000000000000000000000000000000000") {
       throw new AgentiCOSError(
         `Synthetic license hash detected for ${item.repository}.`,
@@ -231,6 +246,25 @@ function assertCompletenessContractsRegistered(
         },
       );
     }
+  }
+}
+
+function assertProjectStateConsistency(state: ImplementationState, projectState: string): void {
+  const stepLine = projectState.match(/Current implementation step:\s*`([^\`]+)`/);
+  const statusLine = projectState.match(/Current step status:\s*`([^\`]+)`/);
+  if (!stepLine || !statusLine) {
+    throw new AgentiCOSError("PROJECT-STATE.md is missing canonical step state.", {
+      code: "PROJECT_STATE_MISSING_CANONICAL_STEP",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
+  if (stepLine[1] !== state.current_step || statusLine[1] !== state.steps.find((step) => step.id === state.current_step)?.status) {
+    throw new AgentiCOSError("PROJECT-STATE.md and implementation-state.json disagree.", {
+      code: "PROJECT_STATE_MISMATCH",
+      category: "VALIDATION",
+      severity: "critical",
+    });
   }
 }
 

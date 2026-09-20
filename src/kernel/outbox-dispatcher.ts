@@ -1,5 +1,5 @@
 import type { DurableEvent } from "../architecture/outbox.js";
-import { SqliteKernelStore } from "./sqlite-store.js";
+import type { KernelStore } from "./ports.js";
 
 export interface OutboxDispatchResult {
   readonly published: number;
@@ -7,7 +7,7 @@ export interface OutboxDispatchResult {
 }
 
 export class DurableOutboxDispatcher {
-  constructor(private readonly store: SqliteKernelStore) {}
+  constructor(private readonly store: KernelStore) {}
 
   async dispatch(
     publish: (event: DurableEvent) => Promise<void> | void,

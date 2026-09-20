@@ -53,7 +53,9 @@
         "all completeness contracts registered",
         "cross-reference validation",
         "reference resolver manifest",
-        "MIT corpus integrity"
+        "MIT corpus integrity",
+        "agent continuity verifier",
+        "operation journal integrity"
       ],
       "verification_evidence": [],
       "unlocks": [

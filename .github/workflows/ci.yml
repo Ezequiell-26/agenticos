@@ -34,7 +34,22 @@ jobs:
         run: npm run verify
 
       - name: Validate implementation state manifest
-        run: node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('reference/manifests/implementation-state.json','utf8'));if(x.policy.one_step_at_a_time!==true||x.policy.next_step_requires_verified_previous!==true||x.policy.fail_closed!==true)process.exit(1);if(!Array.isArray(x.steps)||x.steps.length<2)process.exit(1);const active=x.steps.filter(s=>s.status==='in_progress');if(active.length>1)process.exit(1);console.log('implementation state manifest: PASS')"
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const state = JSON.parse(
+            fs.readFileSync("reference/manifests/implementation-state.json", "utf8"),
+          );
+          if (
+            state.policy.one_step_at_a_time !== true ||
+            state.policy.next_step_requires_verified_previous !== true ||
+            state.policy.fail_closed !== true
+          ) process.exit(1);
+          if (!Array.isArray(state.steps) || state.steps.length < 2) process.exit(1);
+          const active = state.steps.filter((step) => step.status === "in_progress");
+          if (active.length > 1) process.exit(1);
+          console.log("implementation state manifest: PASS");
+          NODE
 
       - name: Dependency audit
         run: npm audit --audit-level=high

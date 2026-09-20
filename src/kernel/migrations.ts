@@ -178,7 +178,7 @@ export function applyKernelMigrations(
     });
   }
 
-  if (currentSchemaVersion > 2) {
+  if (currentSchemaVersion > 3) {
     throw new AgentiCOSError(
       "Database schema version is newer than this runtime.",
       {

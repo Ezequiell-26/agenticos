@@ -144,8 +144,10 @@ export class ProviderError extends AgentiCOSError {
       category,
       retryable: details.retryable,
       recoverable: details.retryable,
-      retryAfterMs: details.retryAfterMs,
       userActionRequired: details.status === 401 || details.status === 403,
+      ...(details.retryAfterMs === undefined
+        ? {}
+        : { retryAfterMs: details.retryAfterMs }),
     });
 
     this.name = "ProviderError";

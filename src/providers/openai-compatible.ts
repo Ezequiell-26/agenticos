@@ -4,8 +4,10 @@ import {
   type ChatRequest,
   type ChatResponse,
   type ProviderConfig,
+  type ProviderDefinition,
   type ProviderModel,
   type TokenUsage,
+  type ToolCall,
 } from "./types.js";
 
 interface OpenAIChatResponse {
@@ -14,6 +16,11 @@ interface OpenAIChatResponse {
   choices?: Array<{
     message?: {
       content?: string | Array<{ type?: string; text?: string }>;
+      tool_calls?: Array<{
+        id?: string;
+        type?: string;
+        function?: { name?: string; arguments?: string };
+      }>;
     };
     finish_reason?: string | null;
   }>;
@@ -32,15 +39,36 @@ interface OpenAIModelsResponse {
 }
 
 export class OpenAICompatibleProvider implements AIProvider {
-  readonly definition: ProviderConfig;
+  readonly definition: ProviderDefinition;
+  private readonly apiKey: string | undefined;
   private readonly timeoutMs: number;
 
   constructor(config: ProviderConfig) {
+    const { apiKey, models: _models, timeoutMs, ...definition } = config;
+    assertProviderDefinition(definition);
+    if (apiKey !== undefined && !apiKey.trim()) {
+      throw new ProviderError("Provider API key cannot be empty.", {
+        code: "PROVIDER_API_KEY_INVALID",
+        retryable: false,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+
     this.definition = {
-      ...config,
-      baseUrl: config.baseUrl.replace(/\/$/, ""),
+      ...definition,
+      baseUrl: definition.baseUrl.replace(/\/$/, ""),
     };
-    this.timeoutMs = config.timeoutMs ?? 120_000;
+    this.apiKey = apiKey;
+    this.timeoutMs = timeoutMs ?? 120_000;
+    if (!Number.isInteger(this.timeoutMs) || this.timeoutMs <= 0) {
+      throw new ProviderError("Provider timeout must be a positive integer.", {
+        code: "PROVIDER_TIMEOUT_INVALID",
+        retryable: false,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -55,7 +83,10 @@ export class OpenAICompatibleProvider implements AIProvider {
       );
     }
 
+    validateChatRequest(request);
+
     const body: Record<string, unknown> = {
+      ...(request.extraBody ?? {}),
       model: request.model,
       messages: request.messages,
       ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
@@ -65,7 +96,6 @@ export class OpenAICompatibleProvider implements AIProvider {
       ...(request.tools === undefined ? {} : { tools: request.tools }),
       ...(request.toolChoice === undefined ? {} : { tool_choice: request.toolChoice }),
       stream: false,
-      ...(request.extraBody ?? {}),
     };
 
     const response = await this.fetchWithTimeout("/chat/completions", {
@@ -103,6 +133,9 @@ export class OpenAICompatibleProvider implements AIProvider {
         ? {}
         : { finishReason: choice.finish_reason }),
       ...(usage ? { usage } : {}),
+      ...(extractToolCalls(message.tool_calls)
+        ? { toolCalls: extractToolCalls(message.tool_calls) }
+        : {}),
       raw: data,
     };
   }
@@ -119,7 +152,16 @@ export class OpenAICompatibleProvider implements AIProvider {
 
     const data = await this.parseJson<OpenAIModelsResponse>(response);
 
-    return (data.data ?? []).map((model) => ({
+    if (!Array.isArray(data.data)) {
+      throw new ProviderError("Provider returned an invalid model list.", {
+        code: "PROVIDER_INVALID_MODEL_LIST",
+        retryable: true,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+
+    return data.data.map((model) => ({
       id: model.id,
       providerId: this.definition.id,
       displayName: model.id,
@@ -130,8 +172,7 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 
   private authHeaders(): Record<string, string> {
-    const key = this.definition.apiKey;
-    return key ? { Authorization: "Bearer " + key } : {};
+    return this.apiKey ? { Authorization: "Bearer " + this.apiKey } : {};
   }
 
   private async fetchWithTimeout(
@@ -271,4 +312,141 @@ function extractMessageText(
     .filter((part) => part.type === "text" || Boolean(part.text))
     .map((part) => part.text ?? "")
     .join("");
+}
+
+function assertProviderDefinition(
+  definition: ProviderDefinition,
+): void {
+  if (!definition.id.trim() || !definition.name.trim()) {
+    throw new ProviderError("Provider id and name are required.", {
+      code: "PROVIDER_DEFINITION_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+
+  let url: URL;
+  try {
+    url = new URL(definition.baseUrl);
+  } catch {
+    throw new ProviderError("Provider baseUrl is invalid.", {
+      code: "PROVIDER_BASE_URL_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+
+  if (
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
+    url.username ||
+    url.password
+  ) {
+    throw new ProviderError("Provider baseUrl must use HTTP(S) without embedded credentials.", {
+      code: "PROVIDER_BASE_URL_UNSAFE",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+}
+
+function validateChatRequest(request: ChatRequest): void {
+  if (!request.model.trim() || request.messages.length === 0) {
+    throw new ProviderError("Chat request requires a model and at least one message.", {
+      code: "CHAT_REQUEST_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+
+  for (const message of request.messages) {
+    if (!message.content || (typeof message.content === "string" && !message.content.trim())) {
+      throw new ProviderError("Chat messages cannot have empty content.", {
+        code: "CHAT_MESSAGE_INVALID",
+        retryable: false,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+  }
+
+  if (
+    request.temperature !== undefined &&
+    (!Number.isFinite(request.temperature) || request.temperature < 0 || request.temperature > 2)
+  ) {
+    throw new ProviderError("Temperature must be between 0 and 2.", {
+      code: "CHAT_TEMPERATURE_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+
+  if (
+    request.topP !== undefined &&
+    (!Number.isFinite(request.topP) || request.topP < 0 || request.topP > 1)
+  ) {
+    throw new ProviderError("topP must be between 0 and 1.", {
+      code: "CHAT_TOP_P_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+
+  if (
+    request.maxTokens !== undefined &&
+    (!Number.isInteger(request.maxTokens) || request.maxTokens <= 0)
+  ) {
+    throw new ProviderError("maxTokens must be a positive integer.", {
+      code: "CHAT_MAX_TOKENS_INVALID",
+      retryable: false,
+      rateLimited: false,
+      quotaExhausted: false,
+    });
+  }
+}
+
+function extractToolCalls(
+  calls: OpenAIChatResponse["choices"] extends Array<infer C>
+    ? C extends { message?: infer M }
+      ? M extends { tool_calls?: infer T }
+        ? T
+        : never
+      : never
+    : never,
+): ToolCall[] | undefined {
+  if (!Array.isArray(calls) || calls.length === 0) return undefined;
+
+  const normalized: ToolCall[] = [];
+  for (const call of calls) {
+    if (
+      !call ||
+      call.type !== "function" ||
+      !call.id ||
+      !call.function?.name ||
+      call.function.arguments === undefined
+    ) {
+      throw new ProviderError("Provider returned an invalid tool call.", {
+        code: "PROVIDER_INVALID_TOOL_CALL",
+        retryable: false,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+
+    normalized.push({
+      id: call.id,
+      type: "function",
+      function: {
+        name: call.function.name,
+        arguments: call.function.arguments,
+      },
+    });
+  }
+
+  return normalized;
 }

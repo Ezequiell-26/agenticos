@@ -95,7 +95,12 @@ export function assertContractRegistry(
 
   const schemaVersion = value.schemaVersion;
   const contracts = value.contracts;
-  if (!Number.isInteger(schemaVersion) || schemaVersion < 1 || !Array.isArray(contracts)) {
+  if (
+    typeof schemaVersion !== "number" ||
+    !Number.isInteger(schemaVersion) ||
+    schemaVersion < 1 ||
+    !Array.isArray(contracts)
+  ) {
     throw invalidRegistry("Contract registry schema is invalid.");
   }
 
@@ -114,6 +119,7 @@ export function assertContractRegistry(
     if (
       typeof id !== "string" ||
       id.trim().length === 0 ||
+      typeof version !== "number" ||
       !Number.isInteger(version) ||
       version < 1 ||
       !isContractKind(kind) ||

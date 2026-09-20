@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/project-state.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "current_step",
+    "current_step_status",
+    "architecture_mode",
+    "verification_truth",
+    "next_authorized_step",
+    "protected_assets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "repository": {
+      "type": "string"
+    },
+    "current_step": {
+      "type": "string"
+    },
+    "current_step_status": {
+      "enum": [
+        "pending",
+        "in_progress",
+        "verifying",
+        "correcting",
+        "verified",
+        "locked"
+      ]
+    },
+    "architecture_mode": {
+      "type": "string"
+    },
+    "verification_truth": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "next_authorized_step": {
+      "type": "string"
+    },
+    "protected_assets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

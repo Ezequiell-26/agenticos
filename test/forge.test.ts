@@ -116,7 +116,7 @@ test("source forge manifest validation rejects orphan candidates and invalid com
     assertSourceManifest({
       schemaVersion: 1,
       repositories: [{
-        id: "source-a",
+        id: "github.com--example--source-a",
         url: "https://github.com/example/source-a",
         localPath: "/tmp/source-a",
         licenseStatus: "unknown",
@@ -152,7 +152,7 @@ test("source forge persists validated manifests", async () => {
     const manifest = {
       schemaVersion: 1 as const,
       repositories: [{
-        id: "source-a",
+        id: "github.com--example--source-a",
         url: "https://github.com/example/source-a",
         localPath: directory,
         licenseStatus: "verified-mit" as const,
@@ -161,7 +161,7 @@ test("source forge persists validated manifests", async () => {
         sourceCommit: "0123456789abcdef0123456789abcdef01234567",
       }],
       candidates: [{
-        sourceId: "source-a",
+        sourceId: "github.com--example--source-a",
         path: "src/tool.ts",
         category: "tool" as const,
         decision: "adapt" as const,

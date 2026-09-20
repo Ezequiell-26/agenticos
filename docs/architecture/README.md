@@ -65,3 +65,12 @@ The product is built by vertical slices.
 A slice is complete only when the intended surface or headless interface can exercise it and the applicable architecture gates pass.
 
 The TypeScript implementation is transitional. New canonical runtime work targets the Rust workspace defined by the architecture.
+
+## Architecture foundation controls
+
+- [ARCHITECTURE-READINESS.md](./ARCHITECTURE-READINESS.md) — structural readiness gate before functional implementation.
+- [SEQUENTIAL-IMPLEMENTATION-PROTOCOL.md](./SEQUENTIAL-IMPLEMENTATION-PROTOCOL.md) — one-step-at-a-time implementation and fail-closed progression.
+- [../adr/0008-sequential-verified-implementation.md](../adr/0008-sequential-verified-implementation.md) — accepted decision making sequential verification an architectural constraint.
+- [../../reference/manifests/implementation-state.json](../../reference/manifests/implementation-state.json) — durable implementation-step state machine.
+- [../../reference/manifests/mit-repositories.json](../../reference/manifests/mit-repositories.json) — machine-readable MIT-focused reference catalog.
+

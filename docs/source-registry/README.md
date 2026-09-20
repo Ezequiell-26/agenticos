@@ -4,7 +4,7 @@ The Source Registry is the living catalog of agent products and components that 
 
 It is intentionally split into:
 
-- `code-sources.yml`: repositories/components currently eligible for code reuse after exact-commit license/dependency review.
+- `code-sources.yml`: a curated subset of high-value repositories eligible for deeper code-reuse review. The complete MIT seed corpus is authoritative in `reference/manifests/mit-repositories.json`.
 - `reference-sources.yml`: important architectural/product references whose current license or product model does not permit treating them as MIT source code.
 - `integration-rules.md`: the intake/fusion rules.
 

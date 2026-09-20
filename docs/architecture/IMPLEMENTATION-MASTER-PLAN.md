@@ -128,3 +128,34 @@ Implementation is slice-driven, not file-driven.
 ## Definition of done
 
 A subsystem is production-ready only when it has contracts, state semantics, security policy, observability, retries/cancellation, migrations where needed, tests, compatibility documentation and an exercised user-facing or headless path.
+
+## Foundation completeness gate
+
+Phase 0 now includes the complete universal runtime seam baseline defined in [ARCHITECTURE-COMPLETENESS.md](./ARCHITECTURE-COMPLETENESS.md):
+
+- auxiliary model roles;
+- persistent terminal/PTY;
+- generic background JobRuntime;
+- filesystem Change Plane;
+- SpillStore;
+- multimodal Attachment plane;
+- Code Intelligence/LSP;
+- Goal/Plan/Task/TODO;
+- Agent Teams;
+- complete MCP resources/templates/prompts/transports;
+- A2A remote-agent boundary;
+- credentials/accounts/pools;
+- profile and scope isolation;
+- prompt stability and cache boundaries;
+- trajectory derivation;
+- supervisor/watchdog;
+- migration/config evolution;
+- feature vs capability flags;
+- package/update/distribution lifecycle;
+- AI Change Plane;
+- management plane.
+
+These are architecture contracts only. Their functional implementation remains distributed across later vertical slices and cannot begin before the sequential implementation gate unlocks each slice.
+
+A feature that requires a new seam must first update the architecture contract, schema, completeness manifest and reference mapping before its functional step is created.
+

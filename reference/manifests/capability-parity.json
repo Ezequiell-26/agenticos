@@ -9,86 +9,357 @@
     {
       "id": "model-providers-and-apis",
       "contract": "model-provider",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness", "tashfeenahmed/freellmapi", "diegosouzapw/OmniRoute"],
-      "required_features": ["discovery", "model-capabilities", "credential-isolation", "key-pools", "health", "quota", "retry", "fallback", "streaming", "multimodal", "custom-endpoints"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness",
+        "tashfeenahmed/freellmapi",
+        "diegosouzapw/OmniRoute"
+      ],
+      "required_features": [
+        "discovery",
+        "model-capabilities",
+        "credential-isolation",
+        "key-pools",
+        "health",
+        "quota",
+        "retry",
+        "fallback",
+        "streaming",
+        "multimodal",
+        "custom-endpoints"
+      ]
     },
     {
       "id": "tools-and-toolsets",
       "contract": "tool",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness"],
-      "required_features": ["typed-schema", "host-only-metadata", "capability-gate", "sandbox", "timeout", "resource-limits", "concurrency-policy", "presentation", "durable-call-identity", "toolsets"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "typed-schema",
+        "host-only-metadata",
+        "capability-gate",
+        "sandbox",
+        "timeout",
+        "resource-limits",
+        "concurrency-policy",
+        "presentation",
+        "durable-call-identity",
+        "toolsets"
+      ]
     },
     {
       "id": "plugins",
       "contract": "plugin",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness"],
-      "required_features": ["discovery", "install", "configure", "enable", "disable", "health", "upgrade", "rollback", "uninstall", "dependency-resolution", "isolation", "provenance"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "discovery",
+        "install",
+        "configure",
+        "enable",
+        "disable",
+        "health",
+        "upgrade",
+        "rollback",
+        "uninstall",
+        "dependency-resolution",
+        "isolation",
+        "provenance"
+      ]
     },
     {
       "id": "skills",
       "contract": "skill",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness"],
-      "required_features": ["SKILL.md", "progressive-disclosure", "selection", "dependencies", "references", "templates", "scripts", "evaluations", "versioning", "scope", "rollback"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "SKILL.md",
+        "progressive-disclosure",
+        "selection",
+        "dependencies",
+        "references",
+        "templates",
+        "scripts",
+        "evaluations",
+        "versioning",
+        "scope",
+        "rollback"
+      ]
     },
     {
       "id": "memory",
       "contract": "memory",
-      "references": ["NousResearch/hermes-agent", "Microsoft AutoGen", "run-llama/llama_index", "asg017/sqlite-vec"],
-      "required_features": ["built-in-memory", "pluggable-providers", "prefetch", "sync", "semantic-search", "reranking", "consolidation", "correction", "deletion", "provenance", "scope-isolation"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "Microsoft AutoGen",
+        "run-llama/llama_index",
+        "asg017/sqlite-vec"
+      ],
+      "required_features": [
+        "built-in-memory",
+        "pluggable-providers",
+        "prefetch",
+        "sync",
+        "semantic-search",
+        "reranking",
+        "consolidation",
+        "correction",
+        "deletion",
+        "provenance",
+        "scope-isolation"
+      ]
     },
     {
       "id": "sessions",
       "contract": "run",
-      "references": ["deepseek-ai/deepseek-harness", "NousResearch/hermes-agent"],
-      "required_features": ["append-only-event-log", "derived-message-history", "lineage", "checkpointing", "search", "export", "replay", "crash-recovery", "compression"]
+      "references": [
+        "deepseek-ai/deepseek-harness",
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "append-only-event-log",
+        "derived-message-history",
+        "lineage",
+        "checkpointing",
+        "search",
+        "export",
+        "replay",
+        "crash-recovery",
+        "compression"
+      ]
     },
     {
       "id": "multi-agent",
       "contract": "agent",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness", "Microsoft AutoGen", "crewAIInc/crewAI"],
-      "required_features": ["delegation", "child-runs", "ownership", "fan-out", "fan-in", "budgets", "authority-containment", "reviewer-agents", "recovery"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness",
+        "Microsoft AutoGen",
+        "crewAIInc/crewAI"
+      ],
+      "required_features": [
+        "delegation",
+        "child-runs",
+        "ownership",
+        "fan-out",
+        "fan-in",
+        "budgets",
+        "authority-containment",
+        "reviewer-agents",
+        "recovery"
+      ]
     },
     {
       "id": "channels-and-gateway",
       "contract": "channel",
-      "references": ["NousResearch/hermes-agent"],
-      "required_features": ["channel-adapters", "authorization", "pairing", "session-routing", "streaming", "attachments", "rate-limits", "retry", "background-maintenance"]
+      "references": [
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "channel-adapters",
+        "authorization",
+        "pairing",
+        "session-routing",
+        "streaming",
+        "attachments",
+        "rate-limits",
+        "retry",
+        "background-maintenance"
+      ]
     },
     {
       "id": "webhooks",
       "contract": "webhook",
-      "references": ["NousResearch/hermes-agent"],
-      "required_features": ["signed-ingress", "event-filters", "replay-protection", "durable-trigger", "delivery-policy", "audit"]
+      "references": [
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "signed-ingress",
+        "event-filters",
+        "replay-protection",
+        "durable-trigger",
+        "delivery-policy",
+        "audit"
+      ]
     },
     {
       "id": "scheduling",
       "contract": "workflow",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness"],
-      "required_features": ["one-shot", "recurring", "cron", "pause", "resume", "manual-trigger", "skills", "no-agent-mode", "delivery", "budgets"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "one-shot",
+        "recurring",
+        "cron",
+        "pause",
+        "resume",
+        "manual-trigger",
+        "skills",
+        "no-agent-mode",
+        "delivery",
+        "budgets"
+      ]
     },
     {
       "id": "hooks",
       "contract": "hook",
-      "references": ["NousResearch/hermes-agent", "deepseek-ai/deepseek-harness"],
-      "required_features": ["ordered", "scoped", "budgeted", "observable", "cancellable", "fail-closed-sensitive-stages"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "ordered",
+        "scoped",
+        "budgeted",
+        "observable",
+        "cancellable",
+        "fail-closed-sensitive-stages"
+      ]
     },
     {
       "id": "mcp-and-a2a",
       "contract": "engine",
-      "references": ["NousResearch/hermes-agent", "diegosouzapw/OmniRoute", "deepseek-ai/deepseek-harness"],
-      "required_features": ["discovery", "handshake", "capability-negotiation", "remote-principal-isolation", "tool-bridge", "artifact-bridge", "auth", "health"]
+      "references": [
+        "NousResearch/hermes-agent",
+        "diegosouzapw/OmniRoute",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "discovery",
+        "handshake",
+        "capability-negotiation",
+        "remote-principal-isolation",
+        "tool-bridge",
+        "artifact-bridge",
+        "auth",
+        "health"
+      ]
     },
     {
       "id": "ide-acp",
       "contract": "application",
-      "references": ["NousResearch/hermes-agent"],
-      "required_features": ["stdio-jsonrpc", "run-control", "event-stream", "approvals", "workspace-context", "artifacts", "cancel", "resume"]
+      "references": [
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "stdio-jsonrpc",
+        "run-control",
+        "event-stream",
+        "approvals",
+        "workspace-context",
+        "artifacts",
+        "cancel",
+        "resume"
+      ]
     },
     {
       "id": "management-plane",
       "contract": "application",
-      "references": ["NousResearch/hermes-agent"],
-      "required_features": ["providers", "credentials", "mcp", "plugins", "skills", "memory", "channels", "webhooks", "jobs", "sessions", "security-audit", "backup"]
+      "references": [
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "providers",
+        "credentials",
+        "mcp",
+        "plugins",
+        "skills",
+        "memory",
+        "channels",
+        "webhooks",
+        "jobs",
+        "sessions",
+        "security-audit",
+        "backup"
+      ]
+    },
+    {
+      "id": "context-engine",
+      "contract": "context-engine",
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness",
+        "blackwell-systems/gcf-rust"
+      ],
+      "required_features": [
+        "ordered-assembly",
+        "progressive-context",
+        "compression",
+        "budgeting",
+        "recovery",
+        "provenance"
+      ]
+    },
+    {
+      "id": "session-persistence",
+      "contract": "session-persistence",
+      "references": [
+        "NousResearch/hermes-agent",
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "append-only-storage",
+        "sqlite-or-jsonl-backends",
+        "checkpoint",
+        "crash-recovery",
+        "search",
+        "export",
+        "compression"
+      ]
+    },
+    {
+      "id": "scoped-registration",
+      "contract": "scope",
+      "references": [
+        "deepseek-ai/deepseek-harness"
+      ],
+      "required_features": [
+        "agent-local-scope",
+        "ownership",
+        "isolated-registration",
+        "disposal",
+        "provider-unload-drain"
+      ]
+    },
+    {
+      "id": "system-prompt-assembly",
+      "contract": "system-prompt",
+      "references": [
+        "deepseek-ai/deepseek-harness",
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "ordered-sections",
+        "dynamic-context",
+        "tool-schema-injection",
+        "variables",
+        "profile/persona",
+        "provenance"
+      ]
+    },
+    {
+      "id": "tool-registry",
+      "contract": "tool-registry",
+      "references": [
+        "deepseek-ai/deepseek-harness",
+        "NousResearch/hermes-agent"
+      ],
+      "required_features": [
+        "schema-collection",
+        "dispatch",
+        "availability",
+        "guarded-execution",
+        "error-wrapping",
+        "stable-call-identity"
+      ]
     }
   ]
 }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "none-pending-definition",
+  "current_step": "runtime-integration-vertical-slice-1",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -727,6 +727,35 @@
         }
       ],
       "unlocks": []
+    },
+    {
+      "id": "runtime-integration-vertical-slice-1",
+      "number": 10,
+      "status": "pending",
+      "scope": [
+        "connect AgentEngine orchestration to the ModelProvider boundary for one deterministic Run cycle",
+        "replace simulated provider transport with a real testable HTTP transport boundary",
+        "validate capability grants against the issued grant registry, scope and expiry rather than non-empty strings",
+        "persist context and memory behind the existing storage boundary with restart/recovery semantics",
+        "preserve durable run identity across engine restart without an in-memory-only run registry",
+        "end-to-end recovery across run, model, tool, context and memory boundaries",
+        "record provenance, observability and failure normalization across the integrated slice"
+      ],
+      "requires": [
+        "product-surfaces-cli-vertical-slice-1"
+      ],
+      "required_checks": [
+        "agent-model invocation integration tests",
+        "provider HTTP transport integration tests",
+        "capability grant positive/negative/expiry/scoping tests",
+        "context and memory persistence/restart tests",
+        "durable Run recovery tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [],
+      "unlocks": []
     }
   ],
   "transitions": {
@@ -847,71 +876,11 @@
       "from": "product-surfaces-cli-vertical-slice-1",
       "to": "verified",
       "reason": "All Step 9 verification gates passed: CLI command tests, help documentation tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
-    }
-  ],
-  "steps": [
+    },
     {
-      "id": "provider-plane-vertical-slice-1",
-      "number": 4,
-      "status": "verified",
-      "scope": [
-        "provider registry with basic registration",
-        "generic HTTP adapter for model calls",
-        "credential pool for provider authentication",
-        "model catalog with basic metadata",
-        "provider-to-model routing",
-        "basic quota tracking"
-      ],
-      "requires": [
-        "agent-engine-vertical-slice-1"
-      ],
-      "required_checks": [
-        "provider registration tests",
-        "HTTP adapter tests",
-        "credential management tests",
-        "security gate",
-        "architecture gate",
-        "Rust fmt/check/test/clippy"
-      ],
-      "verification_evidence": [
-        {
-          "kind": "command",
-          "command": "cargo test --workspace --all-targets",
-          "result": "success",
-          "evidence": "20 tests passed including provider registry, model catalog, credential pool, quota tracker, and HTTP model provider tests"
-        },
-        {
-          "kind": "command",
-          "command": "cargo fmt --all",
-          "result": "success",
-          "evidence": "Code formatting passed"
-        },
-        {
-          "kind": "command",
-          "command": "cargo check --workspace --all-targets",
-          "result": "success",
-          "evidence": "All crates compiled successfully"
-        },
-        {
-          "kind": "command",
-          "command": "cargo clippy --workspace --all-targets -- -D warnings",
-          "result": "success",
-          "evidence": "No clippy warnings found"
-        },
-        {
-          "kind": "gate",
-          "gate": "security",
-          "result": "success",
-          "evidence": "All code uses #![forbid(unsafe_code)] and follows AgentiCOS security patterns"
-        },
-        {
-          "kind": "gate",
-          "gate": "architecture",
-          "result": "success",
-          "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
-        }
-      ],
-      "unlocks": []
+      "from": "product-surfaces-cli-vertical-slice-1:verified",
+      "to": "runtime-integration-vertical-slice-1:pending",
+      "reason": "Reconciled the current main state after detecting a duplicate top-level steps key and stale human-readable state. The next authorized slice targets the documented integration gaps without rewriting verified history."
     }
   ]
 }

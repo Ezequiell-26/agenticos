@@ -9,7 +9,16 @@
     "reference_resolution": "Named repository first; capability discovery second; exact license/path audit before evidence admission; exact commit pin before integration.",
     "no_invention": "No source or architecture claim may be invented when the selected reference corpus does not contain evidence. Missing evidence blocks the implementation step.",
     "full_repo_learning": "A selected repository must be inspected as a repository, not from a README excerpt alone: documentation, source tree, tests, build metadata, CI, security, licenses/notices, dependencies and relevant history.",
-    "dynamic_discovery": "The catalog is a verified seed corpus, not a claim to enumerate every MIT repository on GitHub. New candidates are admitted through the same resolver and audit protocol."
+    "dynamic_discovery": "The catalog is a verified seed corpus, not a claim to enumerate every MIT repository on GitHub. New candidates are admitted through the same resolver and audit protocol.",
+    "mandatory_core_references": [
+      "NousResearch/hermes-agent",
+      "deepseek-ai/deepseek-harness",
+      "OpenHands/OpenHands",
+      "browser-use/browser-use",
+      "diegosouzapw/OmniRoute",
+      "blackwell-systems/gcf-rust",
+      "tashfeenah/freellmapi"
+    ]
   },
   "repositories": [
     {
@@ -1550,6 +1559,221 @@
         "license/notice",
         "dependencies",
         "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "NousResearch/hermes-agent",
+      "url": "https://github.com/NousResearch/hermes-agent",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "75410e73319c72cd3e991a501c5455eb78f38375",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "universal agent runtime",
+        "tools",
+        "skills",
+        "memory",
+        "gateway",
+        "cron",
+        "profiles",
+        "plugins"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
+      ]
+    },
+    {
+      "repository": "deepseek-ai/deepseek-harness",
+      "url": "https://github.com/deepseek-ai/deepseek-harness",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "c1f7a78e89e4e4dc7b86664c3b3c76eb5eee1785",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "event-sourced sessions",
+        "scoped tools",
+        "terminals",
+        "jobs",
+        "MCP resources",
+        "agent teams",
+        "LSP",
+        "workflow"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
+      ]
+    },
+    {
+      "repository": "OpenHands/OpenHands",
+      "url": "https://github.com/OpenHands/OpenHands",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "f6f60f52368bcc96f82fbe59ec65049c2c3af9db",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "coding agent",
+        "sandboxed execution",
+        "computer use",
+        "agent-server",
+        "evaluation"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
+      ]
+    },
+    {
+      "repository": "browser-use/browser-use",
+      "url": "https://github.com/browser-use/browser-use",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "1ea3836ce58a4cd32c90c0b4f4e736d840d23780",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "browser automation",
+        "computer use",
+        "browser tools",
+        "agent tasks"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
+      ]
+    },
+    {
+      "repository": "diegosouzapw/OmniRoute",
+      "url": "https://github.com/diegosouzapw/OmniRoute",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "b5c9f58d06b1cef61ebf96f580d90c3dba5e1dac",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "model routing",
+        "fallback",
+        "quota telemetry",
+        "MCP",
+        "A2A",
+        "provider gateway"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
+      ]
+    },
+    {
+      "repository": "blackwell-systems/gcf-rust",
+      "url": "https://github.com/blackwell-systems/gcf-rust",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "c4896151c5a08e317ad501adc1ae9aa814c2503f",
+        "artifact_sha_verified": true,
+        "note": "License artifact verified through GitHub connector; exact commit is still pinned immediately before source integration."
+      },
+      "domains": [
+        "structured context",
+        "deduplication",
+        "delta encoding",
+        "token optimization"
+      ],
+      "study_targets": [
+        "repository documentation",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security",
+        "licenses/notices",
+        "dependencies",
+        "failure/recovery behavior",
+        "relevant history"
       ]
     }
   ]

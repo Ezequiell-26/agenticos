@@ -443,11 +443,15 @@
       "license_verification": {
         "status": "verified-mit-metadata",
         "verified_on": "2026-09-21",
-        "source_url": "https://github.com/tiangolo/fastapi",
-        "artifact_path": null,
+        "artifact_path": "LICENSE",
         "artifact_sha": null,
         "artifact_sha_verified": false,
-        "note": "MIT status verified from current GitHub project/package metadata; exact license artifact must be resolved and pinned by Source Forge before source integration."
+        "source_url": "https://github.com/tiangolo/fastapi",
+        "note": "Official GitHub repository and package metadata identify MIT; Source Forge must retrieve and pin the exact LICENSE artifact before source integration.",
+        "evidence_urls": [
+          "https://github.com/tiangolo/fastapi",
+          "https://github.com/tiangolo/fastapi/blob/master/pyproject.toml"
+        ]
       }
     },
     {
@@ -1941,6 +1945,214 @@
         "dependencies",
         "failure/recovery behavior",
         "relevant history"
+      ]
+    },
+    {
+      "repository": "tashfeenah/freellmapi",
+      "url": "https://github.com/tashfeenah/freellmapi",
+      "license": "MIT",
+      "pinned_ref": "main",
+      "pin_type": "commit-or-branch-reference",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": null,
+        "artifact_sha_verified": false,
+        "source_url": "https://github.com/tashfeenah/freellmapi",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "provider gateway",
+        "free-tier aggregation",
+        "routing",
+        "quotas",
+        "failover",
+        "model catalog"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "pydantic/pydantic-ai-harness",
+      "url": "https://github.com/pydantic/pydantic-ai-harness",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "4d2d201d8a448fbed69972a304c8c86a42545666",
+        "artifact_sha_verified": true,
+        "source_url": "https://github.com/pydantic/pydantic-ai-harness",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "long-running agents",
+        "coding",
+        "research",
+        "planning",
+        "memory",
+        "verification"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "browser-use/web-ui",
+      "url": "https://github.com/browser-use/web-ui",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "d77a86ed688a679d6976478e51d1c26df2d69487",
+        "artifact_sha_verified": true,
+        "source_url": "https://github.com/browser-use/web-ui",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "browser agent UI",
+        "browser sessions",
+        "agent surface"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "OpenHands/open-operator",
+      "url": "https://github.com/OpenHands/open-operator",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "c559f6a07a4d2cc5d1c9eaafec875e0fd50be84a",
+        "artifact_sha_verified": true,
+        "source_url": "https://github.com/OpenHands/open-operator",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "browser",
+        "computer use",
+        "operator"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "VoltAgent/voltagent",
+      "url": "https://github.com/VoltAgent/voltagent",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENCE",
+        "artifact_sha": "da325ae636773edcb097b08cad5e4cf6b8b732c5",
+        "artifact_sha_verified": true,
+        "source_url": "https://github.com/VoltAgent/voltagent",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "agents",
+        "workflows",
+        "observability",
+        "MCP",
+        "RAG"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "langchain-ai/deepagents",
+      "url": "https://github.com/langchain-ai/deepagents",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "3957738673765912ca83a0048f833e095d61e087",
+        "artifact_sha_verified": true,
+        "source_url": "https://github.com/langchain-ai/deepagents",
+        "note": "License boundary verified during architecture audit; exact source commit is pinned before source integration."
+      },
+      "domains": [
+        "agent harness",
+        "planning",
+        "filesystem tools",
+        "subagents",
+        "context management"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
       ]
     }
   ]

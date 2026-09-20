@@ -1,3 +1,4 @@
+import { AgentiCOSError } from "../architecture/errors.js";
 import { OpenAICompatibleProvider } from "./openai-compatible.js";
 import type {
   AIProvider,
@@ -26,12 +27,22 @@ export class ProviderRegistry {
   private readonly state = new Map<string, RuntimeState>();
 
   register(provider: AIProvider): void {
-    if (this.providers.has(provider.definition.id)) {
-      throw new Error("Provider "" + provider.definition.id + "" is already registered.");
+    const id = provider.definition.id.trim();
+    if (!id) {
+      throw new AgentiCOSError("Provider id cannot be empty.", {
+        code: "PROVIDER_ID_EMPTY",
+        category: "VALIDATION",
+      });
+    }
+    if (this.providers.has(id)) {
+      throw new AgentiCOSError(`Provider "${id}" is already registered.`, {
+        code: "PROVIDER_ALREADY_REGISTERED",
+        category: "VALIDATION",
+      });
     }
 
-    this.providers.set(provider.definition.id, provider);
-    this.state.set(provider.definition.id, {
+    this.providers.set(id, provider);
+    this.state.set(id, {
       health: "unknown",
       consecutiveFailures: 0,
       requests: 0,
@@ -48,7 +59,10 @@ export class ProviderRegistry {
   get(id: string): AIProvider {
     const provider = this.providers.get(id);
     if (!provider) {
-      throw new Error("Unknown provider "" + id + "".");
+      throw new AgentiCOSError(`Unknown provider "${id}".`, {
+        code: "PROVIDER_NOT_FOUND",
+        category: "VALIDATION",
+      });
     }
     return provider;
   }
@@ -58,18 +72,23 @@ export class ProviderRegistry {
   }
 
   snapshots(): readonly ProviderSnapshot[] {
-    return this.list().map((provider) => {
-      const state = this.requireState(provider.definition.id);
-      return {
-        definition: provider.definition,
-        ...state,
-      };
-    });
+    return this.list().map((provider) => ({
+      definition: provider.definition,
+      ...this.requireState(provider.definition.id),
+    }));
   }
 
   async models(providerId?: string): Promise<readonly ProviderModel[]> {
     if (providerId) {
-      return this.get(providerId).listModels();
+      const provider = this.get(providerId);
+      try {
+        const models = await provider.listModels();
+        this.markSuccess(providerId);
+        return models;
+      } catch (error) {
+        this.markFailure(providerId, error);
+        throw error;
+      }
     }
 
     const results: ProviderModel[] = [];
@@ -108,17 +127,24 @@ export class ProviderRegistry {
     request: ChatRequest,
   ): Promise<ChatResponse> {
     if (providerIds.length === 0) {
-      throw new Error("No providers were supplied for fallback execution.");
+      throw new AgentiCOSError("No providers were supplied for fallback execution.", {
+        code: "NO_PROVIDERS",
+        category: "PROVIDER",
+        recoverable: true,
+      });
     }
 
     let lastError: unknown;
+    const attempted = new Set<string>();
 
     for (const providerId of providerIds) {
+      if (attempted.has(providerId)) continue;
+      attempted.add(providerId);
+
       try {
         return await this.chat(providerId, request);
       } catch (error) {
         lastError = error;
-
         if (!isRetryableProviderError(error)) {
           throw error;
         }
@@ -127,13 +153,21 @@ export class ProviderRegistry {
 
     throw lastError instanceof Error
       ? lastError
-      : new Error("All configured providers failed.");
+      : new AgentiCOSError("All configured providers failed.", {
+          code: "ALL_PROVIDERS_FAILED",
+          category: "PROVIDER",
+          retryable: true,
+          recoverable: true,
+        });
   }
 
   private requireState(providerId: string): RuntimeState {
     const state = this.state.get(providerId);
     if (!state) {
-      throw new Error("Missing runtime state for provider "" + providerId + "".");
+      throw new AgentiCOSError(
+        `Missing runtime state for provider "${providerId}".`,
+        { code: "PROVIDER_STATE_MISSING", category: "BUG", severity: "critical" },
+      );
     }
     return state;
   }

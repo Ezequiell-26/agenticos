@@ -16,7 +16,28 @@
         "architecture gates",
         "source/license provenance rules",
         "reference corpus catalog",
-        "sequential implementation protocol"
+        "sequential implementation protocol",
+        "universal capability platform",
+        "architecture completeness manifest",
+        "runtime seam protocol schemas",
+        "auxiliary model plane",
+        "persistent terminal and background jobs",
+        "filesystem change plane",
+        "spill store and multimodal plane",
+        "code intelligence",
+        "goal/plan/task/todo",
+        "agent teams",
+        "complete MCP/A2A boundaries",
+        "credential/account plane",
+        "profile/scope isolation",
+        "prompt stability",
+        "trajectory plane",
+        "supervisor/watchdog",
+        "migration/config evolution",
+        "feature/capability flags",
+        "package/update/distribution",
+        "AI change plane",
+        "management plane"
       ],
       "required_checks": [
         "npm run verify",
@@ -26,7 +47,11 @@
         "cargo clippy --workspace --all-targets -- -D warnings",
         "architecture readiness gate",
         "protocol schema presence",
-        "MIT reference manifest presence"
+        "MIT reference manifest presence",
+        "architecture completeness manifest",
+        "all universal runtime seam schemas",
+        "all completeness contracts registered",
+        "cross-reference validation"
       ],
       "verification_evidence": [],
       "unlocks": [

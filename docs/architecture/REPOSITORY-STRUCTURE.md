@@ -91,7 +91,9 @@ agenticos/
 - **Rust:** canonical kernel, runtime, execution, scheduling, security boundaries, provider normalization, persistence adapters, APIs, CLI and TUI.
 - **TypeScript:** Web UI and frontend-specific tooling/SDKs.
 - **Python:** optional AI/ML and ecosystem integrations exposed through protocols/SDKs.
-- **WASM:** selected portable sandboxed plugins.\n\nToken optimization itself remains Rust-owned; other languages consume its versioned protocol rather than recreating its algorithms.
+- **WASM:** selected portable sandboxed plugins.
+
+Token optimization itself remains Rust-owned; other languages consume its versioned protocol rather than recreating its algorithms.
 
 ## Dependency rule
 

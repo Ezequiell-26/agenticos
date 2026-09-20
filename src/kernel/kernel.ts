@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { AgentiCOSError } from "../architecture/errors.js";
 import { DurableScheduler, type SchedulerOptions } from "./scheduler.js";
 import { SqliteKernelStore } from "./sqlite-store.js";
 import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord } from "./types.js";
@@ -12,13 +13,23 @@ export class DurableKernel {
 
   getRun(runId: string): RunRecord {
     const run = this.store.getRun(runId);
-    if (!run) throw new Error("Run not found: " + runId);
+    if (!run) {
+      throw new AgentiCOSError("Run not found: " + runId, {
+        code: "RUN_NOT_FOUND",
+        category: "VALIDATION",
+      });
+    }
     return run;
   }
 
   getStep(stepId: string): StepRecord {
     const step = this.store.getStep(stepId);
-    if (!step) throw new Error("Step not found: " + stepId);
+    if (!step) {
+      throw new AgentiCOSError("Step not found: " + stepId, {
+        code: "STEP_NOT_FOUND",
+        category: "VALIDATION",
+      });
+    }
     return step;
   }
 
@@ -44,13 +55,23 @@ export class DurableKernel {
     return this.store.transitionStep(stepId, "running");
   }
 
-  completeStep(stepId: string, workerId: string, fencingToken: number, output: unknown): StepRecord {
+  completeStep(
+    stepId: string,
+    workerId: string,
+    fencingToken: number,
+    output: unknown,
+  ): StepRecord {
     const step = this.getStep(stepId);
     this.store.assertRunLease(step.runId, workerId, fencingToken);
     return this.store.transitionStep(stepId, "completed", output);
   }
 
-  failStep(stepId: string, workerId: string, fencingToken: number, error: unknown): StepRecord {
+  failStep(
+    stepId: string,
+    workerId: string,
+    fencingToken: number,
+    error: unknown,
+  ): StepRecord {
     const step = this.getStep(stepId);
     this.store.assertRunLease(step.runId, workerId, fencingToken);
     return this.store.transitionStep(stepId, "failed", undefined, error);
@@ -63,7 +84,12 @@ export class DurableKernel {
     return result;
   }
 
-  failRun(runId: string, workerId: string, fencingToken: number, error: unknown): RunRecord {
+  failRun(
+    runId: string,
+    workerId: string,
+    fencingToken: number,
+    error: unknown,
+  ): RunRecord {
     this.store.assertRunLease(runId, workerId, fencingToken);
     const result = this.store.transitionRun(runId, "failed", "run.failed", error);
     this.store.releaseRunLease(runId, workerId);
@@ -75,7 +101,11 @@ export class DurableKernel {
     return this.store.transitionRun(runId, "cancelling", "run.cancelling");
   }
 
-  finalizeCancel(runId: string, workerId: string, fencingToken: number): RunRecord {
+  finalizeCancel(
+    runId: string,
+    workerId: string,
+    fencingToken: number,
+  ): RunRecord {
     this.store.assertRunLease(runId, workerId, fencingToken);
     const result = this.store.transitionRun(runId, "cancelled", "run.cancelled");
     this.store.releaseRunLease(runId, workerId);

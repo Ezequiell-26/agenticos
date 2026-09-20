@@ -17,7 +17,6 @@ export interface RunRecord {
   readonly error?: unknown;
 }
 
-export type StepState = "pending" | "running" | "waiting" | "completed" | "failed" | "cancelled";
 
 export interface StepRecord {
   readonly id: string;

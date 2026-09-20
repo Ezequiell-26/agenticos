@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "repository": "",
+  "resolved_commit": "",
+  "license": {
+    "kind": "MIT",
+    "artifact_path": "",
+    "artifact_sha": "",
+    "path_scope": ""
+  },
+  "capability_ids": [],
+  "relevant_paths": [],
+  "evidence": [],
+  "tests": [],
+  "ci": [],
+  "security": [],
+  "dependencies": [],
+  "exclusions": [],
+  "applicability": "",
+  "limitations": "",
+  "integration_disposition": "reference-only"
+}

@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { AgentiCOSError } from "../architecture/errors.js";
 import type {
@@ -131,6 +132,11 @@ export function assertSourceManifest(
       typeof candidate.path !== "string" ||
       !candidate.sourceId.trim() ||
       !candidate.path.trim() ||
+      candidate.path.startsWith("/") ||
+      candidate.path.split("/").some(
+        (part) => part === "" || part === "." || part === "..",
+      ) ||
+      /^[A-Za-z]:/.test(candidate.path) ||
       !isCategory(candidate.category) ||
       !isDecision(candidate.decision) ||
       !Array.isArray(candidate.reasons) ||
@@ -138,7 +144,7 @@ export function assertSourceManifest(
         (reason) => typeof reason !== "string" || !reason.trim(),
       ) ||
       typeof candidate.score !== "number" ||
-      !Number.isFinite(candidate.score) ||
+      !Number.isInteger(candidate.score) ||
       candidate.score < 0 ||
       candidate.score > 100
     ) {

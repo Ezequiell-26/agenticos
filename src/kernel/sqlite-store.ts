@@ -7,6 +7,7 @@ import {
   type IdempotencyStore,
 } from "../architecture/idempotency.js";
 import {
+  DEFAULT_CLAIM_STALE_AFTER_MS,
   type DurableEvent,
   type Inbox,
   type Outbox,
@@ -539,52 +540,125 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     );
   }
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
-  async claim(consumerId: string, eventId: string): Promise<boolean>;
+  async claim(
+    record: IdempotencyRecord,
+    staleAfterMs?: number,
+    nowMs?: number,
+  ): Promise<IdempotencyRecord | undefined>;
+  async claim(
+    consumerId: string,
+    eventId: string,
+    staleAfterMs?: number,
+    nowMs?: number,
+  ): Promise<boolean>;
   async claim(
     first: IdempotencyRecord | string,
-    second?: string,
+    second?: string | number,
+    third?: number,
+    fourth?: number,
   ): Promise<IdempotencyRecord | undefined | boolean> {
     if (typeof first === "string") {
       const consumerId = first;
-      const eventId = second;
+      const eventId = typeof second === "string" ? second : undefined;
+      const staleAfter = third ?? DEFAULT_CLAIM_STALE_AFTER_MS;
+      const clock = fourth ?? Date.now();
+
       if (!eventId) {
         throw new AgentiCOSError("Inbox eventId is required.", {
           code: "INBOX_EVENT_ID_REQUIRED",
           category: "VALIDATION",
         });
       }
+      assertClaimWindow(staleAfter, clock);
 
       return this.database.transactionImmediate(() => {
         const existing = this.database.db
-          .prepare("SELECT status FROM inbox WHERE consumer_id = ? AND event_id = ?")
-          .get(consumerId, eventId) as { status: "processing" | "completed" } | undefined;
+          .prepare(
+            "SELECT status, claimed_at FROM inbox WHERE consumer_id = ? AND event_id = ?",
+          )
+          .get(consumerId, eventId) as
+          | { status: "processing" | "completed"; claimed_at: string }
+          | undefined;
 
-        if (existing) return false;
+        if (!existing) {
+          const result = this.database.db.prepare(`
+            INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
+            VALUES(?, ?, 'processing', ?)
+          `).run(
+            consumerId,
+            eventId,
+            new Date(clock).toISOString(),
+          );
+          return result.changes === 1;
+        }
 
-        const result = this.database.db.prepare(`
-          INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
-          VALUES(?, ?, 'processing', ?)
-          ON CONFLICT(consumer_id, event_id) DO NOTHING
-        `).run(consumerId, eventId, new Date().toISOString());
+        if (existing.status === "completed") return false;
 
-        return result.changes === 1;
+        const claimedAtMs = Date.parse(existing.claimed_at);
+        if (
+          !Number.isFinite(claimedAtMs) ||
+          clock - claimedAtMs < staleAfter
+        ) {
+          return false;
+        }
+
+        const reclaimed = this.database.db.prepare(`
+          UPDATE inbox
+          SET claimed_at = ?, status = 'processing', completed_at = NULL
+          WHERE consumer_id = ? AND event_id = ? AND status = 'processing' AND claimed_at = ?
+        `).run(
+          new Date(clock).toISOString(),
+          consumerId,
+          eventId,
+          existing.claimed_at,
+        );
+        return reclaimed.changes === 1;
       });
     }
 
     const record = first;
+    const staleAfter = (typeof second === "number" ? second : undefined) ??
+      DEFAULT_CLAIM_STALE_AFTER_MS;
+    const clock = third ?? Date.now();
+    assertClaimWindow(staleAfter, clock);
+    validateIdempotencyRecord(record);
+
     return this.database.transactionImmediate(() => {
       const existing = this.database.db
         .prepare("SELECT * FROM idempotency WHERE key = ?")
         .get(record.key) as IdempotencyRow | undefined;
 
       if (existing) {
-        if (existing.fingerprint !== record.fingerprint) {
+        if (
+          existing.fingerprint !== record.fingerprint ||
+          existing.operation !== record.operation
+        ) {
           throw new AgentiCOSError("Idempotency key reused with a different operation.", {
             code: "IDEMPOTENCY_KEY_CONFLICT",
             category: "VALIDATION",
           });
         }
+
+        const updatedAtMs = Date.parse(existing.updated_at);
+        if (
+          existing.status === "in-progress" &&
+          Number.isFinite(updatedAtMs) &&
+          clock - updatedAtMs >= staleAfter
+        ) {
+          const reclaimed = this.database.db.prepare(`
+            UPDATE idempotency
+            SET status='in-progress', result_json=NULL, updated_at=?
+            WHERE key=? AND fingerprint=? AND operation=? AND status='in-progress' AND updated_at=?
+          `).run(
+            record.updatedAt,
+            record.key,
+            record.fingerprint,
+            record.operation,
+            existing.updated_at,
+          );
+          if (reclaimed.changes === 1) return undefined;
+        }
+
         return this.toIdempotency(existing);
       }
 
@@ -849,6 +923,36 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       throw error;
     }
   }
+
+function assertClaimWindow(staleAfterMs: number, nowMs: number): void {
+  if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+    throw new AgentiCOSError("Claim staleAfterMs must be a positive integer.", {
+      code: "CLAIM_STALE_WINDOW_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!Number.isFinite(nowMs) || nowMs < 0) {
+    throw new AgentiCOSError("Claim clock value is invalid.", {
+      code: "CLAIM_CLOCK_INVALID",
+      category: "VALIDATION",
+    });
+  }
+}
+
+function validateIdempotencyRecord(record: IdempotencyRecord): void {
+  if (!record.key.trim() || !record.operation.trim() || !record.fingerprint.trim()) {
+    throw new AgentiCOSError("Idempotency record key, operation and fingerprint are required.", {
+      code: "IDEMPOTENCY_RECORD_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!["in-progress", "completed", "failed"].includes(record.status)) {
+    throw new AgentiCOSError("Idempotency record status is invalid.", {
+      code: "IDEMPOTENCY_STATUS_INVALID",
+      category: "VALIDATION",
+    });
+  }
+}
 
   private appendEventInTransaction<T>(
     type: string,

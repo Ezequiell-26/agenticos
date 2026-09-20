@@ -275,12 +275,6 @@
       "reason": "All Step 1 verification gates passed: contract tests, persistence/recovery tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
     },
     {
-      "from": "rust-kernel-vertical-slice-1",
-      "to": "verified",
-      "reason": "Current main baseline contains the verified durable Rust kernel Step 1.",
-      "run_id": null
-    },
-    {
       "from": "architecture-hardening-2026-09-21:locked",
       "to": "architecture-hardening-2026-09-21:in_progress",
       "reason": "Architecture hardening is the single controlled operation before the AgentEngine slice.",

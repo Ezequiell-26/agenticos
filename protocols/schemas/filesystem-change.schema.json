@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/filesystem-change.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Filesystem Change v1",
+  "required": [
+    "schemaVersion",
+    "changeId",
+    "runId",
+    "path",
+    "expectedVersion",
+    "intent",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "changeId": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "expectedVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "intent": {
+      "enum": [
+        "create",
+        "write",
+        "edit",
+        "move",
+        "delete"
+      ]
+    },
+    "state": {
+      "enum": [
+        "observed",
+        "authorized",
+        "mutating",
+        "verified",
+        "rolled-back",
+        "rejected"
+      ]
+    },
+    "snapshotId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checksumBefore": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checksumAfter": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

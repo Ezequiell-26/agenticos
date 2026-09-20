@@ -6,9 +6,10 @@ This directory contains the architecture source of truth.
 
 1. [../../ARCHITECTURE.md](../../ARCHITECTURE.md)
 2. [PRODUCT-BLUEPRINT.md](./PRODUCT-BLUEPRINT.md)
-3. [REPOSITORY-STRUCTURE.md](./REPOSITORY-STRUCTURE.md)
-4. [IMPLEMENTATION-MASTER-PLAN.md](./IMPLEMENTATION-MASTER-PLAN.md)
-5. [../adr/0006-rust-core-runtime.md](../adr/0006-rust-core-runtime.md)
+3. [REFERENCE-KNOWLEDGE-CORPUS.md](./REFERENCE-KNOWLEDGE-CORPUS.md)
+4. [REPOSITORY-STRUCTURE.md](./REPOSITORY-STRUCTURE.md)
+5. [IMPLEMENTATION-MASTER-PLAN.md](./IMPLEMENTATION-MASTER-PLAN.md)
+6. [../adr/0006-rust-core-runtime.md](../adr/0006-rust-core-runtime.md)
 
 ## Core domains
 
@@ -41,6 +42,14 @@ This directory contains the architecture source of truth.
 - ITERATION-GATES.md
 - NO-DEAD-ENDS.md
 - QUALITY-ATTRIBUTES.md
+
+## Reference-driven construction
+
+The Reference Knowledge Corpus is mandatory input for non-trivial implementation work.
+
+Current high-value references include Hermes Agent, DeepSeek Harness, OpenAI Codex, FreeLLMAPI, AutoGen, OpenHands, browser-use and LangGraph.
+
+FreeLLMAPI is the primary reference for the provider gateway/router domain, including provider aggregation, fallback, quota/rate tracking, model catalogs, compatibility and operational behavior.
 
 ## Construction rule
 

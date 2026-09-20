@@ -237,6 +237,90 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     });
   }
 
+  transitionRunOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: RunState,
+    eventType: string,
+    error?: unknown,
+    releaseLease = false,
+    nowMs = Date.now(),
+  ): RunRecord {
+    return this.database.transactionImmediate(() => {
+      const row = this.requireRunRow(id);
+      this.assertLeaseInTransaction("run:" + id, ownerId, fencingToken, nowMs);
+      const machine = new RunStateMachine(row.state);
+      machine.transition(to);
+
+      if (to === "completed" || to === "cancelled") {
+        const open = this.database.db.prepare(`
+          SELECT COUNT(*) AS count
+          FROM steps
+          WHERE run_id = ? AND state IN ('pending', 'running', 'waiting')
+        `).get(id) as { count: number };
+
+        if (open.count > 0) {
+          throw new AgentiCOSError(
+            "Run cannot enter a terminal state while active steps remain.",
+            {
+              code: "RUN_HAS_ACTIVE_STEPS",
+              category: "VALIDATION",
+            },
+          );
+        }
+      }
+
+      const now = new Date(nowMs).toISOString();
+      const nextVersion = row.version + 1;
+      const nextError = error === undefined
+        ? row.error_json
+        : JSON.stringify(serializeError(error));
+
+      const changed = this.database.db.prepare(`
+        UPDATE runs
+        SET state = ?, version = ?, updated_at = ?, error_json = ?
+        WHERE id = ? AND version = ?
+      `).run(to, nextVersion, now, nextError, id, row.version);
+
+      if (changed.changes !== 1) {
+        throw new AgentiCOSError("Run version conflict.", {
+          code: "RUN_VERSION_CONFLICT",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      this.appendEventInTransaction(eventType, 1, id, id, {
+        from: row.state,
+        to,
+        version: nextVersion,
+        workerId: ownerId,
+        fencingToken,
+      }, now);
+
+      if (releaseLease) {
+        const released = this.database.db.prepare(`
+          UPDATE leases
+          SET expires_at = ?
+          WHERE resource_id = ? AND owner_id = ? AND fencing_token = ?
+        `).run(new Date(0).toISOString(), "run:" + id, ownerId, fencingToken);
+
+        if (released.changes !== 1) {
+          throw new AgentiCOSError("Run lease release lost ownership.", {
+            code: "RUN_LEASE_RELEASE_CONFLICT",
+            category: "CONCURRENCY",
+            severity: "critical",
+            recoverable: true,
+          });
+        }
+      }
+
+      return this.requireRun(id);
+    });
+  }
+
   createStep(input: CreateStepInput): StepRecord {
     const now = new Date().toISOString();
 
@@ -306,6 +390,55 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         from: row.state,
         to,
         version: nextVersion,
+      }, now);
+
+      return this.requireStep(id);
+    });
+  }
+
+  transitionStepOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: StepState,
+    output?: unknown,
+    error?: unknown,
+    nowMs = Date.now(),
+  ): StepRecord {
+    return this.database.transactionImmediate(() => {
+      const row = this.requireStepRow(id);
+      this.assertLeaseInTransaction("run:" + row.run_id, ownerId, fencingToken, nowMs);
+      const machine = new StateMachine(row.state, STEP_TRANSITIONS);
+      machine.transition(to);
+
+      const now = new Date(nowMs).toISOString();
+      const nextVersion = row.version + 1;
+      const nextOutput = output === undefined ? row.output_json : JSON.stringify(output);
+      const nextError = error === undefined
+        ? row.error_json
+        : JSON.stringify(serializeError(error));
+
+      const changed = this.database.db.prepare(`
+        UPDATE steps
+        SET state = ?, version = ?, updated_at = ?, output_json = ?, error_json = ?
+        WHERE id = ? AND version = ?
+      `).run(to, nextVersion, now, nextOutput, nextError, id, row.version);
+
+      if (changed.changes !== 1) {
+        throw new AgentiCOSError("Step version conflict.", {
+          code: "STEP_VERSION_CONFLICT",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      this.appendEventInTransaction("step.state.changed", 1, id, row.run_id, {
+        from: row.state,
+        to,
+        version: nextVersion,
+        workerId: ownerId,
+        fencingToken,
       }, now);
 
       return this.requireStep(id);
@@ -898,19 +1031,18 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     }));
   }
 
-  assertRunLease(runId: string, workerId: string, fencingToken: number): void {
-    const lease = this.requireLease("run:" + runId);
-    if (
-      lease.ownerId !== workerId ||
-      lease.fencingToken !== fencingToken ||
-      Date.parse(lease.expiresAt) <= Date.now()
-    ) {
-      throw new AgentiCOSError("Run lease fencing rejected.", {
-        code: "RUN_LEASE_FENCING_REJECTED",
-        category: "CONCURRENCY",
-        recoverable: true,
-      });
-    }
+  assertRunLease(
+    runId: string,
+    workerId: string,
+    fencingToken: number,
+    nowMs = Date.now(),
+  ): void {
+    this.assertLeaseInTransaction(
+      "run:" + runId,
+      workerId,
+      fencingToken,
+      nowMs,
+    );
   }
 
   leaseForRun(runId: string): Lease | undefined {
@@ -1027,6 +1159,34 @@ function validateIdempotencyRecord(record: IdempotencyRecord): void {
       });
     }
     return row;
+  }
+
+  private assertLeaseInTransaction(
+    resourceId: string,
+    ownerId: string,
+    fencingToken: number,
+    nowMs: number,
+  ): void {
+    if (!Number.isFinite(nowMs) || nowMs < 0) {
+      throw new AgentiCOSError("Lease clock value is invalid.", {
+        code: "LEASE_CLOCK_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
+    const lease = this.requireLease(resourceId);
+    if (
+      lease.ownerId !== ownerId ||
+      lease.fencingToken !== fencingToken ||
+      Date.parse(lease.expiresAt) <= nowMs
+    ) {
+      throw new AgentiCOSError("Run lease fencing rejected.", {
+        code: "RUN_LEASE_FENCING_REJECTED",
+        category: "CONCURRENCY",
+        retryable: true,
+        recoverable: true,
+      });
+    }
   }
 
   private requireLease(resourceId: string): Lease {

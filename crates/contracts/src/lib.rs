@@ -23,7 +23,9 @@ impl RunId {
     }
 
     /// Returns the identifier as text.
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 /// Stable error category used across protocol boundaries.

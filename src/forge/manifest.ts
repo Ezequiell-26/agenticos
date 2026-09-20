@@ -191,18 +191,24 @@ function assertSourceRepository(
     throw invalidManifest("Source repository entry is invalid.");
   }
 
+  const rawId = value.id;
+  const rawUrl = value.url;
+  const rawLocalPath = value.localPath;
+  const rawImportedAt = value.importedAt;
+  const rawLicenseFiles = value.licenseFiles;
+
   if (
-    typeof value.id !== "string" ||
-    !value.id.trim() ||
-    typeof value.url !== "string" ||
-    !value.url.trim() ||
-    typeof value.localPath !== "string" ||
-    !value.localPath.trim() ||
-    typeof value.importedAt !== "string" ||
-    Number.isNaN(Date.parse(value.importedAt)) ||
+    typeof rawId !== "string" ||
+    !rawId.trim() ||
+    typeof rawUrl !== "string" ||
+    !rawUrl.trim() ||
+    typeof rawLocalPath !== "string" ||
+    !rawLocalPath.trim() ||
+    typeof rawImportedAt !== "string" ||
+    Number.isNaN(Date.parse(rawImportedAt)) ||
     !isLicenseStatus(value.licenseStatus) ||
-    !Array.isArray(value.licenseFiles) ||
-    value.licenseFiles.some(
+    !Array.isArray(rawLicenseFiles) ||
+    rawLicenseFiles.some(
       (file) => typeof file !== "string" || !file.trim(),
     )
   ) {
@@ -211,7 +217,7 @@ function assertSourceRepository(
 
   let normalizedUrl: string;
   try {
-    normalizedUrl = normalizeRepositoryUrl(value.url);
+    normalizedUrl = normalizeRepositoryUrl(rawUrl);
   } catch (error) {
     throw invalidManifest(
       "Source repository URL is invalid: " +
@@ -219,7 +225,7 @@ function assertSourceRepository(
     );
   }
 
-  if (repositoryId(normalizedUrl) !== value.id) {
+  if (repositoryId(normalizedUrl) !== rawId) {
     throw invalidManifest(
       "Source repository id must match its stable URL-derived identity.",
     );

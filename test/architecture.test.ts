@@ -166,6 +166,31 @@ test("outbox/inbox prevent duplicate concurrent consumer handling", async () => 
   assert.equal(handled, 1);
 });
 
+test("outbox publication claims fence concurrent dispatchers and recover after expiry", async () => {
+  const outbox = new InMemoryOutbox();
+  const event = await outbox.append({
+    type: "run.created",
+    version: 1,
+    aggregateId: "run-outbox",
+    payload: { ok: true },
+  });
+
+  const first = await outbox.claimPending("dispatcher-a", 10, 1_000, 1_000);
+  const second = await outbox.claimPending("dispatcher-b", 10, 1_000, 1_500);
+  assert.equal(first.length, 1);
+  assert.equal(second.length, 0);
+
+  const recovered = await outbox.claimPending("dispatcher-b", 10, 1_000, 2_001);
+  assert.equal(recovered.length, 1);
+  assert.notEqual(recovered[0]?.claimId, first[0]?.claimId);
+
+  assert.rejects(
+    outbox.markPublished(event.eventId, first[0]?.claimId ?? ""),
+  );
+  await outbox.markPublished(event.eventId, recovered[0]?.claimId ?? "");
+  assert.equal((await outbox.listPending(10)).length, 0);
+});
+
 test("snapshot integrity rejects traversal, duplicate and NUL-byte paths", async () => {
   assert.throws(() =>
     createWorkspaceSnapshot("workspace-1", [
@@ -395,12 +420,30 @@ test("sqlite kernel persists runs across reopen and atomically records lifecycle
 
   const dispatcher = new DurableOutboxDispatcher(reopened.store);
   let published = 0;
-  const dispatchResult = await dispatcher.dispatch(() => {
-    published += 1;
+  const secondDatabase = new SqliteDatabase(dbPath);
+  const secondDispatcher = new DurableOutboxDispatcher(secondDatabase, {
+    workerId: "dispatcher-b",
   });
-  assert.equal(dispatchResult.failed, false);
-  assert.equal(dispatchResult.published, published);
+  const dispatcher = new DurableOutboxDispatcher(reopened.store, {
+    workerId: "dispatcher-a",
+  });
+
+  const dispatches = await Promise.all([
+    dispatcher.dispatch(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      published += 1;
+    }, 100),
+    secondDispatcher.dispatch(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      published += 1;
+    }, 100),
+  ]);
+
+  assert.equal(dispatches.every((result) => result.failed === false), true);
+  assert.equal(dispatches[0].published + dispatches[1].published, published);
+  assert.equal(published > 0, true);
   assert.equal((await reopened.store.listPending(100)).length, 0);
+  secondDatabase.close();
 
   reopened.close();
 

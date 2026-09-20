@@ -10,3 +10,5 @@ coverage/
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+target/
+Cargo.lock

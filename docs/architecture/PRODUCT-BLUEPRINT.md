@@ -183,5 +183,5 @@ Tools must be grouped into policy-controlled toolsets, while hooks provide bound
 
 ## Architecture parity target
 
-Hermes and DeepSeek Harness are reference systems, not product boundaries. AgentiCOS should cover the reusable architectural capability set they demonstrate while preserving its own Rust contracts, persistence model, security model, provenance policy and sequential implementation rules. citeturn254296search0turn178395search0
+Hermes and DeepSeek Harness are reference systems, not product boundaries. AgentiCOS should cover the reusable architectural capability set they demonstrate while preserving its own Rust contracts, persistence model, security model, provenance policy and sequential implementation rules.
 

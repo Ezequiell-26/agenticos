@@ -16,11 +16,7 @@ interface OpenAIChatResponse {
   choices?: Array<{
     message?: {
       content?: string | Array<{ type?: string; text?: string }>;
-      tool_calls?: Array<{
-        id?: string;
-        type?: string;
-        function?: { name?: string; arguments?: string };
-      }>;
+      tool_calls?: OpenAIToolCall[];
     };
     finish_reason?: string | null;
   }>;
@@ -36,6 +32,12 @@ interface OpenAIModelsResponse {
     id: string;
     owned_by?: string;
   }>;
+}
+
+interface OpenAIToolCall {
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
 }
 
 export class OpenAICompatibleProvider implements AIProvider {
@@ -368,7 +370,13 @@ function validateChatRequest(request: ChatRequest): void {
   }
 
   for (const message of request.messages) {
-    if (!message.content || (typeof message.content === "string" && !message.content.trim())) {
+    if (
+      !message ||
+      typeof message !== "object" ||
+      message.content === undefined ||
+      !message.content ||
+      (typeof message.content === "string" && !message.content.trim())
+    ) {
       throw new ProviderError("Chat messages cannot have empty content.", {
         code: "CHAT_MESSAGE_INVALID",
         retryable: false,
@@ -416,21 +424,41 @@ function validateChatRequest(request: ChatRequest): void {
 }
 
 function extractToolCalls(
-  calls: OpenAIChatResponse["choices"] extends Array<infer C>
-    ? C extends { message?: infer M }
-      ? M extends { tool_calls?: infer T }
-        ? T
-        : never
-      : never
-    : never,
+  calls: readonly OpenAIToolCall[] | undefined,
 ): ToolCall[] | undefined {
-  if (!Array.isArray(calls) || calls.length === 0) return undefined;
+  if (!calls || calls.length === 0) return undefined;
 
   const normalized: ToolCall[] = [];
   for (const call of calls) {
     if (
       !call ||
       call.type !== "function" ||
+      !call.id ||
+      !call.function?.name ||
+      call.function.arguments === undefined
+    ) {
+      throw new ProviderError("Provider returned an invalid tool call.", {
+        code: "PROVIDER_INVALID_TOOL_CALL",
+        retryable: false,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+
+    normalized.push({
+      id: call.id,
+      type: "function",
+      function: {
+        name: call.function.name,
+        arguments: call.function.arguments,
+      },
+    });
+  }
+
+  return normalized;
+}
+
+function" ||
       !call.id ||
       !call.function?.name ||
       call.function.arguments === undefined

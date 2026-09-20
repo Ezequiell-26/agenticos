@@ -5,9 +5,8 @@ import { pathToFileURL } from "node:url";
 
 const root = process.cwd();
 
-async function readJson(relativePath) {
-  const raw = await readFile(new URL(relativePath, pathToFileURL(root + "/")), "utf8");
-  return JSON.parse(raw);
+async function readText(relativePath) {
+  return readFile(new URL(relativePath, pathToFileURL(root + "/")), "utf8");
 }
 
 function fail(message) {
@@ -15,9 +14,90 @@ function fail(message) {
   process.exit(1);
 }
 
+function skipWhitespace(source, index) {
+  while (index < source.length && /\s/.test(source[index])) index += 1;
+  return index;
+}
+
+function readJsonString(source, index) {
+  if (source[index] !== '"') fail("invalid JSON string while checking duplicate keys");
+  let i = index + 1;
+  while (i < source.length) {
+    if (source[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (source[i] === '"') return i + 1;
+    i += 1;
+  }
+  fail("unterminated JSON string while checking duplicate keys");
+}
+
+function scanJsonValue(source, start, path) {
+  let i = skipWhitespace(source, start);
+  const ch = source[i];
+  if (ch === '"') return readJsonString(source, i);
+
+  if (ch === '[') {
+    i = skipWhitespace(source, i + 1);
+    if (source[i] === ']') return i + 1;
+    while (true) {
+      i = scanJsonValue(source, i, path + "[]");
+      i = skipWhitespace(source, i);
+      if (source[i] === ']') return i + 1;
+      if (source[i] !== ',') fail("invalid JSON array near " + path);
+      i = skipWhitespace(source, i + 1);
+    }
+  }
+
+  if (ch === '{') {
+    const seen = new Set();
+    i = skipWhitespace(source, i + 1);
+    if (source[i] === '}') return i + 1;
+    while (true) {
+      i = skipWhitespace(source, i);
+      const keyStart = i;
+      i = readJsonString(source, i);
+      const key = JSON.parse(source.slice(keyStart, i));
+      if (seen.has(key)) fail("duplicate JSON object key '" + key + "' at " + path);
+      seen.add(key);
+      i = skipWhitespace(source, i);
+      if (source[i] !== ':') fail("invalid JSON object near " + path);
+      i = scanJsonValue(source, i + 1, path + "." + key);
+      i = skipWhitespace(source, i);
+      if (source[i] === '}') return i + 1;
+      if (source[i] !== ',') fail("invalid JSON object near " + path);
+      i = skipWhitespace(source, i + 1);
+    }
+  }
+
+  const primitiveStart = i;
+  while (i < source.length && !/[\s,\]}]/.test(source[i])) i += 1;
+  if (i === primitiveStart) fail("invalid JSON value near " + path);
+  return i;
+}
+
+function assertNoDuplicateJsonKeys(source, relativePath) {
+  const end = scanJsonValue(source, 0, relativePath);
+  if (skipWhitespace(source, end) !== source.length) fail(relativePath + " contains trailing non-JSON content");
+}
+
+function parseJson(source, relativePath) {
+  assertNoDuplicateJsonKeys(source, relativePath);
+  try {
+    return JSON.parse(source);
+  } catch (error) {
+    fail(relativePath + " is not valid JSON: " + error.message);
+  }
+}
+
+async function readJson(relativePath) {
+  return parseJson(await readText(relativePath), relativePath);
+}
+
 const continuity = await readJson("reference/manifests/agent-continuity.json");
-const state = JSON.parse(await readFile("reference/manifests/implementation-state.json", "utf8"));
-const operationsRaw = await readFile("reference/journal/agent-operations.jsonl", "utf8");
+const state = await readJson("reference/manifests/implementation-state.json");
+const operationsRaw = await readText("reference/journal/agent-operations.jsonl");
 const lines = operationsRaw.split(/\r?\n/).filter(Boolean);
 
 if (continuity.schema_version !== 1) fail("unsupported continuity manifest schema");
@@ -29,12 +109,13 @@ if (continuity.policies.no_destructive_operations_by_default !== true) fail("des
 if (continuity.policies.deletion_requires_snapshot !== true) fail("deletion snapshot requirement disabled");
 if (continuity.policies.deletion_requires_rollback_plan !== true) fail("deletion rollback requirement disabled");
 if (continuity.policies.regression_is_blocking !== true) fail("regression blocking disabled");
+if (continuity.policies.duplicate_json_keys_are_blocking !== true) fail("duplicate JSON key protection disabled");
+if (continuity.policies.verified_slice_does_not_equal_production_completeness !== true) fail("verified-slice semantics policy disabled");
 
 const ids = new Set();
 let lastTimestamp = "";
 for (const [index, line] of lines.entries()) {
-  let op;
-  try { op = JSON.parse(line); } catch { fail(`journal line ${index + 1} is invalid JSON`); }
+  const op = parseJson(line, `reference/journal/agent-operations.jsonl line ${index + 1}`);
   const required = continuity.required_operation_fields;
   for (const field of required) {
     if (!(field in op)) fail(`journal operation ${op.operation_id ?? "unknown"} is missing ${field}`);
@@ -71,15 +152,27 @@ for (let i = 1; i < ordered.length; i += 1) {
 const active = ordered.filter((step) => ["in_progress", "verifying", "correcting"].includes(step.status));
 if (active.length > 1) fail("multiple implementation steps are active");
 
-const projectState = await readFile("reference/PROJECT-STATE.md", "utf8");
+const current = ordered.find((step) => step.id === state.current_step);
+if (!current) fail("current_step is not declared in implementation-state");
+
+const projectState = await readText("reference/PROJECT-STATE.md");
 if (!projectState.includes("## Next authorized progression")) fail("PROJECT-STATE.md has no next-step section");
 if (!projectState.includes("## Verification truth")) fail("PROJECT-STATE.md has no verification-truth section");
 if (!projectState.includes("## Anti-regression rule")) fail("PROJECT-STATE.md has no anti-regression section");
+if (!projectState.includes("- Current implementation step: `" + current.id + "`")) {
+  fail("PROJECT-STATE.md current step disagrees with implementation-state");
+}
+if (!projectState.includes("- Current step status: `" + current.status + "`")) {
+  fail("PROJECT-STATE.md current status disagrees with implementation-state");
+}
 
 let gitStatus;
-try { gitStatus = execFileSync("git", ["status", "--porcelain=v1"], {encoding:"utf8"}).trim(); }
-catch { gitStatus = ""; }
-const untracked = gitStatus.split(/\\r?\\n/).filter((line) => line.startsWith("?? "));
+try {
+  gitStatus = execFileSync("git", ["status", "--porcelain=v1"], {encoding:"utf8"}).trim();
+} catch {
+  gitStatus = "";
+}
+const untracked = gitStatus.split(/\r?\n/).filter((line) => line.startsWith("?? "));
 if (continuity.policies.no_untracked_changes === true && untracked.length > 0) {
   fail("untracked files are present: " + untracked.map((line) => line.slice(3)).join(", "));
 }

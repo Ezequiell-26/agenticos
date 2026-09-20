@@ -90,12 +90,8 @@ export class OpenAICompatibleProvider implements AIProvider {
       });
     }
 
-    const usage: TokenUsage | undefined = data.usage
-      ? {
-          inputTokens: data.usage.prompt_tokens,
-          outputTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        }
+    const usage = data.usage
+      ? compactUsage(data.usage)
       : undefined;
 
     return {
@@ -103,8 +99,10 @@ export class OpenAICompatibleProvider implements AIProvider {
       providerId: this.definition.id,
       model: data.model ?? request.model,
       text: extractMessageText(message.content),
-      finishReason: choice.finish_reason ?? undefined,
-      usage,
+      ...(choice.finish_reason === undefined || choice.finish_reason === null
+        ? {}
+        : { finishReason: choice.finish_reason }),
+      ...(usage ? { usage } : {}),
       raw: data,
     };
   }
@@ -164,6 +162,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         throw new ProviderError(
           "Provider request timed out after " + this.timeoutMs + " ms.",
           {
+            code: "PROVIDER_TIMEOUT",
             retryable: true,
             rateLimited: false,
             quotaExhausted: false,
@@ -174,6 +173,7 @@ export class OpenAICompatibleProvider implements AIProvider {
       throw new ProviderError(
         error instanceof Error ? error.message : "Unknown provider network error.",
         {
+          code: "PROVIDER_NETWORK_ERROR",
           retryable: true,
           rateLimited: false,
           quotaExhausted: false,
@@ -189,6 +189,7 @@ export class OpenAICompatibleProvider implements AIProvider {
 
     if (!text) {
       throw new ProviderError("Provider returned an empty response body.", {
+        code: "PROVIDER_EMPTY_RESPONSE",
         retryable: true,
         rateLimited: false,
         quotaExhausted: false,
@@ -197,12 +198,13 @@ export class OpenAICompatibleProvider implements AIProvider {
 
     try {
       return JSON.parse(text) as T;
-    } catch {
+    } catch (error) {
       throw new ProviderError("Provider returned invalid JSON.", {
+        code: "PROVIDER_INVALID_JSON",
         retryable: true,
         rateLimited: false,
         quotaExhausted: false,
-      });
+      },);
     }
   }
 }
@@ -224,17 +226,35 @@ function classifyHttpError(
     status === 425;
 
   const retryAfter = headers.get("retry-after");
+  const retryAfterMs = retryAfter ? parseRetryAfter(retryAfter) : undefined;
   const suffix = retryAfter ? " Retry-After: " + retryAfter + "." : "";
 
   return new ProviderError(
     "Provider HTTP " + status + ": " + truncate(body, 600) + "." + suffix,
     {
+      code: "PROVIDER_HTTP_" + status,
       status,
       retryable,
       rateLimited,
       quotaExhausted,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     },
   );
+}
+
+function compactUsage(usage: NonNullable<OpenAIChatResponse["usage"]>): TokenUsage {
+  return {
+    ...(usage.prompt_tokens === undefined ? {} : { inputTokens: usage.prompt_tokens }),
+    ...(usage.completion_tokens === undefined ? {} : { outputTokens: usage.completion_tokens }),
+    ...(usage.total_tokens === undefined ? {} : { totalTokens: usage.total_tokens }),
+  };
+}
+
+function parseRetryAfter(value: string): number | undefined {
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const dateMs = Date.parse(value);
+  return Number.isNaN(dateMs) ? undefined : Math.max(0, dateMs - Date.now());
 }
 
 function truncate(value: string, max: number): string {
@@ -244,13 +264,8 @@ function truncate(value: string, max: number): string {
 function extractMessageText(
   content: string | Array<{ type?: string; text?: string }> | undefined,
 ): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content;
-  }
+  if (!content) return "";
+  if (typeof content === "string") return content;
 
   return content
     .filter((part) => part.type === "text" || Boolean(part.text))

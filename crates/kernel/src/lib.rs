@@ -7,19 +7,22 @@ use agenticos_contracts::{ContractError, RunId, RunState};
 
 /// Pure transition validator for the durable Run state machine.
 pub fn validate_transition(from: RunState, to: RunState) -> Result<(), ContractError> {
-    let allowed = matches!((from, to),
+    let allowed = matches!(
+        (from, to),
         (RunState::Created, RunState::Admitted)
-        | (RunState::Admitted, RunState::Waiting)
-        | (RunState::Admitted, RunState::Running)
-        | (RunState::Waiting, RunState::Running)
-        | (RunState::Running, RunState::Cancelling)
-        | (RunState::Cancelling, RunState::Cancelled)
-        | (RunState::Running, RunState::Completed)
-        | (RunState::Running, RunState::Failed)
-        | (RunState::Waiting, RunState::Cancelled)
-        | (RunState::Waiting, RunState::Failed)
+            | (RunState::Admitted, RunState::Waiting)
+            | (RunState::Admitted, RunState::Running)
+            | (RunState::Waiting, RunState::Running)
+            | (RunState::Running, RunState::Cancelling)
+            | (RunState::Cancelling, RunState::Cancelled)
+            | (RunState::Running, RunState::Completed)
+            | (RunState::Running, RunState::Failed)
+            | (RunState::Waiting, RunState::Cancelled)
+            | (RunState::Waiting, RunState::Failed)
     );
-    allowed.then_some(()).ok_or(ContractError::IncompatibleVersion)
+    allowed
+        .then_some(())
+        .ok_or(ContractError::IncompatibleVersion)
 }
 
 /// Kernel identity container used during bootstrap.

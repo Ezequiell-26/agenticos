@@ -13,6 +13,14 @@ The current TypeScript code is a transitional architecture prototype, not the fi
 
 See docs/adr/0006-rust-core-runtime.md and docs/adr/0007-token-optimization-rust.md.
 
+## MIT-only third-party implementation policy
+
+AgentiCOS canonical product code may copy, vendor or directly adapt third-party source only when Source Forge has admitted the source as MIT-compatible after repository, file, dependency, notice and provenance review.
+
+Non-MIT sources may be retained as **comparative reference evidence** for architecture analysis, test ideas or behavior comparison, but their source code must not enter canonical AgentiCOS implementation boundaries.
+
+This policy applies across runtime, providers, tools, context, sandboxes, plugins, applications and SDKs. A future exception requires an explicit architecture decision and a corresponding licensing/provenance review.
+
 ## Reference-first implementation policy
 
 AgentiCOS maintains an approved Reference Knowledge Corpus.

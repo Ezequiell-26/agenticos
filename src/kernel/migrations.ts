@@ -164,6 +164,17 @@ export function applyKernelMigrations(
     });
   }
 
+  if (currentSchemaVersion > 2) {
+    throw new AgentiCOSError(
+      "Database schema version is newer than this runtime.",
+      {
+        code: "DATABASE_SCHEMA_VERSION_NEWER_THAN_RUNTIME",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
+  }
+
   const appliedRows = database
     .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
     .all() as Array<{ version: number; id: string; checksum: string }>;
@@ -177,9 +188,35 @@ export function applyKernelMigrations(
 
   const applied = new Map(
     database
-      .prepare("SELECT version, id, checksum FROM schema_migrations")
+      .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
       .all() as Array<{ version: number; id: string; checksum: string }>
   );
+
+  let expectedAppliedVersion = 1;
+  for (const row of applied.values()) {
+    if (row.version !== expectedAppliedVersion) {
+      throw new AgentiCOSError(
+        "Database migration history has a version gap before " + row.version + ".",
+        {
+          code: "DATABASE_MIGRATION_HISTORY_GAP",
+          category: "PERSISTENCE",
+          severity: "critical",
+        },
+      );
+    }
+    expectedAppliedVersion += 1;
+  }
+
+  if (currentSchemaVersion >= 1 && !applied.has(1)) {
+    throw new AgentiCOSError(
+      "Database migration baseline is missing.",
+      {
+        code: "DATABASE_MIGRATION_BASELINE_MISSING",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
+  }
 
   let latest = currentSchemaVersion;
   for (const migration of KERNEL_MIGRATIONS) {

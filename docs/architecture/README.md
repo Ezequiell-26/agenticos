@@ -9,7 +9,9 @@ This directory contains the architecture source of truth.
 3. [REFERENCE-KNOWLEDGE-CORPUS.md](./REFERENCE-KNOWLEDGE-CORPUS.md)
 4. [REPOSITORY-STRUCTURE.md](./REPOSITORY-STRUCTURE.md)
 5. [IMPLEMENTATION-MASTER-PLAN.md](./IMPLEMENTATION-MASTER-PLAN.md)
-6. [TOKEN-OPTIMIZATION-ARCHITECTURE.md](./TOKEN-OPTIMIZATION-ARCHITECTURE.md)\n7. [../adr/0006-rust-core-runtime.md](../adr/0006-rust-core-runtime.md)\n8. [../adr/0007-token-optimization-rust.md](../adr/0007-token-optimization-rust.md)
+6. [TOKEN-OPTIMIZATION-ARCHITECTURE.md](./TOKEN-OPTIMIZATION-ARCHITECTURE.md)
+7. [../adr/0006-rust-core-runtime.md](../adr/0006-rust-core-runtime.md)
+8. [../adr/0007-token-optimization-rust.md](../adr/0007-token-optimization-rust.md)
 
 ## Core domains
 
@@ -22,7 +24,8 @@ This directory contains the architecture source of truth.
 - PROTOCOL-AND-SURFACES.md
 - PERSISTENCE-RELIABILITY.md
 - OBSERVABILITY-EVAL.md
-- SOURCE-FORGE-ARCHITECTURE.md\n- TOKEN-OPTIMIZATION-ARCHITECTURE.md
+- SOURCE-FORGE-ARCHITECTURE.md
+- TOKEN-OPTIMIZATION-ARCHITECTURE.md
 
 ## Interoperability
 
@@ -47,9 +50,13 @@ This directory contains the architecture source of truth.
 
 The Reference Knowledge Corpus is mandatory input for non-trivial implementation work.
 
-Current high-value references include Hermes Agent, DeepSeek Harness, OpenAI Codex, FreeLLMAPI, OmniRoute, AutoGen, OpenHands, browser-use, LangGraph and the Rust token-optimization corpus.\n\nMIT-only implementation sources are admitted only after Source Forge license/dependency/provenance checks. Non-MIT sources remain reference-only unless a future architecture decision changes the admission policy.
+Current high-value references include Hermes Agent, DeepSeek Harness, OpenAI Codex, FreeLLMAPI, OmniRoute, AutoGen, OpenHands, browser-use, LangGraph and the Rust token-optimization corpus.
 
-FreeLLMAPI is the primary reference for the provider gateway/router domain, including provider aggregation, fallback, quota/rate tracking, model catalogs, compatibility and operational behavior.\n\nGCF Rust is the primary MIT-admissible reference for compact structured context, session deduplication and delta encoding.
+MIT-only implementation sources are admitted only after Source Forge license/dependency/provenance checks. Non-MIT sources remain reference-only unless a future architecture decision changes the admission policy.
+
+FreeLLMAPI is the primary reference for the provider gateway/router domain, including provider aggregation, fallback, quota/rate tracking, model catalogs, compatibility and operational behavior.
+
+GCF Rust is the primary MIT-admissible reference for compact structured context, session deduplication and delta encoding.
 
 ## Construction rule
 

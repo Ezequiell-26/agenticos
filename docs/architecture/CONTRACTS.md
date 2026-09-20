@@ -338,3 +338,69 @@ pub trait CapabilityIssuer: Send + Sync {
 
 The exact Rust types are contract placeholders until the corresponding crate exists,
 but these ownership boundaries are architectural invariants.
+
+## Extensibility contracts
+
+### CapabilityRegistryContract
+
+Owns discovery and lifecycle of runtime-extensible capabilities.
+
+Required semantics:
+- discover;
+- inspect;
+- verify provenance/license;
+- resolve dependencies;
+- negotiate compatibility;
+- activate transactionally;
+- health-check;
+- deactivate/drain;
+- rollback.
+
+The registry does not grant authority.
+
+### SkillContract
+
+Skills are versioned procedural knowledge packages loaded progressively. A skill may declare tools, dependencies, triggers, references, templates, scripts and evaluations, but cannot grant permissions.
+
+### MemoryProviderContract
+
+A memory provider supports setup/health/prefetch/sync/search/update/delete and optional consolidation. It receives scoped access and cannot widen persistence authority.
+
+### ChannelContract
+
+A channel adapter normalizes inbound events and renders outbound events. It declares authentication, authorization/pairing, streaming, attachment and rate-limit capabilities.
+
+### WebhookContract
+
+A webhook is an authenticated, replay-protected durable trigger source with a payload schema, event filter and delivery policy.
+
+### HookContract
+
+Hooks are ordered, scoped lifecycle observers/interceptors with explicit budgets, cancellation and observability. A hook cannot create a hidden agent loop.
+
+### ContextEngineContract
+
+The context engine deterministically assembles policy, instructions, skills, memory, workspace context, session history, tool schemas and model constraints under an explicit token budget. It preserves provenance and recovery references.
+
+### SessionPersistenceContract
+
+Session persistence backends implement append, checkpoint, recovery, integrity verification, replay, search/projection and export behind one logical event-stream contract.
+
+### ScopeContract
+
+A scoped registration boundary owns everything registered inside it and can dispose/drain that owned state without leaking registrations into other profiles, agents or runs.
+
+### JobSchedulerContract
+
+The scheduler persists jobs and produces/resumes durable Runs. It supports one-shot/recurring scheduling, pause/resume, manual trigger, retry and execution-mode selection without embedding the agent loop.
+
+### ToolRegistryContract
+
+The tool registry owns discovery, schema collection, availability, dispatch and guarded execution. Host-only scheduler/security/presentation fields must not leak into model-facing schemas.
+
+## Contract composition rule
+
+The canonical AgentEngine consumes these contracts. It does not implement provider discovery, plugin lifecycle, memory persistence, channel transport, scheduling or skill storage internally.
+
+New integrations should implement or compose existing contracts instead of adding vendor-specific branches to the canonical loop.
+

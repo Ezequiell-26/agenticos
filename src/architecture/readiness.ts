@@ -29,6 +29,12 @@ const REQUIRED_PROTOCOLS = [
   "tool-call.schema.json",
   "plugin-manifest.schema.json",
   "run-control.schema.json",
+  "skill-manifest.schema.json",
+  "memory-operation.schema.json",
+  "plugin-activation.schema.json",
+  "channel-event.schema.json",
+  "webhook-trigger.schema.json",
+  "provider-descriptor.schema.json",
 ] as const;
 
 const REQUIRED_CRATE_NAMES = [

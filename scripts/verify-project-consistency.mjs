@@ -12,10 +12,23 @@ const projectState = await readText("reference/PROJECT-STATE.md");
 if (state.schema_version !== 1) fail("unsupported implementation-state schema");
 if (!Array.isArray(state.steps) || state.steps.length < 3) fail("implementation-state has fewer than three controlled steps");
 const ordered = [...state.steps].sort((a,b) => a.number - b.number);
+const numbers = ordered.map((step) => step.number);
+if (numbers.some((number) => !Number.isInteger(number) || number < 0)) fail("implementation step numbers must be non-negative integers");
+if (new Set(numbers).size !== numbers.length) fail("implementation step numbers must be unique");
+for (let i=0; i<ordered.length; i+=1) {
+  if (ordered[i].number !== i) fail("implementation steps must use contiguous numbers starting at zero");
+}
 const activeStatuses = new Set(["in_progress","verifying","correcting","blocked"]);
 const active = ordered.filter(step => activeStatuses.has(step.status));
 if (active.length > 1) fail("more than one implementation step is active");
-for (let i=1;i<ordered.length;i+=1) { if (ordered[i].status === "verified" && ordered[i-1].status !== "verified") fail("verified step " + ordered[i].id + " has an unverified predecessor"); }
+for (let i=1;i<ordered.length;i+=1) {
+  if (ordered[i].status === "verified" && ordered[i-1].status !== "verified") {
+    fail("verified step " + ordered[i].id + " has an unverified predecessor");
+  }
+  if (ordered[i].requires && !Array.isArray(ordered[i].requires)) {
+    fail("step " + ordered[i].id + " has an invalid requires field");
+  }
+}
 const current = ordered.find(step => step.id === state.current_step);
 if (!current) fail("current_step is not declared in steps");
 const firstNonVerified = ordered.find(step => step.status !== "verified");

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/migration.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Migration v1",
+  "required": [
+    "schemaVersion",
+    "migrationId",
+    "targetVersion",
+    "state",
+    "backupRequired"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "migrationId": {
+      "type": "string"
+    },
+    "targetVersion": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "planned",
+        "backup",
+        "validating",
+        "migrating",
+        "verifying",
+        "activated",
+        "rolled-back",
+        "failed"
+      ]
+    },
+    "backupRequired": {
+      "const": true
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -22,7 +22,7 @@ This contract defines how an AI coding agent must build AgentiCOS during iterati
 16. Add failure and recovery behavior.
 17. Add integration and end-to-end verification.
 18. Update the manifest and architecture documentation.
-19. Leave a stable checkpoint.
+19. Apply the applicable token-optimization contract at model/tool boundaries.\n20. Leave a stable checkpoint.
 
 ## Reference-first engineering rule
 
@@ -58,6 +58,23 @@ Reference code may be adapted, rewritten or used only as design evidence dependi
 ## Exception
 
 If no suitable reference exists, or the reference is incompatible with the product requirements, the agent may design a new approach. The reason must be documented.
+
+## Token optimization rule
+
+For non-trivial context/tool-output features, the coding agent must consult the token-optimization evidence pack before inventing a new compression or caching path.
+
+The agent must determine:
+
+- whether the transform is lossless or explicitly lossy;
+- which content classes are protected;
+- whether an original/recovery path exists;
+- whether dedup/cache scope crosses a trust boundary;
+- how token savings are measured;
+- whether the source is MIT-admissible for code reuse.
+
+Reference-only or non-MIT sources may inform design comparison, but their source code must not enter an MIT-only implementation boundary.
+
+Any optimizer failure must fall back to the original content unless the contract explicitly defines a different safe behavior.
 
 ## Security rule
 

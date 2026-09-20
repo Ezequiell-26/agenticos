@@ -21,7 +21,7 @@ The reference system contains a verified MIT-focused seed corpus and a dynamic r
 
 ## Current work
 
-Architecture completeness, reference resolution and AI continuity/anti-regression controls are being finalized. No functional Step 1 implementation has been started by this continuity checkpoint.
+Architecture hardening is the current controlled step. It closes state/continuity consistency and strengthens canonical Rust lease ownership semantics without expanding into future product capabilities.
 
 ## Verification truth
 
@@ -31,10 +31,10 @@ At the latest architectural work checkpoint, remote GitHub CI was not available 
 
 ## Next authorized progression
 
-1. Finish and verify the architecture foundation.
-2. Record all verification evidence.
-3. Only after the foundation becomes `verified`, unlock `rust-kernel-vertical-slice-1`.
-4. Execute exactly one step at a time.
+1. Verify architecture hardening in CI.
+2. Mark `architecture-hardening-2026-09-21` VERIFIED only after recorded evidence.
+3. Unlock exactly one next step: `agent-engine-vertical-slice-1`.
+4. Do not start provider, tool, memory, multi-agent or product surface slices before that step is explicitly authorized.
 
 ## Anti-regression rule
 
@@ -91,8 +91,15 @@ The next AI must continue from this file and the append-only journal, not from m
 - npm audit: PASS.
 - npm dependency tree: PASS.
 - Rust fmt/check/test/clippy: PASS.
-- No functional Step 1 code has been started.
-- Exactly one next step is authorized: `rust-kernel-vertical-slice-1`.
+- The durable Rust kernel Step 1 has been implemented and recorded as verified.
+
+## Current hardening checkpoint
+
+- Current implementation step: `architecture-hardening-2026-09-21`.
+- Current step status: `in_progress`.
+- Scope: state synchronization, AI continuity enforcement, CI consistency verification and canonical Rust lease correctness.
+- Destructive changes: none.
+- Main product history and Step 1 implementation are preserved.
 
 ## Final foundation verification record
 

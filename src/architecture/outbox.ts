@@ -29,7 +29,7 @@ export interface Outbox {
 }
 
 export interface Inbox {
-  claim(consumerId: string, eventId: string): Promise<boolean>;
+  claimEvent(consumerId: string, eventId: string): Promise<boolean>;
   complete(consumerId: string, eventId: string): Promise<void>;
   release(consumerId: string, eventId: string): Promise<void>;
 }
@@ -79,7 +79,7 @@ export class InMemoryOutbox implements Outbox {
 export class InMemoryInbox implements Inbox {
   private readonly claims = new Set<string>();
 
-  async claim(consumerId: string, eventId: string): Promise<boolean> {
+  async claimEvent(consumerId: string, eventId: string): Promise<boolean> {
     const key = consumerId + ":" + eventId;
     if (this.claims.has(key)) return false;
     this.claims.add(key);
@@ -99,7 +99,7 @@ export async function consumeAtLeastOncePerConsumer<T>(
   event: DurableEvent<T>,
   handler: (event: DurableEvent<T>) => Promise<void>,
 ): Promise<boolean> {
-  if (!(await inbox.claim(consumerId, event.eventId))) return false;
+  if (!(await inbox.claimEvent(consumerId, event.eventId))) return false;
 
   try {
     await handler(event);

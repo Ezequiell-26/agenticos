@@ -22,7 +22,7 @@ AgentiCOS is being designed as a universal, model-agnostic agent runtime and app
 
 Before broad implementation, the repository freezes the complete product architecture:
 
-- one runtime for CLI, TUI, Web, Desktop, IDE, API, SDK and messaging;
+- one Rust-first runtime for CLI, TUI, Web, Desktop, IDE, API, SDK and messaging;
 - multi-provider AI access for free-tier, paid, local and custom APIs;
 - typed task/run/thread/turn/step/item execution;
 - pluggable tools, sandboxes, memory, skills, workflows and agents;
@@ -30,8 +30,8 @@ Before broad implementation, the repository freezes the complete product archite
 - first-class artifacts and verification;
 - durable sessions, persistence, replay and recovery;
 - capability-based security and explicit approvals;
-- plugin and engine adapter architecture;
-- Source Forge for importing and fusing external agent repositories.
+- plugin, protocol and engine-adapter architecture;
+- Source Forge plus a mandatory Reference Knowledge Corpus for evidence-driven implementation.
 
 ## Reference architecture
 
@@ -40,13 +40,16 @@ The design studies current public architectures from:
 - Hermes Agent;
 - DeepSeek Harness;
 - OpenAI Codex;
+- FreeLLMAPI;
 - Google Antigravity.
 
-These are used as architectural references. AgentiCOS defines its own contracts instead of treating any one project as the product core.
+These are architectural and implementation references. AgentiCOS defines its own contracts and security boundaries instead of treating any one project as the product core.
+
+[Reference Knowledge Corpus →](./docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md)
 
 ## Source Forge
 
-Source Forge can import complete repositories, preserve their source snapshots and commits, audit licenses and dependencies, extract capabilities, compare implementations and prepare integration proposals.
+Source Forge can import complete repositories, preserve source snapshots and commits, audit licenses and dependencies, extract capabilities, build evidence packs, compare implementations and prepare integration proposals.
 
 The target is to combine useful implementations from multiple projects while retaining provenance and keeping AgentiCOS-owned code behind stable contracts.
 
@@ -63,6 +66,7 @@ Then read [docs/architecture/README.md](./docs/architecture/README.md).
 - Hermes Agent: https://github.com/NousResearch/hermes-agent
 - DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
 - OpenAI Codex: https://github.com/openai/codex
+- FreeLLMAPI: https://github.com/tashfeenahmed/freellmapi
 - Google Antigravity: https://antigravity.google/docs/ide/overview
 
 ---

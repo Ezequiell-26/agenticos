@@ -13,7 +13,11 @@ export interface IdempotencyRecord {
 }
 
 export interface IdempotencyStore {
-  claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
+  claim(
+    record: IdempotencyRecord,
+    staleAfterMs?: number,
+    nowMs?: number,
+  ): Promise<IdempotencyRecord | undefined>;
   put(record: IdempotencyRecord): Promise<void>;
 }
 
@@ -89,6 +93,8 @@ export async function executeIdempotent<T>(
   key: string,
   input: unknown,
   execute: () => Promise<T>,
+  staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+  nowMs = Date.now(),
 ): Promise<T> {
   if (!key.trim()) {
     throw new AgentiCOSError("Idempotency key is required.", {
@@ -98,7 +104,8 @@ export async function executeIdempotent<T>(
   }
 
   const fingerprint = fingerprintOperation(operation, input);
-  const now = new Date().toISOString();
+  validateClaimWindow(staleAfterMs, nowMs);
+  const now = new Date(nowMs).toISOString();
   const claimed = await store.claim({
     key,
     operation,
@@ -106,7 +113,7 @@ export async function executeIdempotent<T>(
     status: "in-progress",
     createdAt: now,
     updatedAt: now,
-  });
+  }, staleAfterMs, nowMs);
 
   if (claimed) {
     if (claimed.status === "completed") return claimed.result as T;

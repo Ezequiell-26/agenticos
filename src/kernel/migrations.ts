@@ -186,14 +186,17 @@ export function applyKernelMigrations(
     `).run(new Date().toISOString());
   }
 
-  const applied = new Map(
-    database
-      .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
-      .all() as Array<{ version: number; id: string; checksum: string }>
-  );
+  const applied = new Map<number, { version: number; id: string; checksum: string }>();
+  const orderedAppliedRows = database
+    .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
+    .all() as Array<{ version: number; id: string; checksum: string }>;
+
+  for (const row of orderedAppliedRows) {
+    applied.set(row.version, row);
+  }
 
   let expectedAppliedVersion = 1;
-  for (const row of applied.values()) {
+  for (const row of orderedAppliedRows) {
     if (row.version !== expectedAppliedVersion) {
       throw new AgentiCOSError(
         "Database migration history has a version gap before " + row.version + ".",

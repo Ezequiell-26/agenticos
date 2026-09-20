@@ -241,7 +241,7 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
 
   const lease = kernelA.store.leaseForRun(run.id);
   assert.ok(lease);
-  const renewed = schedulerA.heartbeat(run.id, lease.fencingToken);
+  const renewed = schedulerA.heartbeat(run.id, lease.fencingToken, Date.now() + 1_000);
   assert.ok(Date.parse(renewed.expiresAt) > Date.parse(lease.expiresAt));
 
   kernelA.close();

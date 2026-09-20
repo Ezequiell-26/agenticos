@@ -42,7 +42,15 @@
         "cancellation and shutdown",
         "runtime configuration",
         "testing"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "f0dbcf4b45d6acca6f7f5d88dc86683c6f360d76",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "tokio-rs/axum",
@@ -64,7 +72,15 @@
         "streaming responses",
         "middleware composition",
         "safe API boundaries"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "9debbe9c5bcf5c2e9da11e83f4caa296567fa305",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "rusqlite/rusqlite",
@@ -85,7 +101,15 @@
         "backup",
         "extension boundaries",
         "testable persistence"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "08c660f5be514958a1179ccadf63a1f488807aa1",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "ratatui/ratatui",
@@ -106,7 +130,15 @@
         "streaming output",
         "scrolling",
         "testable widgets"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "776bf200770e7bb9b264f3cf41ad09e2a83a1509",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "tokio-rs/tokio-metrics",
@@ -125,7 +157,15 @@
         "task monitoring",
         "schedule latency",
         "production telemetry surfaces"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "464916b34b7b899c3ff803f8109ac420aeab751d",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "nix-rust/nix",
@@ -147,7 +187,15 @@
         "signals",
         "file descriptors",
         "Unix permission boundaries"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "aff9096fdf11d161613202fe9329fcfa5e35d212",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "slawlor/ractor",
@@ -169,7 +217,15 @@
         "factory patterns",
         "failure isolation",
         "async concurrency"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "327ba4a17258c0757b051a0d4052835dbaac811f",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "denoland/deno",
@@ -191,7 +247,15 @@
         "process/file/network permissions",
         "embedded runtime architecture",
         "developer tooling"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE.md",
+        "artifact_sha": "b641c75c0b04ccfddcb1145d2554ab49b6ca9411",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "pydantic/pydantic-ai",
@@ -213,7 +277,15 @@
         "graph execution",
         "dependency injection",
         "agent testing"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "1bf1f55e6d1736b499ded961ec6b94bfebb17aec",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "pydantic/pydantic",
@@ -234,7 +306,15 @@
         "configuration models",
         "error reporting",
         "typed boundary contracts"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "488c6260c10f2e88fa1fae58a63fccec8d600cd1",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "SWE-agent/SWE-agent",
@@ -256,7 +336,15 @@
         "failure recovery",
         "evaluation",
         "benchmark integration"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "e702436e21844c5c519de31ab68277a6d3b427d9",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "run-llama/llama_index",
@@ -279,7 +367,15 @@
         "knowledge workflows",
         "agent context integration",
         "evaluation surfaces"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "e6074042d0391061b7d7d45d21e6693ae108daec",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "BerriAI/litellm",
@@ -307,7 +403,21 @@
         "callbacks and telemetry",
         "gateway operations",
         "error normalization"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified-mit-with-explicit-excluded-paths",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "3bfef5bae9b48c334acf426d5b7f21bc1913aab9",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration.",
+        "allowed_paths": [
+          "all paths outside enterprise/"
+        ],
+        "excluded_paths": [
+          "enterprise/"
+        ]
+      }
     },
     {
       "repository": "tiangolo/fastapi",
@@ -329,7 +439,16 @@
         "websocket/streaming surfaces",
         "validation",
         "API testing"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified-mit-metadata",
+        "verified_on": "2026-09-21",
+        "source_url": "https://github.com/tiangolo/fastapi",
+        "artifact_path": null,
+        "artifact_sha": null,
+        "artifact_sha_verified": false,
+        "note": "MIT status verified from current GitHub project/package metadata; exact license artifact must be resolved and pinned by Source Forge before source integration."
+      }
     },
     {
       "repository": "asg017/sqlite-vec",
@@ -350,7 +469,15 @@
         "compact vector representation",
         "extension architecture",
         "resource cleanup and correctness"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE-MIT",
+        "artifact_sha": "9c106bc48c760f7ed9f5b8255dea7adeef029cbe",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "microsoft/semantic-kernel",
@@ -372,7 +499,15 @@
         "process/workflow patterns",
         "memory integration",
         "multi-provider abstractions"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "crewAIInc/crewAI",
@@ -394,7 +529,15 @@
         "delegation",
         "tracing",
         "structured outputs"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "a6ee25527ec07201e4373fcbf89f128f304a6f2e",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "browser-use/browser-harness",
@@ -415,7 +558,15 @@
         "self-healing helpers",
         "MCP browser exposure",
         "browser task execution"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "271d8e2807d0d79aee85a231f5c9dbb007902783",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "browser-use/browser-harness-js",
@@ -434,7 +585,15 @@
         "protocol generation",
         "target/session routing",
         "low-abstraction browser control"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "271d8e2807d0d79aee85a231f5c9dbb007902783",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "dotnet/orleans",
@@ -457,7 +616,15 @@
         "reminders",
         "distributed execution",
         "failure handling"
-      ]
+      ],
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "f148e134b296030295b3ae70fc76674a667e0f4a",
+        "artifact_sha_verified": true,
+        "note": "License artifact read from the repository during corpus verification; exact source commit is pinned before integration."
+      }
     },
     {
       "repository": "openai/openai-agents-python",

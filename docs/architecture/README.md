@@ -78,3 +78,4 @@ The TypeScript implementation is transitional. New canonical runtime work target
 - [../../reference/manifests/architecture-completeness.json](../../reference/manifests/architecture-completeness.json) — machine-readable completeness checklist.
 - [../../reference/manifests/capability-parity.json](../../reference/manifests/capability-parity.json) — Hermes/Harness capability parity mapping.
 - [REFERENCE-RESOLUTION-PROTOCOL.md](./REFERENCE-RESOLUTION-PROTOCOL.md) — resolver dinámico para localizar y auditar repositorios antes de implementar.
+- [AGENT-CONTINUITY-PROTOCOL.md](./AGENT-CONTINUITY-PROTOCOL.md) — memoria operativa obligatoria, reportes y reglas anti-regresión para agentes de IA.

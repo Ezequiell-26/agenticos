@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "status": "planned",
+  "purpose": "Explicit machine-readable register of concrete runtime gaps discovered during architecture audit. These are not production-complete until the authorized integration slice verifies them.",
+  "baseline_commit": "bc9b21324b072cc5df068a47d7bf1571399f6304",
+  "next_authorized_step": "runtime-integration-vertical-slice-1",
+  "gaps": [
+    {
+      "id": "agentengine-model-loop",
+      "owner_crate": "crates/execution",
+      "contract": "agent-engine",
+      "evidence": [
+        "crates/execution/src/lib.rs: BasicAgentEngine::start_run ignores objective",
+        "crates/execution/src/lib.rs: BasicAgentEngine::start_run and resume_run do not invoke ModelProvider"
+      ],
+      "required_behavior": "A Run must deterministically cross the AgentEngine -> ModelProvider boundary and preserve request/response identity.",
+      "status": "open"
+    },
+    {
+      "id": "provider-real-http-transport",
+      "owner_crate": "crates/providers",
+      "contract": "model-provider",
+      "evidence": [
+        "crates/providers/src/lib.rs: HttpModelProvider owns reqwest client/base_url but execute returns a simulated response without an HTTP request"
+      ],
+      "required_behavior": "Provider transport must make a real bounded request through the adapter, normalize failures and remain testable with deterministic integration fixtures.",
+      "status": "open"
+    },
+    {
+      "id": "tool-capability-validation",
+      "owner_crate": "crates/tools",
+      "contract": "tool",
+      "evidence": [
+        "crates/tools/src/lib.rs: BasicPolicyEngine::evaluate only checks that grant_id is non-empty when permissions are required",
+        "crates/tools/src/lib.rs: check_capability returns true for any non-empty capability"
+      ],
+      "required_behavior": "Authorization must validate an issued capability grant, its principal/scope, requested capability and expiry.",
+      "status": "open"
+    },
+    {
+      "id": "durable-context-memory",
+      "owner_crate": "crates/memory",
+      "contract": "memory",
+      "evidence": [
+        "crates/memory/src/lib.rs: InMemoryContextManager stores all context in process memory",
+        "crates/memory/src/lib.rs: InMemoryMemoryStore stores all memory entries in process memory"
+      ],
+      "required_behavior": "Context and memory must have a persistence adapter and restart/recovery tests behind the existing storage contract.",
+      "status": "open"
+    },
+    {
+      "id": "durable-run-registry",
+      "owner_crate": "crates/execution",
+      "contract": "run",
+      "evidence": [
+        "crates/execution/src/lib.rs: BasicAgentEngine stores known runs in an in-memory Vec<RunId>",
+        "crates/execution/src/lib.rs: resume_run rejects a run not present in that Vec"
+      ],
+      "required_behavior": "Run ownership/recovery must derive from durable kernel state rather than a process-local registry.",
+      "status": "open"
+    }
+  ],
+  "verification_policy": {
+    "close_only_after": "All required checks for runtime-integration-vertical-slice-1 pass and the evidence is recorded in implementation-state and the operation journal.",
+    "production_complete_definition": "Feature completion requires user reachability, contract connection, persistence where appropriate, security, observability, failure tolerance, tests and documentation."
+  }
+}

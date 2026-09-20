@@ -6,14 +6,19 @@
 
 - Repository: `Ezequiell-26/agenticos`
 - Architecture mode: `sequential-verified`
-- Current implementation step: `provider-plane-vertical-slice-1`
+- Current implementation step: `runtime-integration-vertical-slice-1`
 - Current step status: `pending`
 - Architecture foundation: VERIFIED on GitHub Actions run #354.
 - Rust durable kernel Step 1: VERIFIED.
 - Rust durable kernel Step 2: VERIFIED.
-- Architecture hardening: VERIFIED with complete TypeScript/continuity and Rust evidence; final main post-merge CI run #377 passed.
-- AgentEngine vertical slice: VERIFIED; final main post-merge CI run #377 passed.
-- Final reconciled main merge commit: `4137c90828d1a57e77048a7161024b3c66099495`.
+- Architecture hardening: VERIFIED on the recorded hardening CI evidence.
+- AgentEngine vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Provider plane vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Tool plane vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Memory/context vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Protocol implementation vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Product surfaces CLI vertical slice: VERIFIED by its recorded Rust acceptance evidence.
+- Main baseline before this reconciliation: `bc9b21324b072cc5df068a47d7bf1571399f6304`.
 - Canonical runtime: Rust/Tokio.
 - TypeScript: transitional prototype/product surface boundary; it is not the canonical runtime.
 - Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
@@ -25,44 +30,43 @@ The architecture contains explicit contracts and schemas for runtime, providers,
 
 The reference system contains a verified MIT-focused seed corpus and a dynamic resolver. Non-trivial implementation must use repository evidence and preserve exact provenance.
 
-The current hardening layer protects versioned SQLite migrations, database invariants, worker lease/fencing semantics, durable outbox/inbox claims, idempotency recovery, contract validation, snapshot integrity, execution budgets and Forge/provider validation paths.
+The architecture-control plane is now guarded against duplicate JSON object keys, stale current-step projections and multiple active steps.
+
+## Verified-slice interpretation
+
+A VERIFIED step means its declared acceptance checks and recorded evidence passed. It does **not** mean that the entire capability is production-complete.
+
+The current codebase still contains intentional first-slice implementations such as in-memory stores, an in-memory model provider, a simulated HTTP provider adapter, and boundary-level tool policy logic. Those are now explicitly tracked rather than being treated as completed production behavior.
 
 ## Current implementation scope
 
-The sole authorized next implementation slice is `provider-plane-vertical-slice-1`.
+The sole authorized next implementation slice is `runtime-integration-vertical-slice-1`.
 
 Its scope is:
 
-- canonical Rust provider plane;
-- model catalog and capability discovery;
-- credential isolation;
-- quota/health/retry/fallback boundaries;
-- provider transport verification.
+- connect AgentEngine to the ModelProvider boundary for a deterministic Run cycle;
+- make provider transport real and testable instead of simulated;
+- validate capability grants against actual issued scope and expiry;
+- persist context/memory and preserve Run recovery across restart;
+- verify end-to-end recovery, observability, provenance and failure normalization.
 
 No later product slice should be pre-implemented.
+
+## Open runtime integration gaps
+
+The detailed machine-readable gap register is `reference/manifests/runtime-integration-gaps.json`. It records the concrete code evidence and the contract obligations that remain before these boundaries can be treated as production-complete.
 
 ## Verification truth
 
 Do not claim a check passed unless the command/result is recorded in the operation journal or CI evidence.
 
-Final post-merge CI run #377 on `4137c908...` passed:
-- TypeScript continuity verification;
-- project-state consistency;
-- architecture, types and tests;
-- implementation-state validation;
-- dependency audit;
-- dependency tree check;
-- Rust fmt;
-- Rust workspace compilation;
-- Rust workspace tests;
-- Rust clippy;
-- architecture workspace shape.
+The pre-reconciliation main baseline `bc9b213...` includes the Step 9 implementation commits. This reconciliation is not yet considered VERIFIED until its pull-request CI passes.
 
 ## Next authorized progression
 
-1. Keep the verified `main` baseline intact.
-2. Implement exactly `provider-plane-vertical-slice-1` using the registered reference corpus and canonical Rust contracts.
-3. Record verification evidence and unlock only its single successor after all required gates pass.
+1. Implement exactly `runtime-integration-vertical-slice-1`.
+2. Use the reference corpus and exact pinned evidence for the affected capabilities.
+3. Verify the slice completely before changing `current_step` or unlocking another step.
 
 ## Anti-regression rule
 
@@ -76,10 +80,10 @@ The next AI must continue from this file and the append-only journal, not from m
 
 ## Current rollback point
 
-- Safe rollback to the final verified merge baseline: `4137c90828d1a57e77048a7161024b3c66099495`.
-- No project files or historical records were deleted by the reconciliation.
-- Older branches and PRs remain available as historical development records.
+- Safe rollback to the pre-reconciliation main baseline: `bc9b21324b072cc5df068a47d7bf1571399f6304`.
+- No source code or historical journal entries are deleted by this reconciliation.
+- The malformed duplicate-key state is corrected in the new commit rather than rewriting prior commits.
 
 ## Historical evidence
 
-Detailed historical verification records remain in `reference/journal/agent-operations.jsonl` and the existing architecture audit documents. They are evidence, not competing current state.
+Detailed historical verification records remain in `reference/journal/agent-operations.jsonl` and the existing architecture audit documents. Historical records remain evidence, not competing current state.

@@ -680,35 +680,57 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     );
   }
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
+  async claim(
+    record: IdempotencyRecord,
+    staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+    nowMs = this.clock.nowMs(),
+  ): Promise<IdempotencyRecord | undefined> {
+    if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+      throw new AgentiCOSError("Idempotency staleAfterMs must be a positive integer.", {
+        code: "IDEMPOTENCY_STALE_WINDOW_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isFinite(nowMs) || nowMs < 0) {
+      throw new AgentiCOSError("Idempotency claim clock is invalid.", {
+        code: "IDEMPOTENCY_CLAIM_CLOCK_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
     return this.database.transactionImmediate(() => {
       const existing = this.database.db
         .prepare("SELECT * FROM idempotency WHERE key = ?")
         .get(record.key) as IdempotencyRow | undefined;
 
       if (existing) {
-        if (existing.fingerprint !== record.fingerprint) {
+        if (existing.fingerprint !== record.fingerprint || existing.operation !== record.operation) {
           throw new AgentiCOSError("Idempotency key reused with a different operation.", {
             code: "IDEMPOTENCY_KEY_CONFLICT",
             category: "VALIDATION",
           });
         }
+
+        const updatedAt = Date.parse(existing.updated_at);
+        if (existing.status === "in-progress" && Number.isFinite(updatedAt) && nowMs - updatedAt >= staleAfterMs) {
+          const nowIso = new Date(nowMs).toISOString();
+          const changed = this.database.db
+            .prepare("UPDATE idempotency SET status='in-progress', result_json=NULL, updated_at=? WHERE key=? AND status='in-progress' AND updated_at=?")
+            .run(nowIso, record.key, existing.updated_at);
+
+          return changed.changes === 1
+            ? undefined
+            : this.toIdempotency(
+                this.database.db.prepare("SELECT * FROM idempotency WHERE key = ?").get(record.key) as IdempotencyRow | undefined,
+              );
+        }
+
         return this.toIdempotency(existing);
       }
 
-      this.database.db.prepare(`
-        INSERT INTO idempotency(
-          key, operation, fingerprint, status, result_json, created_at, updated_at
-        )
-        VALUES(?, ?, ?, ?, NULL, ?, ?)
-      `).run(
-        record.key,
-        record.operation,
-        record.fingerprint,
-        record.status,
-        record.createdAt,
-        record.updatedAt,
-      );
+      this.database.db
+        .prepare("INSERT INTO idempotency(key, operation, fingerprint, status, result_json, created_at, updated_at) VALUES(?, ?, ?, ?, NULL, ?, ?)")
+        .run(record.key, record.operation, record.fingerprint, record.status, record.createdAt, record.updatedAt);
 
       return undefined;
     });

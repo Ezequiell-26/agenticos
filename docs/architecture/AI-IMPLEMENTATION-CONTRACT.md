@@ -137,3 +137,32 @@ Before declaring the corresponding architecture capability complete, the agent c
 
 The checklist describes architecture obligations, not permission to copy upstream source.
 
+## Mandatory MIT reference resolver
+
+Before any non-trivial architectural or functional change, the implementation agent MUST consult:
+
+- `reference/manifests/mit-repositories.json`;
+- `reference/manifests/capability-parity.json`;
+- `reference/manifests/reference-discovery.json`;
+- `docs/architecture/REFERENCE-RESOLUTION-PROTOCOL.md`.
+
+Repository selection order is fixed:
+
+`user-named repo → exact catalog repo → parity references → GitHub capability search`.
+
+The selected repository MUST be inspected as a repository, not inferred from memory or a README excerpt. The agent must collect documentation, source structure, relevant implementation files, tests, fixtures, build metadata, CI, security material, license/path notices, dependencies and relevant history.
+
+No-invention rule: when the repository evidence does not establish a requested behavior, the agent must not fabricate the missing behavior as though it came from that repository. It must either use another verified reference or introduce a documented AgentiCOS design decision.
+
+Before any source integration, the exact commit is pinned and the Source Forge license/dependency/provenance/security gates pass.
+
+The static MIT catalog is a seed corpus, not a claim to enumerate every MIT repository on GitHub. The resolver is intentionally dynamic so future relevant MIT repositories can be found without changing the architecture contract.
+
+### Reference selection record
+
+Every implementation step that uses repository evidence records:
+
+`capability → repository → resolved ref/commit → license evidence → relevant paths → extracted evidence → applicability → exclusions`.
+
+A step cannot become VERIFIED without this record.
+

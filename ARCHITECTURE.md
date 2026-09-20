@@ -215,3 +215,14 @@ The architectural baseline includes explicit seams for auxiliary models, persist
 See [ARCHITECTURE-COMPLETENESS.md](./docs/architecture/ARCHITECTURE-COMPLETENESS.md) and [architecture-completeness.json](./reference/manifests/architecture-completeness.json).
 
 The contract registry and readiness gate now require these seams to be represented before the architecture foundation can be marked verified.
+
+
+## AI-driven product execution boundary
+
+AgentiCOS is intentionally built with AI coding agents, including Devin, but AI execution is constrained by repository state rather than model memory.
+
+The machine-readable implementation manifest is authoritative for progression. `reference/PROJECT-STATE.md` is the human-readable projection. `reference/journal/agent-operations.jsonl` is the append-only history.
+
+An AI agent must read the current state before changing code, work only inside the current step scope, resolve reference evidence before non-trivial implementation, preserve existing code/data/history by default, record exact verification evidence, and leave exactly one next authorized step.
+
+Contradictory project state is a blocking operational failure. The model must not guess which source is correct.

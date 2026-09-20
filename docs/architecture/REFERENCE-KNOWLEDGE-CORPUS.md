@@ -239,3 +239,37 @@ References are not frozen forever.
 Source Forge should periodically inspect configured upstreams, detect new commits/releases, re-audit licenses/dependencies, regenerate capability/evidence records and flag changes that could materially affect architecture.
 
 A moving upstream must never silently change an AgentiCOS implementation. Updates become candidate references and pass architecture, provenance and verification gates first.
+
+## Expanded MIT corpus domains
+
+The machine-readable source catalog is maintained at `reference/manifests/mit-repositories.json`. These references were selected to close concrete architecture gaps in AgentiCOS.
+
+| Repository | Capability evidence to learn |
+|---|---|
+| tokio-rs/tokio | canonical async runtime, task lifecycle, cancellation and shutdown |
+| tokio-rs/axum | API routing, streaming and middleware boundaries |
+| rusqlite/rusqlite | SQLite transactions, connections and persistence correctness |
+| ratatui/ratatui | Rust TUI state/rendering/input architecture |
+| tokio-rs/tokio-metrics | runtime/task instrumentation and production metrics |
+| nix-rust/nix | safe OS process/signal/file-descriptor primitives for execution and sandbox layers |
+| slawlor/ractor | actor supervision, lifecycle and message-driven concurrency |
+| denoland/deno | permission-gated runtime execution and resource isolation concepts |
+| pydantic/pydantic-ai | typed agent/tool contracts, graph execution and structured outputs |
+| pydantic/pydantic | schema validation and typed configuration boundaries |
+| SWE-agent/SWE-agent | software-engineering agent loops, agent-computer interface and evaluation |
+| run-llama/llama_index | document ingestion, retrieval and knowledge/context pipelines |
+| BerriAI/litellm | model/provider normalization, gateway behavior and routing; exclude enterprise path |
+| tiangolo/fastapi | typed API contracts, OpenAPI and streaming/webhook surfaces |
+| asg017/sqlite-vec | vector-memory and semantic-search patterns on SQLite |
+| microsoft/semantic-kernel | plugin contracts, orchestration, processes and memory |
+| crewAIInc/crewAI | multi-agent delegation, event-driven workflows and tracing |
+| browser-use/browser-harness | browser/computer-use harnesses, CDP, MCP exposure and self-healing |
+| browser-use/browser-harness-js | typed CDP control and browser protocol generation |
+| dotnet/orleans | virtual actors, durable state, reminders and distributed execution |
+
+## Reference acquisition rule
+
+When a feature request maps to one of these domains, the implementation agent must consult the corresponding pinned repository reference before designing a new subsystem. The agent must inspect the relevant documentation, source modules, tests/fixtures, build and CI configuration, security material and license/dependency boundaries.
+
+No reference is copied wholesale. AgentiCOS contracts remain authoritative, and every source-level integration must pass the existing provenance and MIT-only admission gates.
+

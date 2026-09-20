@@ -31,7 +31,8 @@ Before broad implementation, the repository freezes the complete product archite
 - durable sessions, persistence, replay and recovery;
 - capability-based security and explicit approvals;
 - plugin, protocol and engine-adapter architecture;
-- Source Forge plus a mandatory Reference Knowledge Corpus for evidence-driven implementation.
+- Source Forge plus a mandatory Reference Knowledge Corpus for evidence-driven implementation;
+- Rust-native token/context optimization with lossless tool-output compaction, deduplication, compact structured encoding, delta sync, budgeting, recovery and measurable caching.
 
 ## Reference architecture
 
@@ -41,11 +42,15 @@ The design studies current public architectures from:
 - DeepSeek Harness;
 - OpenAI Codex;
 - FreeLLMAPI;
-- Google Antigravity.
+- Google Antigravity;
+- OmniRoute;
+- Rust token-optimization references: trimcp, sqz, gcf-rust, Ogham and RTK.
 
 These are architectural and implementation references. AgentiCOS defines its own contracts and security boundaries instead of treating any one project as the product core.
 
 [Reference Knowledge Corpus →](./docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md)
+
+[Token Optimization Architecture →](./docs/architecture/TOKEN-OPTIMIZATION-ARCHITECTURE.md)
 
 ## Source Forge
 
@@ -67,6 +72,12 @@ Then read [docs/architecture/README.md](./docs/architecture/README.md).
 - DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
 - OpenAI Codex: https://github.com/openai/codex
 - FreeLLMAPI: https://github.com/tashfeenahmed/freellmapi
+- OmniRoute: https://github.com/diegosouzapw/OmniRoute
+- trimcp: https://github.com/rustkit-ai/trimcp
+- sqz: https://github.com/ojuschugh1/sqz
+- gcf-rust: https://github.com/blackwell-systems/gcf-rust
+- Ogham: https://github.com/signalbreak-labs/ogham
+- RTK: https://github.com/rtk-ai/rtk
 - Google Antigravity: https://antigravity.google/docs/ide/overview
 
 ---

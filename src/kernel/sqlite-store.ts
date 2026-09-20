@@ -634,9 +634,10 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         event.type,
         event.version,
         event.aggregateId,
-        event.aggregateId,
+        event.runId,
         event.payload,
         now,
+        event,
       ),
     );
   }
@@ -902,20 +903,23 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     type: string,
     version: number,
     aggregateId: string,
-    runId: string,
+    runId: string | undefined,
     payload: T,
     createdAt: string,
+    metadata?: Omit<DurableEvent<T>, "eventId" | "createdAt" | "payload">,
   ): DurableEvent<T> {
     const eventId = randomUUID();
 
-    const context = this.database.db
-      .prepare("SELECT workspace_id, project_id, thread_id, actor_id FROM runs WHERE id = ?")
-      .get(runId) as {
-        workspace_id: string;
-        project_id: string | null;
-        thread_id: string | null;
-        actor_id: string | null;
-      } | undefined;
+    const context = runId === undefined
+      ? undefined
+      : this.database.db
+          .prepare("SELECT workspace_id, project_id, thread_id, actor_id FROM runs WHERE id = ?")
+          .get(runId) as {
+            workspace_id: string;
+            project_id: string | null;
+            thread_id: string | null;
+            actor_id: string | null;
+          } | undefined;
 
     this.database.db.prepare(`
       INSERT INTO events(
@@ -929,12 +933,12 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       type,
       version,
       aggregateId,
-      runId,
-      context?.workspace_id ?? null,
-      context?.project_id ?? null,
-      context?.thread_id ?? null,
-      context?.actor_id ?? null,
-      runId,
+      runId ?? null,
+      metadata?.workspaceId ?? context?.workspace_id ?? null,
+      metadata?.projectId ?? context?.project_id ?? null,
+      metadata?.threadId ?? context?.thread_id ?? null,
+      metadata?.actorId ?? context?.actor_id ?? null,
+      metadata?.correlationId ?? runId ?? null,
       createdAt,
       JSON.stringify(payload),
     );
@@ -950,12 +954,14 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       aggregateId,
       createdAt,
       ...(runId ? { runId } : {}),
-      ...(context?.workspace_id ? { workspaceId: context.workspace_id } : {}),
-      ...(context?.project_id ? { projectId: context.project_id } : {}),
-      ...(context?.thread_id ? { threadId: context.thread_id } : {}),
-      ...(context?.actor_id ? { actorId: context.actor_id } : {}),
-      correlationId: runId,
-      durable: true,
+      ...(metadata?.workspaceId ?? context?.workspace_id ? { workspaceId: metadata?.workspaceId ?? context?.workspace_id } : {}),
+      ...(metadata?.projectId ?? context?.project_id ? { projectId: metadata?.projectId ?? context?.project_id } : {}),
+      ...(metadata?.threadId ?? context?.thread_id ? { threadId: metadata?.threadId ?? context?.thread_id } : {}),
+      ...(metadata?.actorId ?? context?.actor_id ? { actorId: metadata?.actorId ?? context?.actor_id } : {}),
+      ...(metadata?.parentEventId ? { parentEventId: metadata.parentEventId } : {}),
+      ...(metadata?.correlationId ?? runId ? { correlationId: metadata?.correlationId ?? runId } : {}),
+      ...(metadata?.causationId ? { causationId: metadata.causationId } : {}),
+      durable: metadata?.durable ?? true,
       attempts: 0,
       nextAttemptAt: createdAt,
       payload,

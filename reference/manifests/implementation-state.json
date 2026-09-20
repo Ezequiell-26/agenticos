@@ -2,12 +2,12 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "architecture-foundation",
+  "current_step": "rust-kernel-vertical-slice-1",
   "steps": [
     {
       "id": "architecture-foundation",
       "number": 0,
-      "status": "in_progress",
+      "status": "verified",
       "scope": [
         "root Cargo workspace",
         "Rust crate boundaries",
@@ -57,7 +57,63 @@
         "agent continuity verifier",
         "operation journal integrity"
       ],
-      "verification_evidence": [],
+      "verification_evidence": [
+        {
+          "kind": "github-actions",
+          "run_id": 35539582335,
+          "run_number": 354,
+          "commit": "34d3299cdc865e8c2aa8d6662b841ae9b93e7b14",
+          "result": "success"
+        },
+        {
+          "kind": "command",
+          "command": "npm run verify",
+          "result": "success",
+          "evidence": "CI verify-typescript run 106154722083"
+        },
+        {
+          "kind": "command",
+          "command": "npm audit --audit-level=high",
+          "result": "success",
+          "evidence": "CI verify-typescript run 106154722083"
+        },
+        {
+          "kind": "command",
+          "command": "npm ls --depth=0",
+          "result": "success",
+          "evidence": "CI verify-typescript run 106154722083"
+        },
+        {
+          "kind": "command",
+          "command": "cargo fmt --all -- --check",
+          "result": "success",
+          "evidence": "CI verify-rust run 106154721974"
+        },
+        {
+          "kind": "command",
+          "command": "cargo check --workspace --all-targets",
+          "result": "success",
+          "evidence": "CI verify-rust run 106154721974"
+        },
+        {
+          "kind": "command",
+          "command": "cargo test --workspace --all-targets",
+          "result": "success",
+          "evidence": "CI verify-rust run 106154721974"
+        },
+        {
+          "kind": "command",
+          "command": "cargo clippy --workspace --all-targets -- -D warnings",
+          "result": "success",
+          "evidence": "CI verify-rust run 106154721974"
+        },
+        {
+          "kind": "gate",
+          "gate": "continuity/reference/cross-reference/architecture readiness",
+          "result": "success",
+          "evidence": "npm run verify + implementation-state validation"
+        }
+      ],
       "unlocks": [
         "rust-kernel-vertical-slice-1"
       ]
@@ -65,7 +121,7 @@
     {
       "id": "rust-kernel-vertical-slice-1",
       "number": 1,
-      "status": "locked",
+      "status": "pending",
       "scope": [
         "durable Run lifecycle",
         "event store contract",
@@ -108,5 +164,19 @@
     "reference_lookup_required_for_nontrivial_features": true,
     "mit_only_canonical_third_party_source": true,
     "verification_evidence_required_for_verified_status": true
-  }
+  },
+  "transition_history": [
+    {
+      "from": "architecture-foundation",
+      "to": "verified",
+      "reason": "All foundation verification gates passed in GitHub Actions run 354.",
+      "run_id": 35539582335
+    },
+    {
+      "from": "rust-kernel-vertical-slice-1:locked",
+      "to": "rust-kernel-vertical-slice-1:pending",
+      "reason": "Predecessor architecture-foundation verified.",
+      "run_id": 35539582335
+    }
+  ]
 }

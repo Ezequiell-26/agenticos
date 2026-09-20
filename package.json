@@ -4,12 +4,14 @@
   "private": true,
   "description": "Universal, durable, model-agnostic AI agent runtime.",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "check": "npm run typecheck && npm run architecture:check",
     "typecheck": "tsc --noEmit",
     "architecture:check": "tsx src/architecture-cli.ts",
-    "test": "node --import tsx --test test/architecture.test.ts",
+    "test": "node --import tsx --test \"test/*.test.ts\"",
     "verify": "npm run check && npm run test",
     "dev": "tsx src/cli.ts",
     "providers": "tsx src/cli.ts providers",

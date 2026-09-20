@@ -11,6 +11,8 @@ import {
   assertSnapshotIntegrity,
   InMemoryWorkspace,
   loadContractRegistry,
+  BudgetGuard,
+  BoundedRepairController,
 } from "../src/architecture/index.js";
 
 test("run state machine rejects illegal terminal transitions", () => {
@@ -102,4 +104,31 @@ test("contract registry loads and validates", async () => {
   const registry = await loadContractRegistry();
   assert.equal(registry.schemaVersion, 1);
   assert.ok(registry.contracts.length >= 1);
+});
+
+test("execution budget fails closed when limits are exceeded", () => {
+  const budget = new BudgetGuard({
+    maxDurationMs: 1_000,
+    maxSteps: 2,
+    maxChildAgents: 1,
+    maxToolCalls: 3,
+    maxTokens: 100,
+    maxCost: 1,
+  }, 1_000);
+
+  budget.consume({ steps: 2, toolCalls: 3, tokens: 100, cost: 1 }, 1_100);
+  assert.throws(() => budget.consume({ steps: 1 }, 1_100));
+});
+
+test("repair controller bounds repair attempts", () => {
+  const repair = new BoundedRepairController({
+    maxAttempts: 1,
+    maxDurationMs: 1_000,
+    maxFilesChanged: 10,
+    maxLinesChanged: 100,
+    maxCost: 1,
+  }, 1_000);
+
+  repair.nextAttempt(2, 10, 0.1, 1_100);
+  assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
 });

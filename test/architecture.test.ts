@@ -418,7 +418,6 @@ test("sqlite kernel persists runs across reopen and atomically records lifecycle
   assert.equal(persisted.version >= 4, true);
   assert.ok(reopened.store.listEvents(run.id).some((event) => event.type === "run.completed"));
 
-  const dispatcher = new DurableOutboxDispatcher(reopened.store);
   let published = 0;
   const secondDatabase = new SqliteDatabase(dbPath);
   const secondDispatcher = new DurableOutboxDispatcher(secondDatabase, {

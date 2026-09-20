@@ -2,21 +2,24 @@
 
 ## Storage strategy
 
-Canonical durable state lives in a transactional database.
-
-Large binary artifacts use an artifact store.
-
-Caches are disposable and never canonical.
+Canonical durable runtime state is stored in transactional SQLite through the AgentiCOS-owned kernel contracts. Large binary artifacts use a separate artifact store. Caches are disposable and never canonical.
 
 ```text
-Canonical DB
+Transactional SQLite
+├── runs
+├── steps
+├── events
+├── outbox
+├── inbox
+├── idempotency
+├── leases
+└── checkpoints
+
+Future/optional domain persistence
 ├── identities
 ├── profiles
-├── providers
 ├── projects
 ├── threads
-├── runs
-├── events
 ├── memory
 ├── skills
 ├── workflows
@@ -30,50 +33,51 @@ Artifact Store
 
 ## Event sourcing boundary
 
-The runtime records append-oriented durable events for actions that must survive restarts. Materialized projections provide efficient queries for UI and search.
+The runtime records append-oriented durable events for actions that must survive restarts. Materialized projections remain separate from canonical state.
 
-The event log is not a substitute for every relational query. The architecture intentionally separates canonical events from projections.
+Run mutations and their corresponding durable events/outbox records are committed in one SQLite transaction.
+
+## Concurrency
+
+Worker claims use BEGIN IMMEDIATE transactions. Run versions are checked optimistically. Leases carry monotonically increasing fencing tokens so an expired worker cannot continue as the current owner.
 
 ## Checkpointing
 
-Long tasks may create checkpoints:
-- before destructive file changes;
-- after successful build/test;
-- before deployment;
-- before context compaction;
-- before expensive subagent fan-out.
+Long tasks can create integrity-checked workspace checkpoints before destructive changes, expensive fan-out, compaction or promotion.
 
-Checkpoints support recovery and rollback.
+Checkpoint data is scoped to the owning run and workspace.
 
 ## Idempotency
 
-Every external side effect that can be retried should have an idempotency strategy.
+Retryable external side effects should carry idempotency keys. Durable keys store an operation fingerprint and status, preventing concurrent duplicate execution and rejecting key reuse for different inputs.
 
-Examples:
-- deployment ID;
-- tool invocation ID;
-- provider request ID where supported;
-- artifact checksum;
-- workflow action ID.
+## Outbox / Inbox
+
+The outbox provides at-least-once publication. An event remains pending until successful publication is acknowledged in storage. Consumers claim events transactionally and record completion, so duplicate deliveries do not execute the same consumer work concurrently.
 
 ## Failure model
 
 ```text
-provider failure → router fallback
-tool failure     → tool retry/repair policy
-child failure    → typed child result
-UI disconnect    → run continues
-process restart   → recover from durable state
-storage failure  → fail closed / retry transaction
+provider failure  → router fallback
+tool failure      → retry/repair policy
+child failure     → typed child result
+UI disconnect     → run continues
+worker crash      → lease expires
+process restart   → recovery scan
+cancelling crash  → active steps cancelled + run cancelled
+storage failure   → transaction rollback / fail closed
 ```
+
+## Budget enforcement
+
+Durable Runs persist execution budgets and usage. Usage updates are rejected when duration, steps, child-agent count, tool calls, tokens or cost exceed the configured limits.
 
 ## Replay
 
-The system must support replaying a run against recorded inputs and mock providers/tools for regression testing.
+The durable event timeline can be read per Run. Replay remains restricted to recorded logical inputs, mocked providers/tools and non-destructive execution.
 
-Replay must never accidentally invoke production credentials or destructive tools.
+## Migration and backup
 
-## Backup and migration
+The database has an explicit schema version and a migration boundary. Production backup/restore operations must include the SQLite database plus the artifact metadata required to reconstruct durable state.
 
-Persisted schemas use explicit version numbers and forward migrations.
-Backups must include database, artifact index and configuration metadata required for recovery.
+The current kernel intentionally keeps storage behind AgentiCOS-owned contracts so a future PostgreSQL backend can replace SQLite without changing Run/Step semantics.

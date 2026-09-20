@@ -11,7 +11,7 @@ Read, in order:
 4. `docs/architecture/AGENT-CONTINUITY-PROTOCOL.md`
 5. the current step acceptance contract and relevant reference evidence.
 
-If these sources contradict each other, stop. Do not guess.
+If these sources contradict each other, stop. Do not guess. Run the repository consistency verifier before making a state-changing implementation decision.
 
 ## One-step rule
 
@@ -32,6 +32,8 @@ Do not claim behavior, API compatibility, licensing or provenance that repositor
 
 Never mark VERIFIED merely because code exists.
 A step becomes VERIFIED only after every required check in its manifest has recorded evidence. Unavailable checks remain UNVERIFIED or BLOCKED.
+A VERIFIED vertical slice means its declared acceptance contract was verified; it does not imply production completeness of every future capability behind that boundary.
+
 
 ## Required operation report
 

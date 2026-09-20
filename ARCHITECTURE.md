@@ -199,3 +199,12 @@ The kernel depends on storage ports, not a database driver. SQLite is a local ad
 Before broad implementation, every major capability must have an owner, contract, state model, security boundary, persistence semantics and verification strategy.
 
 The architecture is implementation-ready when those constraints are explicit and the next vertical slice has a clear entry/exit contract.
+
+## Universal capability platform
+
+The canonical runtime is extensible without modifying the AgentEngine loop. APIs, model providers, tools, toolsets, MCP servers, browser backends, plugins, skills, memory providers, workflows, channels, webhooks, schedules and external engines are modeled as versioned capabilities behind registries and protocols.
+
+See [docs/architecture/UNIVERSAL-CAPABILITY-PLATFORM.md](./docs/architecture/UNIVERSAL-CAPABILITY-PLATFORM.md) and [reference/manifests/capability-parity.json](./reference/manifests/capability-parity.json).
+
+The capability architecture explicitly covers the reusable platform patterns currently documented by Hermes Agent and DeepSeek Harness: pluggable extensions, progressive skills, memory providers, event-sourced sessions, guarded tool registries, scoped registration, messaging gateways, scheduling, webhooks, management APIs and IDE/ACP boundaries. These remain reference inputs; AgentiCOS contracts, security and sequencing rules remain authoritative. citeturn254296search0turn254296search3turn254296search5turn178395search0turn178395search2
+

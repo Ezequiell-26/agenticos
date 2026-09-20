@@ -9,10 +9,11 @@
 - Current implementation step: `provider-plane-vertical-slice-1`
 - Current step status: `pending`
 - Architecture foundation: VERIFIED on GitHub Actions run #354.
-- Rust durable kernel Step 1: VERIFIED on `main`.
-- Rust durable kernel Step 2: VERIFIED by recorded Rust workspace gates.
-- Architecture hardening: VERIFIED with full TypeScript/continuity and Rust evidence from CI run #371 on the reconciled hardening branch.
-- AgentEngine vertical slice: VERIFIED on current `main` commit `c23a789379bc07923440334239d9e3a982c1b9b9` according to its recorded verification evidence.
+- Rust durable kernel Step 1: VERIFIED.
+- Rust durable kernel Step 2: VERIFIED.
+- Architecture hardening: VERIFIED with complete TypeScript/continuity and Rust evidence; final main post-merge CI run #377 passed.
+- AgentEngine vertical slice: VERIFIED; final main post-merge CI run #377 passed.
+- Final reconciled main merge commit: `4137c90828d1a57e77048a7161024b3c66099495`.
 - Canonical runtime: Rust/Tokio.
 - TypeScript: transitional prototype/product surface boundary; it is not the canonical runtime.
 - Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
@@ -44,23 +45,24 @@ No later product slice should be pre-implemented.
 
 Do not claim a check passed unless the command/result is recorded in the operation journal or CI evidence.
 
-Architecture hardening is supported by CI run #371:
-- `npm run continuity:verify`
-- `npm run state:verify`
-- `npm run check`
-- `npm run test`
-- `cargo fmt --all -- --check`
-- `cargo check --workspace --all-targets`
-- `cargo test --workspace --all-targets`
-- `cargo clippy --workspace --all-targets -- -D warnings`
-
-AgentEngine is recorded as VERIFIED by its current-main implementation evidence. A fresh full CI run is required after this reconciliation before the reconciliation itself is merged.
+Final post-merge CI run #377 on `4137c908...` passed:
+- TypeScript continuity verification;
+- project-state consistency;
+- architecture, types and tests;
+- implementation-state validation;
+- dependency audit;
+- dependency tree check;
+- Rust fmt;
+- Rust workspace compilation;
+- Rust workspace tests;
+- Rust clippy;
+- architecture workspace shape.
 
 ## Next authorized progression
 
-1. Pass the full CI gate on this final reconciliation branch.
-2. Merge the reconciled branch into `main` without overwriting the current AgentEngine implementation.
-3. Keep exactly one next implementation step unlocked: `provider-plane-vertical-slice-1`.
+1. Keep the verified `main` baseline intact.
+2. Implement exactly `provider-plane-vertical-slice-1` using the registered reference corpus and canonical Rust contracts.
+3. Record verification evidence and unlock only its single successor after all required gates pass.
 
 ## Anti-regression rule
 
@@ -74,9 +76,9 @@ The next AI must continue from this file and the append-only journal, not from m
 
 ## Current rollback point
 
-- Safe rollback to current main baseline before reconciliation: `c23a789379bc07923440334239d9e3a982c1b9b9`.
-- Previous verified architectural baseline remains `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
-- No project files or historical records are deleted by this reconciliation.
+- Safe rollback to the final verified merge baseline: `4137c90828d1a57e77048a7161024b3c66099495`.
+- No project files or historical records were deleted by the reconciliation.
+- Older branches and PRs remain available as historical development records.
 
 ## Historical evidence
 

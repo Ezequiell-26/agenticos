@@ -5,7 +5,7 @@
   "capabilities": [
     [
       "auxiliary-model-plane",
-      "auxiliary-model",
+      "auxiliary-model-plane",
       "auxiliary inference, vision, summarization, classification, embeddings, reranking"
     ],
     [

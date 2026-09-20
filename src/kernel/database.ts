@@ -2,8 +2,9 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { AgentiCOSError } from "../architecture/errors.js";
+import { applyKernelMigrations } from "./migrations.js";
 
-const SCHEMA_VERSION = 2;
+const LATEST_SCHEMA_VERSION = 4;
 
 export class SqliteDatabase {
   readonly db: Database.Database;
@@ -33,6 +34,50 @@ export class SqliteDatabase {
 
   close(): void {
     if (this.db.open) this.db.close();
+  }
+
+  integrity(): {
+    ok: boolean;
+    integrityCheck: string;
+    foreignKeyViolations: number;
+    schemaVersion: number;
+  } {
+    const integrityRow = this.db
+      .prepare("PRAGMA integrity_check")
+      .get() as { integrity_check: string };
+    const foreignKeys = this.db.prepare("PRAGMA foreign_key_check").all();
+    const schema = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key='schema_version'")
+      .get() as { value: string } | undefined;
+    const schemaVersion = schema ? Number(schema.value) : 0;
+
+    return {
+      ok:
+        integrityRow.integrity_check === "ok" &&
+        foreignKeys.length === 0 &&
+        schemaVersion === LATEST_SCHEMA_VERSION,
+      integrityCheck: integrityRow.integrity_check,
+      foreignKeyViolations: foreignKeys.length,
+      schemaVersion,
+    };
+  }
+
+  assertIntegrity(): void {
+    const report = this.integrity();
+    if (report.ok) return;
+    throw new AgentiCOSError(
+      "SQLite integrity check failed: " +
+        report.integrityCheck +
+        "; foreignKeyViolations=" +
+        report.foreignKeyViolations +
+        "; schemaVersion=" +
+        report.schemaVersion,
+      {
+        code: "DATABASE_INTEGRITY_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
   }
 
   assertHealthy(): void {
@@ -72,7 +117,7 @@ export class SqliteDatabase {
 
       let version = row ? Number(row.value) : 0;
 
-      if (!Number.isInteger(version) || version < 0 || version > SCHEMA_VERSION) {
+      if (!Number.isInteger(version) || version < 0 || version > LATEST_SCHEMA_VERSION) {
         throw new AgentiCOSError("Unsupported database schema version.", {
           code: "DATABASE_SCHEMA_UNSUPPORTED",
           category: "PERSISTENCE",
@@ -85,11 +130,22 @@ export class SqliteDatabase {
         version = 1;
       }
 
-      while (version < SCHEMA_VERSION) {
-        const nextVersion = version + 1;
-        this.applyMigration(nextVersion);
-        this.setSchemaVersion(nextVersion);
-        version = nextVersion;
+      if (version < 2) {
+        this.applyMigration(2);
+        this.setSchemaVersion(2);
+        version = 2;
+      }
+
+      const migrationVersion = applyKernelMigrations(this.db);
+      if (migrationVersion !== LATEST_SCHEMA_VERSION) {
+        throw new AgentiCOSError(
+          "Kernel migration set did not reach the latest schema version.",
+          {
+            code: "DATABASE_MIGRATION_INCOMPLETE",
+            category: "PERSISTENCE",
+            severity: "critical",
+          },
+        );
       }
     });
   }

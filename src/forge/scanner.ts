@@ -124,7 +124,10 @@ async function detectLicense(
     return "mixed";
   }
 
-  if (manifestLicenses.some((license) => license === "MIT")) {
+  if (
+    manifestLicenses.length === 0 ||
+    manifestLicenses.every((license) => license === undefined || license === "MIT")
+  ) {
     return "verified-mit";
   }
 

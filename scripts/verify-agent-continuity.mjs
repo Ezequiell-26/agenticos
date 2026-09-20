@@ -18,7 +18,7 @@ function fail(message) {
 const continuity = await readJson("reference/manifests/agent-continuity.json");
 const state = JSON.parse(await readFile("reference/manifests/implementation-state.json", "utf8"));
 const operationsRaw = await readFile("reference/journal/agent-operations.jsonl", "utf8");
-const lines = operationsRaw.split(/\\r?\\n/).filter(Boolean);
+const lines = operationsRaw.split(/\r?\n/).filter(Boolean);
 
 if (continuity.schema_version !== 1) fail("unsupported continuity manifest schema");
 if (continuity.policies.read_state_before_action !== true) fail("state-read policy disabled");

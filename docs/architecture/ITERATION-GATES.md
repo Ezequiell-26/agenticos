@@ -1,87 +1,41 @@
 # AgentiCOS Iteration Gates
 
-These gates apply to every AI-assisted implementation iteration.
+These gates apply to every AI-assisted implementation iteration and are enforced progressively by CI and the Change Plane.
 
 ## Gate 0 — Understand
-
-The coding agent must read:
-- ARCHITECTURE.md;
-- relevant domain architecture;
-- feature manifest;
-- current tests;
-- recent changes.
-
-It must identify the exact slice being implemented.
+Read ARCHITECTURE.md, the relevant domain architecture, the feature manifest, current tests and recent changes. Identify exactly one slice.
 
 ## Gate 1 — Plan
-
-The proposed slice must state:
-- user-visible outcome;
-- contract(s);
-- dependency path;
-- persistence impact;
-- permissions;
-- acceptance tests.
+State the user-visible outcome, contracts, dependency path, persistence impact, permissions, acceptance tests and rollback/snapshot strategy when state or code changes.
 
 ## Gate 2 — Implement
-
-Changes must fit existing domain boundaries.
-
-No direct bypass of protocol, policy, provider, tool or persistence contracts.
+Stay inside existing domain boundaries. No direct bypass of protocol, policy, provider, tool or persistence contracts.
 
 ## Gate 3 — Validate
-
-At minimum:
-- typecheck/build;
-- unit/contract tests affected by the change;
-- application smoke test for the changed surface;
-- migration check when state changed.
+Run strict typecheck/build, affected unit/contract tests, application smoke tests, migration checks when applicable, and the architecture guard.
 
 ## Gate 4 — Integrate
-
-The new capability must be reachable through the intended product surface.
-
-A package that exists but cannot be exercised is not considered integrated.
+The capability must be reachable through its intended product surface. A package that cannot be exercised is not integrated.
 
 ## Gate 5 — Observe
-
-Confirm:
-- structured logs/events;
-- error classification;
-- cancellation;
-- timeout;
-- usage where relevant.
+Confirm structured events/logs, error classification, cancellation, timeouts and usage where relevant.
 
 ## Gate 6 — Security
-
-Confirm:
-- declared capabilities;
-- secret boundaries;
-- approval behavior;
-- sandbox behavior;
-- external input trust boundaries.
+Confirm declared capabilities, secret boundaries, approval behavior, sandbox behavior, external-input trust boundaries and third-party dependency/license impact.
 
 ## Gate 7 — Recover
-
-Test at least one applicable failure:
-- provider timeout;
-- provider quota/rate limit;
-- tool failure;
-- client disconnect;
-- process restart;
-- cancellation.
+Test at least one applicable failure: provider timeout, quota/rate limit, tool failure, client disconnect, process restart, cancellation, duplicate execution or stale lease.
 
 ## Gate 8 — Document
-
-Update:
-- feature manifest;
-- architecture if a boundary changed;
-- ADR when a design decision changed;
-- tests/fixtures;
-- provenance for third-party-derived code.
+Update the feature manifest, architecture docs when boundaries change, ADRs when decisions change, fixtures/tests and third-party provenance.
 
 ## Gate 9 — Stable checkpoint
+The repository must end the iteration in a state another AI agent can safely continue from. Half-migrated architecture is not an acceptable checkpoint unless explicitly recorded.
 
-The branch/repository must end the iteration in a state that another AI agent can safely continue from.
+## CI enforcement
 
-A half-migrated architectural state is not an acceptable checkpoint unless explicitly recorded as such.
+The main verification command performs strict typecheck, architecture validation and architecture regression tests. Dependency audit is also required. Failed gates are hard failures in the normal promotion path.
+
+## Change Plane enforcement
+
+AI-driven code changes use impact analysis, workspace snapshot, bounded repair, verification and then promotion or rollback.

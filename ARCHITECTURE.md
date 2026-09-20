@@ -208,3 +208,10 @@ See [docs/architecture/UNIVERSAL-CAPABILITY-PLATFORM.md](./docs/architecture/UNI
 
 The capability architecture explicitly covers the reusable platform patterns currently documented by Hermes Agent and DeepSeek Harness: pluggable extensions, progressive skills, memory providers, event-sourced sessions, guarded tool registries, scoped registration, messaging gateways, scheduling, webhooks, management APIs and IDE/ACP boundaries. These remain reference inputs; AgentiCOS contracts, security and sequencing rules remain authoritative. citeturn254296search0turn254296search3turn254296search5turn178395search0turn178395search2
 
+## Architecture completeness baseline
+
+The architectural baseline includes explicit seams for auxiliary models, persistent terminals, background jobs, filesystem change management, spill storage, multimodal attachments, code intelligence/LSP, goal/plan/task/TODO state, agent teams, complete MCP resources/prompts/transports, A2A task exchange, credential/account pools, profile/scope isolation, prompt stability, trajectories, watchdog/supervisor recovery, schema/config migrations, feature flags, package/update distribution, AI Change Plane and typed management APIs.
+
+See [ARCHITECTURE-COMPLETENESS.md](./docs/architecture/ARCHITECTURE-COMPLETENESS.md) and [architecture-completeness.json](./reference/manifests/architecture-completeness.json).
+
+The contract registry and readiness gate now require these seams to be represented before the architecture foundation can be marked verified.

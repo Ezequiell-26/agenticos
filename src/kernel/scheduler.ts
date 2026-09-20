@@ -1,4 +1,5 @@
 import { AgentiCOSError } from "../architecture/errors.js";
+import type { Clock } from "../architecture/runtime.js";
 import type { Lease } from "../architecture/concurrency.js";
 import type { RunRecord } from "./types.js";
 import type { KernelStore } from "./ports.js";
@@ -6,6 +7,7 @@ import type { KernelStore } from "./ports.js";
 export interface SchedulerOptions {
   readonly leaseTtlMs: number;
   readonly workerId: string;
+  readonly clock?: Clock;
 }
 
 export class DurableScheduler {
@@ -27,11 +29,11 @@ export class DurableScheduler {
     }
   }
 
-  recover(nowMs = Date.now()): readonly string[] {
+  recover(nowMs = this.options.clock?.nowMs() ?? Date.now()): readonly string[] {
     return this.store.recoverExpiredRuns(nowMs);
   }
 
-  claimNext(nowMs = Date.now()): RunRecord | undefined {
+  claimNext(nowMs = this.options.clock?.nowMs() ?? Date.now()): RunRecord | undefined {
     return this.store.claimNextRunnable(
       this.options.workerId,
       this.options.leaseTtlMs,
@@ -39,7 +41,7 @@ export class DurableScheduler {
     );
   }
 
-  heartbeat(runId: string, fencingToken: number, nowMs = Date.now()): Lease {
+  heartbeat(runId: string, fencingToken: number, nowMs = this.options.clock?.nowMs() ?? Date.now()): Lease {
     return this.store.renewRunLease(
       runId,
       this.options.workerId,

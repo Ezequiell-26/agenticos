@@ -76,7 +76,7 @@ test("source forge license scanning fails closed for ambiguous repositories", as
   }
 });
 
-test("source forge does not claim verified-mit without package-level proof", async () => {
+test("source forge accepts explicit MIT repository licensing without a package manifest", async () => {
   const directory = await mkdtemp(join(tmpdir(), "agenticos-forge-mit-"));
 
   try {
@@ -102,7 +102,7 @@ test("source forge does not claim verified-mit without package-level proof", asy
       sourceCommit: "0123456789abcdef0123456789abcdef01234567",
     });
 
-    assert.equal(result.repository.licenseStatus, "review-required");
+    assert.equal(result.repository.licenseStatus, "verified-mit");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

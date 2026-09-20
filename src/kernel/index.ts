@@ -4,4 +4,5 @@ export * from "./sqlite-store.js";
 export * from "./scheduler.js";
 export * from "./outbox-dispatcher.js";
 export * from "./kernel.js";
-\nexport * from "./ports.js";\nexport * from "./step-state.js";\n
+export * from "./ports.js";
+export * from "./step-state.js";

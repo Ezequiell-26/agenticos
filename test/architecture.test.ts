@@ -252,7 +252,11 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
   assert.deepEqual(recovered, [run.id]);
   assert.equal(kernelC.getRun(run.id).state, "waiting");
 
-  const claimAgain = kernelC.claimNext("worker-c", 60_000);
+  const schedulerC = kernelC.createScheduler({
+    workerId: "worker-c",
+    leaseTtlMs: 60_000,
+  });
+  const claimAgain = schedulerC.claimNext(Date.now() + 61_000);
   assert.equal(claimAgain?.id, run.id);
   assert.equal(claimAgain?.state, "running");
 

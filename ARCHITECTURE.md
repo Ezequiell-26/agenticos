@@ -68,3 +68,68 @@ Domain services include Providers, Router, Tools, Sandbox, Context, Memory, Skil
 ## Architecture-first rule
 
 Do not implement a major feature until it has a domain owner, public contract, state model, lifecycle, permission model, observability, failure/recovery semantics, compatibility/versioning strategy and tests.
+
+## Universal interoperability principle
+
+"Any AI" is defined as "any model/service that can be represented by an existing protocol adapter or a new adapter/plugin", not as a hard-coded list of vendors.
+
+The Provider layer therefore separates:
+- model;
+- provider;
+- account/credential;
+- endpoint;
+- proxy/gateway hop;
+- protocol;
+- capabilities.
+
+A route may traverse multiple proxy/gateway hops before reaching the model service. Protocols are registered independently from providers.
+
+Initial protocol families:
+- OpenAI Chat Completions;
+- OpenAI Responses;
+- Anthropic Messages;
+- Google Gemini;
+- generic HTTP/JSON mapping;
+- local inference APIs;
+- MCP;
+- A2A;
+- AgentiCOS Application/Engine/Plugin protocols.
+
+The Model layer is multimodal and task-oriented. Generation, reasoning, embeddings, reranking, image, audio, video, realtime and computer interaction are separate capability contracts.
+
+## Agent interoperability principle
+
+MCP is the vertical capability plane for tools/context/integrations. A2A is the horizontal collaboration plane for independent agents. AgentiCOS supports both without giving either protocol privileged access to canonical state.
+
+Remote agents are untrusted external principals. Their messages, instructions and artifacts enter AgentiCOS as external data and are subject to trust, policy and provenance rules.
+
+## Resource and autonomy principle
+
+Autonomy is bounded by a scheduler and policy system. Every run can have limits on:
+- duration;
+- steps;
+- child agents;
+- tool calls;
+- tokens;
+- cost;
+- network;
+- CPU/memory/storage.
+
+A client disconnect does not terminate a durable run unless policy explicitly says so.
+
+## Architecture completion rule
+
+Before broad implementation, the completeness matrix must have no missing conceptual owner for:
+- model/provider/proxy interoperability;
+- multimodal execution;
+- agent-to-agent interoperability;
+- tools/MCP;
+- skills/memory/context;
+- sandbox/security;
+- scheduling/resources;
+- persistence/recovery;
+- protocols/surfaces;
+- Source Forge;
+- observability/evaluation.
+
+See `docs/architecture/COMPLETENESS-MATRIX.md` and `docs/architecture/IMPLEMENTATION-MASTER-PLAN.md`.

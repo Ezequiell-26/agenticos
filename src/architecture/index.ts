@@ -6,4 +6,6 @@ export * from "./outbox.js";
 export * from "./snapshots.js";
 export * from "./contracts.js";
 export * from "./change-gates.js";
+export * from "./budget.js";
+export * from "./repair.js";
 export * from "./guard.js";

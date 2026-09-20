@@ -7,13 +7,13 @@ import type {
   SourceRepository,
 } from "./types.js";
 
-const LICENSE_NAMES = [
-  "LICENSE",
-  "LICENSE.md",
-  "LICENSE.txt",
-  "COPYING",
-  "COPYING.md",
-];
+const LICENSE_NAMES = new Set([
+  "license",
+  "license.md",
+  "license.txt",
+  "copying",
+  "copying.md",
+]);
 
 const SOURCE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
@@ -41,19 +41,28 @@ export async function scanRepository(
   repository: SourceRepository,
 ): Promise<ScanResult> {
   const warnings: string[] = [];
-  const licenseFiles = await findLicenseFiles(repository.localPath);
-  const licenseStatus = await detectLicense(repository.localPath, licenseFiles);
+  const files = await walk(repository.localPath);
+  const licenseFiles = files
+    .filter(isLicenseFile)
+    .sort((a, b) => a.localeCompare(b));
+
+  const licenseStatus = await detectLicense(
+    repository.localPath,
+    licenseFiles,
+    files,
+  );
 
   if (licenseStatus !== "verified-mit") {
     warnings.push(
-      "The repository is not proven MIT-only by this scanner. Do not copy components into the first-party tree without license review.",
+      "MIT-only status was not proven. Components must remain reference-only until license and dependency review is complete.",
     );
   }
 
-  const files = await walk(repository.localPath);
   const candidates = classifyCandidates(
     repository.id,
-    files.filter((file) => SOURCE_EXTENSIONS.has(path.extname(file).toLowerCase())),
+    files.filter((file) =>
+      SOURCE_EXTENSIONS.has(path.extname(file).toLowerCase()),
+    ),
   );
 
   return {
@@ -67,47 +76,101 @@ export async function scanRepository(
   };
 }
 
-async function findLicenseFiles(root: string): Promise<string[]> {
-  const result: string[] = [];
-
-  for (const name of LICENSE_NAMES) {
-    try {
-      await readFile(path.join(root, name), "utf8");
-      result.push(name);
-    } catch {
-      // Ignore missing files.
-    }
-  }
-
-  return result;
-}
-
 async function detectLicense(
   root: string,
+  licenseFiles: readonly string[],
   files: readonly string[],
 ): Promise<LicenseStatus> {
-  if (files.length === 0) {
+  if (licenseFiles.length === 0) {
     return "unknown";
   }
 
-  let sawMit = false;
-  let sawOther = false;
+  const rootLicenses = licenseFiles.filter(
+    (file) => !file.includes("/") && !file.includes("\\"),
+  );
 
-  for (const file of files) {
-    const content = (await readFile(path.join(root, file), "utf8")).toLowerCase();
-
-    if (content.includes("mit license") || content.includes("the mit license")) {
-      sawMit = true;
-    } else {
-      sawOther = true;
-    }
+  if (rootLicenses.length !== 1) {
+    return "review-required";
   }
 
-  if (sawMit && sawOther) {
+  const rootLicense = rootLicenses[0];
+  if (!rootLicense) {
+    return "review-required";
+  }
+
+  const content = (
+    await readFile(path.join(root, rootLicense), "utf8")
+  ).toLowerCase();
+
+  const hasMitBody =
+    content.includes("permission is hereby granted, free of charge") &&
+    content.includes("the software is provided "as is"") &&
+    content.includes("permission is hereby granted");
+
+  if (!hasMitBody) {
+    return "non-mit";
+  }
+
+  const manifestLicenses = await inspectManifestLicenses(
+    root,
+    files,
+  );
+
+  if (
+    manifestLicenses.some(
+      (license) => license !== undefined && license !== "MIT",
+    )
+  ) {
     return "mixed";
   }
 
-  return sawMit ? "verified-mit" : "non-mit";
+  if (manifestLicenses.some((license) => license === "MIT")) {
+    return "verified-mit";
+  }
+
+  return "review-required";
+}
+
+async function inspectManifestLicenses(
+  root: string,
+  files: readonly string[],
+): Promise<readonly (string | undefined)[]> {
+  const candidates = files.filter((file) =>
+    ["package.json", "pyproject.toml", "Cargo.toml"].includes(
+      path.basename(file).toLowerCase(),
+    ),
+  );
+
+  const licenses: (string | undefined)[] = [];
+
+  for (const file of candidates) {
+    const fullPath = path.join(root, file);
+    if (file.toLowerCase().endsWith("package.json")) {
+      try {
+        const parsed = JSON.parse(await readFile(fullPath, "utf8")) as {
+          license?: string | { type?: string };
+        };
+        licenses.push(
+          typeof parsed.license === "string"
+            ? parsed.license
+            : parsed.license?.type,
+        );
+      } catch {
+        return ["invalid"];
+      }
+      continue;
+    }
+
+    const content = (await readFile(fullPath, "utf8")).toLowerCase();
+    const match = content.match(/(?:^|\n)\s*license\s*=\s*["']([^"']+)["']/);
+    licenses.push(match?.[1]?.toUpperCase());
+  }
+
+  return licenses;
+}
+
+function isLicenseFile(file: string): boolean {
+  return LICENSE_NAMES.has(path.basename(file).toLowerCase());
 }
 
 async function walk(
@@ -124,7 +187,8 @@ async function walk(
       entry.name === ".venv" ||
       entry.name === "venv" ||
       entry.name === "dist" ||
-      entry.name === "build"
+      entry.name === "build" ||
+      entry.name === ".next"
     ) {
       continue;
     }

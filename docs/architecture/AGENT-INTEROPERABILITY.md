@@ -8,9 +8,9 @@ MCP is the tool/context integration plane: agents connect to tools, resources, p
 
 A2A is the horizontal agent collaboration plane: independent agents discover capabilities, exchange messages and manage long-running tasks without exposing internal tools or memory.
 
-The current A2A specification defines Agent Cards, stateful Tasks, Messages, Parts, Artifacts and multiple HTTP transports; current released A2A is 1.0. citeturn902940search4turn902940search11
+The current A2A specification defines Agent Cards, stateful Tasks, Messages, Parts, Artifacts and multiple HTTP transports; current released A2A is 1.0.
 
-The current MCP specification direction emphasizes a stateless core, extensions, Tasks and hardened authorization; MCP remains the internal capability integration layer. citeturn902940search3turn902940search12
+The current MCP specification direction emphasizes a stateless core, extensions, Tasks and hardened authorization; MCP remains the internal capability integration layer.
 
 ## Two-plane architecture
 

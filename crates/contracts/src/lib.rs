@@ -541,6 +541,86 @@ pub trait PolicyEngine: Send + Sync + 'static {
     ) -> Result<bool, ContractError>;
 }
 
+/// Message in conversation history.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Message {
+    /// Message identifier.
+    pub message_id: String,
+    /// Role (user, assistant, system, tool).
+    pub role: String,
+    /// Message content.
+    pub content: String,
+    /// Timestamp.
+    pub timestamp: u64,
+    /// Token count.
+    pub token_count: u32,
+    /// Associated run ID.
+    pub run_id: RunId,
+}
+
+/// Context window configuration.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContextWindow {
+    /// Maximum tokens in context.
+    pub max_tokens: u32,
+    /// Current token count.
+    pub current_tokens: u32,
+    /// Reserved tokens for system prompt.
+    pub reserved_tokens: u32,
+}
+
+/// Memory entry for persistence.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MemoryEntry {
+    /// Memory identifier.
+    pub memory_id: String,
+    /// Associated run ID.
+    pub run_id: RunId,
+    /// Memory key.
+    pub key: String,
+    /// Memory value.
+    pub value: String,
+    /// Timestamp.
+    pub timestamp: u64,
+    /// Expiration (0 = no expiration).
+    pub expires_at: u64,
+}
+
+/// Context manager contract.
+#[async_trait::async_trait]
+pub trait ContextManager: Send + Sync {
+    /// Add a message to context.
+    async fn add_message(&self, message: Message) -> Result<(), ContractError>;
+
+    /// Get current context messages.
+    async fn get_context(&self, run_id: RunId) -> Result<Vec<Message>, ContractError>;
+
+    /// Trim context to fit budget.
+    async fn trim_context(&self, run_id: RunId, max_tokens: u32) -> Result<(), ContractError>;
+
+    /// Get current token count.
+    async fn get_token_count(&self, run_id: RunId) -> Result<u32, ContractError>;
+}
+
+/// Memory store contract.
+#[async_trait::async_trait]
+pub trait MemoryStore: Send + Sync {
+    /// Store a memory entry.
+    async fn store(&self, entry: MemoryEntry) -> Result<(), ContractError>;
+
+    /// Retrieve a memory entry.
+    async fn retrieve(&self, memory_id: &str) -> Result<Option<MemoryEntry>, ContractError>;
+
+    /// Retrieve memories by run ID.
+    async fn retrieve_by_run(&self, run_id: RunId) -> Result<Vec<MemoryEntry>, ContractError>;
+
+    /// Delete a memory entry.
+    async fn delete(&self, memory_id: &str) -> Result<(), ContractError>;
+
+    /// Delete expired memories.
+    async fn delete_expired(&self, now: u64) -> Result<usize, ContractError>;
+}
+
 /// Quota information for a provider.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QuotaInfo {

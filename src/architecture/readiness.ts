@@ -85,7 +85,16 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
     };
   };
   assertArchitectureCompletenessManifest(completeness);
-  assertReferenceCorpusIntegrity(JSON.parse(completenessRaw));
+  const referenceCorpusRaw = await readRequired(root, "reference/manifests/mit-repositories.json");
+  const referenceCorpus = JSON.parse(referenceCorpusRaw) as {
+    repositories: readonly {
+      repository: string;
+      license: string;
+      license_verification: { status: string; artifact_sha?: string | null };
+    }[];
+    policy?: { mandatory_core_references?: readonly string[] };
+  };
+  assertReferenceCorpusIntegrity(referenceCorpus);
   const contractRegistry = JSON.parse(
     await readRequired(root, "contracts/registry.json"),
   ) as { contracts: readonly { id: string }[] };

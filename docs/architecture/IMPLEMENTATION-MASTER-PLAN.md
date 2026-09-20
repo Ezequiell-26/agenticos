@@ -2,7 +2,7 @@
 
 This is the architecture-derived implementation order. It is designed to prevent features from being built on unstable abstractions.
 
-## Phase 0 — Architecture, language and contracts
+## Phase 0 — Architecture, references, language and contracts
 
 - finalize Product Blueprint and domain ownership;
 - finalize Rust runtime decision;
@@ -13,9 +13,11 @@ This is the architecture-derived implementation order. It is designed to prevent
 - define protocol versioning;
 - define provider/tool/sandbox/plugin contracts;
 - define persistence ports;
-- define architecture lint rules.
+- define architecture lint rules;
+- establish the Reference Knowledge Corpus;
+- create source evidence packs for the highest-value reference repositories.
 
-Exit: the Rust workspace can be created without changing domain semantics, and every critical boundary has a testable contract.
+Exit: the Rust workspace can be created without changing domain semantics, every critical boundary has a testable contract, and a coding agent can retrieve source evidence for each planned subsystem.
 
 ## Phase 1 — Rust kernel
 
@@ -23,9 +25,11 @@ Runtime lifecycle, dependency composition, event bus, cancellation tree, lifecyc
 
 Exit: one durable run can start, transition, cancel, persist and recover through the canonical runtime.
 
-## Phase 2 — Provider platform
+## Phase 2 — Provider gateway and model platform
 
-Provider/protocol registries, hosted and local adapters, generic HTTP mapping, proxy hops, credentials, model catalog, capabilities, quota/rate limits, cost, health/circuit breakers, intelligent routing, streaming and multimodal normalization.
+Provider/protocol registries, hosted and local adapters, generic HTTP mapping, proxy hops, credential pools, model catalog, capability registry, quota/rate limits, cost, health/circuit breakers, intelligent routing, controlled failover, streaming and multimodal normalization.
+
+Reference priority: FreeLLMAPI for gateway/router patterns; Hermes, DeepSeek Harness and Codex for provider/client integration patterns.
 
 Exit: one model-neutral call path can route, stream, fail, retry and recover across multiple provider families.
 
@@ -33,11 +37,15 @@ Exit: one model-neutral call path can route, stream, fail, retry and recover acr
 
 Tool registry, policy/approval engine, sandbox, local and worker executors, filesystem/process/browser adapters, network policy, secret isolation, artifact store and resource scheduler.
 
+Reference priority: Hermes, OpenHands and browser-use for tool/execution workflows; Codex for Rust-native runtime boundaries.
+
 Exit: a real tool action executes inside policy and sandbox controls and produces an auditable event/artifact trail.
 
 ## Phase 4 — Agent runtime
 
 Task/run lifecycle, context compiler, model/tool loops, verification, bounded repair, continuation, checkpoints, durable background execution, steering/interrupt and idempotent side effects.
+
+Reference priority: Hermes, DeepSeek Harness and Codex.
 
 Exit: a user can submit a real objective, watch it run, intervene, disconnect and resume it safely.
 
@@ -45,11 +53,15 @@ Exit: a user can submit a real objective, watch it run, intervene, disconnect an
 
 Session history, project/user memory, retrieval/reranking, compaction, skills, instruction hierarchy, provenance and deletion/correction controls.
 
+Reference priority: Hermes for memory/skills patterns; LangGraph for checkpointed workflows where applicable.
+
 Exit: a project can accumulate controlled knowledge without silently promoting uncertain model output into durable facts.
 
 ## Phase 6 — Multi-agent
 
 Child runs, DAG scheduler, fan-out/fan-in, delegation, reviewer/specialist agents, remote agent adapter, A2A, budget propagation and authority containment.
+
+Reference priority: AutoGen, DeepSeek Harness and A2A-compatible implementations.
 
 Exit: child agents collaborate without bypassing parent budgets, security or provenance.
 
@@ -67,7 +79,7 @@ Exit: the same run works through at least one production-grade client and one he
 
 ## Phase 9 — Source Forge / Fusion
 
-Repository import, dependency/license graph, language/package discovery, architecture extraction, symbol graph, duplicate detection, capability comparison, compatibility analysis, integration proposals, adaptation scaffolding, SBOM/notices, source refresh/diff and upstream regression.
+Repository import, dependency/license graph, language/package discovery, architecture extraction, symbol graph, duplicate detection, capability comparison, compatibility analysis, integration proposals, adaptation scaffolding, SBOM/notices, source refresh/diff, evidence-pack generation and upstream regression.
 
 Exit: repositories can be evaluated and adapted without bypassing license or provenance gates.
 
@@ -85,8 +97,9 @@ Exit: users can install, update, recover and roll back supported distributions.
 
 ## Vertical-slice rule
 
-```
-Contract
+Requirement
+ → Reference evidence
+ → Contract
  → Domain implementation
  → Persistence semantics
  → Policy/security
@@ -94,7 +107,6 @@ Contract
  → Verification
  → One usable surface
  → Recovery behavior
-```
 
 Implementation is slice-driven, not file-driven.
 

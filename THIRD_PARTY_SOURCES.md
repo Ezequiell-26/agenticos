@@ -110,3 +110,39 @@ An MIT root repository does not automatically make all code in its dependency tr
 AgentiCOS must preserve required copyright/license notices and must not remove third-party attribution when integrating source code.
 
 For the optimization plane, source integration is MIT-only. A non-MIT or unverified source can still be learned and benchmarked, but no copied/vendored source from it may enter the canonical implementation.
+
+## Expanded MIT reference set
+
+The following repositories were verified as MIT at the repository or relevant license boundary on 2026-09-21 and added to the machine-readable catalog at `reference/manifests/mit-repositories.json`. Each is a reference/candidate source only until Source Forge completes the full evidence-pack and dependency audit.
+
+| Source | Intake license | Pinned ref | Mode | Intended use |
+|---|---|---|---|---|
+| tokio-rs/tokio | MIT | cf782c5b917b7ea21b6f97f07104ebf16d35f5f8 | reference / candidate integration | Rust async runtime, scheduling, cancellation, shutdown |
+| tokio-rs/axum | MIT | 3ea7f31b8e43962053d5e45a8cea87097adb9ca0 | reference / candidate integration | HTTP/API routing, streaming, middleware |
+| rusqlite/rusqlite | MIT | 02c973cca1cb3ef9674de4940039085cdf4743e6 | reference / candidate integration | SQLite persistence and transaction boundaries |
+| ratatui/ratatui | MIT | 3603d21f6b318007bbab0a0f1baefe337ebeae39 | reference / candidate integration | TUI application surface |
+| tokio-rs/tokio-metrics | MIT | a504ad8447aba8c2e7b3055921c34e86cebd7ae9 | reference / candidate integration | Tokio runtime/task observability |
+| nix-rust/nix | MIT | fb799660ccde39c22aed6f653b70e35b35bdcfe8 | reference / candidate integration | OS process, signal and Unix capability primitives |
+| slawlor/ractor | MIT | 25f4fe119665efc2a7308845da0f2f479d67110f | reference / candidate integration | actor-style concurrency and supervision |
+| denoland/deno | MIT | 057a3da09762617c88a06e9be199ca99a276e57e | reference | permission-oriented secure runtime and tool execution |
+| pydantic/pydantic-ai | MIT | c4898abb54dc25ae6f6aef208a4c0661b30a455e | reference | typed agent/tool contracts, structured outputs and graphs |
+| pydantic/pydantic | MIT | 915896d163835a57fd7987180087409a3229bd71 | reference | schema validation and typed boundaries |
+| SWE-agent/SWE-agent | MIT | 3ea751c087f32b16e039a2233dd6eefecef325d5 | reference / candidate integration | software-engineering agent loops, ACI and evaluation |
+| run-llama/llama_index | MIT | 98c52d8ac8f8a89bc2d79cf1d71054b0424a9d27 | reference | knowledge ingestion, retrieval, context and agents |
+| BerriAI/litellm | MIT outside enterprise paths | b9a2d441cfb1daf59e2f7809f1a22333f524c5d5 | reference / restricted candidate integration | model gateway/provider normalization, routing and telemetry |
+| tiangolo/fastapi | MIT | 0.141.1 | reference / candidate integration | API surface, OpenAPI, validation and streaming |
+| asg017/sqlite-vec | MIT | fe941716ad86363d6be99537db955305abb3ca61 | reference / candidate integration | vector memory/search inside SQLite |
+| microsoft/semantic-kernel | MIT | ca40aa7226531d28a721d0ca0e451d0aaf86dafc | reference | plugins, agent orchestration, processes and memory |
+| crewAIInc/crewAI | MIT | 0374c631297f219a3891945cfc81f82ea54dd776 | reference | multi-agent crews, event-driven flows and tracing |
+| browser-use/browser-harness | MIT | afbcc381b963040c19627d788e40c7e7663171ee | reference / candidate integration | browser/computer use, CDP and self-healing harnesses |
+| browser-use/browser-harness-js | MIT | 2d9a5ed37ed11f31b2622cd69c4b55f979cb905f | reference | typed CDP browser control and protocol generation |
+| dotnet/orleans | MIT | 0bfd95e8561699b3bb7c619b0b0d2378d84395bc | reference | virtual actors, durable distributed state and reminders |
+
+### Restricted-license note
+
+`BerriAI/litellm` is admitted only outside its `enterprise/` path. The enterprise path is excluded from MIT-only source integration. Dependency and file-level notices remain authoritative.
+
+### Admission rule
+
+These entries expand the knowledge corpus; they do **not** authorize automatic copying. Source Forge must inspect the pinned source snapshot, relevant files, tests, build/CI, security material, dependencies and notices before a component can move to integrated source.
+

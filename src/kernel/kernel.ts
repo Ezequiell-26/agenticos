@@ -50,9 +50,12 @@ export class DurableKernel {
   }
 
   startStep(stepId: string, workerId: string, fencingToken: number): StepRecord {
-    const step = this.getStep(stepId);
-    this.store.assertRunLease(step.runId, workerId, fencingToken);
-    return this.store.transitionStep(stepId, "running");
+    return this.store.transitionStepOwned(
+      stepId,
+      workerId,
+      fencingToken,
+      "running",
+    );
   }
 
   completeStep(
@@ -61,9 +64,13 @@ export class DurableKernel {
     fencingToken: number,
     output: unknown,
   ): StepRecord {
-    const step = this.getStep(stepId);
-    this.store.assertRunLease(step.runId, workerId, fencingToken);
-    return this.store.transitionStep(stepId, "completed", output);
+    return this.store.transitionStepOwned(
+      stepId,
+      workerId,
+      fencingToken,
+      "completed",
+      output,
+    );
   }
 
   failStep(
@@ -72,16 +79,26 @@ export class DurableKernel {
     fencingToken: number,
     error: unknown,
   ): StepRecord {
-    const step = this.getStep(stepId);
-    this.store.assertRunLease(step.runId, workerId, fencingToken);
-    return this.store.transitionStep(stepId, "failed", undefined, error);
+    return this.store.transitionStepOwned(
+      stepId,
+      workerId,
+      fencingToken,
+      "failed",
+      undefined,
+      error,
+    );
   }
 
   completeRun(runId: string, workerId: string, fencingToken: number): RunRecord {
-    this.store.assertRunLease(runId, workerId, fencingToken);
-    const result = this.store.transitionRun(runId, "completed", "run.completed");
-    this.store.releaseRunLease(runId, workerId);
-    return result;
+    return this.store.transitionRunOwned(
+      runId,
+      workerId,
+      fencingToken,
+      "completed",
+      "run.completed",
+      undefined,
+      true,
+    );
   }
 
   failRun(
@@ -90,15 +107,25 @@ export class DurableKernel {
     fencingToken: number,
     error: unknown,
   ): RunRecord {
-    this.store.assertRunLease(runId, workerId, fencingToken);
-    const result = this.store.transitionRun(runId, "failed", "run.failed", error);
-    this.store.releaseRunLease(runId, workerId);
-    return result;
+    return this.store.transitionRunOwned(
+      runId,
+      workerId,
+      fencingToken,
+      "failed",
+      "run.failed",
+      error,
+      true,
+    );
   }
 
   requestCancel(runId: string, workerId: string, fencingToken: number): RunRecord {
-    this.store.assertRunLease(runId, workerId, fencingToken);
-    return this.store.transitionRun(runId, "cancelling", "run.cancelling");
+    return this.store.transitionRunOwned(
+      runId,
+      workerId,
+      fencingToken,
+      "cancelling",
+      "run.cancelling",
+    );
   }
 
   finalizeCancel(
@@ -106,10 +133,15 @@ export class DurableKernel {
     workerId: string,
     fencingToken: number,
   ): RunRecord {
-    this.store.assertRunLease(runId, workerId, fencingToken);
-    const result = this.store.transitionRun(runId, "cancelled", "run.cancelled");
-    this.store.releaseRunLease(runId, workerId);
-    return result;
+    return this.store.transitionRunOwned(
+      runId,
+      workerId,
+      fencingToken,
+      "cancelled",
+      "run.cancelled",
+      undefined,
+      true,
+    );
   }
 
   recoverExpiredRuns(nowMs = Date.now()): readonly string[] {

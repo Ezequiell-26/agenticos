@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="420" viewBox="0 0 1400 420" role="img" aria-labelledby="title desc">
+  <title id="title">AgentiCOS</title>
+  <desc id="desc">AgentiCOS — universal, model-agnostic agent runtime and application platform.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0D10"/>
+      <stop offset="100%" stop-color="#15181D"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFD43B"/>
+      <stop offset="52%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FFC107"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1400" height="420" rx="28" fill="url(#bg)"/>
+  <rect x="34" y="34" width="1332" height="352" rx="22" fill="none" stroke="#2B3038" stroke-width="2"/>
+
+  <path d="M90 102 H300" stroke="#FFD700" stroke-width="4" stroke-linecap="round" opacity=".9"/>
+  <path d="M1100 318 H1310" stroke="#FFD700" stroke-width="4" stroke-linecap="round" opacity=".9"/>
+  <circle cx="316" cy="102" r="5" fill="#FFD700"/>
+  <circle cx="1084" cy="318" r="5" fill="#FFD700"/>
+
+  <g transform="translate(700 184)" text-anchor="middle">
+    <text x="0" y="-22" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="url(#gold)" filter="url(#glow)">AgentiCOS</text>
+    <text x="0" y="42" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" letter-spacing="5" fill="#B8C0CC">UNIVERSAL AGENT RUNTIME</text>
+    <text x="0" y="82" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="500" letter-spacing="2.5" fill="#7F8896">MODEL-AGNOSTIC · EXTENSIBLE · ARCHITECTURE-FIRST</text>
+  </g>
+
+  <g transform="translate(700 340)" text-anchor="middle">
+    <text x="0" y="0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" fill="#657080">AgentiCOS · Build the agent layer once. Extend it everywhere.</text>
+  </g>
+</svg>

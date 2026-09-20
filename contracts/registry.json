@@ -332,6 +332,275 @@
         "availability",
         "guarded-execution"
       ]
+    },
+    {
+      "id": "auxiliary-model-plane",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "request",
+        "route",
+        "budget",
+        "health",
+        "usage"
+      ]
+    },
+    {
+      "id": "terminal",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "open",
+        "read",
+        "write",
+        "signal",
+        "resize",
+        "close",
+        "ownership"
+      ]
+    },
+    {
+      "id": "job",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "create",
+        "status",
+        "output",
+        "cancel",
+        "recover",
+        "cleanup"
+      ]
+    },
+    {
+      "id": "filesystem-change",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "observe",
+        "intent",
+        "authorize",
+        "mutate",
+        "verify",
+        "rollback"
+      ]
+    },
+    {
+      "id": "spill-store",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "put",
+        "get",
+        "range",
+        "search",
+        "checksum",
+        "retention"
+      ]
+    },
+    {
+      "id": "attachment",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "ingest",
+        "classify",
+        "checksum",
+        "store",
+        "inspect",
+        "transform",
+        "capability-check"
+      ]
+    },
+    {
+      "id": "code-intelligence",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "diagnostics",
+        "symbols",
+        "definition",
+        "references",
+        "hover",
+        "rename",
+        "code-actions"
+      ]
+    },
+    {
+      "id": "planning",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "goal",
+        "plan",
+        "task",
+        "todo",
+        "approval",
+        "revision"
+      ]
+    },
+    {
+      "id": "agent-team",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "membership",
+        "assign",
+        "message",
+        "wait",
+        "interrupt",
+        "budget",
+        "recovery"
+      ]
+    },
+    {
+      "id": "mcp-resource",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "tools",
+        "resources",
+        "templates",
+        "prompts",
+        "discovery",
+        "negotiation",
+        "auth"
+      ]
+    },
+    {
+      "id": "a2a-task",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "identity",
+        "card",
+        "task",
+        "stream",
+        "artifact",
+        "cancel",
+        "auth"
+      ]
+    },
+    {
+      "id": "credential",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "secret-storage",
+        "oauth",
+        "rotation",
+        "expiry",
+        "revocation",
+        "pool",
+        "redaction"
+      ]
+    },
+    {
+      "id": "migration",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "backup",
+        "validate",
+        "migrate",
+        "verify",
+        "activate",
+        "rollback"
+      ]
+    },
+    {
+      "id": "feature-flag",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "scope",
+        "rollout",
+        "disable",
+        "audit"
+      ]
+    },
+    {
+      "id": "package",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "verify",
+        "stage",
+        "install",
+        "activate",
+        "health",
+        "rollback",
+        "uninstall"
+      ]
+    },
+    {
+      "id": "change",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "scope-lock",
+        "reference",
+        "impact",
+        "verify",
+        "snapshot",
+        "promote",
+        "rollback"
+      ]
+    },
+    {
+      "id": "trajectory",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "derive",
+        "redact",
+        "normalize",
+        "export",
+        "retention"
+      ]
+    },
+    {
+      "id": "supervisor",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "startup-watchdog",
+        "heartbeat",
+        "stall-detection",
+        "orphan-detection",
+        "recovery"
+      ]
+    },
+    {
+      "id": "management",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "authenticate",
+        "authorize",
+        "audit",
+        "version",
+        "backup"
+      ]
     }
   ]
 }

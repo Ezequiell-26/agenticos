@@ -73,4 +73,7 @@ The TypeScript implementation is transitional. New canonical runtime work target
 - [../adr/0008-sequential-verified-implementation.md](../adr/0008-sequential-verified-implementation.md) — accepted decision making sequential verification an architectural constraint.
 - [../../reference/manifests/implementation-state.json](../../reference/manifests/implementation-state.json) — durable implementation-step state machine.
 - [../../reference/manifests/mit-repositories.json](../../reference/manifests/mit-repositories.json) — machine-readable MIT-focused reference catalog.
-
+- [ARCHITECTURE-COMPLETENESS.md](./ARCHITECTURE-COMPLETENESS.md) — remaining runtime seams and universal capability requirements.
+- [UNIVERSAL-CAPABILITY-PLATFORM.md](./UNIVERSAL-CAPABILITY-PLATFORM.md) — API/plugin/skill/memory/tool/channel/provider extensibility architecture.
+- [../../reference/manifests/architecture-completeness.json](../../reference/manifests/architecture-completeness.json) — machine-readable completeness checklist.
+- [../../reference/manifests/capability-parity.json](../../reference/manifests/capability-parity.json) — Hermes/Harness capability parity mapping.

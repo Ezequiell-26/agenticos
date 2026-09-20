@@ -18,6 +18,26 @@ export interface BudgetUsage {
   readonly cost: number;
 }
 
+export function assertExecutionBudget(budget: ExecutionBudget): void {
+  const entries: ReadonlyArray<[keyof ExecutionBudget, number]> = [
+    ["maxDurationMs", budget.maxDurationMs],
+    ["maxSteps", budget.maxSteps],
+    ["maxChildAgents", budget.maxChildAgents],
+    ["maxToolCalls", budget.maxToolCalls],
+    ["maxTokens", budget.maxTokens],
+    ["maxCost", budget.maxCost],
+  ];
+
+  for (const [name, value] of entries) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new AgentiCOSError("Invalid execution budget: " + name, {
+        code: "EXECUTION_BUDGET_INVALID",
+        category: "VALIDATION",
+      });
+    }
+  }
+}
+
 export class BudgetGuard {
   private usage: BudgetUsage;
 
@@ -25,6 +45,7 @@ export class BudgetGuard {
     private readonly budget: ExecutionBudget,
     nowMs = Date.now(),
   ) {
+    assertExecutionBudget(budget);
     this.usage = {
       startedAtMs: nowMs,
       steps: 0,
@@ -40,6 +61,15 @@ export class BudgetGuard {
   }
 
   consume(delta: Partial<Omit<BudgetUsage, "startedAtMs">>, nowMs = Date.now()): void {
+    for (const [name, value] of Object.entries(delta)) {
+      if (name !== "startedAtMs" && value !== undefined && (!Number.isFinite(value) || value < 0)) {
+        throw new AgentiCOSError("Invalid budget usage: " + name, {
+          code: "EXECUTION_USAGE_INVALID",
+          category: "VALIDATION",
+        });
+      }
+    }
+
     this.usage = {
       ...this.usage,
       steps: this.usage.steps + (delta.steps ?? 0),

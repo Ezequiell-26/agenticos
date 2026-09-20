@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { test } from "node:test";
 import {
+  BudgetGuard,
+  BoundedRepairController,
   InMemoryIdempotencyStore,
   RunStateMachine,
   InMemoryLeaseManager,
@@ -11,9 +16,21 @@ import {
   assertSnapshotIntegrity,
   InMemoryWorkspace,
   loadContractRegistry,
-  BudgetGuard,
-  BoundedRepairController,
 } from "../src/architecture/index.js";
+import {
+  DurableKernel,
+  SqliteDatabase,
+  SqliteKernelStore,
+} from "../src/kernel/index.js";
+
+const budget = () => ({
+  maxDurationMs: 60_000,
+  maxSteps: 10,
+  maxChildAgents: 2,
+  maxToolCalls: 20,
+  maxTokens: 10_000,
+  maxCost: 1,
+});
 
 test("run state machine rejects illegal terminal transitions", () => {
   const machine = new RunStateMachine();
@@ -107,7 +124,7 @@ test("contract registry loads and validates", async () => {
 });
 
 test("execution budget fails closed when limits are exceeded", () => {
-  const budget = new BudgetGuard({
+  const guard = new BudgetGuard({
     maxDurationMs: 1_000,
     maxSteps: 2,
     maxChildAgents: 1,
@@ -116,8 +133,8 @@ test("execution budget fails closed when limits are exceeded", () => {
     maxCost: 1,
   }, 1_000);
 
-  budget.consume({ steps: 2, toolCalls: 3, tokens: 100, cost: 1 }, 1_100);
-  assert.throws(() => budget.consume({ steps: 1 }, 1_100));
+  guard.consume({ steps: 2, toolCalls: 3, tokens: 100, cost: 1 }, 1_100);
+  assert.throws(() => guard.consume({ steps: 1 }, 1_100));
 });
 
 test("repair controller bounds repair attempts", () => {
@@ -131,4 +148,88 @@ test("repair controller bounds repair attempts", () => {
 
   repair.nextAttempt(2, 10, 0.1, 1_100);
   assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
+});
+
+test("sqlite kernel persists runs across reopen and atomically records lifecycle events", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-kernel-"));
+  const dbPath = join(directory, "state.sqlite");
+  const database = new SqliteDatabase(dbPath);
+  const kernel = new DurableKernel(new SqliteKernelStore(database));
+
+  const run = kernel.createRun({
+    id: "durable-run",
+    workspaceId: "workspace-1",
+    budget: budget(),
+  });
+
+  assert.equal(run.state, "created");
+  kernel.admitRun(run.id);
+
+  const workerRun = kernel.claimNext("worker-a", 60_000);
+  assert.equal(workerRun?.state, "running");
+
+  const lease = kernel.store.leaseForRun(run.id);
+  assert.ok(lease);
+
+  const step = kernel.createStep({
+    runId: run.id,
+    sequence: 1,
+    input: { action: "smoke" },
+  });
+
+  kernel.startStep(step.id, "worker-a", lease.fencingToken);
+  kernel.completeStep(step.id, "worker-a", lease.fencingToken, { ok: true });
+  kernel.completeRun(run.id, "worker-a", lease.fencingToken);
+
+  const pending = await kernel.store.listPending(20);
+  assert.ok(pending.some((event) => event.type === "run.created"));
+  assert.ok(pending.some((event) => event.type === "run.claimed"));
+  assert.ok(pending.some((event) => event.type === "run.completed"));
+
+  kernel.close();
+
+  const reopened = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
+  const persisted = reopened.getRun(run.id);
+  assert.equal(persisted.state, "completed");
+  assert.equal(persisted.version >= 4, true);
+  reopened.close();
+
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("sqlite scheduler prevents duplicate claims and recovers an expired worker lease", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-scheduler-"));
+  const dbPath = join(directory, "state.sqlite");
+
+  const kernelA = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
+  const kernelB = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
+
+  const run = kernelA.createRun({
+    id: "scheduled-run",
+    workspaceId: "workspace-2",
+    budget: budget(),
+  });
+  kernelA.admitRun(run.id);
+
+  const first = kernelA.claimNext("worker-a", 60_000);
+  const second = kernelB.claimNext("worker-b", 60_000);
+
+  assert.equal(first?.id, run.id);
+  assert.equal(second, undefined);
+  assert.equal(kernelB.getRun(run.id).state, "running");
+
+  kernelA.close();
+  kernelB.close();
+
+  const kernelC = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
+  const recovered = kernelC.recoverExpiredRuns(Date.now() + 61_000);
+  assert.deepEqual(recovered, [run.id]);
+  assert.equal(kernelC.getRun(run.id).state, "waiting");
+
+  const claimAgain = kernelC.claimNext("worker-c", 60_000);
+  assert.equal(claimAgain?.id, run.id);
+  assert.equal(claimAgain?.state, "running");
+
+  kernelC.close();
+  await rm(directory, { recursive: true, force: true });
 });

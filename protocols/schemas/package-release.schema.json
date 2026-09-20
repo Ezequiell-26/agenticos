@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/package-release.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Package Release v1",
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "version",
+    "checksum",
+    "verification",
+    "compatibility"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "packageId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "checksum": {
+      "type": "string"
+    },
+    "verification": {
+      "type": "object"
+    },
+    "compatibility": {
+      "type": "object"
+    },
+    "signature": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

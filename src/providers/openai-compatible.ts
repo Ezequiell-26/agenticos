@@ -162,6 +162,18 @@ export class OpenAICompatibleProvider implements AIProvider {
       });
     }
 
+    const invalidModel = data.data.find(
+      (model) => !model || typeof model.id !== "string" || !model.id.trim(),
+    );
+    if (invalidModel) {
+      throw new ProviderError("Provider returned a malformed model entry.", {
+        code: "PROVIDER_INVALID_MODEL_ENTRY",
+        retryable: true,
+        rateLimited: false,
+        quotaExhausted: false,
+      });
+    }
+
     return data.data.map((model) => ({
       id: model.id,
       providerId: this.definition.id,

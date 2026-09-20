@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/kernel", "crates/contracts", "crates/runtime", "crates/execution",
+  "crates/scheduler", "crates/providers", "crates/router", "crates/tools",
+  "crates/sandbox", "crates/context", "crates/memory", "crates/skills",
+  "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
+  "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
+  "crates/evaluation", "crates/source-forge"
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+authors = ["AgentiCOS contributors"]
+repository = "https://github.com/Ezequiell-26/agenticos"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+missing_docs = "warn"

@@ -420,7 +420,8 @@ test("sqlite kernel persists runs across reopen and atomically records lifecycle
 
   let published = 0;
   const secondDatabase = new SqliteDatabase(dbPath);
-  const secondDispatcher = new DurableOutboxDispatcher(secondDatabase, {
+  const secondStore = new SqliteKernelStore(secondDatabase);
+  const secondDispatcher = new DurableOutboxDispatcher(secondStore, {
     workerId: "dispatcher-b",
   });
   const dispatcher = new DurableOutboxDispatcher(reopened.store, {

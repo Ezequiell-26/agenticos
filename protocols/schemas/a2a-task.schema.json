@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/a2a-task.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS A2A Task v1",
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "remoteAgent",
+    "state",
+    "trust"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "taskId": {
+      "type": "string"
+    },
+    "remoteAgent": {
+      "type": "object"
+    },
+    "state": {
+      "enum": [
+        "submitted",
+        "working",
+        "input-required",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "trust": {
+      "enum": [
+        "untrusted",
+        "restricted",
+        "trusted"
+      ]
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/spill-store.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Spill Record v1",
+  "required": [
+    "schemaVersion",
+    "spillId",
+    "sourceId",
+    "sizeBytes",
+    "checksum",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "spillId": {
+      "type": "string"
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checksum": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "available",
+        "expired",
+        "deleted",
+        "quarantined"
+      ]
+    },
+    "contentType": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "locator": {
+      "type": "string"
+    }
+  }
+}

@@ -53,7 +53,7 @@ export async function saveManifest(
   try {
     await writeFile(
       temporaryPath,
-      JSON.stringify(manifest, null, 2) + "\\n",
+      JSON.stringify(manifest, null, 2) + "\n",
       "utf8",
     );
     await rename(temporaryPath, filePath);
@@ -150,7 +150,7 @@ export function assertSourceManifest(
       !candidate.sourceId.trim() ||
       !candidate.path.trim() ||
       candidate.path.startsWith("/") ||
-      candidate.path.includes("\\\\") ||
+      candidate.path.includes("\\") ||
       candidate.path.split("/").some(
         (part) => part === "" || part === "." || part === "..",
       ) ||
@@ -175,7 +175,7 @@ export function assertSourceManifest(
       );
     }
 
-    const key = candidate.sourceId + "\\n" + candidate.path;
+    const key = candidate.sourceId + "\n" + candidate.path;
     if (candidateKeys.has(key)) {
       throw invalidManifest("Duplicate source candidate: " + key);
     }

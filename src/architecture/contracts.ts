@@ -32,14 +32,21 @@ export function assertContractCompatibility(
       { code: "CONTRACT_ID_MISMATCH", category: "PROTOCOL" },
     );
   }
-  if (implementation.version < contract.version && contract.compatibility === "breaking") {
+
+  if (
+    (!Number.isInteger(implementation.version) || implementation.version < 1) ||
+    (implementation.version < contract.version &&
+      contract.compatibility === "breaking")
+  ) {
     throw new AgentiCOSError(
-      `Implementation ${implementation.implementationId} is too old for ${contract.id} v${contract.version}.`,
+      `Implementation ${implementation.implementationId} is incompatible with ${contract.id} v${contract.version}.`,
       { code: "CONTRACT_VERSION_INCOMPATIBLE", category: "PROTOCOL" },
     );
   }
+
+  const capabilities = new Set(implementation.capabilities);
   for (const capability of contract.requiredCapabilities) {
-    if (!implementation.capabilities.includes(capability)) {
+    if (!capabilities.has(capability)) {
       throw new AgentiCOSError(
         `Implementation ${implementation.implementationId} lacks required capability: ${capability}.`,
         { code: "CONTRACT_CAPABILITY_MISSING", category: "PROTOCOL" },
@@ -82,51 +89,73 @@ export async function loadContractRegistry(
 export function assertContractRegistry(
   value: unknown,
 ): asserts value is ContractRegistryDocument {
-  if (!value || typeof value !== "object") {
-    throw new AgentiCOSError("Contract registry must be an object.", {
-      code: "CONTRACT_REGISTRY_INVALID",
-      category: "VALIDATION",
-      severity: "critical",
-    });
+  if (!isRecord(value)) {
+    throw invalidRegistry("Contract registry must be an object.");
   }
 
-  const record = value as Record<string, unknown>;
-  if (record.schemaVersion !== 1 || !Array.isArray(record.contracts)) {
-    throw new AgentiCOSError("Contract registry schema version is unsupported.", {
-      code: "CONTRACT_REGISTRY_SCHEMA_UNSUPPORTED",
-      category: "PROTOCOL",
-      severity: "critical",
-    });
+  const schemaVersion = value.schemaVersion;
+  const contracts = value.contracts;
+  if (!Number.isInteger(schemaVersion) || schemaVersion < 1 || !Array.isArray(contracts)) {
+    throw invalidRegistry("Contract registry schema is invalid.");
   }
 
   const ids = new Set<string>();
-  for (const item of record.contracts) {
-    if (!item || typeof item !== "object") {
-      throw new AgentiCOSError("Contract registry contains an invalid descriptor.", {
-        code: "CONTRACT_DESCRIPTOR_INVALID",
-        category: "VALIDATION",
-        severity: "critical",
-      });
+  for (const item of contracts) {
+    if (!isRecord(item)) {
+      throw invalidRegistry("Contract registry contains an invalid descriptor.");
     }
 
-    const descriptor = item as Record<string, unknown>;
-    const id = descriptor.id;
-    const version = descriptor.version;
-    if (typeof id !== "string" || id.length === 0 || !Number.isInteger(version) || Number(version) < 1) {
-      throw new AgentiCOSError("Contract descriptor id/version is invalid.", {
-        code: "CONTRACT_DESCRIPTOR_INVALID",
-        category: "VALIDATION",
-        severity: "critical",
-      });
+    const id = item.id;
+    const version = item.version;
+    const kind = item.kind;
+    const compatibility = item.compatibility;
+    const requiredCapabilities = item.requiredCapabilities;
+
+    if (
+      typeof id !== "string" ||
+      id.trim().length === 0 ||
+      !Number.isInteger(version) ||
+      version < 1 ||
+      !isContractKind(kind) ||
+      !isCompatibility(compatibility) ||
+      !Array.isArray(requiredCapabilities) ||
+      requiredCapabilities.some(
+        (capability) => typeof capability !== "string" || capability.trim().length === 0,
+      )
+    ) {
+      throw invalidRegistry("Contract descriptor is invalid.");
+    }
+
+    const capabilities = requiredCapabilities as string[];
+    if (new Set(capabilities).size !== capabilities.length) {
+      throw invalidRegistry(`Contract ${id} declares duplicate capabilities.`);
     }
 
     if (ids.has(id)) {
-      throw new AgentiCOSError(`Duplicate contract id: ${id}`, {
-        code: "CONTRACT_DUPLICATE",
-        category: "VALIDATION",
-        severity: "critical",
-      });
+      throw invalidRegistry(`Duplicate contract id: ${id}`);
     }
     ids.add(id);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isContractKind(value: unknown): value is ContractDescriptor["kind"] {
+  return value === "protocol" || value === "domain" || value === "plugin" || value === "schema";
+}
+
+function isCompatibility(
+  value: unknown,
+): value is ContractDescriptor["compatibility"] {
+  return value === "backward-compatible" || value === "breaking";
+}
+
+function invalidRegistry(message: string): AgentiCOSError {
+  return new AgentiCOSError(message, {
+    code: "CONTRACT_REGISTRY_INVALID",
+    category: "VALIDATION",
+    severity: "critical",
+  });
 }

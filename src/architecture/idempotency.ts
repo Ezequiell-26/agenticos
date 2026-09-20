@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { AgentiCOSError } from "./errors.js";
+import { DEFAULT_CLAIM_STALE_AFTER_MS } from "./outbox.js";
 
 export interface IdempotencyRecord {
   readonly key: string;
@@ -19,8 +20,13 @@ export interface IdempotencyStore {
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
+  async claim(
+    record: IdempotencyRecord,
+    staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+    nowMs = Date.now(),
+  ): Promise<IdempotencyRecord | undefined> {
     validateRecord(record);
+    validateClaimWindow(staleAfterMs, nowMs);
     const existing = this.records.get(record.key);
     if (existing) {
       if (
@@ -31,6 +37,14 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
           code: "IDEMPOTENCY_KEY_CONFLICT",
           category: "VALIDATION",
         });
+      }
+
+      if (
+        existing.status === "in-progress" &&
+        nowMs - Date.parse(existing.updatedAt) >= staleAfterMs
+      ) {
+        this.records.set(record.key, record);
+        return undefined;
       }
       return existing;
     }
@@ -133,6 +147,21 @@ export async function executeIdempotent<T>(
       updatedAt: new Date().toISOString(),
     });
     throw error;
+  }
+}
+
+function validateClaimWindow(staleAfterMs: number, nowMs: number): void {
+  if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+    throw new AgentiCOSError("Idempotency staleAfterMs must be a positive integer.", {
+      code: "IDEMPOTENCY_STALE_WINDOW_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!Number.isFinite(nowMs) || nowMs < 0) {
+    throw new AgentiCOSError("Idempotency clock value is invalid.", {
+      code: "IDEMPOTENCY_CLOCK_INVALID",
+      category: "VALIDATION",
+    });
   }
 }
 

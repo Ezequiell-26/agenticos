@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BudgetGuard } from "../architecture/budget.js";
+import { assertExecutionBudget, BudgetGuard } from "../architecture/budget.js";
 import { AgentiCOSError, serializeError } from "../architecture/errors.js";
 import {
   executeIdempotent,
@@ -86,6 +86,13 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   }
 
   createRun(input: CreateRunInput): RunRecord {
+    assertExecutionBudget(input.budget);
+    if (!input.workspaceId.trim()) {
+      throw new AgentiCOSError("Run workspaceId cannot be empty.", {
+        code: "RUN_WORKSPACE_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
     const now = new Date().toISOString();
     const usage = {
       startedAtMs: Date.now(),
@@ -490,7 +497,13 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     assertSnapshotIntegrity(snapshot);
 
     this.database.transaction(() => {
-      this.requireRunRow(runId);
+      const run = this.requireRunRow(runId);
+      if (run.workspace_id !== snapshot.workspaceId) {
+        throw new AgentiCOSError("Checkpoint workspace does not match run workspace.", {
+          code: "CHECKPOINT_WORKSPACE_MISMATCH",
+          category: "VALIDATION",
+        });
+      }
       this.database.db.prepare(`
         INSERT INTO checkpoints(
           checkpoint_id, workspace_id, run_id, created_at, content_json, content_hash
@@ -594,11 +607,19 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   }
 
   async complete(consumerId: string, eventId: string): Promise<void> {
-    this.database.db.prepare(`
+    const changed = this.database.db.prepare(`
       UPDATE inbox
       SET status='completed', completed_at=?
       WHERE consumer_id=? AND event_id=? AND status='processing'
     `).run(new Date().toISOString(), consumerId, eventId);
+
+    if (changed.changes !== 1) {
+      throw new AgentiCOSError("Inbox completion was lost.", {
+        code: "INBOX_COMPLETE_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
   }
 
   async release(consumerId: string, eventId: string): Promise<void> {

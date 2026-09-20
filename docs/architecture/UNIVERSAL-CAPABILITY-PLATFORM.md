@@ -406,3 +406,139 @@ A failing plugin, provider, memory backend, channel or external engine must not 
 No new API, plugin, skill, memory backend, tool, channel or external engine should require a modification to the canonical agent loop merely to register itself.
 
 The canonical loop consumes stable contracts and registries. Extensions implement those contracts.
+
+## Context engine
+
+Context assembly is its own provider seam and is not hidden inside AgentEngine.
+
+The ContextEngine combines:
+
+- system/developer policy;
+- profile/persona configuration;
+- active skills;
+- relevant memory;
+- workspace/project instructions;
+- session history;
+- tool schemas;
+- provider/model constraints;
+- token budget;
+- compression/cache decisions.
+
+The engine returns a provenance-aware context plan before rendering the provider-specific request.
+
+DeepSeek Harness explicitly separates system-prompt assembly from the agent loop and tool registry; AgentiCOS makes context compilation a first-class Rust contract. citeturn178395search0turn178395search1
+
+## System-prompt assembly
+
+System prompt construction is deterministic and ordered.
+
+Sections have:
+
+- stable ID;
+- priority/order;
+- scope;
+- source/provenance;
+- trust level;
+- token budget;
+- inclusion policy;
+- redaction policy.
+
+A lower-trust dynamic source cannot overwrite a higher-trust system/developer instruction merely by appearing later in the input.
+
+## Scoped registration and ownership
+
+Runtime registries support explicit scopes:
+
+- runtime;
+- profile;
+- workspace;
+- project;
+- agent;
+- run;
+- step.
+
+A scoped extension owns the registrations it creates. Disposal of that scope must remove those registrations and drain dependent work.
+
+DeepSeek Harness uses scoped registration and ownership so extension contributions remain isolated and unloadable. AgentiCOS promotes that concept to a core registry invariant. citeturn178395search0
+
+## Session persistence backends
+
+The session/event abstraction is independent from the physical backend.
+
+Supported architectural backends include:
+
+- SQLite;
+- append-only JSONL;
+- PostgreSQL/server persistence;
+- remote event storage.
+
+All backends must implement the same logical semantics:
+
+- append ordering;
+- checkpoints;
+- crash recovery;
+- integrity verification;
+- replay;
+- search/projection;
+- export.
+
+Physical compression is transparent to logical replay.
+
+## Scheduler/job provider
+
+The scheduler is itself replaceable.
+
+The JobScheduler contract manages:
+
+- creation;
+- recurrence;
+- pause/resume;
+- manual trigger;
+- retries;
+- delivery;
+- execution mode;
+- run history.
+
+The scheduler never runs agent logic directly. It creates or resumes durable Runs through the application/runtime contract.
+
+## Provider pools and dynamic discovery
+
+Provider selection supports pools rather than one configured API key.
+
+A pool tracks:
+
+- credential identity;
+- provider/model compatibility;
+- health;
+- cooldown;
+- quota;
+- recent failures;
+- concurrency;
+- policy eligibility.
+
+Credentials remain outside model context and are selected by the provider gateway only after policy evaluation.
+
+## External extension management
+
+Install/enable/disable/upgrade/rollback/uninstall are separate state transitions. An extension can exist installed but disabled, discovered but unadmitted, or healthy in one profile and unavailable in another.
+
+This prevents the common failure mode where installation implicitly grants runtime authority.
+
+## Observability of extensions
+
+Every extension lifecycle and invocation produces structured telemetry:
+
+- discovery;
+- admission decision;
+- activation;
+- health;
+- invocation;
+- latency;
+- errors;
+- retries;
+- resource use;
+- deactivation;
+- rollback.
+
+Extension telemetry uses stable capability IDs and run/step correlation instead of vendor-specific labels as primary identity.
+

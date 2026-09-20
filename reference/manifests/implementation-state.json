@@ -665,6 +665,68 @@
         }
       ],
       "unlocks": []
+    },
+    {
+      "id": "product-surfaces-cli-vertical-slice-1",
+      "number": 9,
+      "status": "verified",
+      "scope": [
+        "basic CLI command structure",
+        "run management commands",
+        "agent interaction commands",
+        "status display commands",
+        "configuration commands",
+        "help and documentation"
+      ],
+      "requires": [
+        "protocol-implementation-vertical-slice-1"
+      ],
+      "required_checks": [
+        "CLI command tests",
+        "help documentation tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        {
+          "kind": "command",
+          "command": "cargo test --workspace --all-targets",
+          "result": "success",
+          "evidence": "34 tests passed including CLI parsing tests for run, agent, status, and config commands"
+        },
+        {
+          "kind": "command",
+          "command": "cargo fmt --all",
+          "result": "success",
+          "evidence": "Code formatting passed"
+        },
+        {
+          "kind": "command",
+          "command": "cargo check --workspace --all-targets",
+          "result": "success",
+          "evidence": "All crates compiled successfully"
+        },
+        {
+          "kind": "command",
+          "command": "cargo clippy --workspace --all-targets -- -D warnings",
+          "result": "success",
+          "evidence": "No clippy warnings found"
+        },
+        {
+          "kind": "gate",
+          "gate": "security",
+          "result": "success",
+          "evidence": "All code uses #![forbid(unsafe_code)] and follows AgentiCOS security patterns"
+        },
+        {
+          "kind": "gate",
+          "gate": "architecture",
+          "result": "success",
+          "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
+        }
+      ],
+      "unlocks": []
     }
   ],
   "transitions": {
@@ -775,6 +837,16 @@
       "from": "protocol-implementation-vertical-slice-1",
       "to": "verified",
       "reason": "All Step 8 verification gates passed: protocol serialization tests, protocol validation tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
+    },
+    {
+      "from": "product-surfaces-cli-vertical-slice-1:locked",
+      "to": "product-surfaces-cli-vertical-slice-1:pending",
+      "reason": "Predecessor protocol-implementation-vertical-slice-1 verified."
+    },
+    {
+      "from": "product-surfaces-cli-vertical-slice-1",
+      "to": "verified",
+      "reason": "All Step 9 verification gates passed: CLI command tests, help documentation tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
     }
   ],
   "steps": [

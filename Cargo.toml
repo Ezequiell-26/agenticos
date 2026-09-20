@@ -6,7 +6,7 @@ members = [
   "crates/sandbox", "crates/context", "crates/memory", "crates/skills",
   "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
   "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
-  "crates/evaluation", "crates/source-forge", "crates/protocols"
+  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli"
 ]
 
 [workspace.package]

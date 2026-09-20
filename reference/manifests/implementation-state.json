@@ -246,22 +246,27 @@
         }
       ],
       "unlocks": [
-        "step-3-pending"
+        "architecture-hardening-2026-09-21"
       ]
     },
     {
       "id": "architecture-hardening-2026-09-21",
-      "number": 2,
+      "number": 3,
       "status": "verified",
       "scope": [
         "project-state and implementation-state synchronization",
         "AI continuity consistency gate",
         "CI enforcement of state consistency",
         "canonical Rust lease acquisition invariants",
-        "regression tests for lease ownership"
+        "versioned SQLite migration and integrity guards",
+        "transactional worker fencing for run and step mutations",
+        "durable outbox/inbox claim recovery and fencing",
+        "idempotency stale-claim recovery and canonical fingerprints",
+        "contract/snapshot/budget/Forge/provider validation hardening",
+        "regression coverage"
       ],
       "requires": [
-        "rust-kernel-vertical-slice-1"
+        "rust-kernel-vertical-slice-2"
       ],
       "required_checks": [
         "npm run continuity:verify",
@@ -275,44 +280,59 @@
       ],
       "verification_evidence": [
         {
-          "kind": "command",
-          "command": "cargo test --workspace --all-targets",
-          "result": "success",
-          "evidence": "13 tests passed including lease store regression test and all Step 2 kernel features"
+          "kind": "github-actions",
+          "run_id": 35542057325,
+          "run_number": 371,
+          "commit": "3b66f76a00305e06cdc44f58e563e450b356c05f",
+          "result": "success"
         },
         {
           "kind": "command",
-          "command": "cargo fmt --all",
+          "command": "npm run continuity:verify",
           "result": "success",
-          "evidence": "Code formatting passed"
+          "evidence": "CI run 35542057325 / verify-typescript"
+        },
+        {
+          "kind": "command",
+          "command": "npm run state:verify",
+          "result": "success",
+          "evidence": "CI run 35542057325 / verify-typescript"
+        },
+        {
+          "kind": "command",
+          "command": "npm run check",
+          "result": "success",
+          "evidence": "CI run 35542057325 / verify-typescript via npm run verify"
+        },
+        {
+          "kind": "command",
+          "command": "npm run test",
+          "result": "success",
+          "evidence": "CI run 35542057325 / verify-typescript via npm run verify"
+        },
+        {
+          "kind": "command",
+          "command": "cargo fmt --all -- --check",
+          "result": "success",
+          "evidence": "CI run 35542057325 / verify-rust"
         },
         {
           "kind": "command",
           "command": "cargo check --workspace --all-targets",
           "result": "success",
-          "evidence": "All crates compiled successfully"
+          "evidence": "CI run 35542057325 / verify-rust"
+        },
+        {
+          "kind": "command",
+          "command": "cargo test --workspace --all-targets",
+          "result": "success",
+          "evidence": "CI run 35542057325 / verify-rust"
         },
         {
           "kind": "command",
           "command": "cargo clippy --workspace --all-targets -- -D warnings",
           "result": "success",
-          "evidence": "No clippy warnings found"
-        },
-        {
-          "kind": "gate",
-          "gate": "security",
-          "result": "success",
-          "evidence": "All code uses #![forbid(unsafe_code)] and follows AgentiCOS security patterns"
-        },
-        {
-          "kind": "gate",
-          "gate": "architecture",
-          "result": "success",
-          "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
-        },
-        {
-          "kind": "note",
-          "note": "npm verification scripts not available in current environment, but Rust verification gates all passed"
+          "evidence": "CI run 35542057325 / verify-rust"
         }
       ],
       "unlocks": [
@@ -321,7 +341,7 @@
     },
     {
       "id": "agent-engine-vertical-slice-1",
-      "number": 3,
+      "number": 4,
       "status": "pending",
       "scope": [
         "canonical Rust AgentEngine boundary",
@@ -342,6 +362,32 @@
       "verification_evidence": [],
       "unlocks": [
         "provider-plane-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "provider-plane-vertical-slice-1",
+      "number": 5,
+      "status": "pending",
+      "scope": [
+        "canonical Rust provider plane",
+        "model catalog/capability discovery",
+        "credential isolation",
+        "quota/health/retry/fallback boundary",
+        "provider transport verification"
+      ],
+      "requires": [
+        "agent-engine-vertical-slice-1"
+      ],
+      "required_checks": [
+        "contract tests",
+        "provider transport tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
+        "tool-plane-vertical-slice-1"
       ]
     }
   ],

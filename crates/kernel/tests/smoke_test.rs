@@ -215,7 +215,6 @@ fn test_sqlite_persistence() {
     });
 }
 
-
 #[test]
 fn test_lease_store_rejects_active_replacement_and_preserves_fencing_monotonicity() {
     let rt = test_runtime();
@@ -239,11 +238,15 @@ fn test_lease_store_rejects_active_replacement_and_preserves_fencing_monotonicit
             .await
             .unwrap();
         assert!(second.fencing_token > first.fencing_token);
-        assert!(!store
-            .is_valid("run-lease", "worker-a", first.fencing_token, now + 61)
-            .await);
-        assert!(store
-            .is_valid("run-lease", "worker-b", second.fencing_token, now + 61)
-            .await);
+        assert!(
+            !store
+                .is_valid("run-lease", "worker-a", first.fencing_token, now + 61)
+                .await
+        );
+        assert!(
+            store
+                .is_valid("run-lease", "worker-b", second.fencing_token, now + 61)
+                .await
+        );
     });
 }

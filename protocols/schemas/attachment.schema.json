@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/attachment.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Attachment v1",
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "kind",
+    "mediaType",
+    "checksum",
+    "sizeBytes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "artifactId": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "image",
+        "audio",
+        "video",
+        "document",
+        "archive",
+        "structured-data",
+        "binary"
+      ]
+    },
+    "mediaType": {
+      "type": "string"
+    },
+    "checksum": {
+      "type": "string"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source": {
+      "type": "object"
+    },
+    "modelCapabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

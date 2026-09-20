@@ -16,7 +16,7 @@ This is the architecture-derived implementation order. It is designed to prevent
 - define architecture lint rules;
 - establish the Reference Knowledge Corpus;
 - fully ingest/index registered reference repositories at project level, with exact source provenance;
-- create source evidence packs for the highest-value reference repositories.
+- create source evidence packs for the highest-value reference repositories;\n- ingest the Rust token-optimization corpus and record license admission status.
 
 Exit: the Rust workspace can be created without changing domain semantics, every critical boundary has a testable contract, and a coding agent can retrieve source evidence for each planned subsystem.
 
@@ -50,11 +50,11 @@ Reference priority: Hermes, DeepSeek Harness and Codex.
 
 Exit: a user can submit a real objective, watch it run, intervene, disconnect and resume it safely.
 
-## Phase 5 — Knowledge platform
+## Phase 5 — Knowledge platform\n\n- token-aware context compilation, reversible compaction and content-addressed deduplication;\n- structured encoding and delta-aware context synchronization where supported.
 
 Session history, project/user memory, retrieval/reranking, compaction, skills, instruction hierarchy, provenance and deletion/correction controls.
 
-Reference priority: Hermes for memory/skills patterns; LangGraph for checkpointed workflows where applicable.
+Reference priority: Hermes for memory/skills patterns; LangGraph for checkpointed workflows where applicable; gcf-rust for MIT-admissible structured context encoding/delta/session dedup.
 
 Exit: a project can accumulate controlled knowledge without silently promoting uncertain model output into durable facts.
 

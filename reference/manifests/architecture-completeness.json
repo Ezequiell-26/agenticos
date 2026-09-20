@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "status": "architecture-only",
+  "completion_rule": "Every architectural seam must have an owner, versioned contract, schema where cross-boundary, state model, security boundary, persistence/recovery, observability, verification and reference evidence.",
+  "capabilities": [
+    [
+      "auxiliary-model-plane",
+      "auxiliary-model",
+      "auxiliary inference, vision, summarization, classification, embeddings, reranking"
+    ],
+    [
+      "persistent-terminal",
+      "terminal",
+      "persistent PTY ownership, recovery and cleanup"
+    ],
+    [
+      "background-job-runtime",
+      "job",
+      "generic process/terminal/subagent/workflow background jobs"
+    ],
+    [
+      "filesystem-change-plane",
+      "filesystem-change",
+      "observe/intent/authorize/mutate/verify/rollback"
+    ],
+    [
+      "spill-store",
+      "spill-store",
+      "large output retention and selective retrieval"
+    ],
+    [
+      "multimodal",
+      "attachment",
+      "durable media/attachment lifecycle"
+    ],
+    [
+      "code-intelligence",
+      "code-intelligence",
+      "LSP and language-server abstraction"
+    ],
+    [
+      "goal-plan-todo",
+      "planning",
+      "goal/plan/task/todo separation and approval"
+    ],
+    [
+      "agent-teams",
+      "agent-team",
+      "durable team membership, tasks and messaging"
+    ],
+    [
+      "mcp-complete",
+      "mcp-resource",
+      "tools/resources/templates/prompts/transports/lifecycle"
+    ],
+    [
+      "a2a-complete",
+      "a2a-task",
+      "remote agent identity/task/artifact boundary"
+    ],
+    [
+      "credentials",
+      "credential",
+      "keys/OAuth/accounts/pools/rotation/revocation"
+    ],
+    [
+      "profile-scope-isolation",
+      "scope",
+      "registration ownership and isolation"
+    ],
+    [
+      "prompt-stability",
+      "system-prompt",
+      "ordered prompt sections and cache-safe overlays"
+    ],
+    [
+      "trajectories",
+      "trajectory",
+      "evaluation/training trajectory derivation"
+    ],
+    [
+      "supervisor-watchdog",
+      "supervisor",
+      "startup/heartbeat/stall/orphan/recovery supervision"
+    ],
+    [
+      "config-migrations",
+      "migration",
+      "transactional schema/config evolution"
+    ],
+    [
+      "feature-capability-flags",
+      "feature-flag",
+      "availability vs authority separation"
+    ],
+    [
+      "distribution",
+      "package",
+      "signed staged package/update/rollback lifecycle"
+    ],
+    [
+      "ai-change-plane",
+      "change",
+      "AI-generated change review and promotion"
+    ],
+    [
+      "management-plane",
+      "management",
+      "typed administrative operations"
+    ]
+  ],
+  "policy": {
+    "architecture_only": true,
+    "implementation_requires_step_unlock": true,
+    "canonical_agent_loop_modification_requires_adr": true,
+    "future_scope_preimplementation_forbidden": true,
+    "reference_first": true,
+    "mit_only_canonical_source_integration": true
+  }
+}

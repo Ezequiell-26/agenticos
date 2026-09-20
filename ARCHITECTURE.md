@@ -11,7 +11,7 @@ TypeScript is primarily for Web/product surfaces, Python for ecosystem integrati
 
 The current TypeScript code is a transitional architecture prototype, not the final runtime boundary.
 
-See docs/adr/0006-rust-core-runtime.md.
+See docs/adr/0006-rust-core-runtime.md and docs/adr/0007-token-optimization-rust.md.
 
 ## Reference-first implementation policy
 
@@ -52,7 +52,7 @@ See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMP
 25. No capability is considered complete until it has an executable vertical slice and recovery semantics.
 26. Reference evidence must be traceable to an exact source snapshot.
 27. Reference code cannot override AgentiCOS security, contracts or license policy.
-28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.
+28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.\n29. Third-party source copied or vendored into the optimization plane must pass the MIT-only source-admission gate.\n30. Token optimization must fail closed to original content when a transform cannot prove its safety contract.
 
 ## Product definition
 

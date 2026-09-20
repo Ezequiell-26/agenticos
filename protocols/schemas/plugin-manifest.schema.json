@@ -1,0 +1,16 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/plugin-manifest.v1.json",
+  "title":"AgentiCOS Plugin Manifest v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","pluginId","version","entrypoint","capabilities","isolation"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "pluginId":{"type":"string","minLength":1},
+    "version":{"type":"string","minLength":1},
+    "entrypoint":{"type":"string","minLength":1},
+    "capabilities":{"type":"array","items":{"type":"string"}},
+    "isolation":{"enum":["wasm","process","container","remote"]}
+  }
+}

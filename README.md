@@ -8,7 +8,7 @@ AgentiCOS is being designed as a universal, model-agnostic agent runtime and app
 
 ## Architecture status
 
-The architecture foundation, Rust kernel vertical slices 1–2, architecture hardening, and the AgentEngine vertical slice are verified. The project is now advancing through the provider-plane vertical slice under the sequential verification protocol.
+The architecture foundation, kernel/hardening work, AgentEngine, provider, tool, memory/context, protocol and CLI vertical slices have recorded acceptance evidence. The project is now at the runtime-integration slice, where the individual boundaries are connected and their recovery semantics are verified together.
 
 ## Non-negotiable implementation workflow
 
@@ -37,4 +37,4 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) first, then [docs/architecture/README.
 
 Provider Engine and Source Forge prototypes exist in TypeScript. They remain transitional until their responsibilities are replaced or adapted behind the canonical Rust contracts.
 
-The architecture verification gate, kernel slices, hardening gate, and AgentEngine slice are verified. The only authorized next product slice is `provider-plane-vertical-slice-1`.
+The architecture verification gates are enforced by CI. A VERIFIED slice means its declared acceptance contract passed; it does not imply that every capability behind the seam is production-complete. The only authorized next implementation slice is `runtime-integration-vertical-slice-1`.

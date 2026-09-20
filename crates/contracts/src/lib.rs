@@ -162,9 +162,13 @@ pub trait AgentEngine: Send + Sync + 'static {
 }
 
 /// Typed tool execution boundary.
+#[async_trait::async_trait]
 pub trait AgentTool: Send + Sync + 'static {
     /// Stable tool identifier.
     fn tool_id(&self) -> &str;
+
+    /// Execute the tool with given request.
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError>;
 }
 
 /// Durable event storage contract.
@@ -463,6 +467,78 @@ pub struct FallbackConfig {
     pub fallback_providers: Vec<String>,
     /// Whether to failover automatically.
     pub auto_failover: bool,
+}
+
+/// Tool registration entry.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolEntry {
+    /// Tool identifier.
+    pub tool_id: String,
+    /// Tool name.
+    pub name: String,
+    /// Tool description.
+    pub description: String,
+    /// Tool capabilities.
+    pub capabilities: Vec<String>,
+    /// Required permissions.
+    pub required_permissions: Vec<String>,
+    /// Execution context requirements.
+    pub context_requirements: Vec<String>,
+}
+
+/// Tool execution request.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolRequest {
+    /// Request identifier.
+    pub request_id: String,
+    /// Tool to execute.
+    pub tool_id: String,
+    /// Input parameters.
+    pub parameters: String,
+    /// Requesting agent ID.
+    pub agent_id: String,
+    /// Capability grant ID.
+    pub grant_id: String,
+}
+
+/// Tool execution response.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolResponse {
+    /// Request identifier (echoed).
+    pub request_id: String,
+    /// Execution result.
+    pub result: String,
+    /// Success status.
+    pub success: bool,
+    /// Error message if failed.
+    pub error: Option<String>,
+    /// Output metadata.
+    pub metadata: Option<String>,
+}
+
+/// Policy decision.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PolicyDecision {
+    /// Request approved.
+    Approved,
+    /// Request denied.
+    Denied(String),
+    /// Request requires additional approval.
+    RequiresApproval(String),
+}
+
+/// Policy engine for tool approval.
+#[async_trait::async_trait]
+pub trait PolicyEngine: Send + Sync + 'static {
+    /// Evaluate a tool execution request.
+    async fn evaluate(&self, request: &ToolRequest) -> Result<PolicyDecision, ContractError>;
+
+    /// Check if a capability grant allows the operation.
+    async fn check_capability(
+        &self,
+        grant_id: &str,
+        capability: &str,
+    ) -> Result<bool, ContractError>;
 }
 
 /// Quota information for a provider.

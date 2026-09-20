@@ -7,9 +7,12 @@ import {
   type IdempotencyStore,
 } from "../architecture/idempotency.js";
 import {
+  DEFAULT_CLAIM_STALE_AFTER_MS,
+  DEFAULT_OUTBOX_CLAIM_TTL_MS,
   type DurableEvent,
   type Inbox,
   type Outbox,
+  type OutboxClaim,
 } from "../architecture/outbox.js";
 import { RunStateMachine, type RunState } from "../architecture/state-machine.js";
 import {
@@ -238,6 +241,91 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     });
   }
 
+  transitionRunOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: RunState,
+    eventType = "run.state.changed",
+    error?: unknown,
+    releaseLease = false,
+    nowMs = this.clock.nowMs(),
+  ): RunRecord {
+    return this.database.transactionImmediate(() => {
+      const row = this.requireRunRow(id);
+      this.assertLeaseInTransaction("run:" + id, ownerId, fencingToken, nowMs);
+
+      const machine = new RunStateMachine(row.state);
+      machine.transition(to);
+
+      if (to === "completed" || to === "cancelled") {
+        const open = this.database.db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM steps WHERE run_id = ? AND state IN ('pending','running','waiting')",
+          )
+          .get(id) as { count: number };
+
+        if (open.count > 0) {
+          throw new AgentiCOSError(
+            "Run cannot enter a terminal state while active steps remain.",
+            {
+              code: "RUN_HAS_ACTIVE_STEPS",
+              category: "VALIDATION",
+            },
+          );
+        }
+      }
+
+      const now = new Date(nowMs).toISOString();
+      const nextVersion = row.version + 1;
+      const nextError =
+        error === undefined ? row.error_json : JSON.stringify(serializeError(error));
+
+      const changed = this.database.db
+        .prepare(
+          "UPDATE runs SET state=?, version=?, updated_at=?, error_json=? WHERE id=? AND version=?",
+        )
+        .run(to, nextVersion, now, nextError, id, row.version);
+
+      if (changed.changes !== 1) {
+        throw new AgentiCOSError("Run version conflict.", {
+          code: "RUN_VERSION_CONFLICT",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      this.appendEventInTransaction(
+        eventType,
+        nextVersion,
+        id,
+        id,
+        { from: row.state, to, version: nextVersion, workerId: ownerId, fencingToken },
+        now,
+      );
+
+      if (releaseLease) {
+        const released = this.database.db
+          .prepare(
+            "UPDATE leases SET expires_at=? WHERE resource_id=? AND owner_id=? AND fencing_token=?",
+          )
+          .run(new Date(0).toISOString(), "run:" + id, ownerId, fencingToken);
+
+        if (released.changes !== 1) {
+          throw new AgentiCOSError("Run lease release lost ownership.", {
+            code: "RUN_LEASE_RELEASE_CONFLICT",
+            category: "CONCURRENCY",
+            severity: "critical",
+            recoverable: true,
+          });
+        }
+      }
+
+      return this.requireRun(id);
+    });
+  }
+
   createStep(input: CreateStepInput): StepRecord {
     const now = this.clock.nowIso();
 
@@ -308,6 +396,57 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         to,
         version: nextVersion,
       }, now);
+
+      return this.requireStep(id);
+    });
+  }
+
+  transitionStepOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: StepState,
+    output?: unknown,
+    error?: unknown,
+    nowMs = this.clock.nowMs(),
+  ): StepRecord {
+    return this.database.transactionImmediate(() => {
+      const row = this.requireStepRow(id);
+      this.assertLeaseInTransaction("run:" + row.run_id, ownerId, fencingToken, nowMs);
+
+      const machine = new StepStateMachine(row.state);
+      machine.transition(to);
+
+      const now = new Date(nowMs).toISOString();
+      const nextVersion = row.version + 1;
+      const nextOutput =
+        output === undefined ? row.output_json : JSON.stringify(output);
+      const nextError =
+        error === undefined ? row.error_json : JSON.stringify(serializeError(error));
+
+      const changed = this.database.db
+        .prepare(
+          "UPDATE steps SET state=?, version=?, updated_at=?, output_json=?, error_json=? WHERE id=? AND version=?",
+        )
+        .run(to, nextVersion, now, nextOutput, nextError, id, row.version);
+
+      if (changed.changes !== 1) {
+        throw new AgentiCOSError("Step version conflict.", {
+          code: "STEP_VERSION_CONFLICT",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      this.appendEventInTransaction(
+        "step.state.changed",
+        nextVersion,
+        id,
+        row.run_id,
+        { from: row.state, to, version: nextVersion, workerId: ownerId, fencingToken },
+        now,
+      );
 
       return this.requireStep(id);
     });
@@ -575,22 +714,65 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     });
   }
 
-  async claimEvent(consumerId: string, eventId: string): Promise<boolean> {
+  async claimEvent(
+    consumerId: string,
+    eventId: string,
+    staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+    nowMs = this.clock.nowMs(),
+  ): Promise<boolean> {
     if (!consumerId.trim() || !eventId.trim()) {
       throw new AgentiCOSError("Inbox consumerId and eventId are required.", {
         code: "INBOX_ID_REQUIRED",
         category: "VALIDATION",
       });
     }
+    if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+      throw new AgentiCOSError("Inbox staleAfterMs must be a positive integer.", {
+        code: "INBOX_STALE_WINDOW_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isFinite(nowMs) || nowMs < 0) {
+      throw new AgentiCOSError("Inbox claim clock is invalid.", {
+        code: "INBOX_CLAIM_CLOCK_INVALID",
+        category: "VALIDATION",
+      });
+    }
 
     return this.database.transactionImmediate(() => {
-      const result = this.database.db.prepare(`
-        INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
-        VALUES(?, ?, 'processing', ?)
-        ON CONFLICT(consumer_id, event_id) DO NOTHING
-      `).run(consumerId, eventId, this.clock.nowIso());
+      const existing = this.database.db
+        .prepare(
+          "SELECT status, claimed_at FROM inbox WHERE consumer_id=? AND event_id=?",
+        )
+        .get(consumerId, eventId) as
+        | { status: "processing" | "completed"; claimed_at: string }
+        | undefined;
 
-      return result.changes === 1;
+      const nowIso = new Date(nowMs).toISOString();
+
+      if (!existing) {
+        this.database.db
+          .prepare(
+            "INSERT INTO inbox(consumer_id,event_id,status,claimed_at) VALUES(?,?, 'processing',?)",
+          )
+          .run(consumerId, eventId, nowIso);
+        return true;
+      }
+
+      if (existing.status === "completed") return false;
+
+      const claimedAt = Date.parse(existing.claimed_at);
+      if (!Number.isFinite(claimedAt) || nowMs - claimedAt < staleAfterMs) {
+        return false;
+      }
+
+      const reclaimed = this.database.db
+        .prepare(
+          "UPDATE inbox SET status='processing', claimed_at=?, completed_at=NULL WHERE consumer_id=? AND event_id=? AND status='processing' AND claimed_at=?",
+        )
+        .run(nowIso, consumerId, eventId, existing.claimed_at);
+
+      return reclaimed.changes === 1;
     });
   }
 
@@ -695,24 +877,146 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     }));
   }
 
-  async markPublished(eventId: string): Promise<void> {
+  async claimPending(
+    ownerId: string,
+    limit = 100,
+    ttlMs = DEFAULT_OUTBOX_CLAIM_TTL_MS,
+    nowMs = this.clock.nowMs(),
+  ): Promise<readonly OutboxClaim[]> {
+    if (!ownerId.trim()) {
+      throw new AgentiCOSError("Outbox ownerId cannot be empty.", {
+        code: "OUTBOX_OWNER_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isInteger(limit) || limit <= 0) {
+      throw new AgentiCOSError("Outbox limit must be positive.", {
+        code: "OUTBOX_LIMIT_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
+      throw new AgentiCOSError("Outbox claim TTL must be a positive integer.", {
+        code: "OUTBOX_CLAIM_TTL_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isFinite(nowMs) || nowMs < 0) {
+      throw new AgentiCOSError("Outbox claim clock is invalid.", {
+        code: "OUTBOX_CLAIM_CLOCK_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
+    return this.database.transactionImmediate(() => {
+      const nowIso = new Date(nowMs).toISOString();
+      const rows = this.database.db
+        .prepare(`
+          SELECT e.*
+          FROM events e
+          JOIN outbox o ON o.event_id=e.event_id
+          WHERE o.published_at IS NULL
+            AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)
+            AND (o.claimed_until IS NULL OR o.claimed_until <= ?)
+          ORDER BY o.created_at ASC
+          LIMIT ?
+        `)
+        .all(nowIso, nowIso, Math.floor(limit)) as Array<{
+          event_id: string;
+          type: string;
+          version: number;
+          aggregate_id: string;
+          run_id: string | null;
+          workspace_id: string | null;
+          project_id: string | null;
+          thread_id: string | null;
+          actor_id: string | null;
+          parent_event_id: string | null;
+          correlation_id: string | null;
+          causation_id: string | null;
+          durable: number;
+          created_at: string;
+          payload_json: string;
+        }>;
+
+      const claims: OutboxClaim[] = [];
+      const claimedUntil = new Date(nowMs + ttlMs).toISOString();
+
+      for (const row of rows) {
+        const claimId = this.ids.next();
+        const changed = this.database.db
+          .prepare(`
+            UPDATE outbox
+            SET claimed_by=?, claim_id=?, claimed_until=?
+            WHERE event_id=? AND published_at IS NULL
+              AND (claimed_until IS NULL OR claimed_until <= ?)
+          `)
+          .run(ownerId, claimId, claimedUntil, row.event_id, nowIso);
+
+        if (changed.changes !== 1) continue;
+
+        const event: DurableEvent = {
+          eventId: row.event_id,
+          type: row.type,
+          version: row.version,
+          aggregateId: row.aggregate_id,
+          createdAt: row.created_at,
+          ...(row.run_id === null ? {} : { runId: row.run_id }),
+          ...(row.workspace_id === null ? {} : { workspaceId: row.workspace_id }),
+          ...(row.project_id === null ? {} : { projectId: row.project_id }),
+          ...(row.thread_id === null ? {} : { threadId: row.thread_id }),
+          ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+          ...(row.parent_event_id === null ? {} : { parentEventId: row.parent_event_id }),
+          ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+          ...(row.causation_id === null ? {} : { causationId: row.causation_id }),
+          durable: row.durable === 1,
+          payload: JSON.parse(row.payload_json),
+        };
+
+        claims.push({
+          event,
+          claimId,
+          ownerId,
+          claimedUntil,
+        });
+      }
+
+      return claims;
+    });
+  }
+
+  async markPublished(eventId: string, claimId?: string): Promise<void> {
     const changed = this.database.db
-      .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ? AND published_at IS NULL")
-      .run(this.clock.nowIso(), eventId);
+      .prepare(
+        claimId === undefined
+          ? "UPDATE outbox SET published_at=?, claimed_by=NULL, claim_id=NULL, claimed_until=NULL WHERE event_id=? AND published_at IS NULL"
+          : "UPDATE outbox SET published_at=?, claimed_by=NULL, claim_id=NULL, claimed_until=NULL WHERE event_id=? AND published_at IS NULL AND claim_id=?",
+      )
+      .run(
+        this.clock.nowIso(),
+        eventId,
+        ...(claimId === undefined ? [] : [claimId]),
+      );
 
     if (changed.changes !== 1) {
-      throw new AgentiCOSError("Outbox event was already published or does not exist.", {
-        code: "OUTBOX_MARK_PUBLISHED_FAILED",
-        category: "PERSISTENCE",
-        severity: "critical",
-      });
+      throw new AgentiCOSError(
+        claimId === undefined
+          ? "Outbox event was already published or does not exist."
+          : "Outbox publication fencing rejected.",
+        {
+          code: "OUTBOX_MARK_PUBLISHED_FAILED",
+          category: "PERSISTENCE",
+          severity: "critical",
+        },
+      );
     }
   }
 
   async markFailed(eventId: string, error: unknown, nextAttemptAt: string): Promise<void> {
     const changed = this.database.db.prepare(`
       UPDATE outbox
-      SET attempts = attempts + 1, last_error_json = ?, next_attempt_at = ?
+      SET attempts = attempts + 1, last_error_json = ?, next_attempt_at = ?,
+          claimed_by = NULL, claim_id = NULL, claimed_until = NULL
       WHERE event_id = ? AND published_at IS NULL
     `).run(JSON.stringify(serializeError(error)), nextAttemptAt, eventId);
 
@@ -723,6 +1027,14 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         severity: "critical",
       });
     }
+  }
+
+  async releaseClaim(eventId: string, claimId: string): Promise<void> {
+    this.database.db
+      .prepare(
+        "UPDATE outbox SET claimed_by=NULL, claim_id=NULL, claimed_until=NULL WHERE event_id=? AND claim_id=? AND published_at IS NULL",
+      )
+      .run(eventId, claimId);
   }
 
   async complete(consumerId: string, eventId: string): Promise<void> {
@@ -871,6 +1183,34 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       durable: row.durable === 1,
       payload: JSON.parse(row.payload_json),
     }));
+  }
+
+  private assertLeaseInTransaction(
+    resourceId: string,
+    ownerId: string,
+    fencingToken: number,
+    nowMs: number,
+  ): void {
+    const row = this.database.db
+      .prepare(
+        "SELECT owner_id, fencing_token, expires_at FROM leases WHERE resource_id=?",
+      )
+      .get(resourceId) as
+      | { owner_id: string; fencing_token: number; expires_at: string }
+      | undefined;
+
+    if (
+      !row ||
+      row.owner_id !== ownerId ||
+      row.fencing_token !== fencingToken ||
+      Date.parse(row.expires_at) <= nowMs
+    ) {
+      throw new AgentiCOSError("Run lease fencing rejected.", {
+        code: "RUN_LEASE_FENCING_REJECTED",
+        category: "CONCURRENCY",
+        recoverable: true,
+      });
+    }
   }
 
   assertRunLease(runId: string, workerId: string, fencingToken: number): void {

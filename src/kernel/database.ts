@@ -5,7 +5,7 @@ import { AgentiCOSError } from "../architecture/errors.js";
 import { applyKernelMigrations } from "./migrations.js";
 
 const BASE_SCHEMA_VERSION = 1;
-const LATEST_SCHEMA_VERSION = 2;
+const LATEST_SCHEMA_VERSION = 3;
 
 export interface DatabaseIntegrityReport {
   readonly ok: boolean;
@@ -58,7 +58,10 @@ export class SqliteDatabase {
     const integrityCheck = integrityRow?.integrity_check ?? "unknown";
 
     return {
-      ok: integrityCheck === "ok" && foreignKeys.length === 0 && Number.isInteger(schemaVersion),
+      ok:
+        integrityCheck === "ok" &&
+        foreignKeys.length === 0 &&
+        schemaVersion === LATEST_SCHEMA_VERSION,
       integrityCheck,
       foreignKeyViolations: foreignKeys.length,
       schemaVersion,

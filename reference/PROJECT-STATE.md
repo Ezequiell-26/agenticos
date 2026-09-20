@@ -6,10 +6,13 @@
 
 - Repository: `Ezequiell-26/agenticos`
 - Architecture mode: `sequential-verified`
-- Current implementation step: `architecture-hardening-2026-09-21`
-- Current step status: `in_progress`
-- Architecture foundation: VERIFIED (GitHub Actions run #354; commit `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`).
-- Rust durable kernel Step 1: VERIFIED on `main` at `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
+- Current implementation step: `provider-plane-vertical-slice-1`
+- Current step status: `pending`
+- Architecture foundation: VERIFIED on GitHub Actions run #354.
+- Rust durable kernel Step 1: VERIFIED on `main`.
+- Rust durable kernel Step 2: VERIFIED by recorded Rust workspace gates.
+- Architecture hardening: VERIFIED with full TypeScript/continuity and Rust evidence from CI run #371 on the reconciled hardening branch.
+- AgentEngine vertical slice: VERIFIED on current `main` commit `c23a789379bc07923440334239d9e3a982c1b9b9` according to its recorded verification evidence.
 - Canonical runtime: Rust/Tokio.
 - TypeScript: transitional prototype/product surface boundary; it is not the canonical runtime.
 - Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
@@ -21,27 +24,43 @@ The architecture contains explicit contracts and schemas for runtime, providers,
 
 The reference system contains a verified MIT-focused seed corpus and a dynamic resolver. Non-trivial implementation must use repository evidence and preserve exact provenance.
 
-## Current hardening scope
+The current hardening layer protects versioned SQLite migrations, database invariants, worker lease/fencing semantics, durable outbox/inbox claims, idempotency recovery, contract validation, snapshot integrity, execution budgets and Forge/provider validation paths.
 
-- Keep machine-readable and human-readable project state synchronized.
-- Add a blocking project-state consistency verifier.
-- Enforce that only one implementation step is active.
-- Harden the canonical Rust in-memory lease store against active takeover and fencing-token reuse.
-- Add regression coverage and CI enforcement.
-- Do not implement the AgentEngine or later product slices during this step.
+## Current implementation scope
+
+The sole authorized next implementation slice is `provider-plane-vertical-slice-1`.
+
+Its scope is:
+
+- canonical Rust provider plane;
+- model catalog and capability discovery;
+- credential isolation;
+- quota/health/retry/fallback boundaries;
+- provider transport verification.
+
+No later product slice should be pre-implemented.
 
 ## Verification truth
 
 Do not claim a check passed unless the command/result is recorded in the operation journal or CI evidence.
 
-At this checkpoint, the hardening branch has not yet received final CI evidence. Treat all hardening checks as **UNVERIFIED** until GitHub Actions records them.
+Architecture hardening is supported by CI run #371:
+- `npm run continuity:verify`
+- `npm run state:verify`
+- `npm run check`
+- `npm run test`
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --all-targets`
+- `cargo test --workspace --all-targets`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+
+AgentEngine is recorded as VERIFIED by its current-main implementation evidence. A fresh full CI run is required after this reconciliation before the reconciliation itself is merged.
 
 ## Next authorized progression
 
-1. Verify `architecture-hardening-2026-09-21` in CI.
-2. Record exact verification evidence in the journal and manifest.
-3. Mark the hardening step `VERIFIED` only after every required check passes.
-4. Unlock exactly one next step: `agent-engine-vertical-slice-1`.
+1. Pass the full CI gate on this final reconciliation branch.
+2. Merge the reconciled branch into `main` without overwriting the current AgentEngine implementation.
+3. Keep exactly one next implementation step unlocked: `provider-plane-vertical-slice-1`.
 
 ## Anti-regression rule
 
@@ -55,8 +74,9 @@ The next AI must continue from this file and the append-only journal, not from m
 
 ## Current rollback point
 
-- Safe rollback to verified main baseline: `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
-- No files or historical records were deleted by the hardening operation.
+- Safe rollback to current main baseline before reconciliation: `c23a789379bc07923440334239d9e3a982c1b9b9`.
+- Previous verified architectural baseline remains `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
+- No project files or historical records are deleted by this reconciliation.
 
 ## Historical evidence
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 export const DEFAULT_CLAIM_STALE_AFTER_MS = 5 * 60_000;
+export const DEFAULT_OUTBOX_CLAIM_TTL_MS = 30_000;
 
 export interface DurableEvent<T = unknown> {
   readonly eventId: string;
@@ -16,7 +17,21 @@ export interface Outbox {
     event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
   ): Promise<DurableEvent<T>>;
   listPending(limit?: number): Promise<readonly DurableEvent[]>;
-  markPublished(eventId: string): Promise<void>;
+  claimPending(
+    ownerId: string,
+    limit?: number,
+    ttlMs?: number,
+    nowMs?: number,
+  ): Promise<readonly OutboxClaim[]>;
+  markPublished(eventId: string, claimId: string): Promise<void>;
+  releaseClaim(eventId: string, claimId: string): Promise<void>;
+}
+
+export interface OutboxClaim {
+  readonly event: DurableEvent;
+  readonly claimId: string;
+  readonly ownerId: string;
+  readonly claimedUntil: string;
 }
 
 export interface Inbox {
@@ -32,6 +47,10 @@ export interface Inbox {
 
 export class InMemoryOutbox implements Outbox {
   private readonly pending = new Map<string, DurableEvent>();
+  private readonly claims = new Map<
+    string,
+    { claimId: string; ownerId: string; claimedUntil: number }
+  >();
 
   async append<T>(
     event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
@@ -50,10 +69,53 @@ export class InMemoryOutbox implements Outbox {
     return [...this.pending.values()].slice(0, safeLimit);
   }
 
-  async markPublished(eventId: string): Promise<void> {
+  async claimPending(
+    ownerId: string,
+    limit = 100,
+    ttlMs = DEFAULT_OUTBOX_CLAIM_TTL_MS,
+    nowMs = Date.now(),
+  ): Promise<readonly OutboxClaim[]> {
+    assertOutboxClaimWindow(ownerId, limit, ttlMs, nowMs);
+    const safeLimit = normalizeLimit(limit);
+    const claims: OutboxClaim[] = [];
+
+    for (const event of this.pending.values()) {
+      if (claims.length >= safeLimit) break;
+      const current = this.claims.get(event.eventId);
+      if (current && current.claimedUntil > nowMs) continue;
+
+      const claim = {
+        claimId: randomUUID(),
+        ownerId,
+        claimedUntil: nowMs + ttlMs,
+      };
+      this.claims.set(event.eventId, claim);
+      claims.push({
+        event,
+        claimId: claim.claimId,
+        ownerId,
+        claimedUntil: new Date(claim.claimedUntil).toISOString(),
+      });
+    }
+
+    return claims;
+  }
+
+  async markPublished(eventId: string, claimId: string): Promise<void> {
+    const claim = this.claims.get(eventId);
+    if (!claim || claim.claimId !== claimId) {
+      throw new Error("Outbox publication fencing rejected: " + eventId);
+    }
     if (!this.pending.delete(eventId)) {
       throw new Error("Outbox event is missing or already published: " + eventId);
     }
+    this.claims.delete(eventId);
+  }
+
+  async releaseClaim(eventId: string, claimId: string): Promise<void> {
+    const claim = this.claims.get(eventId);
+    if (!claim || claim.claimId !== claimId) return;
+    this.claims.delete(eventId);
   }
 }
 
@@ -124,6 +186,18 @@ export async function consumeAtLeastOncePerConsumer<T>(
     await inbox.release(consumerId, event.eventId);
     throw error;
   }
+}
+
+function assertOutboxClaimWindow(
+  ownerId: string,
+  limit: number,
+  ttlMs: number,
+  nowMs: number,
+): void {
+  if (!ownerId.trim()) throw new Error("Outbox ownerId cannot be empty.");
+  if (!Number.isInteger(limit) || limit <= 0) throw new Error("Outbox limit must be positive.");
+  if (!Number.isInteger(ttlMs) || ttlMs <= 0) throw new Error("Outbox claim ttlMs must be positive.");
+  if (!Number.isFinite(nowMs) || nowMs < 0) throw new Error("Outbox claim clock is invalid.");
 }
 
 function assertClaimWindow(staleAfterMs: number, nowMs: number): void {

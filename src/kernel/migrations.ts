@@ -145,7 +145,7 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
       addColumnIfMissing(database, "outbox", "claimed_until", "TEXT");
       database.exec(`
         CREATE INDEX IF NOT EXISTS idx_outbox_claimable
-          ON outbox(published_at, claimed_until, created_at);
+        ON outbox(published_at, claimed_until, created_at);
       `);
     },
   },
@@ -154,67 +154,68 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
     id: "kernel-domain-integrity-preflight",
     checksum: "sha256:agenticos-kernel-domain-integrity-v4",
     up(database) {
-      const invalidRuns = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM runs
-         WHERE state NOT IN (
-           'created', 'admitted', 'running', 'waiting', 'paused',
-           'cancelling', 'completed', 'failed', 'cancelled'
-         )
-         OR version < 1\`,
-      ).get() as { count: number };
+      const invalidRuns = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM runs
+        WHERE state NOT IN (
+          'created', 'admitted', 'running', 'waiting', 'paused',
+          'cancelling', 'completed', 'failed', 'cancelled'
+        )
+        OR version < 1
+      `).get() as { count: number };
 
-      const invalidSteps = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM steps
-         WHERE state NOT IN (
-           'pending', 'running', 'waiting', 'completed', 'failed', 'cancelled'
-         )
-         OR version < 1
-         OR sequence < 1\`,
-      ).get() as { count: number };
+      const invalidSteps = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM steps
+        WHERE state NOT IN (
+          'pending', 'running', 'waiting', 'completed', 'failed', 'cancelled'
+        )
+        OR version < 1
+        OR sequence < 1
+      `).get() as { count: number };
 
-      const invalidEvents = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM events
-         WHERE version < 1 OR length(trim(type)) = 0\`,
-      ).get() as { count: number };
+      const invalidEvents = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE version < 1 OR length(trim(type)) = 0
+      `).get() as { count: number };
 
-      const invalidIdempotency = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM idempotency
-         WHERE status NOT IN ('in-progress', 'completed', 'failed')\`,
-      ).get() as { count: number };
+      const invalidIdempotency = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM idempotency
+        WHERE status NOT IN ('in-progress', 'completed', 'failed')
+      `).get() as { count: number };
 
-      const invalidInbox = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM inbox
-         WHERE status NOT IN ('processing', 'completed')
-           OR (status = 'completed' AND completed_at IS NULL)
-           OR (status = 'processing' AND completed_at IS NOT NULL)\`,
-      ).get() as { count: number };
+      const invalidInbox = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM inbox
+        WHERE status NOT IN ('processing', 'completed')
+          OR (status = 'completed' AND completed_at IS NULL)
+          OR (status = 'processing' AND completed_at IS NOT NULL)
+      `).get() as { count: number };
 
-      const invalidCheckpoints = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM checkpoints
-         WHERE length(content_hash) <> 64\`,
-      ).get() as { count: number };
+      const invalidCheckpoints = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM checkpoints
+        WHERE length(content_hash) <> 64
+      `).get() as { count: number };
 
-      const invalidOutbox = database.prepare(
-        \`SELECT COUNT(*) AS count
-         FROM outbox
-         WHERE (published_at IS NOT NULL AND (
-           claimed_by IS NOT NULL OR claim_id IS NOT NULL OR claimed_until IS NOT NULL
-         ))
-         OR (published_at IS NULL AND (
-           (claimed_by IS NULL AND (
-             claim_id IS NOT NULL OR claimed_until IS NOT NULL
-           )) OR
-           (claimed_by IS NOT NULL AND (
-             claim_id IS NULL OR claimed_until IS NULL
-           ))
-         ))\`,
-      ).get() as { count: number };
+      const invalidOutbox = database.prepare(`
+        SELECT COUNT(*) AS count
+        FROM outbox
+        WHERE (published_at IS NOT NULL AND (
+          claimed_by IS NOT NULL OR claim_id IS NOT NULL OR claimed_until IS NOT NULL
+        ))
+        OR (published_at IS NULL AND (
+          (claimed_by IS NULL AND (
+            claim_id IS NOT NULL OR claimed_until IS NOT NULL
+          ))
+          OR
+          (claimed_by IS NOT NULL AND (
+            claim_id IS NULL OR claimed_until IS NULL
+          ))
+        ))
+      `).get() as { count: number };
 
       if (
         invalidRuns.count > 0 ||
@@ -235,7 +236,7 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
         );
       }
 
-      database.exec(\`
+      database.exec(`
         CREATE TRIGGER IF NOT EXISTS trg_inbox_claim_consistency_insert
         BEFORE INSERT ON inbox
         WHEN (NEW.status = 'completed' AND NEW.completed_at IS NULL)
@@ -260,7 +261,8 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
         OR (NEW.published_at IS NULL AND (
           (NEW.claimed_by IS NULL AND (
             NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
-          )) OR
+          ))
+          OR
           (NEW.claimed_by IS NOT NULL AND (
             NEW.claim_id IS NULL OR NEW.claimed_until IS NULL
           ))
@@ -277,7 +279,8 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
         OR (NEW.published_at IS NULL AND (
           (NEW.claimed_by IS NULL AND (
             NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
-          )) OR
+          ))
+          OR
           (NEW.claimed_by IS NOT NULL AND (
             NEW.claim_id IS NULL OR NEW.claimed_until IS NULL
           ))
@@ -285,14 +288,12 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
         BEGIN
           SELECT RAISE(ABORT, 'invalid outbox claim state');
         END;
-      \`);
+      `);
     },
   },
 ];
 
-export function applyKernelMigrations(
-  database: Database.Database,
-): number {
+export function applyKernelMigrations(database: Database.Database): number {
   validateMigrationDefinitions(KERNEL_MIGRATIONS);
 
   database.exec(`
@@ -304,49 +305,39 @@ export function applyKernelMigrations(
     );
   `);
 
-  const schemaMeta = database
-    .prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'")
+  const meta = database
+    .prepare("SELECT value FROM schema_meta WHERE key='schema_version'")
     .get() as { value: string } | undefined;
+  const current = meta ? Number(meta.value) : 0;
 
-  const currentSchemaVersion = schemaMeta ? Number(schemaMeta.value) : 0;
-  if (!Number.isInteger(currentSchemaVersion) || currentSchemaVersion < 0) {
-    throw new AgentiCOSError("Database schema version is invalid.", {
+  if (!Number.isInteger(current) || current < 0 || current > 4) {
+    throw new AgentiCOSError("Database schema version is invalid for kernel migrations.", {
       code: "DATABASE_SCHEMA_VERSION_INVALID",
       category: "PERSISTENCE",
       severity: "critical",
     });
   }
 
-  if (currentSchemaVersion > 4) {
-    throw new AgentiCOSError(
-      "Database schema version is newer than this runtime.",
-      {
-        code: "DATABASE_SCHEMA_VERSION_NEWER_THAN_RUNTIME",
-        category: "PERSISTENCE",
-        severity: "critical",
-      },
-    );
-  }
-
-  const applied = new Map<number, { version: number; id: string; checksum: string }>();
-  const orderedAppliedRows = database
-    .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
+  const rows = database
+    .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version")
     .all() as Array<{ version: number; id: string; checksum: string }>;
 
-  if (orderedAppliedRows.length === 0) {
+  if (rows.length === 0) {
     database.prepare(`
       INSERT INTO schema_migrations(version, id, checksum, applied_at)
       VALUES(1, 'kernel-baseline-v1', 'sha256:agenticos-kernel-baseline-v1', ?)
     `).run(new Date().toISOString());
   }
 
-  const historyRows = database
-    .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
+  const history = database
+    .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version")
     .all() as Array<{ version: number; id: string; checksum: string }>;
 
-  let expectedAppliedVersion = 1;
-  for (const row of historyRows) {
-    if (row.version !== expectedAppliedVersion) {
+  let expected = 1;
+  const applied = new Map<number, { version: number; id: string; checksum: string }>();
+
+  for (const row of history) {
+    if (row.version !== expected) {
       throw new AgentiCOSError(
         "Database migration history has a version gap before " + row.version + ".",
         {
@@ -356,16 +347,31 @@ export function applyKernelMigrations(
         },
       );
     }
-    expectedAppliedVersion += 1;
     applied.set(row.version, row);
+    expected += 1;
   }
 
-  let latest = currentSchemaVersion;
+  if (history.length > current) {
+    throw new AgentiCOSError(
+      "Database migration history is ahead of schema metadata.",
+      {
+        code: "DATABASE_MIGRATION_HISTORY_AHEAD",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
+  }
+
+  let latest = current;
+
   for (const migration of KERNEL_MIGRATIONS) {
     const recorded = applied.get(migration.version);
 
     if (recorded) {
-      if (recorded.id !== migration.id || recorded.checksum !== migration.checksum) {
+      if (
+        recorded.id !== migration.id ||
+        recorded.checksum !== migration.checksum
+      ) {
         throw new AgentiCOSError(
           "Migration " + migration.version + " was modified after being applied.",
           {
@@ -378,18 +384,18 @@ export function applyKernelMigrations(
       continue;
     }
 
-    if (migration.version <= currentSchemaVersion) {
+    if (migration.version <= current) {
       migration.up(database);
-      const appliedAt = new Date().toISOString();
       database.prepare(`
         INSERT INTO schema_migrations(version, id, checksum, applied_at)
         VALUES(?, ?, ?, ?)
-      `).run(migration.version, migration.id, migration.checksum, appliedAt);
-      applied.set(migration.version, {
-        version: migration.version,
-        id: migration.id,
-        checksum: migration.checksum,
-      });
+      `).run(
+        migration.version,
+        migration.id,
+        migration.checksum,
+        new Date().toISOString(),
+      );
+      applied.set(migration.version, migration);
       continue;
     }
 
@@ -405,20 +411,23 @@ export function applyKernelMigrations(
     }
 
     migration.up(database);
-    const appliedAt = new Date().toISOString();
     database.prepare(`
       INSERT INTO schema_migrations(version, id, checksum, applied_at)
       VALUES(?, ?, ?, ?)
-    `).run(migration.version, migration.id, migration.checksum, appliedAt);
-    applied.set(migration.version, {
-      version: migration.version,
-      id: migration.id,
-      checksum: migration.checksum,
-    });
-    database.prepare(`
-      INSERT INTO schema_meta(key, value) VALUES('schema_version', ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(String(migration.version));
+    `).run(
+      migration.version,
+      migration.id,
+      migration.checksum,
+      new Date().toISOString(),
+    );
+    applied.set(migration.version, migration);
+    database
+      .prepare(`
+        INSERT INTO schema_meta(key, value)
+        VALUES('schema_version', ?)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value
+      `)
+      .run(String(migration.version));
     latest = migration.version;
   }
 
@@ -440,28 +449,50 @@ function validateMigrationDefinitions(
       !migration.id.trim() ||
       !migration.checksum.trim()
     ) {
-      throw new AgentiCOSError("Kernel migration definitions are invalid.", {
-        code: "DATABASE_MIGRATION_DEFINITION_INVALID",
-        category: "VALIDATION",
-        severity: "critical",
-      });
+      throw new AgentiCOSError(
+        "Kernel migration definitions are invalid.",
+        {
+          code: "DATABASE_MIGRATION_DEFINITION_INVALID",
+          category: "VALIDATION",
+          severity: "critical",
+        },
+      );
     }
-
     versions.add(migration.version);
     expected += 1;
   }
 }
+
 function addColumnIfMissing(
   database: Database.Database,
   table: string,
   column: string,
   definition: string,
 ): void {
+  const safeTable = quoteIdentifier(table);
   const columns = database
-    .prepare("PRAGMA table_info(" + table.replaceAll(/[^A-Za-z0-9_]/g, "") + ")")
+    .prepare("PRAGMA table_info(" + safeTable + ")")
     .all() as Array<{ name: string }>;
+
   if (columns.some((item) => item.name === column)) return;
+
   database.exec(
-    "ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition,
+    "ALTER TABLE " +
+      safeTable +
+      " ADD COLUMN " +
+      quoteIdentifier(column) +
+      " " +
+      definition,
   );
+}
+
+function quoteIdentifier(value: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
+    throw new AgentiCOSError("Invalid SQLite identifier.", {
+      code: "SQLITE_IDENTIFIER_INVALID",
+      category: "BUG",
+      severity: "critical",
+    });
+  }
+  return '"' + value + '"';
 }

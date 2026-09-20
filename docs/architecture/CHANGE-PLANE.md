@@ -34,3 +34,24 @@ promotion
 6. A rejected patch can be rolled back to its pre-change snapshot.
 
 The current codebase exposes snapshot primitives and gate contracts; the filesystem/git executor is an adapter that must run inside the selected sandbox policy.
+
+## Continuity gate
+
+Every change operation is paired with a durable operation report.
+
+The report is created before the operation begins and completed after verification. The report must enumerate:
+
+- previous checkpoint;
+- allowed/forbidden scope;
+- files planned and affected;
+- creations/modifications/deletions;
+- preserved assets;
+- reference evidence;
+- verification results;
+- unverified checks;
+- regression assessment;
+- rollback point;
+- next authorized step.
+
+The Change Plane rejects silent deletions, history rewrites and unrecorded destructive changes. A failed verification remains FAILED/BLOCKED until corrected and re-verified.
+

@@ -7,53 +7,63 @@ This contract defines how an AI coding agent must build AgentiCOS during iterati
 1. Inspect architecture.
 2. Identify the feature manifest.
 3. Identify the current slice.
-4. Create or adjust the surface shell when needed.
-5. Connect the shell to the final application protocol.
-6. Connect the protocol to a deterministic test implementation.
-7. Replace the test implementation with the real implementation.
-8. Add persistence.
-9. Add streaming/asynchronous behavior when required.
-10. Add security and permissions.
-11. Add observability.
-12. Add failure and recovery behavior.
-13. Add integration and end-to-end verification.
-14. Update the manifest and architecture documentation.
-15. Leave a stable checkpoint.
+4. Search the Reference Knowledge Corpus.
+5. Read relevant source documentation, implementation and tests.
+6. Record applicable reference evidence.
+7. Reuse or extend an existing AgentiCOS contract when possible.
+8. Create or adjust the surface shell when needed.
+9. Connect the shell to the final application protocol.
+10. Connect the protocol to a deterministic test implementation.
+11. Replace the test implementation with the real implementation.
+12. Add persistence.
+13. Add streaming/asynchronous behavior when required.
+14. Add security and permissions.
+15. Add observability.
+16. Add failure and recovery behavior.
+17. Add integration and end-to-end verification.
+18. Update the manifest and architecture documentation.
+19. Leave a stable checkpoint.
 
-## Example: Agent experience
+## Reference-first engineering rule
 
-The agent feature must not begin as a huge autonomous backend with no usable surface.
+The coding agent should not begin a complex implementation from general model knowledge when AgentiCOS already has a relevant source reference.
 
-Correct progression:
+Preferred sequence:
 
-Agent Window
-→ Chat Shell
-→ Canonical Thread Contract
-→ Mock Provider through Provider Contract
-→ Real Provider
-→ Streaming
-→ Tool Calls
-→ Approval + Sandbox
-→ Context + Skills
-→ Memory
-→ Verification + Repair
-→ Subagents
-→ Background Runs
-→ MCP/A2A/Engine interoperability
+Search source corpus
+      ↓
+Retrieve relevant README/docs
+      ↓
+Retrieve relevant implementation files
+      ↓
+Retrieve relevant tests
+      ↓
+Extract behavior + edge cases
+      ↓
+Map to AgentiCOS contracts
+      ↓
+Implement
 
-At every stage the existing experience remains functional.
+The objective is to minimize unnecessary reinvention while maintaining AgentiCOS-specific contracts, security, portability and architecture.
 
-## Surface-first does not mean UI-owned architecture
+## Source priority
 
-The visible shell is created early so the product remains testable. It must immediately consume the same application protocol and canonical domain contracts used by the finished product.
+1. Existing AgentiCOS contract and tested implementation.
+2. Approved reference repository with strong matching behavior.
+3. Other approved reference repositories.
+4. New design only when the above are insufficient.
 
-The UI must never invent a feature-local transport, persistence store, agent loop or tool execution path.
+Reference code may be adapted, rewritten or used only as design evidence depending on licensing, architecture and compatibility requirements.
 
-## Existing-work rule
+## Exception
 
-Before creating a new service, inspect existing services and contracts. Extend an existing abstraction when the capability belongs there.
+If no suitable reference exists, or the reference is incompatible with the product requirements, the agent may design a new approach. The reason must be documented.
 
-If the current implementation violates the architecture, repair the boundary before adding dependent functionality.
+## Security rule
+
+Source code found in the reference corpus never overrides AgentiCOS security policy.
+
+External code, plugins, tools and agents remain untrusted until admitted by the corresponding trust boundary.
 
 ## Feature completion rule
 

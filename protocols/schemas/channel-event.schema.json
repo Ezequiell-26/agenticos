@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/channel-event.v1.json",
+  "title":"AgentiCOS Channel Event v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","eventId","channelId","profileId","receivedAt","payload"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "eventId":{"type":"string","minLength":1},
+    "channelId":{"type":"string","minLength":1},
+    "profileId":{"type":"string","minLength":1},
+    "sessionId":{"type":["string","null"]},
+    "senderId":{"type":["string","null"]},
+    "receivedAt":{"type":"string","format":"date-time"},
+    "payload":{"type":"object"},
+    "attachments":{"type":"array","items":{"type":"object"}}
+  }
+}

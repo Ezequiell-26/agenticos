@@ -526,7 +526,40 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     );
   }
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
+  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
+  async claim(consumerId: string, eventId: string): Promise<boolean>;
+  async claim(
+    first: IdempotencyRecord | string,
+    second?: string,
+  ): Promise<IdempotencyRecord | undefined | boolean> {
+    if (typeof first === "string") {
+      const consumerId = first;
+      const eventId = second;
+      if (!eventId) {
+        throw new AgentiCOSError("Inbox eventId is required.", {
+          code: "INBOX_EVENT_ID_REQUIRED",
+          category: "VALIDATION",
+        });
+      }
+
+      return this.database.transactionImmediate(() => {
+        const existing = this.database.db
+          .prepare("SELECT status FROM inbox WHERE consumer_id = ? AND event_id = ?")
+          .get(consumerId, eventId) as { status: "processing" | "completed" } | undefined;
+
+        if (existing) return false;
+
+        const result = this.database.db.prepare(`
+          INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
+          VALUES(?, ?, 'processing', ?)
+          ON CONFLICT(consumer_id, event_id) DO NOTHING
+        `).run(consumerId, eventId, new Date().toISOString());
+
+        return result.changes === 1;
+      });
+    }
+
+    const record = first;
     return this.database.transactionImmediate(() => {
       const existing = this.database.db
         .prepare("SELECT * FROM idempotency WHERE key = ?")
@@ -557,97 +590,6 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       );
 
       return undefined;
-    });
-  }
-
-  async put(record: IdempotencyRecord): Promise<void> {
-    this.database.db.prepare(`
-      UPDATE idempotency
-      SET status = ?, result_json = ?, updated_at = ?
-      WHERE key = ? AND fingerprint = ?
-    `).run(
-      record.status,
-      record.result === undefined ? null : JSON.stringify(record.result),
-      record.updatedAt,
-      record.key,
-      record.fingerprint,
-    );
-  }
-
-  async runIdempotent<T>(
-    operation: string,
-    key: string,
-    input: unknown,
-    execute: () => Promise<T>,
-  ): Promise<T> {
-    return executeIdempotent(this, operation, key, input, execute);
-  }
-
-  async append<T>(
-    event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
-  ): Promise<DurableEvent<T>> {
-    const now = new Date().toISOString();
-    return this.database.transaction(() =>
-      this.appendEventInTransaction(
-        event.type,
-        event.version,
-        event.aggregateId,
-        event.aggregateId,
-        event.payload,
-        now,
-      ),
-    );
-  }
-
-  async listPending(limit = 100): Promise<readonly DurableEvent[]> {
-    const rows = this.database.db.prepare(`
-      SELECT e.*
-      FROM events e
-      JOIN outbox o ON o.event_id = e.event_id
-      WHERE o.published_at IS NULL
-      ORDER BY o.created_at ASC
-      LIMIT ?
-    `).all(limit) as Array<{
-      event_id: string;
-      type: string;
-      version: number;
-      aggregate_id: string;
-      run_id: string | null;
-      created_at: string;
-      payload_json: string;
-    }>;
-
-    return rows.map((row) => ({
-      eventId: row.event_id,
-      type: row.type,
-      version: row.version,
-      aggregateId: row.aggregate_id,
-      createdAt: row.created_at,
-      payload: JSON.parse(row.payload_json),
-    }));
-  }
-
-  async markPublished(eventId: string): Promise<void> {
-    this.database.db
-      .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ?")
-      .run(new Date().toISOString(), eventId);
-  }
-
-  async claim(consumerId: string, eventId: string): Promise<boolean> {
-    return this.database.transactionImmediate(() => {
-      const existing = this.database.db
-        .prepare("SELECT status FROM inbox WHERE consumer_id = ? AND event_id = ?")
-        .get(consumerId, eventId) as { status: "processing" | "completed" } | undefined;
-
-      if (existing) return false;
-
-      const result = this.database.db.prepare(`
-        INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
-        VALUES(?, ?, 'processing', ?)
-        ON CONFLICT(consumer_id, event_id) DO NOTHING
-      `).run(consumerId, eventId, new Date().toISOString());
-
-      return result.changes === 1;
     });
   }
 

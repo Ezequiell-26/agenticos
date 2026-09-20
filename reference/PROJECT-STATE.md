@@ -61,7 +61,7 @@ The next AI must continue from this file and the append-only journal, not from m
 - Durable operation journal: active and append-only.
 - Anti-regression verifier: `scripts/verify-agent-continuity.mjs`.
 - CI enforcement: active.
-- Latest code checkpoint before journal append: `c13df6bf850c9a81cb065e10357f831972c96506`.
+- Latest audited code checkpoint before journal append: `1c62548dfae43c7e4d00fddc17dcb1a49236f793`.
 - Functional Step 1 remains locked until architecture-foundation verification is complete.
 - No project code or data was deleted by this operation.
 
@@ -69,5 +69,12 @@ The next AI must continue from this file and the append-only journal, not from m
 
 - Foundation gate now explicitly requires the continuity verifier and journal integrity checks.
 - Architecture documentation indexes the continuity protocol.
-- Latest code checkpoint before the next journal append: `d30ade971a2e4225cc3cd00b901d3b3548c13d0c`.
+- Latest audited code checkpoint before the next journal append: `1c62548dfae43c7e4d00fddc17dcb1a49236f793`.
 
+
+## Pre-implementation architecture audit
+
+- Audit document: `docs/architecture/ARCHITECTURE-AUDIT-BASELINE.md`.
+- Architecture status: verification pending, no functional implementation unlocked.
+- Structural findings corrected: readiness corpus bug, continuity portability/enforcement, root license, Cargo.lock, MIT-corpus/source-registry reconciliation, dependency-direction wording, embedded citation artifacts and state-consistency enforcement.
+- Remaining verification truth: Rust toolchain checks and final remote CI evidence are still UNVERIFIED.

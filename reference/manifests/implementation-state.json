@@ -18,7 +18,20 @@
         "reference corpus catalog",
         "sequential implementation protocol"
       ],
-      "unlocks": ["rust-kernel-vertical-slice-1"]
+      "required_checks": [
+        "npm run verify",
+        "cargo fmt --all -- --check",
+        "cargo check --workspace --all-targets",
+        "cargo test --workspace --all-targets",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "architecture readiness gate",
+        "protocol schema presence",
+        "MIT reference manifest presence"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
+        "rust-kernel-vertical-slice-1"
+      ]
     },
     {
       "id": "rust-kernel-vertical-slice-1",
@@ -34,15 +47,37 @@
         "SQLite adapter",
         "kernel smoke path"
       ],
-      "requires": ["architecture-foundation"]
+      "requires": [
+        "architecture-foundation"
+      ],
+      "required_checks": [
+        "contract tests",
+        "persistence/recovery tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": []
     }
   ],
+  "transitions": {
+    "allowed": [
+      "pending->in_progress",
+      "in_progress->verifying",
+      "verifying->correcting",
+      "correcting->verifying",
+      "verifying->verified"
+    ],
+    "unlock_requires_verified_predecessor": true,
+    "terminal_unlock_is_single_successor": true
+  },
   "policy": {
     "one_step_at_a_time": true,
     "next_step_requires_verified_previous": true,
     "fail_closed": true,
     "future_scope_preimplementation_forbidden": true,
     "reference_lookup_required_for_nontrivial_features": true,
-    "mit_only_canonical_third_party_source": true
+    "mit_only_canonical_third_party_source": true,
+    "verification_evidence_required_for_verified_status": true
   }
 }

@@ -280,6 +280,87 @@ test("repair controller bounds repair attempts", () => {
   assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
 });
 
+test("openai-compatible provider isolates credentials, validates requests and preserves tool calls", async () => {
+  const { OpenAICompatibleProvider } = await import("../src/providers/openai-compatible.js");
+  const provider = new OpenAICompatibleProvider({
+    id: "test-provider",
+    name: "Test Provider",
+    billing: "custom",
+    protocol: "openai-chat-completions",
+    baseUrl: "https://example.com/v1",
+    apiKey: "secret-key",
+  });
+
+  assert.equal("apiKey" in provider.definition, false);
+
+  const originalFetch = globalThis.fetch;
+  let captured: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (_input, init) => {
+    captured = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      id: "response-1",
+      model: "test-model",
+      choices: [{
+        message: {
+          content: "done",
+          tool_calls: [{
+            id: "call-1",
+            type: "function",
+            function: {
+              name: "lookup",
+              arguments: "{\"q\":\"x\"}",
+            },
+          }],
+        },
+        finish_reason: "tool_calls",
+      }],
+      usage: {
+        prompt_tokens: 3,
+        completion_tokens: 5,
+        total_tokens: 8,
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await provider.chat({
+      model: "test-model",
+      messages: [{ role: "user", content: "hello" }],
+      tools: [{
+        type: "function",
+        function: { name: "lookup" },
+      }],
+      extraBody: {
+        model: "attacker-model",
+        messages: [],
+        stream: true,
+      },
+    });
+
+    assert.equal(captured?.model, "test-model");
+    assert.deepEqual(captured?.messages, [{ role: "user", content: "hello" }]);
+    assert.equal(captured?.stream, false);
+    assert.equal(response.toolCalls?.[0]?.function.name, "lookup");
+    assert.equal(response.usage?.totalTokens, 8);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.throws(() =>
+    new OpenAICompatibleProvider({
+      id: "unsafe",
+      name: "Unsafe",
+      billing: "custom",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://user:password@example.com/v1",
+    }),
+  );
+});
+
 test("sqlite kernel migrations install integrity guards and preserve database health", async () => {
   const directory = await mkdtemp(join(tmpdir(), "agenticos-migrations-"));
   const dbPath = join(directory, "state.sqlite");

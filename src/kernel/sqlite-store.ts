@@ -30,6 +30,7 @@ import type {
   StepState,
 } from "./types.js";
 import { SqliteDatabase } from "./database.js";
+import { StepStateMachine } from "./step-state.js";
 
 const STEP_TRANSITIONS: TransitionTable<StepState> = {
   pending: ["running", "cancelled"],
@@ -78,7 +79,7 @@ type IdempotencyRow = {
   updated_at: string;
 };
 
-export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
+export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox, Inbox {
   constructor(readonly database: SqliteDatabase) {}
 
   close(): void {
@@ -278,7 +279,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   ): StepRecord {
     return this.database.transaction(() => {
       const row = this.requireStepRow(id);
-      const machine = new StateMachine(row.state, STEP_TRANSITIONS);
+      const machine = new StepStateMachine(row.state);
       machine.transition(to);
 
       const now = new Date().toISOString();

@@ -11,12 +11,7 @@ import {
   type Inbox,
   type Outbox,
 } from "../architecture/outbox.js";
-import {
-  RunStateMachine,
-  StateMachine,
-  type RunState,
-  type TransitionTable,
-} from "../architecture/state-machine.js";
+import { RunStateMachine, type RunState } from "../architecture/state-machine.js";
 import {
   assertSnapshotIntegrity,
   type WorkspaceSnapshot,
@@ -27,19 +22,11 @@ import type {
   CreateStepInput,
   RunRecord,
   StepRecord,
-  StepState,
 } from "./types.js";
 import { SqliteDatabase } from "./database.js";
 import { StepStateMachine } from "./step-state.js";
-
-const STEP_TRANSITIONS: TransitionTable<StepState> = {
-  pending: ["running", "cancelled"],
-  running: ["waiting", "completed", "failed", "cancelled"],
-  waiting: ["running", "completed", "failed", "cancelled"],
-  completed: [],
-  failed: [],
-  cancelled: [],
-};
+import type { StepState } from "./step-state.js";
+import type { KernelStore } from "./ports.js";
 
 interface RunRow {
   id: string;

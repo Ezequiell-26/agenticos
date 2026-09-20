@@ -1,14 +1,17 @@
-import { randomUUID } from "node:crypto";
 import { AgentiCOSError } from "../architecture/errors.js";
+import { SystemIdGenerator, type IdGenerator } from "../architecture/runtime.js";
 import { DurableScheduler, type SchedulerOptions } from "./scheduler.js";
 import type { KernelStore } from "./ports.js";
 import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord } from "./types.js";
 
 export class DurableKernel {
-  constructor(readonly store: KernelStore) {}
+  constructor(
+    readonly store: KernelStore,
+    private readonly ids: IdGenerator = new SystemIdGenerator(),
+  ) {}
 
   createRun(input: Omit<CreateRunInput, "id"> & { id?: string }): RunRecord {
-    return this.store.createRun({ ...input, id: input.id ?? randomUUID() });
+    return this.store.createRun({ ...input, id: input.id ?? this.ids.next() });
   }
 
   getRun(runId: string): RunRecord {
@@ -46,7 +49,7 @@ export class DurableKernel {
   }
 
   createStep(input: Omit<CreateStepInput, "id"> & { id?: string }): StepRecord {
-    return this.store.createStep({ ...input, id: input.id ?? randomUUID() });
+    return this.store.createStep({ ...input, id: input.id ?? this.ids.next() });
   }
 
   startStep(stepId: string, workerId: string, fencingToken: number): StepRecord {

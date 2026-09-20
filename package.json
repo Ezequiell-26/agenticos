@@ -14,9 +14,14 @@
     "dev": "tsx src/cli.ts",
     "providers": "tsx src/cli.ts providers",
     "models": "tsx src/cli.ts models",
-    "forge": "tsx src/forge-cli.ts"
+    "forge": "tsx src/forge-cli.ts",
+    "kernel:smoke": "tsx src/kernel-cli.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"

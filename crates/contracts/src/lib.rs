@@ -54,6 +54,8 @@ pub enum ContractError {
     IncompatibleVersion,
     /// A capability required by a contract is missing.
     MissingCapability,
+    /// A persistence or storage operation failed.
+    Persistence,
 }
 
 impl fmt::Display for ContractError {
@@ -62,6 +64,7 @@ impl fmt::Display for ContractError {
             Self::InvalidId => write!(f, "invalid identifier"),
             Self::IncompatibleVersion => write!(f, "incompatible contract version"),
             Self::MissingCapability => write!(f, "missing required capability"),
+            Self::Persistence => write!(f, "persistence or storage failure"),
         }
     }
 }
@@ -122,4 +125,126 @@ pub trait AgentEngine: Send + Sync + 'static {
 pub trait AgentTool: Send + Sync + 'static {
     /// Stable tool identifier.
     fn tool_id(&self) -> &str;
+}
+
+/// Durable event storage contract.
+#[async_trait::async_trait]
+pub trait EventStore: Send + Sync {
+    /// Append events to a stream with optimistic concurrency control.
+    async fn append(
+        &self,
+        stream_id: &str,
+        expected_version: u64,
+        events: Vec<SerializedEvent>,
+    ) -> Result<u64, ContractError>;
+
+    /// Read events from a stream after a given version.
+    async fn read_after(
+        &self,
+        stream_id: &str,
+        after_version: u64,
+    ) -> Result<Vec<SerializedEvent>, ContractError>;
+}
+
+/// Snapshot storage contract for state recovery.
+#[async_trait::async_trait]
+pub trait SnapshotStore: Send + Sync {
+    /// Store a snapshot for a stream.
+    async fn put(&self, snapshot: SerializedSnapshot) -> Result<(), ContractError>;
+
+    /// Retrieve the latest snapshot for a stream.
+    async fn latest(&self, stream_id: &str) -> Result<Option<SerializedSnapshot>, ContractError>;
+}
+
+/// Serialized event for persistence.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SerializedEvent {
+    /// Event type identifier.
+    pub event_type: String,
+    /// Event data as JSON.
+    pub data: String,
+    /// Event schema version.
+    pub schema_version: u16,
+}
+
+/// Serialized snapshot for recovery.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SerializedSnapshot {
+    /// Stream identifier.
+    pub stream_id: String,
+    /// Snapshot version (corresponds to event sequence).
+    pub version: u64,
+    /// Snapshot data as JSON.
+    pub data: String,
+    /// Snapshot schema version.
+    pub schema_version: u16,
+}
+
+/// Idempotency record for retryable operations.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct IdempotencyRecord {
+    /// Operation key.
+    pub key: String,
+    /// Input fingerprint.
+    pub fingerprint: String,
+    /// Operation status.
+    pub status: IdempotencyStatus,
+    /// Cached result if completed.
+    pub result: Option<String>,
+}
+
+/// Idempotency operation status.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum IdempotencyStatus {
+    /// Operation is in progress.
+    InProgress,
+    /// Operation completed successfully.
+    Completed,
+    /// Operation failed.
+    Failed,
+}
+
+/// Lease record for distributed execution ownership.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LeaseRecord {
+    /// Resource identifier (e.g., run_id).
+    pub resource_id: String,
+    /// Owner identifier.
+    pub owner_id: String,
+    /// Monotonic fencing token.
+    pub fencing_token: u64,
+    /// Lease expiration timestamp.
+    pub expires_at: u64,
+}
+
+/// Cancellation token for cooperative cancellation.
+#[derive(Clone, Debug)]
+pub struct CancellationToken {
+    /// Inner cancellation state.
+    inner: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl CancellationToken {
+    /// Create a new cancellation token.
+    pub fn new() -> Self {
+        Self {
+            inner: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+
+    /// Check if cancellation has been requested.
+    pub fn is_cancelled(&self) -> bool {
+        self.inner.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Request cancellation.
+    pub fn cancel(&self) {
+        self.inner.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+impl Default for CancellationToken {
+    fn default() -> Self {
+        Self::new()
+    }
 }

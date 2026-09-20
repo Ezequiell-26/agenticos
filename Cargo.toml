@@ -16,6 +16,9 @@ version = "0.1.0"
 authors = ["AgentiCOS contributors"]
 repository = "https://github.com/Ezequiell-26/agenticos"
 
+[workspace.dependencies]
+tokio = { version = "1.0", features = ["sync", "rt"] }
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 missing_debug_implementations = "warn"

@@ -51,7 +51,9 @@
         "architecture completeness manifest",
         "all universal runtime seam schemas",
         "all completeness contracts registered",
-        "cross-reference validation"
+        "cross-reference validation",
+        "reference resolver manifest",
+        "MIT corpus integrity"
       ],
       "verification_evidence": [],
       "unlocks": [

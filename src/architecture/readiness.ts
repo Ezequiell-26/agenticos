@@ -85,6 +85,7 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
     };
   };
   assertArchitectureCompletenessManifest(completeness);
+  assertReferenceCorpusIntegrity(JSON.parse(completenessRaw));
   const contractRegistry = JSON.parse(
     await readRequired(root, "contracts/registry.json"),
   ) as { contracts: readonly { id: string }[] };
@@ -107,6 +108,71 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   assertImplementationState(state);
 }
 
+
+function assertReferenceCorpusIntegrity(value: {
+  repositories?: readonly {
+    repository?: string;
+    license?: string;
+    license_verification?: { status?: string; artifact_sha?: string | null };
+  }[];
+  policy?: { mandatory_core_references?: readonly string[] };
+}): void {
+  const repositories = value.repositories ?? [];
+  if (repositories.length < 1) {
+    throw new AgentiCOSError("MIT reference corpus is empty.", {
+      code: "MIT_REFERENCE_CORPUS_EMPTY",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
+
+  const ids = repositories.map((item) => item.repository).filter(Boolean) as string[];
+  if (new Set(ids).size !== ids.length) {
+    throw new AgentiCOSError("MIT reference corpus contains duplicate repositories.", {
+      code: "MIT_REFERENCE_CORPUS_DUPLICATE",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
+
+  for (const item of repositories) {
+    if (!item.repository || !item.license || !item.license_verification?.status) {
+      throw new AgentiCOSError(
+        `MIT reference corpus entry is incomplete: ${item.repository ?? "unknown"}.`,
+        {
+          code: "MIT_REFERENCE_CORPUS_ENTRY_INCOMPLETE",
+          category: "VALIDATION",
+          severity: "critical",
+        },
+      );
+    }
+    if (item.license_verification.artifact_sha === "0000000000000000000000000000000000000000") {
+      throw new AgentiCOSError(
+        `Synthetic license hash detected for ${item.repository}.`,
+        {
+          code: "MIT_REFERENCE_SYNTHETIC_HASH",
+          category: "SECURITY",
+          severity: "critical",
+        },
+      );
+    }
+  }
+
+  const mandatory = value.policy?.mandatory_core_references ?? [];
+  const corpusSet = new Set(ids);
+  for (const repository of mandatory) {
+    if (!corpusSet.has(repository)) {
+      throw new AgentiCOSError(
+        `Mandatory core reference is absent from the MIT corpus: ${repository}.`,
+        {
+          code: "MANDATORY_REFERENCE_MISSING",
+          category: "VALIDATION",
+          severity: "critical",
+        },
+      );
+    }
+  }
+}
 
 function assertArchitectureCompletenessManifest(value: {
   schema_version: number;

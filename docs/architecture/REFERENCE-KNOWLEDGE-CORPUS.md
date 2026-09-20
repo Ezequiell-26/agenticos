@@ -1,5 +1,11 @@
 # AgentiCOS Reference Knowledge Corpus
 
+## Implementation-source policy
+
+The canonical implementation corpus is MIT-only.
+
+Repositories with other licenses or insufficiently verified licensing may still be fully learned as comparative references, but they are not implementation sources for canonical AgentiCOS code.
+
 ## Purpose
 
 AgentiCOS uses approved open-source repositories as an implementation reference corpus.

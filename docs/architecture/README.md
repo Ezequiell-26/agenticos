@@ -77,3 +77,4 @@ The TypeScript implementation is transitional. New canonical runtime work target
 - [UNIVERSAL-CAPABILITY-PLATFORM.md](./UNIVERSAL-CAPABILITY-PLATFORM.md) — API/plugin/skill/memory/tool/channel/provider extensibility architecture.
 - [../../reference/manifests/architecture-completeness.json](../../reference/manifests/architecture-completeness.json) — machine-readable completeness checklist.
 - [../../reference/manifests/capability-parity.json](../../reference/manifests/capability-parity.json) — Hermes/Harness capability parity mapping.
+- [REFERENCE-RESOLUTION-PROTOCOL.md](./REFERENCE-RESOLUTION-PROTOCOL.md) — resolver dinámico para localizar y auditar repositorios antes de implementar.

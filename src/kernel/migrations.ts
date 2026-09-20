@@ -135,7 +135,22 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
       `);
     },
   },
-];
+]  {
+    version: 3,
+    id: "outbox-claim-leases",
+    checksum: "sha256:agenticos-outbox-claim-leases-v3",
+    up(database) {
+      database.exec(`
+        ALTER TABLE outbox ADD COLUMN claimed_by TEXT;
+        ALTER TABLE outbox ADD COLUMN claim_id TEXT;
+        ALTER TABLE outbox ADD COLUMN claimed_until TEXT;
+        CREATE INDEX IF NOT EXISTS idx_outbox_claimable
+          ON outbox(published_at, claimed_until, created_at);
+      `);
+    },
+  },
+
+;
 
 export function applyKernelMigrations(
   database: Database.Database,

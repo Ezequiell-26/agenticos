@@ -470,28 +470,3 @@ function extractToolCalls(
   return normalized;
 }
 
-function" ||
-      !call.id ||
-      !call.function?.name ||
-      call.function.arguments === undefined
-    ) {
-      throw new ProviderError("Provider returned an invalid tool call.", {
-        code: "PROVIDER_INVALID_TOOL_CALL",
-        retryable: false,
-        rateLimited: false,
-        quotaExhausted: false,
-      });
-    }
-
-    normalized.push({
-      id: call.id,
-      type: "function",
-      function: {
-        name: call.function.name,
-        arguments: call.function.arguments,
-      },
-    });
-  }
-
-  return normalized;
-}

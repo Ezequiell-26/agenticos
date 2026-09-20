@@ -143,6 +143,47 @@ A repository-level MIT license is not enough to claim every file and dependency 
 
 Every integrated or copied boundary must have appropriate license evidence and required notices.
 
+## MIT-only optimization admission
+
+The token-optimization implementation plane has a stricter admission rule: copied, vendored or directly adapted third-party source must have sufficient MIT license evidence.
+
+A non-MIT or unverified repository may still be fully learned as reference evidence, but its source code cannot enter the canonical optimization implementation under the MIT-only policy.
+
+For every optimization reference, Forge records:
+
+- repository and exact commit;
+- license evidence and confidence;
+- relevant files and symbols;
+- dependency and third-party notice findings;
+- compression algorithms and safety invariants;
+- reversibility and recovery semantics;
+- benchmark and golden fixtures;
+- applicability to AgentiCOS contracts.
+
+Optimization-specific learning targets include trimcp, sqz, gcf-rust, Ogham and RTK. Their current intake status is maintained in docs/architecture/TOKEN-OPTIMIZATION-ARCHITECTURE.md.
+
+## Token optimization learning flow
+
+Feature request
+  ↓
+Identify tool/context/provider boundary
+  ↓
+Retrieve optimization evidence
+  ↓
+Verify license admission
+  ↓
+Inspect implementation + tests
+  ↓
+Extract deterministic/lossless guarantees
+  ↓
+Map to Rust contracts
+  ↓
+Implement/adapt
+  ↓
+Benchmark + fuzz + replay
+  ↓
+Provenance record
+
 ## Agent implementation contract
 
 The coding agent must consult the reference corpus before creating a non-trivial subsystem.

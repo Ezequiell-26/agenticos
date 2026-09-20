@@ -16,6 +16,8 @@ import {
   assertSnapshotIntegrity,
   InMemoryWorkspace,
   loadContractRegistry,
+  assertContractRegistry,
+  fingerprintOperation,
 } from "../src/architecture/index.js";
 import {
   DurableKernel,
@@ -41,6 +43,18 @@ test("run state machine rejects illegal terminal transitions", () => {
   assert.throws(() => machine.transition("running"));
 });
 
+test("run state machine rejects malformed transition tables", () => {
+  assert.throws(
+    () =>
+      new (class extends RunStateMachine {
+        constructor() {
+          super("created");
+          void new (RunStateMachine as unknown);
+        }
+      })(),
+  );
+});
+
 test("idempotency returns the original completed result and blocks concurrent duplicate execution", async () => {
   const store = new InMemoryIdempotencyStore();
   let executions = 0;
@@ -62,6 +76,18 @@ test("idempotency returns the original completed result and blocks concurrent du
   assert.equal(executions, 1);
   assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
   assert.equal(results.filter((item) => item.status === "rejected").length, 1);
+});
+
+test("idempotency fingerprints are canonical and distinguish semantic types", () => {
+  assert.equal(
+    fingerprintOperation("test", { b: 2, a: 1 }),
+    fingerprintOperation("test", { a: 1, b: 2 }),
+  );
+  assert.notEqual(
+    fingerprintOperation("test", { value: null }),
+    fingerprintOperation("test", { value: Number.NaN }),
+  );
+  assert.throws(() => fingerprintOperation("test", { circular: undefined }));
 });
 
 test("lease fencing rejects stale owners", () => {
@@ -97,6 +123,25 @@ test("outbox/inbox prevent duplicate concurrent consumer handling", async () => 
   assert.equal(handled, 1);
 });
 
+test("snapshot integrity rejects traversal, duplicate and NUL-byte paths", async () => {
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "../secret.txt", content: "x" },
+    ]),
+  );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "a.txt", content: "x" },
+      { path: "a.txt", content: "y" },
+    ]),
+  );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "bad" + String.fromCharCode(0) + ".txt", content: "x" },
+    ]),
+  );
+});
+
 test("snapshot integrity detects tampering and transactions rollback on failure", async () => {
   const snapshot = createWorkspaceSnapshot("workspace-1", [
     { path: "a.txt", content: "a" },
@@ -118,13 +163,26 @@ test("snapshot integrity detects tampering and transactions rollback on failure"
   assert.deepEqual(workspace.snapshot().files, snapshot.files);
 });
 
-test("contract registry loads and validates", async () => {
+test("contract registry loads and rejects malformed descriptors", async () => {
   const registry = await loadContractRegistry();
   assert.equal(registry.schemaVersion, 1);
   assert.ok(registry.contracts.length >= 1);
+
+  assert.throws(() =>
+    assertContractRegistry({
+      schemaVersion: 1,
+      contracts: [{
+        id: "broken",
+        version: 1,
+        kind: "domain",
+        compatibility: "backward-compatible",
+        requiredCapabilities: ["run", "run"],
+      }],
+    }),
+  );
 });
 
-test("execution budget fails closed when limits are exceeded", () => {
+test("execution budget fails closed without mutating usage after a rejected increment", () => {
   const guard = new BudgetGuard({
     maxDurationMs: 1_000,
     maxSteps: 2,
@@ -135,7 +193,10 @@ test("execution budget fails closed when limits are exceeded", () => {
   }, 1_000);
 
   guard.consume({ steps: 2, toolCalls: 3, tokens: 100, cost: 1 }, 1_100);
+  const before = guard.snapshot();
+
   assert.throws(() => guard.consume({ steps: 1 }, 1_100));
+  assert.deepEqual(guard.snapshot(), before);
 });
 
 test("repair controller bounds repair attempts", () => {
@@ -149,6 +210,40 @@ test("repair controller bounds repair attempts", () => {
 
   repair.nextAttempt(2, 10, 0.1, 1_100);
   assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
+});
+
+test("sqlite kernel migrations install integrity guards and preserve database health", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-migrations-"));
+  const dbPath = join(directory, "state.sqlite");
+  const database = new SqliteDatabase(dbPath);
+  const kernel = new DurableKernel(new SqliteKernelStore(database));
+
+  const run = kernel.createRun({
+    id: "guarded-run",
+    workspaceId: "workspace-guard",
+    budget: budget(),
+  });
+
+  assert.equal(
+    (database.db.prepare("SELECT value FROM schema_meta WHERE key='schema_version'").get() as { value: string }).value,
+    "2",
+  );
+  assert.equal(
+    (database.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version=2").get() as { count: number }).count,
+    1,
+  );
+
+  assert.throws(() =>
+    database.db.prepare("UPDATE runs SET state='corrupted' WHERE id=?").run(run.id),
+  );
+
+  const report = database.integrity();
+  assert.equal(report.ok, true);
+  assert.equal(report.foreignKeyViolations, 0);
+  database.assertIntegrity();
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
 });
 
 test("sqlite kernel persists runs across reopen and atomically records lifecycle events", async () => {
@@ -248,8 +343,8 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
   kernelB.close();
 
   const kernelC = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
-  const recovered = kernelC.recoverExpiredRuns(Date.now() + 61_000);
-  assert.deepEqual(recovered, [run.id]);
+  const recovery = kernelC.recoverExpiredRuns(Date.now() + 61_000);
+  assert.deepEqual(recovery, [run.id]);
   assert.equal(kernelC.getRun(run.id).state, "waiting");
 
   const schedulerC = kernelC.createScheduler({
@@ -275,8 +370,8 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
   assert.ok(cancellationLease);
   kernelD.requestCancel(cancellationRun.id, "worker-d", cancellationLease.fencingToken);
 
-  const recovery = kernelD.recoverExpiredRuns(Date.now() + 61_000);
-  assert.ok(recovery.includes(cancellationRun.id));
+  const cancellationRecovery = kernelD.recoverExpiredRuns(Date.now() + 61_000);
+  assert.ok(cancellationRecovery.includes(cancellationRun.id));
   assert.equal(kernelD.getRun(cancellationRun.id).state, "cancelled");
   kernelD.close();
 

@@ -1090,11 +1090,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "fuzzy matching",
@@ -1121,11 +1122,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "COPYING",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "JSON Schema validation and contract enforcement"
@@ -1150,11 +1152,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "structured logging",
@@ -1180,11 +1183,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "structured logging",
@@ -1211,11 +1215,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "logging hooks",
@@ -1242,11 +1247,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "metrics facade",
@@ -1273,11 +1279,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "terminal I/O",
@@ -1305,11 +1312,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "interactive CLI prompts and approval UX"
@@ -1334,11 +1342,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "diff rendering",
@@ -1364,11 +1373,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "Rust HTTP filters",
@@ -1518,11 +1528,12 @@
       "pin_type": "resolve-head-before-use",
       "mode": "reference / candidate integration",
       "license_verification": {
-        "status": "verified",
+        "status": "verified-content-unpinned",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE.md",
-        "artifact_sha": "0000000000000000000000000000000000000000",
-        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+        "artifact_sha": null,
+        "note": "License artifact was read from the default branch during corpus expansion; hash/ref must be resolved before source integration.",
+        "artifact_sha_verified": false
       },
       "domains": [
         "web build/dev server",

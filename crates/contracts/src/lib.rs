@@ -368,6 +368,64 @@ pub trait CapabilityIssuer: Send + Sync {
     async fn validate(&self, grant_id: &str) -> Result<bool, ContractError>;
 }
 
+/// Provider registry entry.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderEntry {
+    /// Provider identifier.
+    pub provider_id: String,
+    /// Provider name.
+    pub name: String,
+    /// Base URL for the provider.
+    pub base_url: String,
+    /// Supported models.
+    pub models: Vec<String>,
+    /// Provider capabilities.
+    pub capabilities: Vec<String>,
+}
+
+/// Model catalog entry.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModelEntry {
+    /// Model identifier.
+    pub model_id: String,
+    /// Provider that hosts this model.
+    pub provider_id: String,
+    /// Model name.
+    pub name: String,
+    /// Model context window.
+    pub context_window: Option<u32>,
+    /// Model capabilities.
+    pub capabilities: Vec<String>,
+}
+
+/// Credential for provider authentication.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Credential {
+    /// Credential identifier.
+    pub credential_id: String,
+    /// Provider this credential is for.
+    pub provider_id: String,
+    /// Credential type (e.g., "api_key", "bearer").
+    pub credential_type: String,
+    /// Credential value.
+    pub value: String,
+    /// Expiration timestamp (0 = no expiration).
+    pub expires_at: u64,
+}
+
+/// Quota information for a provider.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QuotaInfo {
+    /// Provider identifier.
+    pub provider_id: String,
+    /// Requests per minute limit.
+    pub requests_per_minute: Option<u32>,
+    /// Tokens per minute limit.
+    pub tokens_per_minute: Option<u32>,
+    /// Current usage count.
+    pub current_usage: u64,
+}
+
 /// Lease record for distributed execution ownership.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaseRecord {

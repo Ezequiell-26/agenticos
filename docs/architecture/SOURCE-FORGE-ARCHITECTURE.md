@@ -198,3 +198,60 @@ Feature request
  → verification
 
 A reference is an input to engineering, not a substitute for AgentiCOS contracts or security policy.
+
+## Untrusted source execution
+
+Source Forge is a knowledge/import system first. Imported repositories are never
+trusted merely because they passed a license check.
+
+When Forge must build, execute, test, index or dynamically inspect imported code, the
+source is treated as **untrusted code** and is isolated from the AgentiCOS host.
+
+The default isolation hierarchy is:
+
+```
+Imported repository
+      ↓
+static/dependency/license analysis
+      ↓
+isolated build environment
+      ↓
+sandboxed test/index execution
+      ↓
+bounded artifacts + logs
+      ↓
+evidence pack
+```
+
+WASM is an optional execution boundary for source-derived components that can be
+compiled safely to WASM. WASM is not the only sandbox: native builds, compilers,
+package managers and tests can execute arbitrary host-facing behavior and therefore
+require OS/container/VM/remote-worker isolation.
+
+Imported code must not receive:
+
+- AgentiCOS production secrets;
+- unrestricted filesystem roots;
+- host process control;
+- unrestricted network access;
+- production credentials;
+- direct access to the canonical runtime database.
+
+Forge workers receive temporary scoped credentials only when an operation explicitly
+requires them.
+
+## Source-derived component admission
+
+A component can move from reference evidence to executable integration only after:
+
+1. license and dependency review;
+2. static and dynamic security analysis;
+3. provenance manifest generation;
+4. capability declaration;
+5. sandbox compatibility review;
+6. contract conformance tests;
+7. resource limits;
+8. rollback/removal plan.
+
+Source Forge must be capable of keeping a source permanently in reference-only mode
+even when it is technically compatible.

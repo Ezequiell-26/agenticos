@@ -193,7 +193,12 @@ test("sqlite kernel persists runs across reopen and atomically records lifecycle
   const persisted = reopened.getRun(run.id);
   assert.equal(persisted.state, "completed");
   assert.equal(persisted.version >= 4, true);
-  assert.ok(reopened.store.listEvents(run.id).some((event) => event.type === "run.completed"));
+  const timeline = reopened.store.listEvents(run.id);
+  const completedEvent = timeline.find((event) => event.type === "run.completed");
+  assert.ok(completedEvent);
+  assert.equal(completedEvent.workspaceId, "workspace-1");
+  assert.equal(completedEvent.correlationId, run.id);
+  assert.equal(completedEvent.durable, true);
 
   const dispatcher = new DurableOutboxDispatcher(reopened.store);
   let published = 0;

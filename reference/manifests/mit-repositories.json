@@ -1,0 +1,214 @@
+{
+  "schema_version": "1.0",
+  "purpose": "MIT-focused reference catalog for AgentiCOS Source Forge",
+  "policy": {
+    "canonical_implementation_license": "MIT-only",
+    "rule": "A repository being MIT-licensed does not make every dependency or file MIT. Source-level and dependency-level audits remain mandatory before integration.",
+    "learning": "Registered repositories are implementation references and must be learned through docs, source, tests, build/CI, security and license material before non-trivial features are implemented.",
+    "integration": "Reference registration does not automatically vendor or copy source into AgentiCOS."
+  },
+  "repositories": [
+    {
+      "repository": "tokio-rs/tokio",
+      "url": "https://github.com/tokio-rs/tokio",
+      "license": "MIT",
+      "pinned_ref": "cf782c5b917b7ea21b6f97f07104ebf16d35f5f8",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["rust-runtime", "async-execution", "scheduling", "timers", "cancellation"],
+      "study_targets": ["runtime lifecycle", "task scheduling", "structured concurrency primitives", "cancellation and shutdown", "runtime configuration", "testing"]
+    },
+    {
+      "repository": "tokio-rs/axum",
+      "url": "https://github.com/tokio-rs/axum",
+      "license": "MIT",
+      "pinned_ref": "3ea7f31b8e43962053d5e45a8cea87097adb9ca0",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["http-api", "routing", "streaming", "middleware"],
+      "study_targets": ["HTTP routing", "extractors", "error handling", "streaming responses", "middleware composition", "safe API boundaries"]
+    },
+    {
+      "repository": "rusqlite/rusqlite",
+      "url": "https://github.com/rusqlite/rusqlite",
+      "license": "MIT",
+      "pinned_ref": "02c973cca1cb3ef9674de4940039085cdf4743e6",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["sqlite-persistence", "transactions", "embedded-storage"],
+      "study_targets": ["SQLite connection management", "transactions", "prepared statements", "backup", "extension boundaries", "testable persistence"]
+    },
+    {
+      "repository": "ratatui/ratatui",
+      "url": "https://github.com/ratatui/ratatui",
+      "license": "MIT",
+      "pinned_ref": "3603d21f6b318007bbab0a0f1baefe337ebeae39",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["tui", "terminal-ui", "interactive-surfaces"],
+      "study_targets": ["TUI component architecture", "state-driven rendering", "input handling", "streaming output", "scrolling", "testable widgets"]
+    },
+    {
+      "repository": "tokio-rs/tokio-metrics",
+      "url": "https://github.com/tokio-rs/tokio-metrics",
+      "license": "MIT",
+      "pinned_ref": "a504ad8447aba8c2e7b3055921c34e86cebd7ae9",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["observability", "runtime-metrics", "task-metrics"],
+      "study_targets": ["runtime metrics", "task monitoring", "schedule latency", "production telemetry surfaces"]
+    },
+    {
+      "repository": "nix-rust/nix",
+      "url": "https://github.com/nix-rust/nix",
+      "license": "MIT",
+      "pinned_ref": "fb799660ccde39c22aed6f653b70e35b35bdcfe8",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["os-security", "processes", "signals", "unix-apis", "sandbox-foundations"],
+      "study_targets": ["safe OS abstractions", "process lifecycle", "signals", "file descriptors", "Unix permission boundaries"]
+    },
+    {
+      "repository": "slawlor/ractor",
+      "url": "https://github.com/slawlor/ractor",
+      "license": "MIT",
+      "pinned_ref": "25f4fe119665efc2a7308845da0f2f479d67110f",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["actors", "concurrency", "message-passing", "supervision"],
+      "study_targets": ["actor lifecycle", "message routing", "supervision", "factory patterns", "failure isolation", "async concurrency"]
+    },
+    {
+      "repository": "denoland/deno",
+      "url": "https://github.com/denoland/deno",
+      "license": "MIT",
+      "pinned_ref": "057a3da09762617c88a06e9be199ca99a276e57e",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["secure-runtime", "permissions", "typescript-runtime", "sandboxing", "tool-execution"],
+      "study_targets": ["permission model", "runtime isolation", "process/file/network permissions", "embedded runtime architecture", "developer tooling"]
+    },
+    {
+      "repository": "pydantic/pydantic-ai",
+      "url": "https://github.com/pydantic/pydantic-ai",
+      "license": "MIT",
+      "pinned_ref": "c4898abb54dc25ae6f6aef208a4c0661b30a455e",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["agent-framework", "typed-tools", "structured-output", "graph-execution"],
+      "study_targets": ["typed agent contracts", "tool schemas", "structured outputs", "graph execution", "dependency injection", "agent testing"]
+    },
+    {
+      "repository": "pydantic/pydantic",
+      "url": "https://github.com/pydantic/pydantic",
+      "license": "MIT",
+      "pinned_ref": "915896d163835a57fd7987180087409a3229bd71",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["schemas", "validation", "configuration", "typed-contracts"],
+      "study_targets": ["schema validation", "serialization", "configuration models", "error reporting", "typed boundary contracts"]
+    },
+    {
+      "repository": "SWE-agent/SWE-agent",
+      "url": "https://github.com/SWE-agent/SWE-agent",
+      "license": "MIT",
+      "pinned_ref": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["coding-agent", "software-engineering", "agent-computer-interface", "evaluation"],
+      "study_targets": ["coding agent loops", "agent-computer interface", "repository interaction", "failure recovery", "evaluation", "benchmark integration"]
+    },
+    {
+      "repository": "run-llama/llama_index",
+      "url": "https://github.com/run-llama/llama_index",
+      "license": "MIT",
+      "pinned_ref": "98c52d8ac8f8a89bc2d79cf1d71054b0424a9d27",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["knowledge", "retrieval", "document-ingestion", "agents", "memory"],
+      "study_targets": ["document ingestion", "retrieval abstractions", "data connectors", "knowledge workflows", "agent context integration", "evaluation surfaces"]
+    },
+    {
+      "repository": "BerriAI/litellm",
+      "url": "https://github.com/BerriAI/litellm",
+      "license": "MIT with restricted enterprise paths",
+      "pinned_ref": "b9a2d441cfb1daf59e2f7809f1a22333f524c5d5",
+      "pin_type": "commit",
+      "mode": "reference / restricted candidate integration",
+      "domains": ["model-gateway", "provider-normalization", "routing", "observability"],
+      "allowed_paths": ["all paths outside enterprise/"],
+      "excluded_paths": ["enterprise/"],
+      "study_targets": ["provider abstraction", "OpenAI-compatible normalization", "model routing", "callbacks and telemetry", "gateway operations", "error normalization"]
+    },
+    {
+      "repository": "tiangolo/fastapi",
+      "url": "https://github.com/fastapi/fastapi",
+      "license": "MIT",
+      "pinned_ref": "0.141.1",
+      "pin_type": "tag",
+      "mode": "reference / candidate integration",
+      "domains": ["api-surface", "openapi", "webhooks", "streaming"],
+      "study_targets": ["typed HTTP APIs", "OpenAPI generation", "dependency injection", "websocket/streaming surfaces", "validation", "API testing"]
+    },
+    {
+      "repository": "asg017/sqlite-vec",
+      "url": "https://github.com/asg017/sqlite-vec",
+      "license": "MIT",
+      "pinned_ref": "fe941716ad86363d6be99537db955305abb3ca61",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["vector-memory", "sqlite", "embeddings", "semantic-search"],
+      "study_targets": ["vector storage in SQLite", "similarity search", "compact vector representation", "extension architecture", "resource cleanup and correctness"]
+    },
+    {
+      "repository": "microsoft/semantic-kernel",
+      "url": "https://github.com/microsoft/semantic-kernel",
+      "license": "MIT",
+      "pinned_ref": "ca40aa7226531d28a721d0ca0e451d0aaf86dafc",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["agent-orchestration", "plugins", "planning", "memory", "processes"],
+      "study_targets": ["plugin/function contracts", "agent orchestration", "process/workflow patterns", "memory integration", "multi-provider abstractions"]
+    },
+    {
+      "repository": "crewAIInc/crewAI",
+      "url": "https://github.com/crewAIInc/crewAI",
+      "license": "MIT",
+      "pinned_ref": "0374c631297f219a3891945cfc81f82ea54dd776",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["multi-agent", "event-driven-workflows", "tracing", "tasks"],
+      "study_targets": ["role-based agents", "event-driven flows", "task execution", "delegation", "tracing", "structured outputs"]
+    },
+    {
+      "repository": "browser-use/browser-harness",
+      "url": "https://github.com/browser-use/browser-harness",
+      "license": "MIT",
+      "pinned_ref": "afbcc381b963040c19627d788e40c7e7663171ee",
+      "pin_type": "commit",
+      "mode": "reference / candidate integration",
+      "domains": ["browser-agent", "computer-use", "cdp", "self-healing"],
+      "study_targets": ["editable browser harnesses", "CDP tool boundaries", "self-healing helpers", "MCP browser exposure", "browser task execution"]
+    },
+    {
+      "repository": "browser-use/browser-harness-js",
+      "url": "https://github.com/browser-use/browser-harness-js",
+      "license": "MIT",
+      "pinned_ref": "2d9a5ed37ed11f31b2622cd69c4b55f979cb905f",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["browser-agent", "cdp", "typescript-browser-runtime"],
+      "study_targets": ["typed CDP surface", "protocol generation", "target/session routing", "low-abstraction browser control"]
+    },
+    {
+      "repository": "dotnet/orleans",
+      "url": "https://github.com/dotnet/orleans",
+      "license": "MIT",
+      "pinned_ref": "0bfd95e8561699b3bb7c619b0b0d2378d84395bc",
+      "pin_type": "commit",
+      "mode": "reference",
+      "domains": ["virtual-actors", "distributed-state", "durability", "reminders", "scalability"],
+      "study_targets": ["virtual actor model", "durable actor state", "placement", "reminders", "distributed execution", "failure handling"]
+    }
+  ]
+}

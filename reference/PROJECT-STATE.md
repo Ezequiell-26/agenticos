@@ -61,7 +61,7 @@ The next AI must continue from this file and the append-only journal, not from m
 - Durable operation journal: active and append-only.
 - Anti-regression verifier: `scripts/verify-agent-continuity.mjs`.
 - CI enforcement: active.
-- Latest audited code checkpoint before journal append: `1c62548dfae43c7e4d00fddc17dcb1a49236f793`.
+- Latest audited code checkpoint before journal append: `8e741916e977abae01b5b3ec57fd7181012f1048`.
 - Functional Step 1 remains locked until architecture-foundation verification is complete.
 - No project code or data was deleted by this operation.
 
@@ -93,3 +93,13 @@ The next AI must continue from this file and the append-only journal, not from m
 - Rust fmt/check/test/clippy: PASS.
 - No functional Step 1 code has been started.
 - Exactly one next step is authorized: `rust-kernel-vertical-slice-1`.
+
+## Final foundation verification record
+
+- Architecture foundation: VERIFIED.
+- Verification run: GitHub Actions #354 (`35539582335`).
+- Verified commit: `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`.
+- Subsequent commits only record verification state/documentation and do not begin functional Step 1.
+- Current implementation step: `rust-kernel-vertical-slice-1`.
+- Current step status: `pending`.
+- No later implementation step is authorized.

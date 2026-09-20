@@ -49,8 +49,7 @@ export async function saveManifest(
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(
     filePath,
-    JSON.stringify(manifest, null, 2) + "
-",
+    JSON.stringify(manifest, null, 2) + "\n",
     "utf8",
   );
 }
@@ -158,8 +157,7 @@ export function assertSourceManifest(
       );
     }
 
-    const key = candidate.sourceId + "
-" + candidate.path;
+    const key = candidate.sourceId + "\n" + candidate.path;
     if (candidateKeys.has(key)) {
       throw invalidManifest("Duplicate source candidate: " + key);
     }

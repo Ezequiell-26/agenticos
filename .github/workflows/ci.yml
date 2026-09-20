@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  verify-typescript:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,8 +30,43 @@ jobs:
       - name: Verify architecture, types and tests
         run: npm run verify
 
+      - name: Validate implementation state manifest
+        run: node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('reference/manifests/implementation-state.json','utf8'));if(x.policy.one_step_at_a_time!==true||x.policy.next_step_requires_verified_previous!==true||x.policy.fail_closed!==true)process.exit(1);if(!Array.isArray(x.steps)||x.steps.length<2)process.exit(1);const active=x.steps.filter(s=>s.status==='in_progress');if(active.length>1)process.exit(1);console.log('implementation state manifest: PASS')"
+
       - name: Dependency audit
         run: npm audit --audit-level=high
 
       - name: Check dependency tree
         run: npm ls --depth=0
+
+  verify-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Compile workspace
+        run: cargo check --workspace --all-targets
+
+      - name: Test workspace
+        run: cargo test --workspace --all-targets
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Verify architecture workspace shape
+        run: |
+          test -f Cargo.toml
+          test -f rust-toolchain.toml
+          test -f protocols/schemas/event-envelope.schema.json
+          test -f reference/manifests/implementation-state.json
+          test -f reference/manifests/mit-repositories.json
+          echo "Rust architecture foundation: PASS"

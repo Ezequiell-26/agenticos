@@ -231,16 +231,21 @@ function assertSourceRepository(
     );
   }
 
+  const rawRef = value.ref;
   if (
-    value.ref !== undefined &&
-    (typeof value.ref !== "string" || !value.ref.trim())
+    rawRef !== undefined &&
+    (typeof rawRef !== "string" || !rawRef.trim())
   ) {
     throw invalidManifest("Source repository ref is invalid.");
   }
 
+  const rawSourceCommit = value.sourceCommit;
   if (
-    value.sourceCommit !== undefined &&
-    !/^[0-9a-f]{40}$/i.test(value.sourceCommit)
+    rawSourceCommit !== undefined &&
+    (
+      typeof rawSourceCommit !== "string" ||
+      !/^[0-9a-f]{40}$/i.test(rawSourceCommit)
+    )
   ) {
     throw invalidManifest(
       "Source repository sourceCommit must be a full Git commit.",

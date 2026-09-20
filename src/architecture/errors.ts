@@ -1,21 +1,7 @@
 export type ErrorCategory =
-  | "AUTH"
-  | "RATE_LIMIT"
-  | "QUOTA"
-  | "NETWORK"
-  | "TIMEOUT"
-  | "PROVIDER"
-  | "TOOL"
-  | "SANDBOX"
-  | "POLICY"
-  | "VALIDATION"
-  | "PERSISTENCE"
-  | "PLUGIN"
-  | "PROTOCOL"
-  | "RESOURCE"
-  | "CONCURRENCY"
-  | "SECURITY"
-  | "BUG";
+  | "AUTH" | "RATE_LIMIT" | "QUOTA" | "NETWORK" | "TIMEOUT" | "PROVIDER"
+  | "TOOL" | "SANDBOX" | "POLICY" | "VALIDATION" | "PERSISTENCE" | "PLUGIN"
+  | "PROTOCOL" | "RESOURCE" | "CONCURRENCY" | "SECURITY" | "BUG";
 
 export type ErrorSeverity = "info" | "warning" | "error" | "critical";
 
@@ -53,6 +39,24 @@ export class AgentiCOSError extends Error {
     this.retryAfterMs = options.retryAfterMs;
     this.metadata = options.metadata;
   }
+}
+
+export function serializeError(error: unknown): Record<string, unknown> {
+  if (error instanceof AgentiCOSError) {
+    return {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      category: error.category,
+      severity: error.severity,
+      retryable: error.retryable,
+      recoverable: error.recoverable,
+    };
+  }
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
+  return { message: String(error) };
 }
 
 export function asAgentiCOSError(error: unknown): AgentiCOSError {

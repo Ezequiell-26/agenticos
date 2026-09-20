@@ -31,3 +31,19 @@ This directory contains the architecture source of truth.
 A feature that needs a new execution loop, new persistence system, new permission system or vendor-specific path must first be documented as an architectural change.
 
 Architecture changes are recorded as ADRs.
+
+## Iterative construction
+
+The product is built by vertical slices. Read:
+
+- ITERATION-ARCHITECTURE.md
+- VERTICAL-SLICES.md
+- FEATURE-MANIFEST.md
+- DEPENDENCY-GRAPH.md
+- ITERATION-GATES.md
+- AI-IMPLEMENTATION-CONTRACT.md
+- NO-DEAD-ENDS.md
+
+For the Agent feature specifically, the canonical sequence is defined in `docs/features/agent/manifest.yml`: window → chat shell → persistence → real provider → streaming → tools → security/sandbox → context/skills → memory → verification/repair → subagents → background execution → interoperability.
+
+A slice is not complete because code exists. It is complete when the user can exercise the feature through the intended surface and the implementation passes the applicable architecture gates.

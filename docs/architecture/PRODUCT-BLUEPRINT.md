@@ -144,3 +144,44 @@ Plugins, SDKs, engine adapters, Source Forge, remote workers and distribution.
 Adaptive routing, richer multimodal execution, advanced computer use and distributed orchestration.
 
 A feature enters implementation only when its contract, state model, security boundary, persistence behavior and verification strategy are documented.
+
+## Universal extensibility requirement
+
+The platform is not considered architecturally complete unless APIs, providers, tools, toolsets, MCP servers, plugins, skills, memory providers, channels, webhooks, schedules and external engines can be added through versioned contracts and registries without modifying the canonical AgentEngine loop.
+
+This requirement is explicitly defined in [UNIVERSAL-CAPABILITY-PLATFORM.md](./UNIVERSAL-CAPABILITY-PLATFORM.md).
+
+## Capability inventory required before product expansion
+
+### API and provider layer
+
+The architecture must support model APIs, arbitrary service APIs, OAuth services, API-key pools, local/self-hosted endpoints, MCP and A2A, with capability-aware routing, health, quota, retry and credential isolation.
+
+### Plugins
+
+Plugins must support discovery, install, configuration, enable/disable, health, upgrade, rollback, uninstall, dependency resolution and capability-scoped execution. Plugin contributions can include tools, hooks, skills, providers, memory, channels and UI extensions.
+
+### Skills
+
+Skills must be portable, versioned, progressively loaded and testable. They can use existing tools and APIs but cannot create authority.
+
+### Memory
+
+Memory must combine built-in durable memory with replaceable provider backends, scoped by profile/user/workspace/project/thread/run. Retrieval, prefetch, consolidation, correction and deletion are first-class operations.
+
+### Channels and gateway
+
+CLI, TUI, Web, Desktop, IDE/ACP, API, webhooks and messaging platforms must feed the same durable runtime rather than create separate agent implementations.
+
+### Scheduling and triggers
+
+Cron/calendar, one-shot jobs, webhook triggers and event-driven triggers must create durable jobs with pause/resume/manual-trigger semantics, budgets, retries and delivery policies.
+
+### Hooks and toolsets
+
+Tools must be grouped into policy-controlled toolsets, while hooks provide bounded lifecycle interception without creating a second agent loop.
+
+## Architecture parity target
+
+Hermes and DeepSeek Harness are reference systems, not product boundaries. AgentiCOS should cover the reusable architectural capability set they demonstrate while preserving its own Rust contracts, persistence model, security model, provenance policy and sequential implementation rules. citeturn254296search0turn178395search0
+

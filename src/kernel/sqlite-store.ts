@@ -850,14 +850,14 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     }
   }
 
-  private appendEventInTransaction(
+  private appendEventInTransaction<T>(
     type: string,
     version: number,
     aggregateId: string,
     runId: string,
-    payload: unknown,
+    payload: T,
     createdAt: string,
-  ): DurableEvent {
+  ): DurableEvent<T> {
     const eventId = randomUUID();
 
     this.database.db.prepare(`

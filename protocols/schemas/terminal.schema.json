@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/terminal.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Terminal v1",
+  "required": [
+    "schemaVersion",
+    "terminalId",
+    "runId",
+    "ownerScope",
+    "backend",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "terminalId": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "ownerScope": {
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "local-pty",
+        "sandbox-pty",
+        "remote-pty"
+      ]
+    },
+    "state": {
+      "enum": [
+        "opening",
+        "open",
+        "draining",
+        "closed",
+        "failed"
+      ]
+    },
+    "resourceLimits": {
+      "type": "object"
+    }
+  }
+}

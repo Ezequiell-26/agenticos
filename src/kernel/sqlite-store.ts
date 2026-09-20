@@ -644,20 +644,32 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   async listPending(limit = 100): Promise<readonly DurableEvent[]> {
     const safeLimit = Math.max(1, Math.floor(limit));
     const rows = this.database.db.prepare(`
-      SELECT e.*
+      SELECT e.*, o.attempts, o.last_error_json, o.next_attempt_at
       FROM events e
       JOIN outbox o ON o.event_id = e.event_id
       WHERE o.published_at IS NULL
+        AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)
       ORDER BY o.created_at ASC
       LIMIT ?
-    `).all(safeLimit) as Array<{
+    `).all(new Date().toISOString(), safeLimit) as Array<{
       event_id: string;
       type: string;
       version: number;
       aggregate_id: string;
       run_id: string | null;
+      workspace_id: string | null;
+      project_id: string | null;
+      thread_id: string | null;
+      actor_id: string | null;
+      parent_event_id: string | null;
+      correlation_id: string | null;
+      causation_id: string | null;
+      durable: number;
       created_at: string;
       payload_json: string;
+      attempts: number;
+      last_error_json: string | null;
+      next_attempt_at: string | null;
     }>;
 
     return rows.map((row) => ({
@@ -666,6 +678,18 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       version: row.version,
       aggregateId: row.aggregate_id,
       createdAt: row.created_at,
+      ...(row.run_id === null ? {} : { runId: row.run_id }),
+      ...(row.workspace_id === null ? {} : { workspaceId: row.workspace_id }),
+      ...(row.project_id === null ? {} : { projectId: row.project_id }),
+      ...(row.thread_id === null ? {} : { threadId: row.thread_id }),
+      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+      ...(row.parent_event_id === null ? {} : { parentEventId: row.parent_event_id }),
+      ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+      ...(row.causation_id === null ? {} : { causationId: row.causation_id }),
+      durable: row.durable === 1,
+      attempts: row.attempts,
+      ...(row.last_error_json === null ? {} : { lastError: JSON.parse(row.last_error_json) }),
+      ...(row.next_attempt_at === null ? {} : { nextAttemptAt: row.next_attempt_at }),
       payload: JSON.parse(row.payload_json),
     }));
   }
@@ -678,6 +702,22 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     if (changed.changes !== 1) {
       throw new AgentiCOSError("Outbox event was already published or does not exist.", {
         code: "OUTBOX_MARK_PUBLISHED_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
+  }
+
+  async markFailed(eventId: string, error: unknown, nextAttemptAt: string): Promise<void> {
+    const changed = this.database.db.prepare(`
+      UPDATE outbox
+      SET attempts = attempts + 1, last_error_json = ?, next_attempt_at = ?
+      WHERE event_id = ? AND published_at IS NULL
+    `).run(JSON.stringify(serializeError(error)), nextAttemptAt, eventId);
+
+    if (changed.changes !== 1) {
+      throw new AgentiCOSError("Outbox failure update was lost or event is already published.", {
+        code: "OUTBOX_MARK_FAILED_FAILED",
         category: "PERSISTENCE",
         severity: "critical",
       });
@@ -789,7 +829,9 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   listEvents(runId: string): readonly DurableEvent[] {
     this.requireRunRow(runId);
     const rows = this.database.db.prepare(`
-      SELECT event_id, type, version, aggregate_id, created_at, payload_json
+      SELECT event_id, type, version, aggregate_id, run_id, workspace_id,
+             project_id, thread_id, actor_id, parent_event_id,
+             correlation_id, causation_id, durable, created_at, payload_json
       FROM events
       WHERE run_id = ?
       ORDER BY created_at ASC, rowid ASC
@@ -798,6 +840,15 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       type: string;
       version: number;
       aggregate_id: string;
+      run_id: string | null;
+      workspace_id: string | null;
+      project_id: string | null;
+      thread_id: string | null;
+      actor_id: string | null;
+      parent_event_id: string | null;
+      correlation_id: string | null;
+      causation_id: string | null;
+      durable: number;
       created_at: string;
       payload_json: string;
     }>;
@@ -808,6 +859,15 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       version: row.version,
       aggregateId: row.aggregate_id,
       createdAt: row.created_at,
+      ...(row.run_id === null ? {} : { runId: row.run_id }),
+      ...(row.workspace_id === null ? {} : { workspaceId: row.workspace_id }),
+      ...(row.project_id === null ? {} : { projectId: row.project_id }),
+      ...(row.thread_id === null ? {} : { threadId: row.thread_id }),
+      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+      ...(row.parent_event_id === null ? {} : { parentEventId: row.parent_event_id }),
+      ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+      ...(row.causation_id === null ? {} : { causationId: row.causation_id }),
+      durable: row.durable === 1,
       payload: JSON.parse(row.payload_json),
     }));
   }
@@ -848,24 +908,40 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   ): DurableEvent<T> {
     const eventId = randomUUID();
 
+    const context = this.database.db
+      .prepare("SELECT workspace_id, project_id, thread_id, actor_id FROM runs WHERE id = ?")
+      .get(runId) as {
+        workspace_id: string;
+        project_id: string | null;
+        thread_id: string | null;
+        actor_id: string | null;
+      } | undefined;
+
     this.database.db.prepare(`
       INSERT INTO events(
-        event_id, type, version, aggregate_id, run_id, created_at, payload_json
+        event_id, type, version, aggregate_id, run_id,
+        workspace_id, project_id, thread_id, actor_id,
+        correlation_id, durable, created_at, payload_json
       )
-      VALUES(?, ?, ?, ?, ?, ?, ?)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).run(
       eventId,
       type,
       version,
       aggregateId,
       runId,
+      context?.workspace_id ?? null,
+      context?.project_id ?? null,
+      context?.thread_id ?? null,
+      context?.actor_id ?? null,
+      runId,
       createdAt,
       JSON.stringify(payload),
     );
 
     this.database.db
-      .prepare("INSERT INTO outbox(event_id, created_at) VALUES(?, ?)")
-      .run(eventId, createdAt);
+      .prepare("INSERT INTO outbox(event_id, created_at, attempts, next_attempt_at) VALUES(?, ?, 0, ?)")
+      .run(eventId, createdAt, createdAt);
 
     return {
       eventId,
@@ -873,6 +949,15 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       version,
       aggregateId,
       createdAt,
+      ...(runId ? { runId } : {}),
+      ...(context?.workspace_id ? { workspaceId: context.workspace_id } : {}),
+      ...(context?.project_id ? { projectId: context.project_id } : {}),
+      ...(context?.thread_id ? { threadId: context.thread_id } : {}),
+      ...(context?.actor_id ? { actorId: context.actor_id } : {}),
+      correlationId: runId,
+      durable: true,
+      attempts: 0,
+      nextAttemptAt: createdAt,
       payload,
     };
   }

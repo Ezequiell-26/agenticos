@@ -36,6 +36,50 @@ export class SqliteDatabase {
     if (this.db.open) this.db.close();
   }
 
+  integrity(): {
+    ok: boolean;
+    integrityCheck: string;
+    foreignKeyViolations: number;
+    schemaVersion: number;
+  } {
+    const integrityRow = this.db
+      .prepare("PRAGMA integrity_check")
+      .get() as { integrity_check: string };
+    const foreignKeys = this.db.prepare("PRAGMA foreign_key_check").all();
+    const schema = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key='schema_version'")
+      .get() as { value: string } | undefined;
+    const schemaVersion = schema ? Number(schema.value) : 0;
+
+    return {
+      ok:
+        integrityRow.integrity_check === "ok" &&
+        foreignKeys.length === 0 &&
+        schemaVersion === LATEST_SCHEMA_VERSION,
+      integrityCheck: integrityRow.integrity_check,
+      foreignKeyViolations: foreignKeys.length,
+      schemaVersion,
+    };
+  }
+
+  assertIntegrity(): void {
+    const report = this.integrity();
+    if (report.ok) return;
+    throw new AgentiCOSError(
+      "SQLite integrity check failed: " +
+        report.integrityCheck +
+        "; foreignKeyViolations=" +
+        report.foreignKeyViolations +
+        "; schemaVersion=" +
+        report.schemaVersion,
+      {
+        code: "DATABASE_INTEGRITY_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
+  }
+
   assertHealthy(): void {
     const integrity = this.db.prepare("PRAGMA integrity_check").get() as { integrity_check: string };
     if (integrity.integrity_check !== "ok") {

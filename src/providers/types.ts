@@ -106,6 +106,15 @@ export interface TokenUsage {
   readonly totalTokens?: number;
 }
 
+export interface ToolCall {
+  readonly id: string;
+  readonly type: "function";
+  readonly function: {
+    readonly name: string;
+    readonly arguments: string;
+  };
+}
+
 export interface ChatResponse {
   readonly id: string;
   readonly providerId: string;
@@ -113,6 +122,7 @@ export interface ChatResponse {
   readonly text: string;
   readonly finishReason?: string;
   readonly usage?: TokenUsage;
+  readonly toolCalls?: readonly ToolCall[];
   readonly raw: unknown;
 }
 

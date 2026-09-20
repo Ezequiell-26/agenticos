@@ -12,15 +12,26 @@ export interface IdempotencyRecord {
 }
 
 export interface IdempotencyStore {
-  get(key: string): Promise<IdempotencyRecord | undefined>;
+  claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
   put(record: IdempotencyRecord): Promise<void>;
 }
 
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
 
-  async get(key: string): Promise<IdempotencyRecord | undefined> {
-    return this.records.get(key);
+  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
+    const existing = this.records.get(record.key);
+    if (existing) {
+      if (existing.fingerprint !== record.fingerprint) {
+        throw new AgentiCOSError("Idempotency key reused with a different operation.", {
+          code: "IDEMPOTENCY_KEY_CONFLICT",
+          category: "VALIDATION",
+        });
+      }
+      return existing;
+    }
+    this.records.set(record.key, record);
+    return undefined;
   }
 
   async put(record: IdempotencyRecord): Promise<void> {
@@ -29,7 +40,6 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
       throw new AgentiCOSError("Idempotency key reused with a different operation.", {
         code: "IDEMPOTENCY_KEY_CONFLICT",
         category: "VALIDATION",
-        recoverable: false,
       });
     }
     this.records.set(record.key, record);
@@ -51,17 +61,18 @@ export async function executeIdempotent<T>(
 ): Promise<T> {
   const fingerprint = fingerprintOperation(operation, input);
   const now = new Date().toISOString();
-  const existing = await store.get(key);
+  const claimed = await store.claim({
+    key,
+    operation,
+    fingerprint,
+    status: "in-progress",
+    createdAt: now,
+    updatedAt: now,
+  });
 
-  if (existing) {
-    if (existing.fingerprint !== fingerprint) {
-      throw new AgentiCOSError("Idempotency key conflict.", {
-        code: "IDEMPOTENCY_KEY_CONFLICT",
-        category: "VALIDATION",
-      });
-    }
-    if (existing.status === "completed") return existing.result as T;
-    if (existing.status === "in-progress") {
+  if (claimed) {
+    if (claimed.status === "completed") return claimed.result as T;
+    if (claimed.status === "in-progress") {
       throw new AgentiCOSError("Operation is already in progress.", {
         code: "IDEMPOTENCY_IN_PROGRESS",
         category: "CONCURRENCY",
@@ -74,15 +85,6 @@ export async function executeIdempotent<T>(
       category: "VALIDATION",
     });
   }
-
-  await store.put({
-    key,
-    operation,
-    fingerprint,
-    status: "in-progress",
-    createdAt: now,
-    updatedAt: now,
-  });
 
   try {
     const result = await execute();
@@ -110,6 +112,7 @@ export async function executeIdempotent<T>(
 }
 
 function stableStringify(value: unknown): string {
+  if (value === undefined) return "undefined";
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
   const record = value as Record<string, unknown>;

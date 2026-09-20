@@ -5,13 +5,23 @@ This document is the source of truth for product architecture.
 
 ## Language and runtime decision
 
-The canonical AgentiCOS core runtime is **Rust**, with Tokio as the target async runtime.
+The canonical AgentiCOS core runtime is Rust, with Tokio as the target async runtime.
 
 TypeScript is primarily for Web/product surfaces, Python for ecosystem integrations and SDKs, and WASM for selected portable sandboxed plugins.
 
 The current TypeScript code is a transitional architecture prototype, not the final runtime boundary.
 
-See [ADR-0006](./docs/adr/0006-rust-core-runtime.md).
+See docs/adr/0006-rust-core-runtime.md.
+
+## Reference-first implementation policy
+
+AgentiCOS maintains an approved Reference Knowledge Corpus.
+
+Before implementing a non-trivial capability, the coding agent must search the corpus, read relevant documentation/implementation/tests, extract applicable behavior and edge cases, and map those findings onto AgentiCOS contracts.
+
+The purpose is to reuse proven patterns and avoid unnecessary reinvention.
+
+See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMPLEMENTATION-CONTRACT.md.
 
 ## Global invariants
 
@@ -40,6 +50,8 @@ See [ADR-0006](./docs/adr/0006-rust-core-runtime.md).
 23. Cross-language behavior is defined by versioned protocols, not internal structs/classes.
 24. Prototype code cannot become an undeclared production dependency.
 25. No capability is considered complete until it has an executable vertical slice and recovery semantics.
+26. Reference evidence must be traceable to an exact source snapshot.
+27. Reference code cannot override AgentiCOS security, contracts or license policy.
 
 ## Product definition
 
@@ -47,7 +59,30 @@ AgentiCOS is a universal, model-agnostic agent operating layer. It turns user ob
 
 It combines models, providers, tools, sandboxes, browser/computer control, memory, skills, workflows, child agents, interoperability, artifacts, scheduling and developer surfaces behind one execution model.
 
-Detailed scope: [PRODUCT-BLUEPRINT.md](./docs/architecture/PRODUCT-BLUEPRINT.md).
+Detailed scope: docs/architecture/PRODUCT-BLUEPRINT.md.
+
+## Provider gateway and router
+
+The provider platform includes a dedicated gateway/router layer.
+
+AgentiCOS should cover:
+
+- provider adapters;
+- model catalog;
+- capability registry;
+- smart routing;
+- provider health;
+- rate-limit and quota ledgers;
+- cooldowns;
+- key/account pools;
+- controlled failover;
+- streaming normalization;
+- multimodal normalization;
+- compatible API surfaces;
+- local and custom OpenAI-compatible endpoints;
+- observability for latency, failures and usage.
+
+FreeLLMAPI is a primary reference for this domain. Study its provider aggregation, fallback, quota/rate tracking, catalog and compatibility patterns while keeping AgentiCOS contracts and Rust implementation independent.
 
 ## Architectural strategy
 
@@ -65,7 +100,6 @@ A durable Task/Run owns execution. A Thread owns conversational/context lineage.
 
 ## Capability planes
 
-```
 Control plane       → lifecycle, policy, budgets, approvals
 Model plane         → providers, models, routing, streaming, multimodal
 Tool plane          → native tools, MCP, browser/computer, files, processes
@@ -74,10 +108,9 @@ Agent plane         → delegation, child runs, DAGs, A2A
 Execution plane     → workers, sandboxes, resources, leases
 Artifact plane      → files, media, reports, evidence, provenance
 Integration plane   → plugins, SDKs, protocols, engine adapters
-Source plane        → Source Forge, licensing, SBOM, fusion
+Source plane        → Source Forge, licensing, SBOM, fusion, reference corpus
 Evaluation plane    → replay, golden tasks, regression, fault injection
 Surface plane       → CLI, TUI, Web, Desktop, IDE, API, SDK, messaging
-```
 
 Each plane has an explicit owner and communicates through contracts rather than hidden cross-plane dependencies.
 
@@ -99,7 +132,6 @@ Autonomy is policy-controlled. A child agent cannot acquire more authority than 
 
 ## Security model
 
-```
 User intent
   ↓
 Policy
@@ -113,7 +145,6 @@ Sandbox
 Execution
   ↓
 Audit event
-```
 
 Model text alone never grants privileged capability.
 

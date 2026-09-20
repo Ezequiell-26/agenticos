@@ -1,0 +1,19 @@
+{
+  "name": "agenticos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-provider AI agent runtime with free-tier, paid, local and custom APIs.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "dev": "tsx src/cli.ts",
+    "providers": "tsx src/cli.ts providers",
+    "models": "tsx src/cli.ts models"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

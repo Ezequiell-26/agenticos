@@ -66,6 +66,11 @@ agenticos/
 │   ├── adr/
 │   └── reference/
 │
+├── reference/
+│   ├── evidence/
+│   ├── manifests/
+│   └── fixtures/
+│
 ├── tests/
 │   ├── contract/
 │   ├── integration/
@@ -74,6 +79,9 @@ agenticos/
 │   ├── e2e/
 │   ├── replay/
 │   ├── conformance/
+│   ├── persistence/
+│   ├── replay/
+│   ├── security/
 │   └── fixtures/
 │
 ├── third-party/

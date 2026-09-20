@@ -19,6 +19,7 @@ interface ImplementationState {
     readonly future_scope_preimplementation_forbidden: boolean;
     readonly reference_lookup_required_for_nontrivial_features: boolean;
     readonly mit_only_canonical_third_party_source: boolean;
+    readonly verification_evidence_required_for_verified_status: boolean;
   };
 }
 
@@ -75,7 +76,8 @@ function assertImplementationState(state: ImplementationState): void {
     !state.policy.fail_closed ||
     !state.policy.future_scope_preimplementation_forbidden ||
     !state.policy.reference_lookup_required_for_nontrivial_features ||
-    !state.policy.mit_only_canonical_third_party_source
+    !state.policy.mit_only_canonical_third_party_source ||
+    !state.policy.verification_evidence_required_for_verified_status
   ) {
     throw new AgentiCOSError("Sequential implementation policy is not fail-closed.", {
       code: "IMPLEMENTATION_POLICY_WEAKENED",

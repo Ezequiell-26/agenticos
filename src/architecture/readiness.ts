@@ -51,6 +51,10 @@ const REQUIRED_PROTOCOLS = [
   "scope.schema.json",
   "feature-flag.schema.json",
   "management-operation.schema.json",
+  "auxiliary-model.schema.json",
+  "spill-store.schema.json",
+  "code-intelligence.schema.json",
+  "migration.schema.json",
 ] as const;
 
 const REQUIRED_CRATE_NAMES = [

@@ -30,6 +30,9 @@ jobs:
       - name: Verify durable AI continuity
         run: npm run continuity:verify
 
+      - name: Verify project-state consistency
+        run: npm run state:verify
+
       - name: Verify architecture, types and tests
         run: npm run verify
 
@@ -45,7 +48,7 @@ jobs:
             state.policy.next_step_requires_verified_previous !== true ||
             state.policy.fail_closed !== true
           ) process.exit(1);
-          if (!Array.isArray(state.steps) || state.steps.length < 2) process.exit(1);
+          if (!Array.isArray(state.steps) || state.steps.length < 3) process.exit(1);
           const active = state.steps.filter((step) => step.status === "in_progress");
           if (active.length > 1) process.exit(1);
           console.log("implementation state manifest: PASS");

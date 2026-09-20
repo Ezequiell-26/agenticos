@@ -8,7 +8,7 @@ AgentiCOS is being designed as a universal, model-agnostic agent runtime and app
 
 ## Architecture status
 
-The architectural foundation is materialized and has passed the full verification gate in GitHub Actions. Functional product implementation has not started. The first functional Rust slice is now the sole authorized next step.
+The architecture foundation and the first durable Rust kernel slice are implemented and verified. A controlled architecture-hardening step is now enforced before the next product vertical slice is unlocked.
 
 ## Non-negotiable implementation workflow
 
@@ -37,4 +37,4 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) first, then [docs/architecture/README.
 
 Provider Engine and Source Forge prototypes exist in TypeScript. They remain transitional until their responsibilities are replaced or adapted behind the canonical Rust contracts.
 
-The repository is ready to begin the architecture verification gate and, after that gate passes, the first Rust functional vertical slice.
+The architecture verification gate has passed. The current hardening gate must pass before the next product vertical slice is unlocked.

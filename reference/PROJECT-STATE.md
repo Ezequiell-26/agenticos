@@ -1,40 +1,47 @@
 # AgentiCOS Project State
 
-> Canonical continuity snapshot. Read this before any AI change.
+> Canonical current-state snapshot. Read this before every AI change.
 
 ## Current baseline
 
 - Repository: `Ezequiell-26/agenticos`
-- Architecture mode: sequential-verified
-- Current implementation step: `rust-kernel-vertical-slice-1`
-- Current step status: `pending`
-- Architecture foundation verification has passed. Functional Step 1 is now the single authorized next slice and has not yet started.
+- Architecture mode: `sequential-verified`
+- Current implementation step: `architecture-hardening-2026-09-21`
+- Current step status: `in_progress`
+- Architecture foundation: VERIFIED (GitHub Actions run #354; commit `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`).
+- Rust durable kernel Step 1: VERIFIED on `main` at `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
 - Canonical runtime: Rust/Tokio.
+- TypeScript: transitional prototype/product surface boundary; it is not the canonical runtime.
 - Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
 - Destructive AI operations: disabled by default.
 
-## What is already established
+## What is established
 
 The architecture contains explicit contracts and schemas for runtime, providers, routing, tools, plugins, skills, memory, workflows, multi-agent execution, channels, webhooks, scheduling, MCP/A2A, persistence, context, terminals/jobs, filesystem changes, attachments, code intelligence, planning, trajectories, supervision, migration, distribution, management and AI-generated changes.
 
-The reference system contains a verified MIT-focused seed corpus and a dynamic resolver. The resolver must select the strongest applicable repository and collect repository-level evidence before non-trivial implementation.
+The reference system contains a verified MIT-focused seed corpus and a dynamic resolver. Non-trivial implementation must use repository evidence and preserve exact provenance.
 
-## Current work
+## Current hardening scope
 
-Architecture completeness, reference resolution and AI continuity/anti-regression controls are being finalized. No functional Step 1 implementation has been started by this continuity checkpoint.
+- Keep machine-readable and human-readable project state synchronized.
+- Add a blocking project-state consistency verifier.
+- Enforce that only one implementation step is active.
+- Harden the canonical Rust in-memory lease store against active takeover and fencing-token reuse.
+- Add regression coverage and CI enforcement.
+- Do not implement the AgentEngine or later product slices during this step.
 
 ## Verification truth
 
-Do not claim a check passed unless its command/result is recorded in the operation journal or CI evidence.
+Do not claim a check passed unless the command/result is recorded in the operation journal or CI evidence.
 
-At the latest architectural work checkpoint, remote GitHub CI was not available as a passing result and local Rust execution was not available in the execution environment. Treat those checks as **unverified**, not passed.
+At this checkpoint, the hardening branch has not yet received final CI evidence. Treat all hardening checks as **UNVERIFIED** until GitHub Actions records them.
 
 ## Next authorized progression
 
-1. Finish and verify the architecture foundation.
-2. Record all verification evidence.
-3. Only after the foundation becomes `verified`, unlock `rust-kernel-vertical-slice-1`.
-4. Execute exactly one step at a time.
+1. Verify `architecture-hardening-2026-09-21` in CI.
+2. Record exact verification evidence in the journal and manifest.
+3. Mark the hardening step `VERIFIED` only after every required check passes.
+4. Unlock exactly one next step: `agent-engine-vertical-slice-1`.
 
 ## Anti-regression rule
 
@@ -42,64 +49,15 @@ Do not delete, replace or rewrite project history, code, data, manifests or evid
 
 ## Continuity rule
 
-Every AI operation must leave:
-- what it did;
-- what it created;
-- what it modified;
-- what it deleted (normally `none`);
-- what it verified;
-- what remains unverified;
-- risks;
-- rollback point;
-- the single next step.
+Every AI operation must leave: what it did; what it created; what it modified; what it deleted; what it verified; what remains unverified; risks; rollback point; and exactly one next step.
 
 The next AI must continue from this file and the append-only journal, not from model memory.
 
-## Latest continuity checkpoint
+## Current rollback point
 
-- Continuity protocol: active.
-- Durable operation journal: active and append-only.
-- Anti-regression verifier: `scripts/verify-agent-continuity.mjs`.
-- CI enforcement: active.
-- Latest audited code checkpoint before journal append: `8e741916e977abae01b5b3ec57fd7181012f1048`.
-- Functional Step 1 remains locked until architecture-foundation verification is complete.
-- No project code or data was deleted by this operation.
+- Safe rollback to verified main baseline: `25c6df9c1f5816255e803cf70497ef7ef1de6f01`.
+- No files or historical records were deleted by the hardening operation.
 
-## Continuity enforcement checkpoint
+## Historical evidence
 
-- Foundation gate now explicitly requires the continuity verifier and journal integrity checks.
-- Architecture documentation indexes the continuity protocol.
-- Latest audited code checkpoint before the next journal append: `1c62548dfae43c7e4d00fddc17dcb1a49236f793`.
-
-
-## Pre-implementation architecture audit
-
-- Audit document: `docs/architecture/ARCHITECTURE-AUDIT-BASELINE.md`.
-- Architecture status: verification pending, no functional implementation unlocked.
-- Structural findings corrected: readiness corpus bug, continuity portability/enforcement, root license, Cargo.lock, MIT-corpus/source-registry reconciliation, dependency-direction wording, embedded citation artifacts and state-consistency enforcement.
-- Remaining verification truth: Rust toolchain checks and final remote CI evidence are still UNVERIFIED.
-
-## Foundation verification checkpoint
-
-- `architecture-foundation`: VERIFIED.
-- GitHub Actions run: #354 (`35539582335`).
-- Commit verified: `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`.
-- TypeScript verification: PASS.
-- Continuity verification: PASS.
-- Architecture/readiness verification: PASS.
-- Implementation-state validation: PASS.
-- npm audit: PASS.
-- npm dependency tree: PASS.
-- Rust fmt/check/test/clippy: PASS.
-- No functional Step 1 code has been started.
-- Exactly one next step is authorized: `rust-kernel-vertical-slice-1`.
-
-## Final foundation verification record
-
-- Architecture foundation: VERIFIED.
-- Verification run: GitHub Actions #354 (`35539582335`).
-- Verified commit: `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`.
-- Subsequent commits only record verification state/documentation and do not begin functional Step 1.
-- Current implementation step: `rust-kernel-vertical-slice-1`.
-- Current step status: `pending`.
-- No later implementation step is authorized.
+Detailed historical verification records remain in `reference/journal/agent-operations.jsonl` and the existing architecture audit documents. They are evidence, not competing current state.

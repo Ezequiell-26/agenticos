@@ -4,8 +4,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import {
+  assertSourceManifest,
+  loadManifest,
   normalizeRepositoryUrl,
   repositoryId,
+  saveManifest,
   scanRepository,
 } from "../src/forge/index.js";
 
@@ -103,6 +106,73 @@ test("source forge accepts explicit MIT repository licensing without a package m
     });
 
     assert.equal(result.repository.licenseStatus, "verified-mit");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("source forge manifest validation rejects orphan candidates and invalid commits", async () => {
+  assert.throws(() =>
+    assertSourceManifest({
+      schemaVersion: 1,
+      repositories: [{
+        id: "source-a",
+        url: "https://github.com/example/source-a",
+        localPath: "/tmp/source-a",
+        licenseStatus: "unknown",
+        licenseFiles: [],
+        importedAt: new Date().toISOString(),
+        sourceCommit: "not-a-commit",
+      }],
+      candidates: [],
+    }),
+  );
+
+  assert.throws(() =>
+    assertSourceManifest({
+      schemaVersion: 1,
+      repositories: [],
+      candidates: [{
+        sourceId: "missing-source",
+        path: "src/tool.ts",
+        category: "tool",
+        decision: "adapt",
+        reasons: ["x"],
+        score: 50,
+      }],
+    }),
+  );
+});
+
+test("source forge persists validated manifests", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-manifest-"));
+  const filePath = join(directory, "forge", "manifest.json");
+
+  try {
+    const manifest = {
+      schemaVersion: 1 as const,
+      repositories: [{
+        id: "source-a",
+        url: "https://github.com/example/source-a",
+        localPath: directory,
+        licenseStatus: "verified-mit" as const,
+        licenseFiles: ["LICENSE"],
+        importedAt: new Date().toISOString(),
+        sourceCommit: "0123456789abcdef0123456789abcdef01234567",
+      }],
+      candidates: [{
+        sourceId: "source-a",
+        path: "src/tool.ts",
+        category: "tool" as const,
+        decision: "adapt" as const,
+        reasons: ["Reviewed"],
+        score: 80,
+      }],
+    };
+
+    await saveManifest(filePath, manifest);
+    const loaded = await loadManifest(filePath);
+    assert.deepEqual(loaded, manifest);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

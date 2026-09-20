@@ -8,9 +8,7 @@ AgentiCOS is being designed as a universal, model-agnostic agent runtime and app
 
 ## Architecture status
 
-The architectural foundation is now materialized as a Rust workspace with explicit crate ownership, versioned protocol schemas, a canonical contract registry, executable architecture/readiness validation, Source Forge/reference provenance controls and sequential implementation gates.
-
-Functional product implementation is intentionally **not** started by this foundation change. The first functional slice remains locked until the architecture foundation verification gate passes.
+The architectural foundation is materialized and has passed the full verification gate in GitHub Actions. Functional product implementation has not started. The first functional Rust slice is now the sole authorized next step.
 
 ## Non-negotiable implementation workflow
 

@@ -12,13 +12,13 @@ The production kernel foundation uses SQLite through better-sqlite3 behind Agent
 - State transitions are validated before writes.
 - Run state changes and durable events are committed atomically.
 - Durable events enter the outbox in the same transaction as their aggregate mutation.
-- Inbox claims are transactionally deduplicated.
-- Retryable operations have durable idempotency records.
+- Inbox claims are transactionally deduplicated and stale processing claims can be recovered.
+- Retryable operations have durable idempotency records and stale in-progress claims can be recovered.
 - Run ownership uses leases and fencing tokens.
 - Expired runs can be recovered after process restart.
 - Interrupted cancellation closes active steps before the run becomes terminal.
 - Usage is budget-checked before being committed.
-- Workspace checkpoints retain integrity hashes.
+- Workspace checkpoints retain integrity hashes and canonical relative paths.
 
 ## Runtime model
 
@@ -58,13 +58,13 @@ running
 
 When a worker disappears, the lease expires. On restart, expired running runs move back to waiting. A cancelling run is recovered to cancelled and active steps are cancelled atomically.
 
-## Outbox semantics
+## Publication semantics
 
 1. Aggregate mutation commits with the outbox record.
 2. Dispatcher reads pending events.
 3. Publisher sends the event.
 4. Successful publication marks the outbox row published.
-5. A publisher failure leaves the event pending for retry.
+5. A publisher failure releases the claim and leaves the event pending.
 
 Consumers must be idempotent because publication can repeat after a crash between external delivery and markPublished.
 
@@ -73,7 +73,8 @@ Consumers must be idempotent because publication can repeat after a crash betwee
 A durable idempotency key is bound to a stable fingerprint of the operation and input.
 
 - completed -> cached result is returned;
-- in-progress -> duplicate execution is rejected;
+- in-progress -> duplicate execution is rejected while the claim is fresh;
+- stale in-progress -> the operation may be safely reclaimed;
 - failed -> explicit retry is required;
 - same key + different fingerprint -> hard validation failure.
 

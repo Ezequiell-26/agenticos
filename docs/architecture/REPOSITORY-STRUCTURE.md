@@ -2,20 +2,19 @@
 
 The repository is organized around architectural boundaries rather than individual upstream projects.
 
-```text
+## Canonical implementation layout
+
+```
 agenticos/
-├── apps/
-│   ├── cli/
-│   ├── tui/
-│   ├── web/
-│   ├── desktop/
-│   └── ide/
+├── Cargo.toml
+├── Cargo.lock
 │
-├── packages/
+├── crates/
 │   ├── kernel/
 │   ├── contracts/
 │   ├── runtime/
-│   ├── protocol/
+│   ├── execution/
+│   ├── scheduler/
 │   ├── providers/
 │   ├── router/
 │   ├── tools/
@@ -29,28 +28,38 @@ agenticos/
 │   ├── artifacts/
 │   ├── plugins/
 │   ├── gateway/
-│   ├── observability/
 │   ├── security/
-│   ├── source-forge/
-│   └── sdk/
+│   ├── observability/
+│   ├── evaluation/
+│   └── source-forge/
+│
+├── apps/
+│   ├── cli/
+│   ├── tui/
+│   ├── web/
+│   ├── desktop/
+│   └── ide/
+│
+├── sdk/
+│   ├── python/
+│   └── typescript/
 │
 ├── engines/
 │   ├── adapters/
 │   │   ├── hermes/
 │   │   ├── deepseek-harness/
-│   │   └── codex/
+│   │   ├── codex/
+│   │   └── other/
 │   └── manifests/
-│
-├── vendor/
-│   └── sources/
-│       ├── hermes-agent/
-│       ├── deepseek-harness/
-│       └── codex/
 │
 ├── protocols/
 │   ├── application/
 │   ├── engine/
-│   └── plugin/
+│   ├── plugin/
+│   └── schemas/
+│
+├── vendor/
+│   └── sources/
 │
 ├── docs/
 │   ├── architecture/
@@ -63,23 +72,53 @@ agenticos/
 │   ├── engine/
 │   ├── sandbox/
 │   ├── e2e/
-│   └── replay/
+│   ├── replay/
+│   ├── conformance/
+│   └── fixtures/
 │
-└── third-party/
-    ├── licenses/
-    ├── notices/
-    ├── sbom/
-    └── provenance/
+├── third-party/
+│   ├── licenses/
+│   ├── notices/
+│   ├── sbom/
+│   └── provenance/
+│
+└── prototypes/
+    └── typescript/
 ```
+
+## Language ownership
+
+- **Rust:** canonical kernel, runtime, execution, scheduling, security boundaries, provider normalization, persistence adapters, APIs, CLI and TUI.
+- **TypeScript:** Web UI and frontend-specific tooling/SDKs.
+- **Python:** optional AI/ML and ecosystem integrations exposed through protocols/SDKs.
+- **WASM:** selected portable sandboxed plugins.
+
+## Dependency rule
+
+```
+apps / SDKs
+      ↓
+application protocol
+      ↓
+runtime
+      ↓
+domain contracts
+      ↓
+infrastructure adapters
+```
+
+Domain contracts must not depend on applications. Applications must not contain their own agent loops.
 
 ## Vendor boundary
 
-vendor/ contains source snapshots and must not become an unreviewed import path for production code.
+`vendor/` contains source snapshots only.
 
-engines/ contains adapters and integration glue.
+`engines/` contains adapters and integration glue.
 
-packages/ contains AgentiCOS-owned contracts and implementations.
+`crates/` contains AgentiCOS-owned Rust implementations.
 
-apps/ contains clients.
+`apps/` contains product clients.
 
-This structure lets Source Forge import entire repositories while keeping the product architecture clean.
+`prototypes/` contains transitional experiments that must not become hidden production dependencies.
+
+Source Forge may ingest complete repositories, but it must preserve provenance and never bypass the vendor boundary.

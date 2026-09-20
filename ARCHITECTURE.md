@@ -53,8 +53,13 @@ See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMP
 26. Reference evidence must be traceable to an exact source snapshot.
 27. Reference code cannot override AgentiCOS security, contracts or license policy.
 28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.
-29. Third-party source copied or vendored into the optimization plane must pass the MIT-only source-admission gate.
+29. Third-party source copied, vendored or directly adapted into canonical product code must pass the MIT-only source-admission gate; non-admitted repositories remain reference-only.
 30. Token optimization must fail closed to original content when a transform cannot prove its safety contract.
+31. Durable Run state has a single logical state owner; parallel workers communicate through versioned events rather than unsynchronized shared mutation.
+32. Durable Run history is append-only and recoverable through snapshots plus event replay.
+33. Capability grants are unforgeable, attenuated and bound to principal, run, step, tool and resource scope.
+34. Source Forge executes imported code only inside an isolated untrusted-code boundary.
+35. Canonical runtime responsibilities are separated into explicit Rust contracts; agent orchestration and model transport cannot be hidden inside each other.
 
 ## Product definition
 

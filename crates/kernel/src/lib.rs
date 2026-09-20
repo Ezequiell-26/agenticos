@@ -10,6 +10,7 @@ use agenticos_contracts::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 /// Pure transition validator for the durable Run state machine.
@@ -291,6 +292,7 @@ impl Default for InMemoryIdempotencyStore {
 #[derive(Debug)]
 pub struct InMemoryLeaseStore {
     leases: Arc<RwLock<HashMap<String, LeaseRecord>>>,
+    next_fencing_tokens: Arc<RwLock<HashMap<String, u64>>>,
 }
 
 impl InMemoryLeaseStore {
@@ -298,6 +300,7 @@ impl InMemoryLeaseStore {
     pub fn new() -> Self {
         Self {
             leases: Arc::new(RwLock::new(HashMap::new())),
+            next_fencing_tokens: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -309,12 +312,26 @@ impl InMemoryLeaseStore {
         expires_at: u64,
     ) -> Result<LeaseRecord, ContractError> {
         let mut store = self.leases.write().await;
-        let fencing_token = store.len() as u64 + 1;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| ContractError::Persistence)?
+            .as_secs();
+
+        if store
+            .get(&resource_id)
+            .is_some_and(|existing| existing.expires_at > now)
+        {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let mut counters = self.next_fencing_tokens.write().await;
+        let counter = counters.entry(resource_id.clone()).or_insert(0);
+        *counter = counter.saturating_add(1);
 
         let lease = LeaseRecord {
             resource_id: resource_id.clone(),
             owner_id,
-            fencing_token,
+            fencing_token: *counter,
             expires_at,
         };
 

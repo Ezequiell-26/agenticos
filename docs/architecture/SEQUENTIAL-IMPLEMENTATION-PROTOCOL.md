@@ -77,3 +77,16 @@ A disconnected client must not lose step state. Step status is durable and monot
 The architecture foundation is the only step completed before functional implementation starts. Its role is to make the runtime, contracts, protocols, gates, provenance rules and sequential workflow executable.
 
 Functional Step 1 remains locked until the architecture foundation checks pass in CI.
+
+
+## State projection integrity
+
+`reference/manifests/implementation-state.json` is the machine-readable source of truth for implementation progression.
+
+`reference/PROJECT-STATE.md` must project the same current step and status. CI executes `scripts/verify-project-consistency.mjs` and fails when these representations disagree.
+
+A verified predecessor unlocks exactly one successor. Existing architectural seams do not authorize future implementation.
+
+## AI agent concurrency rule
+
+Multiple AI agents may inspect the repository concurrently, but only one logical implementation step may be active. Overlapping implementation attempts must stop rather than merge incompatible assumptions.

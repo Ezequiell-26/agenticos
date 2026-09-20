@@ -410,3 +410,35 @@ fn test_deterministic_id_generator() {
     assert!(uuid1.starts_with("00000004-"));
     assert!(uuid2.starts_with("00000005-"));
 }
+
+#[test]
+fn test_lease_store_rejects_active_replacement_and_preserves_fencing_monotonicity() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let store = agenticos_kernel::InMemoryLeaseStore::new();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let first = store
+            .acquire("run-lease".to_string(), "worker-a".to_string(), now + 60)
+            .await
+            .unwrap();
+        let blocked = store
+            .acquire("run-lease".to_string(), "worker-b".to_string(), now + 120)
+            .await;
+        assert!(blocked.is_err());
+        store.release("run-lease").await.unwrap();
+        let second = store
+            .acquire("run-lease".to_string(), "worker-b".to_string(), now + 180)
+            .await
+            .unwrap();
+        assert!(second.fencing_token > first.fencing_token);
+        assert!(!store
+            .is_valid("run-lease", "worker-a", first.fencing_token, now + 61)
+            .await);
+        assert!(store
+            .is_valid("run-lease", "worker-b", second.fencing_token, now + 61)
+            .await);
+    });
+}

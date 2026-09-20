@@ -7,6 +7,7 @@ import type {
   SourceManifest,
   SourceRepository,
 } from "./types.js";
+import { normalizeRepositoryUrl, repositoryId } from "./importer.js";
 
 export const DEFAULT_MANIFEST: SourceManifest = {
   schemaVersion: 1,
@@ -187,6 +188,22 @@ function assertSourceRepository(value: unknown): asserts value is SourceReposito
     )
   ) {
     throw invalidManifest("Source repository entry is invalid.");
+  }
+
+  let normalizedUrl: string;
+  try {
+    normalizedUrl = normalizeRepositoryUrl(value.url);
+  } catch (error) {
+    throw invalidManifest(
+      "Source repository URL is invalid: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+  }
+
+  if (repositoryId(normalizedUrl) !== value.id) {
+    throw invalidManifest(
+      "Source repository id must match its stable URL-derived identity.",
+    );
   }
 
   if (

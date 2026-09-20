@@ -135,7 +135,7 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
       `);
     },
   },
-]  {
+  {
     version: 3,
     id: "outbox-claim-leases",
     checksum: "sha256:agenticos-outbox-claim-leases-v3",
@@ -149,8 +149,7 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
       `);
     },
   },
-
-;
+];
 
 export function applyKernelMigrations(
   database: Database.Database,

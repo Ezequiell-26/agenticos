@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {"id": "agent", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["run", "cancel", "delegate"]},
+    {"id": "run", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["durable-state", "cancellation", "recovery"]},
+    {"id": "provider", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["request", "usage", "health"]},
+    {"id": "tool", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["schema", "permissions", "execution"]},
+    {"id": "artifact", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["checksum", "provenance", "retention"]},
+    {"id": "plugin", "version": 1, "kind": "plugin", "compatibility": "backward-compatible", "requiredCapabilities": ["manifest", "activation", "isolation"]}
+  ]
+}

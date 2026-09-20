@@ -626,7 +626,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   }
 
   async append<T>(
-    event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
+    event: Omit<DurableEvent<T>, "eventId" | "createdAt" | "attempts" | "lastError" | "nextAttemptAt">,
   ): Promise<DurableEvent<T>> {
     const now = new Date().toISOString();
     return this.database.transaction(() =>

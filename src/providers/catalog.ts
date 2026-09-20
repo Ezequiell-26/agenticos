@@ -23,7 +23,7 @@ export const BUILT_IN_PROVIDERS: readonly ProviderDefinition[] = [
     id: "deepseek",
     name: "DeepSeek",
     billing: "paid",
-    protocol: "openai-responses",
+    protocol: "openai-chat-completions",
     baseUrl: "https://api.deepseek.com",
     apiKeyEnv: "DEEPSEEK_API_KEY",
     docsUrl: "https://api-docs.deepseek.com/",

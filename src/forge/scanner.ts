@@ -201,7 +201,9 @@ async function walk(
     if (entry.isDirectory()) {
       result.push(...await walk(root, absolute));
     } else {
-      result.push(path.relative(root, absolute));
+      result.push(
+        path.relative(root, absolute).replaceAll(path.sep, "/"),
+      );
     }
   }
 

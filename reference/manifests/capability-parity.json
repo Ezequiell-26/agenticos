@@ -13,7 +13,10 @@
         "NousResearch/hermes-agent",
         "deepseek-ai/deepseek-harness",
         "tashfeenahmed/freellmapi",
-        "diegosouzapw/OmniRoute"
+        "diegosouzapw/OmniRoute",
+        "anthropics/anthropic-sdk-python",
+        "anthropics/anthropic-sdk-typescript",
+        "openai/openai-agents-python"
       ],
       "required_features": [
         "discovery",
@@ -34,7 +37,10 @@
       "contract": "tool",
       "references": [
         "NousResearch/hermes-agent",
-        "deepseek-ai/deepseek-harness"
+        "deepseek-ai/deepseek-harness",
+        "openai/openai-agents-python",
+        "pydantic/pydantic-ai",
+        "microsoft/semantic-kernel"
       ],
       "required_features": [
         "typed-schema",
@@ -54,7 +60,9 @@
       "contract": "plugin",
       "references": [
         "NousResearch/hermes-agent",
-        "deepseek-ai/deepseek-harness"
+        "deepseek-ai/deepseek-harness",
+        "microsoft/semantic-kernel",
+        "modelcontextprotocol/python-sdk"
       ],
       "required_features": [
         "discovery",
@@ -76,7 +84,9 @@
       "contract": "skill",
       "references": [
         "NousResearch/hermes-agent",
-        "deepseek-ai/deepseek-harness"
+        "deepseek-ai/deepseek-harness",
+        "openai/openai-agents-python",
+        "microsoft/autogen"
       ],
       "required_features": [
         "SKILL.md",
@@ -99,7 +109,11 @@
         "NousResearch/hermes-agent",
         "Microsoft AutoGen",
         "run-llama/llama_index",
-        "asg017/sqlite-vec"
+        "asg017/sqlite-vec",
+        "langchain-ai/langchain",
+        "langchain-ai/langgraph",
+        "facebookresearch/faiss",
+        "python-jsonschema/jsonschema"
       ],
       "required_features": [
         "built-in-memory",
@@ -120,7 +134,9 @@
       "contract": "run",
       "references": [
         "deepseek-ai/deepseek-harness",
-        "NousResearch/hermes-agent"
+        "NousResearch/hermes-agent",
+        "langchain-ai/langgraph",
+        "microsoft/autogen"
       ],
       "required_features": [
         "append-only-event-log",
@@ -141,7 +157,12 @@
         "NousResearch/hermes-agent",
         "deepseek-ai/deepseek-harness",
         "Microsoft AutoGen",
-        "crewAIInc/crewAI"
+        "crewAIInc/crewAI",
+        "openai/openai-agents-python",
+        "microsoft/autogen",
+        "langchain-ai/langgraph",
+        "langchain-ai/langchain",
+        "stanfordnlp/dspy"
       ],
       "required_features": [
         "delegation",
@@ -287,7 +308,10 @@
       "references": [
         "NousResearch/hermes-agent",
         "deepseek-ai/deepseek-harness",
-        "blackwell-systems/gcf-rust"
+        "blackwell-systems/gcf-rust",
+        "guidance-ai/guidance",
+        "stanfordnlp/dspy",
+        "pydantic/pydantic"
       ],
       "required_features": [
         "ordered-assembly",
@@ -303,7 +327,11 @@
       "contract": "session-persistence",
       "references": [
         "NousResearch/hermes-agent",
-        "deepseek-ai/deepseek-harness"
+        "deepseek-ai/deepseek-harness",
+        "langchain-ai/langgraph",
+        "sqlalchemy/sqlalchemy",
+        "redis/redis-py",
+        "duckdb/duckdb"
       ],
       "required_features": [
         "append-only-storage",
@@ -319,7 +347,9 @@
       "id": "scoped-registration",
       "contract": "scope",
       "references": [
-        "deepseek-ai/deepseek-harness"
+        "deepseek-ai/deepseek-harness",
+        "pydantic/pydantic-ai",
+        "microsoft/autogen"
       ],
       "required_features": [
         "agent-local-scope",
@@ -334,7 +364,10 @@
       "contract": "system-prompt",
       "references": [
         "deepseek-ai/deepseek-harness",
-        "NousResearch/hermes-agent"
+        "NousResearch/hermes-agent",
+        "guidance-ai/guidance",
+        "stanfordnlp/dspy",
+        "openai/openai-agents-python"
       ],
       "required_features": [
         "ordered-sections",
@@ -350,7 +383,10 @@
       "contract": "tool-registry",
       "references": [
         "deepseek-ai/deepseek-harness",
-        "NousResearch/hermes-agent"
+        "NousResearch/hermes-agent",
+        "modelcontextprotocol/python-sdk",
+        "openai/openai-agents-python",
+        "pydantic/pydantic-ai"
       ],
       "required_features": [
         "schema-collection",

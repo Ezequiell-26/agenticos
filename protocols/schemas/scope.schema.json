@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/scope.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Scope v1",
+  "required": [
+    "schemaVersion",
+    "scopeId",
+    "kind",
+    "parentScopeId",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "scopeId": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "system",
+        "profile",
+        "workspace",
+        "project",
+        "agent",
+        "run",
+        "step"
+      ]
+    },
+    "parentScopeId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "enum": [
+        "active",
+        "draining",
+        "disposed"
+      ]
+    },
+    "ownedRegistrations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

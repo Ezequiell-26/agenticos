@@ -52,7 +52,9 @@ See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMP
 25. No capability is considered complete until it has an executable vertical slice and recovery semantics.
 26. Reference evidence must be traceable to an exact source snapshot.
 27. Reference code cannot override AgentiCOS security, contracts or license policy.
-28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.\n29. Third-party source copied or vendored into the optimization plane must pass the MIT-only source-admission gate.\n30. Token optimization must fail closed to original content when a transform cannot prove its safety contract.
+28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.
+29. Third-party source copied or vendored into the optimization plane must pass the MIT-only source-admission gate.
+30. Token optimization must fail closed to original content when a transform cannot prove its safety contract.
 
 ## Product definition
 

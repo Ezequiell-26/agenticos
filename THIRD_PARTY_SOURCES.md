@@ -2,30 +2,38 @@
 
 AgentiCOS intentionally incorporates or evaluates open-source agent software.
 
-Every imported repository must be recorded with:
+Every imported or reference repository must be recorded with:
 
 - repository URL;
 - exact commit;
 - license evidence;
-- imported path;
-- integration mode;
+- imported path when source is mirrored;
+- integration/reference mode;
 - modifications;
 - dependency/license review status.
 
-Current planned sources:
+## Current sources
 
-| Source | License checked | Intended use |
-|---|---|---|
-| NousResearch/hermes-agent | MIT repository license | agent capabilities, skills, memory, tools, providers |
-| deepseek-ai/deepseek-harness | MIT repository license | plugin architecture, events, profiles, sessions, composition |
-| Microsoft AutoGen | MIT code license; repository can contain separately licensed material | multi-agent orchestration patterns |
-| OpenHands/OpenHands | MIT for core project; enterprise content needs separate review | coding agents, runtimes, server/session architecture |
-| browser-use/browser-use | MIT package metadata | browser agent/runtime capabilities |
-| langchain-ai/langgraph | MIT for LangGraph package | durable graph/workflow orchestration |
+| Source | Intake license | Mode | Intended use |
+|---|---|---|---|
+| NousResearch/hermes-agent | MIT repository license | reference / candidate integration | agent loop, skills, memory, tools, providers, channels, scheduling |
+| deepseek-ai/deepseek-harness | MIT repository license | reference / candidate integration | provider composition, profiles, sessions, plugins, events |
+| openai/codex | Apache-2.0 | reference / adapter | Rust runtime, coding-agent execution and developer workflows |
+| tashfeenahmed/freellmapi | MIT repository license | reference / candidate integration | provider gateway, free-tier aggregation, routing, quotas, fallback, model catalog, compatibility |
+| Microsoft AutoGen | MIT code license; repository can contain separately licensed material | reference | multi-agent orchestration |
+| OpenHands/OpenHands | MIT for core project; enterprise content requires separate review | reference | coding agents, runtimes, sessions |
+| browser-use/browser-use | MIT package metadata | reference | browser automation |
+| langchain-ai/langgraph | MIT for LangGraph package | reference | durable graph/workflow orchestration |
 
-The table is a project intake list, not a blanket claim that every file or dependency inside each repository is MIT. DeepSeek Harness explicitly notes that third-party dependencies retain their own licenses, and its repository generates third-party notices. citeturn727260search13
+## FreeLLMAPI intake record
 
-Before integration, AgentiCOS must inspect the exact commit, file/package boundary, dependency closure and applicable license notices.
+- Repository: https://github.com/tashfeenahmed/freellmapi
+- Pinned commit: b882473c3a23251be312a7270e2e0dc1eae1329d
+- License file at intake: MIT
+- Reference profile: docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md
+- Primary domain: Provider Gateway + Smart Routing
+
+The source's live catalog and quotas are time-sensitive. They must be refreshed through Source Forge rather than hard-coded into architecture documents.
 
 ## License rule
 

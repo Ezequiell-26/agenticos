@@ -3,7 +3,8 @@ import type { Inbox, Outbox, DurableEvent } from "../architecture/outbox.js";
 import type { WorkspaceSnapshot } from "../architecture/snapshots.js";
 import type { Lease } from "../architecture/concurrency.js";
 import type { RunState } from "../architecture/state-machine.js";
-import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord, StepState } from "./types.js";
+import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord } from "./types.js";
+import type { StepState } from "./step-state.js";
 
 export interface KernelStore extends IdempotencyStore, Outbox, Inbox {
   close(): void;

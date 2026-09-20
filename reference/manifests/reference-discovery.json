@@ -39,7 +39,8 @@
     "canonical_source": "MIT",
     "acceptable_statuses": [
       "verified-mit",
-      "verified-mit-with-explicit-excluded-paths"
+      "verified-mit-with-explicit-excluded-paths",
+      "verified-mit-metadata"
     ],
     "reject_statuses": [
       "unknown",
@@ -54,6 +55,13 @@
       "path-level-overrides",
       "bundled-dependencies",
       "third-party-notices"
+    ],
+    "source_integration_requires": [
+      "verified-license-artifact",
+      "exact-commit-pin",
+      "dependency-license-audit",
+      "path-level-notice-audit",
+      "security-audit"
     ]
   },
   "capability_query_index": {

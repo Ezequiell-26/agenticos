@@ -54,3 +54,14 @@ Every AI operation must leave:
 - the single next step.
 
 The next AI must continue from this file and the append-only journal, not from model memory.
+
+## Latest continuity checkpoint
+
+- Continuity protocol: active.
+- Durable operation journal: active and append-only.
+- Anti-regression verifier: `scripts/verify-agent-continuity.mjs`.
+- CI enforcement: active.
+- Latest code checkpoint before journal append: `c13df6bf850c9a81cb065e10357f831972c96506`.
+- Functional Step 1 remains locked until architecture-foundation verification is complete.
+- No project code or data was deleted by this operation.
+

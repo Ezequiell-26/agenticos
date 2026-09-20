@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/memory-operation.v1.json",
+  "title":"AgentiCOS Memory Operation v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","operation","requestId","scope"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "operation":{"enum":["write","retrieve","update","delete","search","prefetch","consolidate"]},
+    "requestId":{"type":"string","minLength":1},
+    "scope":{"enum":["profile","user","workspace","project","thread","run","skill"]},
+    "query":{"type":["string","null"]},
+    "record":{"type":["object","null"]},
+    "provenance":{"type":["object","null"]}
+  }
+}

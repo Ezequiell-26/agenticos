@@ -113,9 +113,11 @@ function assertImplementationState(state: ImplementationState): void {
     });
   }
 
+  const activeStep = active.length === 1 ? active[0] : undefined;
+
   if (
-    active.length === 1 &&
-    active[0].id !== current.id
+    activeStep &&
+    activeStep.id !== current.id
   ) {
     throw new AgentiCOSError("Current step does not match the active step.", {
       code: "CURRENT_STEP_MISMATCH",
@@ -126,7 +128,8 @@ function assertImplementationState(state: ImplementationState): void {
 
   for (let index = 0; index < ordered.length; index += 1) {
     const step = ordered[index];
-    const previous = ordered[index - 1];
+    const previous = index > 0 ? ordered[index - 1] : undefined;
+    if (!step) continue;
 
     if (step.status === "verified" && previous && previous.status !== "verified") {
       throw new AgentiCOSError(

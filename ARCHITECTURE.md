@@ -89,3 +89,32 @@ Every run can be bounded by duration, steps, child agents, tool calls, tokens, c
 ## Architecture completion rule
 
 Before broad implementation, the completeness matrix must have a conceptual owner for model/provider/proxy interoperability, multimodal execution, agent interoperability, tools/MCP, skills/memory/context, sandbox/security, scheduling/resources, persistence/recovery, protocols/surfaces, Source Forge and observability/evaluation.
+
+
+## Architecture hardening v2
+
+The runtime is split into domain contracts, infrastructure adapters and composition roots:
+
+```
+surfaces / composition roots
+        ↓
+application orchestration
+        ↓
+domain contracts + kernel ports
+        ↓
+infrastructure adapters
+        ↓
+SQLite / network / external systems
+```
+
+The durable kernel depends on `KernelStore`, not on SQLite. SQLite is an adapter behind that port, preserving a path to PostgreSQL or another transactional backend without forking runtime semantics.
+
+Cross-cutting runtime services are replaceable: clocks and identifier generators can be injected for deterministic tests and controlled deployments. Cancellation uses an `AbortSignal`-compatible token. Retry/backoff and circuit-breaker policies are provider- and tool-neutral.
+
+Persistence is schema-versioned with explicit migrations. Startup performs SQLite integrity and foreign-key checks and fails closed on an unknown future schema. Durable events retain workspace/project/thread/actor and correlation metadata, while the outbox persists attempt counts, error state and next-attempt scheduling.
+
+Compatibility is explicit: stale implementations are rejected, newer implementations are accepted for backward-compatible contracts, and breaking contracts require an exact version. Contract descriptors are structurally validated before use.
+
+Each lifecycle owns one canonical state machine. Run orchestration and step persistence no longer duplicate step-transition definitions. State changes, durable events and outbox records are written within the same transaction.
+
+This is the architectural foundation for the next vertical slices: Agent Runtime, Context/Memory/Skills, Tool/Sandbox execution, provider routing, MCP/A2A interoperability, workflows, artifacts, observability/evaluation and Source Forge integration.

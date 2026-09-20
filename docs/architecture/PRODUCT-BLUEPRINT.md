@@ -1,128 +1,146 @@
 # AgentiCOS Product Blueprint
 
-## Product surfaces
+## Product definition
 
-AgentiCOS is one runtime exposed through multiple surfaces.
+AgentiCOS is a **universal, model-agnostic agent operating layer** for turning user objectives into durable, observable and verifiable work.
 
-```text
-                         AGENTICOS RUNTIME
-                                │
-            ┌───────────────────┼───────────────────┐
-            │                   │                   │
-         Developer           User               Automation
-            │                   │                   │
-        CLI/TUI/IDE       Web/Desktop/Chat       API/SDK/Cron
-            │                   │                   │
-            └───────────────────┼───────────────────┘
-                                │
-                         Application Protocol
+It is not limited to chat. A conversation is one control surface for a broader execution platform.
+
+The product should let a user define an objective, provide a workspace or project boundary, choose an agent policy, let the runtime plan and execute work, inspect actions and evidence, intervene or pause, resume later, review artifacts, reuse successful procedures as skills/workflows, and schedule capabilities for future execution.
+
+## Core execution promise
+
+```
+Intent
+  ↓
+Admission + Policy
+  ↓
+Context + Planning
+  ↓
+Agent execution
+  ├── Models
+  ├── Tools
+  ├── Browser / computer
+  ├── Files / Git
+  ├── APIs / MCP
+  └── Child agents
+  ↓
+Verification
+  ↓
+Artifacts + Evidence
+  ↓
+Durable result
 ```
 
-## User-facing product areas
+The user should be able to understand **what happened, what changed, what was verified and what remains uncertain**.
 
-### Workspace
-Home for projects, tasks, agents, providers, skills and artifacts.
+## Capability map
 
-### Projects
-A project contains repository intelligence, instructions, memory, active skills, environments and task history.
+### Agent workspace
+Expose objective/status, plan, model/provider, tools, approvals, child agents, events, token/cost/quota usage, artifacts, verification findings and recovery state.
 
-### Tasks
-A task is the user's durable objective. It can run synchronously or asynchronously.
+The UI consumes structured runtime events; it does not infer execution state from model prose.
 
-### Agent Workspace
-Shows plan, current action, model/provider, tools, child agents, approvals, logs and artifacts.
+### Coding and software engineering
+Support repository inspection, architecture analysis, code search, bounded editing, Git operations, test/build execution, static analysis, dependency work, migration planning, bug diagnosis/repair, patch generation, diff review, regression verification and deployment adapters.
 
-### Agents
-Users can run a general agent, specialized agents or custom agents.
+### Research and knowledge work
+Support source retrieval through approved tools, provenance, evidence collection, structured extraction, comparison, synthesis, uncertainty tracking and citation-aware artifacts.
 
-### Provider Center
-Users can connect free-tier, paid, local and custom providers, manage credentials, inspect models, budgets and health.
+### Browser and computer use
+Support policy-controlled navigation, form interaction, screenshots, uploads/downloads, DOM/accessibility inspection and isolated computer interaction where available.
+
+### Files, media and artifacts
+Treat source files, patches, documents, spreadsheets, presentations, images, audio, video, archives, structured data, reports and verification bundles as durable artifacts with provenance and lifecycle state.
+
+### Memory and personalization
+Separate memory by platform, workspace, user, project, thread and run. Support history, project memory, user preferences, explicit facts, procedural memory, retrieval/reranking, compaction, provenance/confidence and user-visible deletion/correction.
+
+Model output must not silently become durable memory without the applicable policy.
 
 ### Skills
-Users can install, inspect, enable, disable and version reusable procedural capabilities.
+Provide versioned procedural capabilities with metadata, permissions, instructions, examples/evaluations, provenance and compatibility. Skills can be installed, disabled, upgraded, tested and rolled back.
 
-### Workflows
-Users can define recurring or repeatable multi-step automations with schedules, triggers, approvals and outputs.
+### Workflows and automation
+Support deterministic and agentic steps with triggers, schedules, budgets, retries, approvals, idempotency and observable run history.
 
-### Artifacts
-Users can inspect generated files, diffs, media, reports, recordings and other structured outputs.
+Examples include project audits, recurring research, repository health checks, report generation, monitoring and multi-stage content pipelines.
+
+### Multi-agent execution
+Support delegation, isolated child runs, parallel fan-out/fan-in, DAG execution, reviewer/critic agents, specialist agents, budget propagation and failure containment.
+
+Child agents cannot silently acquire more authority than their parent policy grants.
+
+### Universal provider platform
+Support hosted, free-tier, paid, local, self-hosted and compatible custom endpoints. Routing considers capability, health, latency, quota, cost and user policy.
+
+Paid fallback is never silently enabled when policy forbids it.
+
+### Interoperability
+Use explicit adapters for MCP, A2A, external agent engines, plugin protocols and the application API, with Python and TypeScript SDKs around versioned boundaries.
 
 ### Source Forge
-Developers can import repositories, audit them, compare implementations and produce integration proposals.
+Import repository snapshots, pin commits, audit licenses/dependencies, build provenance/SBOM data, extract architecture and capabilities, compare implementations, detect duplicates, propose integrations, generate adaptation scaffolding, preserve notices, track upstream changes and run regression checks.
 
-## Core experiences
+Imported code never becomes product code merely because it was downloaded.
 
-### Interactive task
-User gives an objective and watches the agent work in real time.
+### Security and governance
+Expose explicit controls for tool permissions, filesystem/network scope, process execution, secrets, browser access, provider/model access, child-agent authority, plugin trust, scheduled automation and data retention.
 
-### Background task
-User starts a task, closes the app and later reconnects to its durable state.
+Model text alone never grants privileged capability.
 
-### Parallel task
-The runtime creates isolated child agents for independent workstreams.
+### Observability and evaluation
+Every durable run should provide structured evidence about initiation, policy, model/provider selection, tool actions, permissions, changes, verification, failures, retries, resource usage and replayability.
 
-### Project maintenance
-The agent scans a project, identifies work, fixes issues, runs verification and records artifacts.
+Ship golden tasks, replay fixtures, fault injection and regression evaluation.
 
-### Research
-The agent searches, collects sources, evaluates evidence and produces a structured artifact.
+## Product surfaces
 
-### Build
-The agent plans, edits, tests, repairs and packages software.
-
-### Automation
-A workflow triggers one or more agents and tools with explicit permissions.
-
-## Product-level state
-
-```text
-User
- ↓
-Profile
- ↓
-Workspace
- ↓
-Project
- ↓
-Task
- ↓
-Run
- ↓
-Artifacts / Memory / Events
+```
+                         AGENTICOS RUNTIME
+                                │
+        ┌───────────────────────┼────────────────────────┐
+        │                       │                        │
+     Developer                User                 Automation
+        │                       │                        │
+   CLI / TUI / IDE       Web / Desktop / Chat      API / SDK / Cron
+        │                       │                        │
+        └───────────────────────┼────────────────────────┘
+                                │
+                     Application Protocol
+                                │
+                         Agent Runtime
 ```
 
-## Product navigation
+The same durable runtime backs every surface.
 
-```text
-Workspace
-├── Overview
-├── Projects
-├── Tasks
-├── Agents
-├── Providers
-├── Skills
-├── Workflows
-├── Artifacts
-├── Activity
-├── Settings
-└── Developer
-    ├── Plugins
-    ├── MCP
-    ├── Source Forge
-    ├── API
-    └── Diagnostics
-```
+## Product modes
 
-## Product principle
+- **Interactive** — real-time execution with streaming events and user steering.
+- **Background** — durable execution after client disconnect.
+- **Scheduled** — cron, event or condition triggered.
+- **Parallel** — bounded child-agent execution.
+- **Review** — verification/reviewer stages before publication.
+- **Headless** — server, worker and CI execution without a graphical client.
 
-The UI should show what the agent is doing through structured state, events and artifacts rather than attempting to infer progress from model text.
+## Deployment modes
 
-## Free-tier and paid providers
+Support local single-user, desktop, self-hosted server, containerized workers, remote worker pools, managed hosting and team/workspace deployments.
 
-The Provider Center treats provider accounts as user-owned configuration. A provider may be free-tier, paid, local or custom.
+Local use must not require a cloud control plane.
 
-Routing policy is explicit and visible to the user. A free-first policy may automatically move to another compatible provider when a quota or rate limit is reached. Paid fallback is never implicit when the user has disabled paid usage.
+## Scope maturity
 
-## Commercialization boundary
+### Foundation
+Kernel, contracts, execution model, providers, tools, security, persistence and one complete usable surface.
 
-AgentiCOS architecture does not require a specific business model. Personal/local use, self-hosted deployment, managed hosting and team deployments can share the same runtime contracts.
+### Platform
+Memory, skills, workflows, multi-agent, MCP/A2A, artifacts, observability and evaluation.
+
+### Ecosystem
+Plugins, SDKs, engine adapters, Source Forge, remote workers and distribution.
+
+### Advanced
+Adaptive routing, richer multimodal execution, advanced computer use and distributed orchestration.
+
+A feature enters implementation only when its contract, state model, security boundary, persistence behavior and verification strategy are documented.

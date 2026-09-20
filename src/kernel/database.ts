@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { mkdir } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 const SCHEMA_VERSION = 1;
@@ -8,10 +8,10 @@ export class SqliteDatabase {
   readonly db: Database.Database;
 
   constructor(filename: string) {
-    const directory = path.dirname(path.resolve(filename));
-    void mkdir(directory, { recursive: true });
+    const resolved = path.resolve(filename);
+    mkdirSync(path.dirname(resolved), { recursive: true });
 
-    this.db = new Database(filename);
+    this.db = new Database(resolved);
     this.configure();
     this.migrate();
   }
@@ -21,7 +21,7 @@ export class SqliteDatabase {
   }
 
   close(): void {
-    this.db.close();
+    if (this.db.open) this.db.close();
   }
 
   private configure(): void {
@@ -53,9 +53,7 @@ export class SqliteDatabase {
           usage_json TEXT NOT NULL,
           error_json TEXT
         );
-
-        CREATE INDEX IF NOT EXISTS idx_runs_scheduler
-          ON runs(state, created_at);
+        CREATE INDEX IF NOT EXISTS idx_runs_scheduler ON runs(state, created_at);
 
         CREATE TABLE IF NOT EXISTS steps (
           id TEXT PRIMARY KEY,
@@ -80,18 +78,14 @@ export class SqliteDatabase {
           created_at TEXT NOT NULL,
           payload_json TEXT NOT NULL
         );
-
-        CREATE INDEX IF NOT EXISTS idx_events_aggregate
-          ON events(aggregate_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_events_aggregate ON events(aggregate_id, created_at);
 
         CREATE TABLE IF NOT EXISTS outbox (
           event_id TEXT PRIMARY KEY REFERENCES events(event_id) ON DELETE CASCADE,
           created_at TEXT NOT NULL,
           published_at TEXT
         );
-
-        CREATE INDEX IF NOT EXISTS idx_outbox_pending
-          ON outbox(published_at, created_at);
+        CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(published_at, created_at);
 
         CREATE TABLE IF NOT EXISTS inbox (
           consumer_id TEXT NOT NULL,
@@ -129,20 +123,18 @@ export class SqliteDatabase {
           content_json TEXT NOT NULL,
           content_hash TEXT NOT NULL
         );
-
-        CREATE INDEX IF NOT EXISTS idx_checkpoints_run
-          ON checkpoints(run_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_run ON checkpoints(run_id, created_at);
       `);
 
       this.db
         .prepare("INSERT OR IGNORE INTO schema_meta(key, value) VALUES('schema_version', ?)")
         .run(String(SCHEMA_VERSION));
 
-      const versionRow = this.db
+      const row = this.db
         .prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'")
         .get() as { value: string } | undefined;
 
-      if (!versionRow || Number(versionRow.value) !== SCHEMA_VERSION) {
+      if (!row || Number(row.value) !== SCHEMA_VERSION) {
         throw new Error("Unsupported database schema version.");
       }
     });

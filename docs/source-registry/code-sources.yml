@@ -1,0 +1,137 @@
+schemaVersion: 1
+sources:
+  - id: hermes-agent
+    repository: https://github.com/NousResearch/hermes-agent
+    license: MIT
+    role: agent-runtime-reference-and-source
+    capabilities:
+      - agent-loop
+      - tools
+      - skills
+      - memory
+      - subagents
+      - scheduling
+      - gateway
+      - terminal
+      - provider-integrations
+
+  - id: deepseek-harness
+    repository: https://github.com/deepseek-ai/deepseek-harness
+    license: MIT
+    role: runtime-composition-source
+    capabilities:
+      - plugins
+      - profiles
+      - bundles
+      - events
+      - sessions
+      - agent-loop
+      - tool-registry
+
+  - id: pydantic-ai
+    repository: https://github.com/pydantic/pydantic-ai
+    license: MIT
+    role: typed-agent-core-source
+    capabilities:
+      - typed-agent-loop
+      - structured-output
+      - model-providers
+      - tool-schema
+      - dependency-injection
+      - graph-execution
+
+  - id: pydantic-ai-harness
+    repository: https://github.com/pydantic/pydantic-ai-harness
+    license: MIT
+    role: long-running-agent-capability-source
+    capabilities:
+      - coding-agent
+      - researcher-agent
+      - planning
+      - memory
+      - context-management
+      - subagents
+      - verification
+      - repo-tools
+
+  - id: autogen
+    repository: https://github.com/microsoft/autogen
+    license: MIT-code-with-mixed-repository-content
+    role: multi-agent-source
+    capabilities:
+      - multi-agent
+      - teams
+      - orchestration
+      - tools
+      - protocols
+      - studio
+
+  - id: dspy
+    repository: https://github.com/stanfordnlp/dspy
+    license: MIT
+    role: programmatic-agent-optimization-source
+    capabilities:
+      - declarative-ai
+      - optimization
+      - rag
+      - agent-loops
+      - evaluation
+
+  - id: llama-index-core
+    repository: https://github.com/run-llama/llama_index
+    license: MIT-core
+    role: knowledge-data-source
+    capabilities:
+      - document-ingestion
+      - indexing
+      - retrieval
+      - rag
+      - data-connectors
+
+  - id: browser-harness
+    repository: https://github.com/browser-use/browser-harness
+    license: MIT
+    role: browser-agent-source
+    capabilities:
+      - browser
+      - computer-use
+      - agent-browser-integration
+
+  - id: browser-use-web-ui
+    repository: https://github.com/browser-use/web-ui
+    license: MIT
+    role: browser-agent-surface-source
+    capabilities:
+      - browser-ui
+      - agent-ui
+      - browser-sessions
+
+  - id: openhands
+    repository: https://github.com/OpenHands/OpenHands
+    license: MIT-with-enterprise-exception
+    role: coding-agent-source
+    capabilities:
+      - coding-agent
+      - agent-server
+      - evaluation
+      - runtimes
+      - browser-extension
+
+  - id: openhands-open-operator
+    repository: https://github.com/OpenHands/open-operator
+    license: MIT
+    role: computer-use-source
+    capabilities:
+      - browser
+      - computer-use
+
+  - id: voltagent
+    repository: https://github.com/VoltAgent/voltagent
+    license: MIT
+    role: typescript-agent-platform-source
+    capabilities:
+      - agents
+      - workflows
+      - observability
+      - mcp
+      - rag

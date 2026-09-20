@@ -1,11 +1,183 @@
 {
   "schemaVersion": 1,
   "contracts": [
-    {"id": "agent", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["run", "cancel", "delegate"]},
-    {"id": "run", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["durable-state", "cancellation", "recovery"]},
-    {"id": "provider", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["request", "usage", "health"]},
-    {"id": "tool", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["schema", "permissions", "execution"]},
-    {"id": "artifact", "version": 1, "kind": "domain", "compatibility": "backward-compatible", "requiredCapabilities": ["checksum", "provenance", "retention"]},
-    {"id": "plugin", "version": 1, "kind": "plugin", "compatibility": "backward-compatible", "requiredCapabilities": ["manifest", "activation", "isolation"]}
+    {
+      "id": "run",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "durable-state",
+        "cancellation",
+        "recovery"
+      ]
+    },
+    {
+      "id": "agent",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "run",
+        "cancel",
+        "delegate"
+      ]
+    },
+    {
+      "id": "model-provider",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "request",
+        "stream",
+        "usage",
+        "health"
+      ]
+    },
+    {
+      "id": "tool",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "schema",
+        "permissions",
+        "execution"
+      ]
+    },
+    {
+      "id": "sandbox",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "policy",
+        "isolation",
+        "resource-limits"
+      ]
+    },
+    {
+      "id": "capability",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "issue",
+        "attenuate",
+        "revoke",
+        "scope"
+      ]
+    },
+    {
+      "id": "event",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "sequence",
+        "causation",
+        "correlation",
+        "schema-version"
+      ]
+    },
+    {
+      "id": "artifact",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "checksum",
+        "provenance",
+        "retention"
+      ]
+    },
+    {
+      "id": "memory",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "provenance",
+        "retrieval",
+        "correction",
+        "deletion"
+      ]
+    },
+    {
+      "id": "workflow",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "durable",
+        "checkpoint",
+        "resume",
+        "cancel"
+      ]
+    },
+    {
+      "id": "plugin",
+      "version": 1,
+      "kind": "plugin",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "manifest",
+        "activation",
+        "isolation"
+      ]
+    },
+    {
+      "id": "engine",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "task",
+        "events",
+        "tools",
+        "artifacts",
+        "cancel",
+        "health"
+      ]
+    },
+    {
+      "id": "application",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "run-control",
+        "streaming",
+        "artifacts",
+        "approvals"
+      ]
+    },
+    {
+      "id": "source-admission",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "license",
+        "provenance",
+        "security",
+        "sandbox",
+        "rollback"
+      ]
+    },
+    {
+      "id": "context-optimization",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "lossless-default",
+        "budget",
+        "identity",
+        "cache-safety",
+        "recovery"
+      ]
+    }
   ]
 }

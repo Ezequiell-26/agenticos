@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/supervisor.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Supervisor Health v1",
+  "required": [
+    "schemaVersion",
+    "subjectId",
+    "kind",
+    "state",
+    "heartbeatAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "subjectId": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "runtime",
+        "worker",
+        "provider",
+        "plugin",
+        "terminal",
+        "job"
+      ]
+    },
+    "state": {
+      "enum": [
+        "starting",
+        "healthy",
+        "degraded",
+        "stalled",
+        "quarantined",
+        "stopped"
+      ]
+    },
+    "heartbeatAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "progress": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "recoveryAction": {
+      "enum": [
+        "none",
+        "warn",
+        "cancel",
+        "isolate",
+        "restart",
+        "recover"
+      ]
+    }
+  }
+}

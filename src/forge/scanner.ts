@@ -104,7 +104,7 @@ async function detectLicense(
 
   const hasMitBody =
     content.includes("permission is hereby granted, free of charge") &&
-    content.includes("the software is provided "as is"") &&
+    content.includes('the software is provided "as is"') &&
     content.includes("permission is hereby granted");
 
   if (!hasMitBody) {

@@ -1,8 +1,18 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { AgentiCOSError } from "../architecture/errors.js";
+import { applyKernelMigrations } from "./migrations.js";
 
-const SCHEMA_VERSION = 1;
+const BASE_SCHEMA_VERSION = 1;
+const LATEST_SCHEMA_VERSION = 2;
+
+export interface DatabaseIntegrityReport {
+  readonly ok: boolean;
+  readonly integrityCheck: string;
+  readonly foreignKeyViolations: number;
+  readonly schemaVersion: number;
+}
 
 export class SqliteDatabase {
   readonly db: Database.Database;
@@ -12,8 +22,13 @@ export class SqliteDatabase {
     mkdirSync(path.dirname(resolved), { recursive: true });
 
     this.db = new Database(resolved);
-    this.configure();
-    this.migrate();
+    try {
+      this.configure();
+      this.migrate();
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   transaction<T>(fn: () => T): T {
@@ -26,6 +41,47 @@ export class SqliteDatabase {
 
   close(): void {
     if (this.db.open) this.db.close();
+  }
+
+  integrity(): DatabaseIntegrityReport {
+    const integrityRow = this.db
+      .prepare("PRAGMA integrity_check")
+      .get() as { integrity_check: string };
+    const foreignKeys = this.db
+      .prepare("PRAGMA foreign_key_check")
+      .all() as unknown[];
+    const schema = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'")
+      .get() as { value: string } | undefined;
+
+    const schemaVersion = schema ? Number(schema.value) : 0;
+    const integrityCheck = integrityRow?.integrity_check ?? "unknown";
+
+    return {
+      ok: integrityCheck === "ok" && foreignKeys.length === 0 && Number.isInteger(schemaVersion),
+      integrityCheck,
+      foreignKeyViolations: foreignKeys.length,
+      schemaVersion,
+    };
+  }
+
+  assertIntegrity(): void {
+    const report = this.integrity();
+    if (report.ok) return;
+
+    throw new AgentiCOSError(
+      "SQLite integrity check failed: " +
+        report.integrityCheck +
+        "; foreignKeyViolations=" +
+        report.foreignKeyViolations +
+        "; schemaVersion=" +
+        report.schemaVersion,
+      {
+        code: "DATABASE_INTEGRITY_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      },
+    );
   }
 
   private configure(): void {
@@ -128,19 +184,43 @@ export class SqliteDatabase {
           content_hash TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_checkpoints_run ON checkpoints(run_id, created_at);
+
+        INSERT OR IGNORE INTO schema_meta(key, value)
+        VALUES('schema_version', 1);
+
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          version INTEGER PRIMARY KEY,
+          id TEXT NOT NULL UNIQUE,
+          checksum TEXT NOT NULL,
+          applied_at TEXT NOT NULL
+        );
       `);
 
-      this.db
-        .prepare("INSERT OR IGNORE INTO schema_meta(key, value) VALUES('schema_version', ?)")
-        .run(String(SCHEMA_VERSION));
-
-      const row = this.db
-        .prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'")
-        .get() as { value: string } | undefined;
-
-      if (!row || Number(row.value) !== SCHEMA_VERSION) {
-        throw new Error("Unsupported database schema version.");
-      }
+      applyKernelMigrations(this.db);
+      this.assertSchemaVersion();
     });
+  }
+
+  private assertSchemaVersion(): void {
+    const row = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'")
+      .get() as { value: string } | undefined;
+
+    if (!row || !/^\d+$/.test(row.value)) {
+      throw new AgentiCOSError("Database schema version is missing or invalid.", {
+        code: "DATABASE_SCHEMA_VERSION_INVALID",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
+
+    const version = Number(row.value);
+    if (version !== LATEST_SCHEMA_VERSION) {
+      throw new AgentiCOSError("Unsupported database schema version: " + version, {
+        code: "DATABASE_SCHEMA_VERSION_UNSUPPORTED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
   }
 }

@@ -4,7 +4,7 @@
 
 AgentiCOS must expose one runtime in which model providers, APIs, tools, MCP servers, browser backends, plugins, skills, memory providers, workflows, channels, schedules and external engines can be added without changing the canonical agent loop.
 
-Hermes currently documents distinct plugin discovery sources, progressive-disclosure skills, pluggable memory providers, messaging channels, cron, ACP and an administrative dashboard. DeepSeek Harness documents scoped registration, an event-sourced session spine, explicit system-prompt assembly, a guarded tool registry and a swappable agent-loop composition. AgentiCOS adopts these architectural properties behind Rust-owned contracts. citeturn254296search0turn254296search3turn254296search5turn178395search0turn178395search2
+Hermes currently documents distinct plugin discovery sources, progressive-disclosure skills, pluggable memory providers, messaging channels, cron, ACP and an administrative dashboard. DeepSeek Harness documents scoped registration, an event-sourced session spine, explicit system-prompt assembly, a guarded tool registry and a swappable agent-loop composition. AgentiCOS adopts these architectural properties behind Rust-owned contracts.
 
 ## Capability registry
 
@@ -128,7 +128,7 @@ Discovery precedence is explicit. Lower-trust sources cannot silently replace hi
 
 Plugins can contribute tools, hooks, commands, skills, providers, memory backends, channels, workflows, dashboard extensions, TUI widgets and other protocol-defined capabilities.
 
-Hermes exposes plugin surfaces for tools, hooks, commands, skills, memory providers and UI/dashboard extensions; AgentiCOS generalizes these through the capability registry. citeturn254296search1turn254296search2turn178395search3
+Hermes exposes plugin surfaces for tools, hooks, commands, skills, memory providers and UI/dashboard extensions; AgentiCOS generalizes these through the capability registry.
 
 ## Skills architecture
 
@@ -160,7 +160,7 @@ Lifecycle:
 
 Skills are progressively disclosed to control context growth. They are versioned, scoped, installable, disableable, testable and rollbackable. A skill cannot grant permissions merely by naming them.
 
-Hermes explicitly uses skills as on-demand knowledge documents with progressive disclosure and agent-managed lifecycle. citeturn254296search3turn254296search6
+Hermes explicitly uses skills as on-demand knowledge documents with progressive disclosure and agent-managed lifecycle.
 
 ## Memory architecture
 
@@ -192,7 +192,7 @@ Provider lifecycle:
 
 Memory writes require a policy decision for whether model output is allowed to become durable knowledge. User-visible correction and deletion are first-class operations.
 
-Hermes currently combines built-in memory with a selectable external provider and pre-turn prefetch/post-response synchronization. AgentiCOS generalizes this into a memory orchestrator while keeping provider choice outside the agent loop. citeturn254296search5
+Hermes currently combines built-in memory with a selectable external provider and pre-turn prefetch/post-response synchronization. AgentiCOS generalizes this into a memory orchestrator while keeping provider choice outside the agent loop.
 
 ## Tool and toolset architecture
 
@@ -225,7 +225,7 @@ Tool pipeline:
 
 Toolsets are named groups that can be enabled or disabled by profile, workspace, project, channel or run.
 
-DeepSeek Harness documents the separation between model-visible ToolSchema fields and host-only execution/presentation metadata and a guarded registry pipeline. AgentiCOS makes that separation a contract invariant. citeturn178395search2
+DeepSeek Harness documents the separation between model-visible ToolSchema fields and host-only execution/presentation metadata and a guarded registry pipeline. AgentiCOS makes that separation a contract invariant.
 
 ## Hooks
 
@@ -264,7 +264,7 @@ Session events must support:
 - export;
 - crash recovery.
 
-DeepSeek Harness uses this event-sourced session model and derives message history from the session log. citeturn178395search0turn254296search9
+DeepSeek Harness uses this event-sourced session model and derives message history from the session log.
 
 ## Channels and messaging gateway
 
@@ -290,7 +290,7 @@ Channel adapters declare authentication, pairing, rate limits, attachment limits
 
 Architectural channel categories include CLI, TUI, Web, Desktop, IDE/ACP, API, webhook, Telegram, Discord, Slack, Matrix, email, SMS and plugin-provided channels.
 
-Hermes documents a long-running gateway with many platform adapters, authorization, pairing, command dispatch, hooks and background maintenance; its dashboard also manages channels, webhooks, MCP servers, memory, credentials, skills and cron. citeturn254296search0turn178395search3
+Hermes documents a long-running gateway with many platform adapters, authorization, pairing, command dispatch, hooks and background maintenance; its dashboard also manages channels, webhooks, MCP servers, memory, credentials, skills and cron.
 
 ## Webhooks and triggers
 
@@ -328,7 +328,7 @@ Supported semantics:
 - delivery targets;
 - isolated execution policy.
 
-Hermes documents first-class scheduled agent tasks, skill attachment and a no-agent mode. AgentiCOS models both through the same durable job abstraction with an explicit execution mode. citeturn254296search4
+Hermes documents first-class scheduled agent tasks, skill attachment and a no-agent mode. AgentiCOS models both through the same durable job abstraction with an explicit execution mode.
 
 ## Profiles and configuration
 
@@ -393,7 +393,7 @@ IDE integrations use a protocol adapter for:
 - cancellation;
 - steering.
 
-The IDE never owns the agent loop. Hermes exposes editor-native agent integration over stdio/JSON-RPC; AgentiCOS keeps that concern at the protocol boundary. citeturn254296search0
+The IDE never owns the agent loop. Hermes exposes editor-native agent integration over stdio/JSON-RPC; AgentiCOS keeps that concern at the protocol boundary.
 
 ## Extension failure isolation
 
@@ -426,7 +426,7 @@ The ContextEngine combines:
 
 The engine returns a provenance-aware context plan before rendering the provider-specific request.
 
-DeepSeek Harness explicitly separates system-prompt assembly from the agent loop and tool registry; AgentiCOS makes context compilation a first-class Rust contract. citeturn178395search0turn178395search1
+DeepSeek Harness explicitly separates system-prompt assembly from the agent loop and tool registry; AgentiCOS makes context compilation a first-class Rust contract.
 
 ## System-prompt assembly
 
@@ -459,7 +459,7 @@ Runtime registries support explicit scopes:
 
 A scoped extension owns the registrations it creates. Disposal of that scope must remove those registrations and drain dependent work.
 
-DeepSeek Harness uses scoped registration and ownership so extension contributions remain isolated and unloadable. AgentiCOS promotes that concept to a core registry invariant. citeturn178395search0
+DeepSeek Harness uses scoped registration and ownership so extension contributions remain isolated and unloadable. AgentiCOS promotes that concept to a core registry invariant.
 
 ## Session persistence backends
 

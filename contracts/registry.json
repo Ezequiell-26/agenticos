@@ -255,6 +255,83 @@
         "observability",
         "cancellation"
       ]
+    },
+    {
+      "id": "context-engine",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "assemble",
+        "compress",
+        "budget",
+        "recover",
+        "provenance"
+      ]
+    },
+    {
+      "id": "session-persistence",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "append",
+        "checkpoint",
+        "recover",
+        "search",
+        "export"
+      ]
+    },
+    {
+      "id": "scope",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "isolate",
+        "register",
+        "dispose",
+        "ownership"
+      ]
+    },
+    {
+      "id": "job-scheduler",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "schedule",
+        "pause",
+        "resume",
+        "trigger",
+        "retry",
+        "history"
+      ]
+    },
+    {
+      "id": "system-prompt",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "ordered-sections",
+        "tool-schemas",
+        "variables",
+        "provenance"
+      ]
+    },
+    {
+      "id": "tool-registry",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "register",
+        "schema",
+        "dispatch",
+        "availability",
+        "guarded-execution"
+      ]
     }
   ]
 }

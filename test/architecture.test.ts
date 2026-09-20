@@ -43,16 +43,9 @@ test("run state machine rejects illegal terminal transitions", () => {
   assert.throws(() => machine.transition("running"));
 });
 
-test("run state machine rejects malformed transition tables", () => {
-  assert.throws(
-    () =>
-      new (class extends RunStateMachine {
-        constructor() {
-          super("created");
-          void new (RunStateMachine as unknown);
-        }
-      })(),
-  );
+test("run state machine rejects restoring an unknown state", () => {
+  const machine = new RunStateMachine();
+  assert.throws(() => machine.restore("corrupted" as never));
 });
 
 test("idempotency returns the original completed result and blocks concurrent duplicate execution", async () => {
@@ -87,7 +80,9 @@ test("idempotency fingerprints are canonical and distinguish semantic types", ()
     fingerprintOperation("test", { value: null }),
     fingerprintOperation("test", { value: Number.NaN }),
   );
-  assert.throws(() => fingerprintOperation("test", { circular: undefined }));
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  assert.throws(() => fingerprintOperation("test", circular));
 });
 
 test("lease fencing rejects stale owners", () => {

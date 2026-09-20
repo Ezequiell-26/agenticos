@@ -70,7 +70,12 @@ If no suitable reference exists, or references conflict with requirements, a new
 | Microsoft AutoGen | multi-agent reference | delegation and orchestration |
 | OpenHands/OpenHands | coding-agent reference | software engineering workflows and agent execution |
 | browser-use/browser-use | browser-agent reference | browser automation and computer-use boundaries |
-| langchain-ai/langgraph | workflow reference | durable graphs, checkpoints and orchestration |\n| blackwell-systems/gcf-rust | token optimization reference | compact structured encoding, session dedup, delta encoding, streaming and conformance |\n| rustkit-ai/trimcp | token optimization reference | MCP output compaction, lossless transforms, caching and metrics |\n| ojuschugh1/sqz | token optimization reference | session deduplication, tool-output compression, MCP compression and recovery |\n| signalbreak-labs/ogham | token optimization reference | reversible context compression, budgets, CCR and protected-content rules |\n| rtk-ai/rtk | token optimization reference | CLI output filtering, recovery and token-savings analytics |
+| langchain-ai/langgraph | workflow reference | durable graphs, checkpoints and orchestration |
+| blackwell-systems/gcf-rust | token optimization reference | compact structured encoding, session dedup, delta encoding, streaming and conformance |
+| rustkit-ai/trimcp | token optimization reference | MCP output compaction, lossless transforms, caching and metrics |
+| ojuschugh1/sqz | token optimization reference | session deduplication, tool-output compression, MCP compression and recovery |
+| signalbreak-labs/ogham | token optimization reference | reversible context compression, budgets, CCR and protected-content rules |
+| rtk-ai/rtk | token optimization reference | CLI output filtering, recovery and token-savings analytics |
 
 ## FreeLLMAPI reference profile
 
@@ -130,7 +135,67 @@ Primary study areas:
 - documentation, linting, typecheck and regression gates;
 - third-party license/provenance enforcement.
 
-These are reference patterns, not instructions to copy OmniRoute wholesale.\n\n## Rust token optimization references\n\nAgentiCOS treats token optimization as a first-class context/runtime capability. The coding agent must inspect the full relevant project surface of each registered source and then pass every source through the license-admission gate before using source code.\n\n### gcf-rust\n\nSource: https://github.com/blackwell-systems/gcf-rust\n\nPinned intake commit: 0f9b4a640b515b676544ed8ff9345393875a2251\n\nLicense at intake: MIT confirmed.\n\nPrimary study areas: compact structured wire format, generic and graph encoding, streaming, session deduplication, delta encoding, content-addressed roots, re-anchoring and conformance fixtures.\n\n### trimcp\n\nSource: https://github.com/rustkit-ai/trimcp\n\nPinned intake commit: e88600b34fbb1f6c12d6061564b73f713a6905e0\n\nThe repository README declares MIT, but the GitHub repository metadata reported no machine-readable license and a root LICENSE file was not verified during intake. It therefore remains reference-only until Source Forge obtains sufficient license evidence.\n\nPrimary study areas: MCP proxying, ANSI stripping, JSON compaction, duplicate-line folding, lossless output transforms, exact cache hits, metrics and optional semantic code context.\n\n### sqz\n\nSource: https://github.com/ojuschugh1/sqz\n\nPinned intake commit: 9461782e6b5998bda68b49c92c864cf4900848b2\n\nLicense at intake: Elastic License 2.0. It is not eligible for copied or vendored source under the MIT-only integration policy.\n\nPrimary study areas: pre-injection compression, session deduplication, MCP proxy compression, domain-specific command formatters, safe-mode handling, reversible references and recovery hooks.\n\n### Ogham\n\nSource: https://github.com/signalbreak-labs/ogham\n\nPinned intake commit: e4ccf8520483b2eb9d9d860c652f14091b48d7ad\n\nLicense at intake: Apache-2.0. It is reference-only under the MIT-only integration policy.\n\nPrimary study areas: reversible context compaction, agent-aware protected-content rules, token budgets, CCR stores, incremental sessions, searchable fold records, cache planning, deterministic behavior and fail-closed semantics.\n\n### RTK\n\nSource: https://github.com/rtk-ai/rtk\n\nPinned intake commit: 727ee6e6c1fb5da3d0dd6c333b3be2edf8f3655c\n\nLicense at intake: Apache-2.0. It is reference-only under the MIT-only integration policy.\n\nPrimary study areas: command-output filtering, smart routing of CLI commands, failure recovery/retrieval, native hooks, configuration preservation and token-savings analytics.\n\n## MIT-only source admission\n\nFor the token-optimization implementation boundary, only sources with sufficient MIT license evidence may contribute copied/vendored/adapted source. Other sources may still contribute architectural evidence, test ideas or comparative analysis, but the final implementation must not embed their source code.\n\nA root MIT declaration is not sufficient by itself: Source Forge must review relevant files, dependencies, notices and generated/static assets.
+These are reference patterns, not instructions to copy OmniRoute wholesale.
+
+## Rust token optimization references
+
+AgentiCOS treats token optimization as a first-class context/runtime capability. The coding agent must inspect the full relevant project surface of each registered source and then pass every source through the license-admission gate before using source code.
+
+### gcf-rust
+
+Source: https://github.com/blackwell-systems/gcf-rust
+
+Pinned intake commit: 0f9b4a640b515b676544ed8ff9345393875a2251
+
+License at intake: MIT confirmed.
+
+Primary study areas: compact structured wire format, generic and graph encoding, streaming, session deduplication, delta encoding, content-addressed roots, re-anchoring and conformance fixtures.
+
+### trimcp
+
+Source: https://github.com/rustkit-ai/trimcp
+
+Pinned intake commit: e88600b34fbb1f6c12d6061564b73f713a6905e0
+
+The repository README declares MIT, but the GitHub repository metadata reported no machine-readable license and a root LICENSE file was not verified during intake. It therefore remains reference-only until Source Forge obtains sufficient license evidence.
+
+Primary study areas: MCP proxying, ANSI stripping, JSON compaction, duplicate-line folding, lossless output transforms, exact cache hits, metrics and optional semantic code context.
+
+### sqz
+
+Source: https://github.com/ojuschugh1/sqz
+
+Pinned intake commit: 9461782e6b5998bda68b49c92c864cf4900848b2
+
+License at intake: Elastic License 2.0. It is not eligible for copied or vendored source under the MIT-only integration policy.
+
+Primary study areas: pre-injection compression, session deduplication, MCP proxy compression, domain-specific command formatters, safe-mode handling, reversible references and recovery hooks.
+
+### Ogham
+
+Source: https://github.com/signalbreak-labs/ogham
+
+Pinned intake commit: e4ccf8520483b2eb9d9d860c652f14091b48d7ad
+
+License at intake: Apache-2.0. It is reference-only under the MIT-only integration policy.
+
+Primary study areas: reversible context compaction, agent-aware protected-content rules, token budgets, CCR stores, incremental sessions, searchable fold records, cache planning, deterministic behavior and fail-closed semantics.
+
+### RTK
+
+Source: https://github.com/rtk-ai/rtk
+
+Pinned intake commit: 727ee6e6c1fb5da3d0dd6c333b3be2edf8f3655c
+
+License at intake: Apache-2.0. It is reference-only under the MIT-only integration policy.
+
+Primary study areas: command-output filtering, smart routing of CLI commands, failure recovery/retrieval, native hooks, configuration preservation and token-savings analytics.
+
+## MIT-only source admission
+
+For the token-optimization implementation boundary, only sources with sufficient MIT license evidence may contribute copied/vendored/adapted source. Other sources may still contribute architectural evidence, test ideas or comparative analysis, but the final implementation must not embed their source code.
+
+A root MIT declaration is not sufficient by itself: Source Forge must review relevant files, dependencies, notices and generated/static assets.
 
 ## Source evidence model
 

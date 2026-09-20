@@ -9,7 +9,8 @@
     "check": "tsc --noEmit",
     "dev": "tsx src/cli.ts",
     "providers": "tsx src/cli.ts providers",
-    "models": "tsx src/cli.ts models"
+    "models": "tsx src/cli.ts models",
+    "forge": "tsx src/forge-cli.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

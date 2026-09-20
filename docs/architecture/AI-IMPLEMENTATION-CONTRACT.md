@@ -94,3 +94,46 @@ A feature is complete only when it is user-reachable, contract-connected, persis
 ## Stable checkpoints
 
 Every iteration ends with a checkpoint that another coding agent can continue from without reconstructing hidden context.
+
+## Universal capability lookup
+
+For any request involving an API, plugin, skill, memory backend, tool, toolset, MCP server, channel, webhook, schedule or engine adapter, the agent must first resolve:
+
+1. the capability kind;
+2. the owning AgentiCOS contract;
+3. the capability registry descriptor;
+4. the applicable Reference Knowledge Corpus entries;
+5. the required protocol/schema;
+6. the security/capability requirements;
+7. the lifecycle and recovery requirements.
+
+The agent must not create a bespoke integration path when the capability registry and provider/plugin contracts already cover it.
+
+## Extension implementation rule
+
+Adding a provider, plugin, skill, memory backend, tool, channel or API integration must normally be isolated to the extension boundary and its tests. A modification to the canonical AgentEngine requires an explicit architecture reason and ADR review.
+
+## Hermes/Harness parity checklist
+
+Before declaring the corresponding architecture capability complete, the agent checks for the applicable evidence and contract coverage for:
+
+- provider/model discovery and switching;
+- API credential pools and isolation;
+- typed tool registry and guarded execution;
+- toolsets and lifecycle hooks;
+- progressive skill discovery/loading;
+- persistent and pluggable memory;
+- event-sourced sessions and replay;
+- session search/export/checkpointing;
+- multi-agent delegation and scoped ownership;
+- scheduled jobs and no-agent deterministic jobs;
+- messaging/channel gateway;
+- webhook triggers and replay protection;
+- MCP/A2A;
+- profiles and isolated configuration;
+- management/admin APIs;
+- IDE/ACP protocol integration;
+- plugin installation, activation, health, upgrade, rollback and uninstall.
+
+The checklist describes architecture obligations, not permission to copy upstream source.
+

@@ -240,16 +240,18 @@ function assertSourceRepository(
   }
 
   const rawSourceCommit = value.sourceCommit;
-  if (
-    rawSourceCommit !== undefined &&
-    (
-      typeof rawSourceCommit !== "string" ||
-      !/^[0-9a-f]{40}$/i.test(rawSourceCommit)
-    )
-  ) {
-    throw invalidManifest(
-      "Source repository sourceCommit must be a full Git commit.",
-    );
+  if (rawSourceCommit !== undefined) {
+    if (typeof rawSourceCommit !== "string") {
+      throw invalidManifest(
+        "Source repository sourceCommit must be a full Git commit.",
+      );
+    }
+
+    if (!/^[0-9a-f]{40}$/i.test(rawSourceCommit)) {
+      throw invalidManifest(
+        "Source repository sourceCommit must be a full Git commit.",
+      );
+    }
   }
 }
 

@@ -123,6 +123,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     const usage = data.usage
       ? compactUsage(data.usage)
       : undefined;
+    const toolCalls = extractToolCalls(message.tool_calls);
 
     return {
       id: data.id ?? crypto.randomUUID(),
@@ -133,9 +134,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         ? {}
         : { finishReason: choice.finish_reason }),
       ...(usage ? { usage } : {}),
-      ...(extractToolCalls(message.tool_calls)
-        ? { toolCalls: extractToolCalls(message.tool_calls) }
-        : {}),
+      ...(toolCalls ? { toolCalls } : {}),
       raw: data,
     };
   }
@@ -353,7 +352,13 @@ function assertProviderDefinition(
 }
 
 function validateChatRequest(request: ChatRequest): void {
-  if (!request.model.trim() || request.messages.length === 0) {
+  if (
+    !request ||
+    typeof request.model !== "string" ||
+    !Array.isArray(request.messages) ||
+    !request.model.trim() ||
+    request.messages.length === 0
+  ) {
     throw new ProviderError("Chat request requires a model and at least one message.", {
       code: "CHAT_REQUEST_INVALID",
       retryable: false,

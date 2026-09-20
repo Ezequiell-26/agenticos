@@ -43,6 +43,7 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   await readRequired(root, "rust-toolchain.toml");
   await readRequired(root, "contracts/registry.json");
   await readRequired(root, "reference/manifests/mit-repositories.json");
+  await readRequired(root, "reference/manifests/capability-parity.json");
   await readRequired(root, "reference/manifests/implementation-state.json");
 
   for (const protocol of REQUIRED_PROTOCOLS) {

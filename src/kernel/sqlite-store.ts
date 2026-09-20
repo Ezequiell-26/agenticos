@@ -606,6 +606,96 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     });
   }
 
+  async put(record: IdempotencyRecord): Promise<void> {
+    const changed = this.database.db.prepare(`
+      UPDATE idempotency
+      SET status = ?, result_json = ?, updated_at = ?
+      WHERE key = ? AND fingerprint = ?
+    `).run(
+      record.status,
+      record.result === undefined ? null : JSON.stringify(record.result),
+      record.updatedAt,
+      record.key,
+      record.fingerprint,
+    );
+
+    if (changed.changes !== 1) {
+      throw new AgentiCOSError("Idempotency record update was lost.", {
+        code: "IDEMPOTENCY_UPDATE_LOST",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
+  }
+
+  async runIdempotent<T>(
+    operation: string,
+    key: string,
+    input: unknown,
+    execute: () => Promise<T>,
+  ): Promise<T> {
+    return executeIdempotent(this, operation, key, input, execute);
+  }
+
+  async append<T>(
+    event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
+  ): Promise<DurableEvent<T>> {
+    const now = new Date().toISOString();
+    return this.database.transaction(() =>
+      this.appendEventInTransaction(
+        event.type,
+        event.version,
+        event.aggregateId,
+        event.aggregateId,
+        event.payload,
+        now,
+      ),
+    );
+  }
+
+  async listPending(limit = 100): Promise<readonly DurableEvent[]> {
+    const safeLimit = Math.max(1, Math.floor(limit));
+    const rows = this.database.db.prepare(`
+      SELECT e.*
+      FROM events e
+      JOIN outbox o ON o.event_id = e.event_id
+      WHERE o.published_at IS NULL
+      ORDER BY o.created_at ASC
+      LIMIT ?
+    `).all(safeLimit) as Array<{
+      event_id: string;
+      type: string;
+      version: number;
+      aggregate_id: string;
+      run_id: string | null;
+      created_at: string;
+      payload_json: string;
+    }>;
+
+    return rows.map((row) => ({
+      eventId: row.event_id,
+      type: row.type,
+      version: row.version,
+      aggregateId: row.aggregate_id,
+      createdAt: row.created_at,
+      payload: JSON.parse(row.payload_json),
+    }));
+  }
+
+  async markPublished(eventId: string): Promise<void> {
+    const changed = this.database.db
+      .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ? AND published_at IS NULL")
+      .run(new Date().toISOString(), eventId);
+
+    if (changed.changes !== 1) {
+      throw new AgentiCOSError("Outbox event was already published or does not exist.", {
+        code: "OUTBOX_MARK_PUBLISHED_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
+  }
+
   async complete(consumerId: string, eventId: string): Promise<void> {
     const changed = this.database.db.prepare(`
       UPDATE inbox

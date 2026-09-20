@@ -21,6 +21,7 @@ export class StateMachine<S extends string> {
     private readonly transitions: TransitionTable<S>,
     private readonly clock: () => string = () => new Date().toISOString(),
   ) {
+    validateTransitionTable(transitions, initialState);
     this.currentState = initialState;
   }
 
@@ -36,7 +37,10 @@ export class StateMachine<S extends string> {
     return this.transitions[this.currentState]?.includes(to) ?? false;
   }
 
-  transition(to: S, metadata?: Omit<StateTransition<S>, "from" | "to" | "at">): void {
+  transition(
+    to: S,
+    metadata?: Omit<StateTransition<S>, "from" | "to" | "at">,
+  ): void {
     if (!this.canTransition(to)) {
       throw new AgentiCOSError(
         `Illegal state transition: ${this.currentState} -> ${to}`,
@@ -52,12 +56,20 @@ export class StateMachine<S extends string> {
       );
     }
 
+    const at = this.clock();
+    if (Number.isNaN(Date.parse(at))) {
+      throw new AgentiCOSError("State transition clock returned an invalid timestamp.", {
+        code: "STATE_TRANSITION_TIMESTAMP_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
     const record: StateTransition<S> = {
       from: this.currentState,
       to,
-      at: this.clock(),
-      ...(metadata?.actorId ? { actorId: metadata.actorId } : {}),
-      ...(metadata?.reason ? { reason: metadata.reason } : {}),
+      at,
+      ...(metadata?.actorId === undefined ? {} : { actorId: metadata.actorId }),
+      ...(metadata?.reason === undefined ? {} : { reason: metadata.reason }),
     };
 
     this.history.push(record);
@@ -65,6 +77,12 @@ export class StateMachine<S extends string> {
   }
 
   restore(state: S): void {
+    if (!Object.prototype.hasOwnProperty.call(this.transitions, state)) {
+      throw new AgentiCOSError("Cannot restore an unknown state: " + state, {
+        code: "STATE_RESTORE_INVALID",
+        category: "VALIDATION",
+      });
+    }
     this.currentState = state;
   }
 }
@@ -95,5 +113,42 @@ export const RUN_TRANSITIONS: TransitionTable<RunState> = {
 export class RunStateMachine extends StateMachine<RunState> {
   constructor(initialState: RunState = "created") {
     super(initialState, RUN_TRANSITIONS);
+  }
+}
+
+function validateTransitionTable<S extends string>(
+  transitions: TransitionTable<S>,
+  initialState: S,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(transitions, initialState)) {
+    throw new AgentiCOSError("Transition table does not define the initial state.", {
+      code: "STATE_TABLE_INVALID",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
+
+  const states = new Set(Object.keys(transitions));
+  for (const [from, targets] of Object.entries(transitions)) {
+    if (!Array.isArray(targets)) {
+      throw new AgentiCOSError("Transition table target list is invalid for " + from, {
+        code: "STATE_TABLE_INVALID",
+        category: "VALIDATION",
+        severity: "critical",
+      });
+    }
+
+    for (const target of targets) {
+      if (!states.has(target)) {
+        throw new AgentiCOSError(
+          `Transition table references unknown state: ${from} -> ${target}`,
+          {
+            code: "STATE_TABLE_INVALID",
+            category: "VALIDATION",
+            severity: "critical",
+          },
+        );
+      }
+    }
   }
 }

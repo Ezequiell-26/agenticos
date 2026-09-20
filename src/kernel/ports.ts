@@ -14,8 +14,27 @@ export interface KernelStore extends IdempotencyStore, Outbox, Inbox {
   listRunnable(): readonly RunRecord[];
   admitRun(id: string): RunRecord;
   transitionRun(id: string, to: RunState, eventType?: string, error?: unknown): RunRecord;
+  transitionRunOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: RunState,
+    eventType?: string,
+    error?: unknown,
+    releaseLease?: boolean,
+    nowMs?: number,
+  ): RunRecord;
   createStep(input: CreateStepInput): StepRecord;
   transitionStep(id: string, to: StepState, output?: unknown, error?: unknown): StepRecord;
+  transitionStepOwned(
+    id: string,
+    ownerId: string,
+    fencingToken: number,
+    to: StepState,
+    output?: unknown,
+    error?: unknown,
+    nowMs?: number,
+  ): StepRecord;
   claimNextRunnable(workerId: string, ttlMs: number, nowMs?: number): RunRecord | undefined;
   releaseRunLease(runId: string, workerId: string): void;
   recoverExpiredRuns(nowMs?: number): readonly string[];

@@ -8,7 +8,7 @@ AgentiCOS is being designed as a universal, model-agnostic agent runtime and app
 
 ## Architecture status
 
-The architecture foundation and the first durable Rust kernel slice are implemented and verified. A controlled architecture-hardening step is now enforced before the next product vertical slice is unlocked.
+The architecture foundation, Rust kernel vertical slices 1–2, architecture hardening, and the AgentEngine vertical slice are verified. The project is now advancing through the provider-plane vertical slice under the sequential verification protocol.
 
 ## Non-negotiable implementation workflow
 
@@ -37,4 +37,4 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) first, then [docs/architecture/README.
 
 Provider Engine and Source Forge prototypes exist in TypeScript. They remain transitional until their responsibilities are replaced or adapted behind the canonical Rust contracts.
 
-The architecture verification gate has passed. The current hardening gate must pass before the next product vertical slice is unlocked.
+The architecture verification gate, kernel slices, hardening gate, and AgentEngine slice are verified. The only authorized next product slice is `provider-plane-vertical-slice-1`.

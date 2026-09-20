@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { AgentiCOSError } from "./errors.js";
+import { DEFAULT_CLAIM_STALE_AFTER_MS } from "./outbox.js";
 
 export interface IdempotencyRecord {
   readonly key: string;
@@ -12,31 +13,58 @@ export interface IdempotencyRecord {
 }
 
 export interface IdempotencyStore {
-  claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
+  claim(
+    record: IdempotencyRecord,
+    staleAfterMs?: number,
+    nowMs?: number,
+  ): Promise<IdempotencyRecord | undefined>;
   put(record: IdempotencyRecord): Promise<void>;
 }
 
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
+  async claim(
+    record: IdempotencyRecord,
+    staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+    nowMs = Date.now(),
+  ): Promise<IdempotencyRecord | undefined> {
+    validateRecord(record);
+    validateClaimWindow(staleAfterMs, nowMs);
     const existing = this.records.get(record.key);
     if (existing) {
-      if (existing.fingerprint !== record.fingerprint) {
+      if (
+        existing.fingerprint !== record.fingerprint ||
+        existing.operation !== record.operation
+      ) {
         throw new AgentiCOSError("Idempotency key reused with a different operation.", {
           code: "IDEMPOTENCY_KEY_CONFLICT",
           category: "VALIDATION",
         });
       }
+
+      if (
+        existing.status === "in-progress" &&
+        nowMs - Date.parse(existing.updatedAt) >= staleAfterMs
+      ) {
+        this.records.set(record.key, record);
+        return undefined;
+      }
       return existing;
     }
+
     this.records.set(record.key, record);
     return undefined;
   }
 
   async put(record: IdempotencyRecord): Promise<void> {
+    validateRecord(record);
     const existing = this.records.get(record.key);
-    if (existing && existing.fingerprint !== record.fingerprint) {
+    if (
+      existing &&
+      (existing.fingerprint !== record.fingerprint ||
+        existing.operation !== record.operation)
+    ) {
       throw new AgentiCOSError("Idempotency key reused with a different operation.", {
         code: "IDEMPOTENCY_KEY_CONFLICT",
         category: "VALIDATION",
@@ -47,8 +75,15 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
 }
 
 export function fingerprintOperation(operation: string, input: unknown): string {
+  if (!operation.trim()) {
+    throw new AgentiCOSError("Idempotency operation is required.", {
+      code: "IDEMPOTENCY_OPERATION_REQUIRED",
+      category: "VALIDATION",
+    });
+  }
+
   return createHash("sha256")
-    .update(operation + "\n" + stableStringify(input))
+    .update(operation + "\n" + canonicalize(input))
     .digest("hex");
 }
 
@@ -58,9 +93,19 @@ export async function executeIdempotent<T>(
   key: string,
   input: unknown,
   execute: () => Promise<T>,
+  staleAfterMs = DEFAULT_CLAIM_STALE_AFTER_MS,
+  nowMs = Date.now(),
 ): Promise<T> {
+  if (!key.trim()) {
+    throw new AgentiCOSError("Idempotency key is required.", {
+      code: "IDEMPOTENCY_KEY_REQUIRED",
+      category: "VALIDATION",
+    });
+  }
+
   const fingerprint = fingerprintOperation(operation, input);
-  const now = new Date().toISOString();
+  validateClaimWindow(staleAfterMs, nowMs);
+  const now = new Date(nowMs).toISOString();
   const claimed = await store.claim({
     key,
     operation,
@@ -68,7 +113,7 @@ export async function executeIdempotent<T>(
     status: "in-progress",
     createdAt: now,
     updatedAt: now,
-  });
+  }, staleAfterMs, nowMs);
 
   if (claimed) {
     if (claimed.status === "completed") return claimed.result as T;
@@ -83,6 +128,7 @@ export async function executeIdempotent<T>(
     throw new AgentiCOSError("Previous operation failed; explicit retry required.", {
       code: "IDEMPOTENCY_PREVIOUS_FAILURE",
       category: "VALIDATION",
+      userActionRequired: true,
     });
   }
 
@@ -111,12 +157,78 @@ export async function executeIdempotent<T>(
   }
 }
 
-function stableStringify(value: unknown): string {
+function validateClaimWindow(staleAfterMs: number, nowMs: number): void {
+  if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+    throw new AgentiCOSError("Idempotency staleAfterMs must be a positive integer.", {
+      code: "IDEMPOTENCY_STALE_WINDOW_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!Number.isFinite(nowMs) || nowMs < 0) {
+    throw new AgentiCOSError("Idempotency clock value is invalid.", {
+      code: "IDEMPOTENCY_CLOCK_INVALID",
+      category: "VALIDATION",
+    });
+  }
+}
+
+function validateRecord(record: IdempotencyRecord): void {
+  if (!record.key.trim() || !record.operation.trim() || !record.fingerprint.trim()) {
+    throw new AgentiCOSError("Idempotency record key, operation and fingerprint are required.", {
+      code: "IDEMPOTENCY_RECORD_INVALID",
+      category: "VALIDATION",
+    });
+  }
+}
+
+function canonicalize(value: unknown, seen = new WeakSet<object>()): string {
+  if (value === null) return "null";
   if (value === undefined) return "undefined";
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
-  const record = value as Record<string, unknown>;
-  return "{" + Object.keys(record).sort().map((key) =>
-    JSON.stringify(key) + ":" + stableStringify(record[key])
-  ).join(",") + "}";
+  if (typeof value === "string") return JSON.stringify(["string", value]);
+  if (typeof value === "boolean") return JSON.stringify(["boolean", value]);
+  if (typeof value === "number") {
+    if (Number.isNaN(value)) return JSON.stringify(["number", "NaN"]);
+    if (value === Infinity) return JSON.stringify(["number", "Infinity"]);
+    if (value === -Infinity) return JSON.stringify(["number", "-Infinity"]);
+    if (Object.is(value, -0)) return JSON.stringify(["number", "-0"]);
+    return JSON.stringify(["number", value]);
+  }
+  if (typeof value === "bigint") return JSON.stringify(["bigint", value.toString()]);
+  if (typeof value === "function" || typeof value === "symbol") {
+    throw new AgentiCOSError("Idempotency input contains an unsupported value type.", {
+      code: "IDEMPOTENCY_INPUT_UNSUPPORTED",
+      category: "VALIDATION",
+    });
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new AgentiCOSError("Idempotency input contains an invalid Date.", {
+        code: "IDEMPOTENCY_INPUT_UNSUPPORTED",
+        category: "VALIDATION",
+      });
+    }
+    return JSON.stringify(["date", value.toISOString()]);
+  }
+
+  if (seen.has(value)) {
+    throw new AgentiCOSError("Idempotency input contains a circular reference.", {
+      code: "IDEMPOTENCY_INPUT_CIRCULAR",
+      category: "VALIDATION",
+    });
+  }
+  seen.add(value);
+
+  try {
+    if (Array.isArray(value)) {
+      return "[" + value.map((item) => canonicalize(item, seen)).join(",") + "]";
+    }
+
+    const record = value as Record<string, unknown>;
+    return "{" + Object.keys(record).sort().map((key) =>
+      JSON.stringify(key) + ":" + canonicalize(record[key], seen)
+    ).join(",") + "}";
+  } finally {
+    seen.delete(value);
+  }
 }

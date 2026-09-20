@@ -100,3 +100,19 @@ next compatible candidate
 Usage is normalized into a common structure. Provider-specific headers and response fields are preserved as raw metadata for later reconciliation.
 
 Budgets can apply per run, day, month, provider or credential.
+## Transport security
+
+Provider metadata and credentials are distinct runtime concerns.
+
+- `ProviderDefinition` contains non-secret routing metadata only.
+- API keys are held by the concrete provider adapter and are never exposed through provider snapshots.
+- Provider base URLs may not contain embedded HTTP credentials.
+- Credential-bearing transport headers such as Authorization and Cookie cannot be injected through generic provider metadata.
+- Request-specific overrides are applied only as non-structural extensions; canonical fields such as model, messages and stream are controlled by the adapter.
+- Provider responses are normalized into AgentiCOS-owned types before entering the agent runtime.
+
+## Tool-call normalization
+
+OpenAI-compatible responses are converted to the common `ToolCall` contract. Invalid tool-call envelopes fail closed rather than entering the execution engine as partially trusted data.
+
+This keeps the provider layer responsible for protocol parsing and keeps the agent runtime independent from wire-format details.

@@ -51,11 +51,19 @@ export function serializeError(error: unknown): Record<string, unknown> {
       severity: error.severity,
       retryable: error.retryable,
       recoverable: error.recoverable,
+      userActionRequired: error.userActionRequired,
+      ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }),
+      ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
     };
   }
+
   if (error instanceof Error) {
-    return { name: error.name, message: error.message };
+    return {
+      name: error.name,
+      message: error.message,
+    };
   }
+
   return { message: String(error) };
 }
 

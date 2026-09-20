@@ -16,6 +16,9 @@ import {
   assertSnapshotIntegrity,
   InMemoryWorkspace,
   loadContractRegistry,
+  assertContractRegistry,
+  fingerprintOperation,
+  DEFAULT_CLAIM_STALE_AFTER_MS,
 } from "../src/architecture/index.js";
 import {
   DurableKernel,
@@ -64,6 +67,83 @@ test("idempotency returns the original completed result and blocks concurrent du
   assert.equal(results.filter((item) => item.status === "rejected").length, 1);
 });
 
+test("run state machine rejects restoring an unknown state", () => {
+  const machine = new RunStateMachine();
+  assert.throws(() => machine.restore("corrupted" as never));
+});
+
+test("idempotency fingerprints are canonical and reject circular input", () => {
+  assert.equal(
+    fingerprintOperation("test", { b: 2, a: 1 }),
+    fingerprintOperation("test", { a: 1, b: 2 }),
+  );
+  assert.notEqual(
+    fingerprintOperation("test", { value: null }),
+    fingerprintOperation("test", { value: Number.NaN }),
+  );
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  assert.throws(() => fingerprintOperation("test", circular));
+});
+
+test("idempotency and inbox claims recover after a stale worker", async () => {
+  const store = new InMemoryIdempotencyStore();
+  const first = {
+    key: "crash-key",
+    operation: "test",
+    fingerprint: fingerprintOperation("test", { x: 1 }),
+    status: "in-progress" as const,
+    createdAt: new Date(1_000).toISOString(),
+    updatedAt: new Date(1_000).toISOString(),
+  };
+
+  assert.equal(
+    await store.claim(first, DEFAULT_CLAIM_STALE_AFTER_MS, 1_000),
+    undefined,
+  );
+  const active = await store.claim(first, DEFAULT_CLAIM_STALE_AFTER_MS, 2_000);
+  assert.equal(active?.status, "in-progress");
+
+  const inbox = new InMemoryInbox();
+  assert.equal(
+    await inbox.claimEvent(
+      "consumer",
+      "event",
+      DEFAULT_CLAIM_STALE_AFTER_MS,
+      1_000,
+    ),
+    true,
+  );
+  assert.equal(
+    await inbox.claimEvent(
+      "consumer",
+      "event",
+      DEFAULT_CLAIM_STALE_AFTER_MS,
+      2_000,
+    ),
+    false,
+  );
+  assert.equal(
+    await inbox.claimEvent(
+      "consumer",
+      "event",
+      DEFAULT_CLAIM_STALE_AFTER_MS,
+      1_000 + DEFAULT_CLAIM_STALE_AFTER_MS + 1,
+    ),
+    true,
+  );
+  await inbox.complete("consumer", "event");
+  assert.equal(
+    await inbox.claimEvent(
+      "consumer",
+      "event",
+      DEFAULT_CLAIM_STALE_AFTER_MS,
+      10_000,
+    ),
+    false,
+  );
+});
+
 test("lease fencing rejects stale owners", () => {
   const manager = new InMemoryLeaseManager();
   const first = manager.acquire("run-1", "worker-a", 1_000, 1_000);
@@ -97,6 +177,51 @@ test("outbox/inbox prevent duplicate concurrent consumer handling", async () => 
   assert.equal(handled, 1);
 });
 
+test("outbox publication claims fence concurrent dispatchers and recover after expiry", async () => {
+  const outbox = new InMemoryOutbox();
+  const event = await outbox.append({
+    type: "run.created",
+    version: 1,
+    aggregateId: "run-outbox",
+    payload: { ok: true },
+  });
+
+  const first = await outbox.claimPending("dispatcher-a", 10, 1_000, 1_000);
+  const second = await outbox.claimPending("dispatcher-b", 10, 1_000, 1_500);
+  assert.equal(first.length, 1);
+  assert.equal(second.length, 0);
+
+  const recovered = await outbox.claimPending("dispatcher-b", 10, 1_000, 2_001);
+  assert.equal(recovered.length, 1);
+  assert.notEqual(recovered[0]?.claimId, first[0]?.claimId);
+
+  await assert.rejects(
+    outbox.markPublished(event.eventId, first[0]?.claimId ?? ""),
+  );
+  await outbox.markPublished(event.eventId, recovered[0]?.claimId ?? "");
+  assert.equal((await outbox.listPending(10)).length, 0);
+});
+
+test("snapshot integrity rejects traversal, duplicate and NUL-byte paths", () => {
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [{ path: "../secret.txt", content: "x" }]),
+  );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "a.txt", content: "x" },
+      { path: "a.txt", content: "y" },
+    ]),
+  );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "bad" + String.fromCharCode(0) + ".txt", content: "x" },
+    ]),
+  );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [{ path: "C:relative.txt", content: "x" }]),
+  );
+});
+
 test("snapshot integrity detects tampering and transactions rollback on failure", async () => {
   const snapshot = createWorkspaceSnapshot("workspace-1", [
     { path: "a.txt", content: "a" },
@@ -124,6 +249,24 @@ test("contract registry loads and validates", async () => {
   assert.ok(registry.contracts.length >= 1);
 });
 
+test("contract registry rejects duplicate capabilities", async () => {
+  const registry = await loadContractRegistry();
+  assert.equal(registry.schemaVersion, 1);
+
+  assert.throws(() =>
+    assertContractRegistry({
+      schemaVersion: 1,
+      contracts: [{
+        id: "broken",
+        version: 1,
+        kind: "domain",
+        compatibility: "backward-compatible",
+        requiredCapabilities: ["run", "run"],
+      }],
+    }),
+  );
+});
+
 test("execution budget fails closed when limits are exceeded", () => {
   const guard = new BudgetGuard({
     maxDurationMs: 1_000,
@@ -135,7 +278,9 @@ test("execution budget fails closed when limits are exceeded", () => {
   }, 1_000);
 
   guard.consume({ steps: 2, toolCalls: 3, tokens: 100, cost: 1 }, 1_100);
+  const before = guard.snapshot();
   assert.throws(() => guard.consume({ steps: 1 }, 1_100));
+  assert.deepEqual(guard.snapshot(), before);
 });
 
 test("repair controller bounds repair attempts", () => {
@@ -149,6 +294,100 @@ test("repair controller bounds repair attempts", () => {
 
   repair.nextAttempt(2, 10, 0.1, 1_100);
   assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
+});
+
+test("sqlite migrations install integrity guards and reach the latest schema", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-migrations-"));
+  const dbPath = join(directory, "state.sqlite");
+  const database = new SqliteDatabase(dbPath);
+  const kernel = new DurableKernel(new SqliteKernelStore(database));
+
+  const run = kernel.createRun({
+    id: "guarded-run",
+    workspaceId: "workspace-guard",
+    budget: budget(),
+  });
+
+  assert.equal(
+    (database.db.prepare("SELECT value FROM schema_meta WHERE key='schema_version'").get() as { value: string }).value,
+    "4",
+  );
+  assert.equal(
+    (database.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version=4").get() as { count: number }).count,
+    1,
+  );
+  assert.throws(() =>
+    database.db.prepare("UPDATE runs SET state='corrupted' WHERE id=?").run(run.id),
+  );
+
+  const report = database.integrity();
+  assert.equal(report.ok, true);
+  assert.equal(report.foreignKeyViolations, 0);
+  assert.equal(report.schemaVersion, 4);
+  database.assertIntegrity();
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("sqlite owned mutations reject expired and replaced worker leases atomically", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-fencing-"));
+  const dbPath = join(directory, "state.sqlite");
+  const kernel = new DurableKernel(
+    new SqliteKernelStore(new SqliteDatabase(dbPath)),
+  );
+
+  const run = kernel.createRun({
+    id: "fenced-run",
+    workspaceId: "workspace-fenced",
+    budget: budget(),
+  });
+  kernel.admitRun(run.id);
+
+  const claimed = kernel.store.claimNextRunnable("worker-a", 100, 1_000);
+  assert.equal(claimed?.state, "running");
+  const firstLease = kernel.store.leaseForRun(run.id);
+  assert.ok(firstLease);
+
+  const step = kernel.createStep({
+    runId: run.id,
+    sequence: 1,
+  });
+
+  assert.throws(() =>
+    kernel.store.transitionStepOwned(
+      step.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "running",
+      undefined,
+      undefined,
+      1_101,
+    ),
+  );
+
+  kernel.recoverExpiredRuns(1_101);
+  const replacement = kernel.store.claimNextRunnable("worker-b", 100, 1_101);
+  assert.equal(replacement?.state, "running");
+  const secondLease = kernel.store.leaseForRun(run.id);
+  assert.ok(secondLease);
+  assert.notEqual(secondLease.fencingToken, firstLease.fencingToken);
+
+  assert.throws(() =>
+    kernel.store.transitionRunOwned(
+      run.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "failed",
+      "run.failed",
+      new Error("stale worker"),
+      true,
+      1_101,
+    ),
+  );
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
 });
 
 test("sqlite kernel persists runs across reopen and atomically records lifecycle events", async () => {

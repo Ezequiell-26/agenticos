@@ -15,9 +15,9 @@ export class DurableScheduler {
     private readonly store: KernelStore,
     private readonly options: SchedulerOptions,
   ) {
-    if (options.leaseTtlMs <= 0) {
-      throw new AgentiCOSError("Scheduler leaseTtlMs must be positive.", {
-        code: "SCHEDULER_TTL_INVALID",
+    if (!Number.isInteger(options.leaseTtlMs) || options.leaseTtlMs <= 0) {
+      throw new AgentiCOSError("Scheduler leaseTtlMs must be a positive integer.", {
+        code: "SCHEDULER_LEASE_TTL_INVALID",
         category: "VALIDATION",
       });
     }

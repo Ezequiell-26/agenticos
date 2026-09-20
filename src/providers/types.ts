@@ -1,3 +1,5 @@
+import { AgentiCOSError } from "../architecture/errors.js";
+
 export type ProviderBilling = "free" | "free-tier" | "paid" | "local" | "custom";
 
 export type ProviderProtocol =
@@ -120,13 +122,32 @@ export interface ProviderErrorDetails {
   readonly retryable: boolean;
   readonly rateLimited: boolean;
   readonly quotaExhausted: boolean;
+  readonly retryAfterMs?: number;
 }
 
-export class ProviderError extends Error {
+export class ProviderError extends AgentiCOSError {
   readonly details: ProviderErrorDetails;
 
   constructor(message: string, details: ProviderErrorDetails) {
-    super(message);
+    const category = details.rateLimited
+      ? "RATE_LIMIT"
+      : details.quotaExhausted
+        ? "QUOTA"
+        : details.status === 401 || details.status === 403
+          ? "AUTH"
+          : details.status && details.status >= 500
+            ? "PROVIDER"
+            : "NETWORK";
+
+    super(message, {
+      code: details.code ?? "PROVIDER_ERROR",
+      category,
+      retryable: details.retryable,
+      recoverable: details.retryable,
+      retryAfterMs: details.retryAfterMs,
+      userActionRequired: details.status === 401 || details.status === 403,
+    });
+
     this.name = "ProviderError";
     this.details = details;
   }

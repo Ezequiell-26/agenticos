@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/event-envelope.v1.json",
+  "title":"AgentiCOS Event Envelope v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["eventId","aggregateId","sequence","schemaVersion","correlationId","occurredAt","type","payload"],
+  "properties":{
+    "eventId":{"type":"string","minLength":1},
+    "aggregateId":{"type":"string","minLength":1},
+    "sequence":{"type":"integer","minimum":1},
+    "schemaVersion":{"const":1},
+    "correlationId":{"type":"string","minLength":1},
+    "causationId":{"type":["string","null"]},
+    "occurredAt":{"type":"string","format":"date-time"},
+    "type":{"type":"string","minLength":1},
+    "payload":{"type":"object"}
+  }
+}

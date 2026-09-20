@@ -16,8 +16,9 @@ export interface Outbox {
 }
 
 export interface Inbox {
-  seen(consumerId: string, eventId: string): Promise<boolean>;
-  record(consumerId: string, eventId: string): Promise<void>;
+  claim(consumerId: string, eventId: string): Promise<boolean>;
+  complete(consumerId: string, eventId: string): Promise<void>;
+  release(consumerId: string, eventId: string): Promise<void>;
 }
 
 export class InMemoryOutbox implements Outbox {
@@ -43,25 +44,38 @@ export class InMemoryOutbox implements Outbox {
 }
 
 export class InMemoryInbox implements Inbox {
-  private readonly processed = new Set<string>();
+  private readonly claims = new Set<string>();
 
-  async seen(consumerId: string, eventId: string): Promise<boolean> {
-    return this.processed.has(consumerId + ":" + eventId);
+  async claim(consumerId: string, eventId: string): Promise<boolean> {
+    const key = consumerId + ":" + eventId;
+    if (this.claims.has(key)) return false;
+    this.claims.add(key);
+    return true;
   }
 
-  async record(consumerId: string, eventId: string): Promise<void> {
-    this.processed.add(consumerId + ":" + eventId);
+  async complete(_consumerId: string, _eventId: string): Promise<void> {
+    // The claim is the deduplication record. Completion is explicit for production adapters.
+  }
+
+  async release(consumerId: string, eventId: string): Promise<void> {
+    this.claims.delete(consumerId + ":" + eventId);
   }
 }
 
-export async function consumeExactlyOncePerConsumer<T>(
+export async function consumeAtLeastOncePerConsumer<T>(
   inbox: Inbox,
   consumerId: string,
   event: DurableEvent<T>,
   handler: (event: DurableEvent<T>) => Promise<void>,
 ): Promise<boolean> {
-  if (await inbox.seen(consumerId, event.eventId)) return false;
-  await handler(event);
-  await inbox.record(consumerId, event.eventId);
-  return true;
+  if (!(await inbox.claim(consumerId, event.eventId))) return false;
+
+  try {
+    await handler(event);
+    await inbox.complete(consumerId, event.eventId);
+    return true;
+  } catch (error) {
+    await inbox.release(consumerId, event.eventId);
+    throw error;
+  }
 }

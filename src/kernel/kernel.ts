@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { DurableScheduler, type SchedulerOptions } from "./scheduler.js";
 import { SqliteKernelStore } from "./sqlite-store.js";
 import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord } from "./types.js";
 
@@ -9,8 +10,24 @@ export class DurableKernel {
     return this.store.createRun({ ...input, id: input.id ?? randomUUID() });
   }
 
+  getRun(runId: string): RunRecord {
+    const run = this.store.getRun(runId);
+    if (!run) throw new Error("Run not found: " + runId);
+    return run;
+  }
+
+  getStep(stepId: string): StepRecord {
+    const step = this.store.getStep(stepId);
+    if (!step) throw new Error("Step not found: " + stepId);
+    return step;
+  }
+
   admitRun(runId: string): RunRecord {
     return this.store.admitRun(runId);
+  }
+
+  createScheduler(options: SchedulerOptions): DurableScheduler {
+    return new DurableScheduler(this.store, options);
   }
 
   claimNext(workerId: string, leaseTtlMs = 60_000): RunRecord | undefined {
@@ -22,36 +39,47 @@ export class DurableKernel {
   }
 
   startStep(stepId: string, workerId: string, fencingToken: number): StepRecord {
-    const step = this.store["requireStepRowForExternalUse"](stepId);
-    this.store.assertRunLease(step.run_id, workerId, fencingToken);
+    const step = this.getStep(stepId);
+    this.store.assertRunLease(step.runId, workerId, fencingToken);
     return this.store.transitionStep(stepId, "running");
   }
 
   completeStep(stepId: string, workerId: string, fencingToken: number, output: unknown): StepRecord {
-    const step = this.store["requireStepRowForExternalUse"](stepId);
-    this.store.assertRunLease(step.run_id, workerId, fencingToken);
+    const step = this.getStep(stepId);
+    this.store.assertRunLease(step.runId, workerId, fencingToken);
     return this.store.transitionStep(stepId, "completed", output);
   }
 
   failStep(stepId: string, workerId: string, fencingToken: number, error: unknown): StepRecord {
-    const step = this.store["requireStepRowForExternalUse"](stepId);
-    this.store.assertRunLease(step.run_id, workerId, fencingToken);
+    const step = this.getStep(stepId);
+    this.store.assertRunLease(step.runId, workerId, fencingToken);
     return this.store.transitionStep(stepId, "failed", undefined, error);
   }
 
   completeRun(runId: string, workerId: string, fencingToken: number): RunRecord {
     this.store.assertRunLease(runId, workerId, fencingToken);
-    return this.store.transitionRun(runId, "completed", "run.completed");
+    const result = this.store.transitionRun(runId, "completed", "run.completed");
+    this.store.releaseRunLease(runId, workerId);
+    return result;
   }
 
   failRun(runId: string, workerId: string, fencingToken: number, error: unknown): RunRecord {
     this.store.assertRunLease(runId, workerId, fencingToken);
-    return this.store.transitionRun(runId, "failed", "run.failed");
+    const result = this.store.transitionRun(runId, "failed", "run.failed", error);
+    this.store.releaseRunLease(runId, workerId);
+    return result;
   }
 
-  cancelRun(runId: string, workerId: string, fencingToken: number): RunRecord {
+  requestCancel(runId: string, workerId: string, fencingToken: number): RunRecord {
     this.store.assertRunLease(runId, workerId, fencingToken);
     return this.store.transitionRun(runId, "cancelling", "run.cancelling");
+  }
+
+  finalizeCancel(runId: string, workerId: string, fencingToken: number): RunRecord {
+    this.store.assertRunLease(runId, workerId, fencingToken);
+    const result = this.store.transitionRun(runId, "cancelled", "run.cancelled");
+    this.store.releaseRunLease(runId, workerId);
+    return result;
   }
 
   recoverExpiredRuns(nowMs = Date.now()): readonly string[] {

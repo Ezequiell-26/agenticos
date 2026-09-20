@@ -1,0 +1,15 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/run-control.v1.json",
+  "title":"AgentiCOS Run Control v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","runId","command","requestId"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "runId":{"type":"string","minLength":1},
+    "command":{"enum":["start","resume","cancel","pause","steer","approve","deny"]},
+    "requestId":{"type":"string","minLength":1},
+    "reason":{"type":["string","null"]}
+  }
+}

@@ -140,11 +140,11 @@ The agent and tool contracts do not depend on one sandbox implementation.
 4. Additional permissions are scoped to the smallest required action.
 5. Dangerous operations produce auditable decisions.
 6. Model text is never itself an authorization credential.
-7. Capabilities are attenuable, time-bounded and revocable.
-8. A stale/expired/consumed capability cannot be reused.
-9. Capability grants are bound to run + step + tool + resource.
-10. Secrets are never represented as general-purpose capabilities.
 6. Cancellation terminates or detaches tool execution safely.
 7. Sandboxed execution is the default for model-generated code/processes.
+8. Capabilities are attenuable, time-bounded and revocable.
+9. A stale/expired/consumed capability cannot be reused.
+10. Capability grants are bound to run + step + tool + resource.
+11. Secrets are never represented as general-purpose capabilities.
 
 These principles follow the same architectural separation emphasized by Codex: filesystem/network sandboxing and approval policy are distinct controls, and scoped permission escalation is preferred over unrestricted execution.

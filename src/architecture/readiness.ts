@@ -70,6 +70,7 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   await readRequired(root, "contracts/registry.json");
   await readRequired(root, "reference/manifests/mit-repositories.json");
   await readRequired(root, "reference/manifests/capability-parity.json");
+  await readRequired(root, "reference/manifests/reference-discovery.json");
   const completenessRaw = await readRequired(root, "reference/manifests/architecture-completeness.json");
   const completeness = JSON.parse(completenessRaw) as {
     schema_version: number;

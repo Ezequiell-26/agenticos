@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { assertExecutionBudget, BudgetGuard } from "../architecture/budget.js";
 import { AgentiCOSError, serializeError } from "../architecture/errors.js";
+import { SystemClock, SystemIdGenerator, type Clock, type IdGenerator } from "../architecture/runtime.js";
 import {
   executeIdempotent,
   type IdempotencyRecord,
@@ -66,8 +66,22 @@ type IdempotencyRow = {
   updated_at: string;
 };
 
+export interface KernelStoreOptions {
+  readonly clock?: Clock;
+  readonly ids?: IdGenerator;
+}
+
 export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox, Inbox {
-  constructor(readonly database: SqliteDatabase) {}
+  private readonly clock: Clock;
+  private readonly ids: IdGenerator;
+
+  constructor(
+    readonly database: SqliteDatabase,
+    options: KernelStoreOptions = {},
+  ) {
+    this.clock = options.clock ?? new SystemClock();
+    this.ids = options.ids ?? new SystemIdGenerator();
+  }
 
   close(): void {
     this.database.close();
@@ -81,9 +95,9 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         category: "VALIDATION",
       });
     }
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
     const usage = {
-      startedAtMs: Date.now(),
+      startedAtMs: this.clock.nowMs(),
       steps: 0,
       childAgents: 0,
       toolCalls: 0,
@@ -193,7 +207,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         }
       }
 
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
       const nextVersion = row.version + 1;
       const nextError = error === undefined
         ? row.error_json
@@ -225,7 +239,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   }
 
   createStep(input: CreateStepInput): StepRecord {
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
 
     return this.database.transaction(() => {
       const run = this.requireRunRow(input.runId);
@@ -269,7 +283,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       const machine = new StepStateMachine(row.state);
       machine.transition(to);
 
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
       const nextVersion = row.version + 1;
       const nextOutput = output === undefined ? row.output_json : JSON.stringify(output);
       const nextError = error === undefined ? row.error_json : JSON.stringify(serializeError(error));
@@ -302,7 +316,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   claimNextRunnable(
     workerId: string,
     ttlMs: number,
-    nowMs = Date.now(),
+    nowMs = this.clock.nowMs(),
   ): RunRecord | undefined {
     if (ttlMs <= 0) {
       throw new AgentiCOSError("Lease TTL must be positive.", {
@@ -406,7 +420,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     });
   }
 
-  recoverExpiredRuns(nowMs = Date.now()): readonly string[] {
+  recoverExpiredRuns(nowMs = this.clock.nowMs()): readonly string[] {
     return this.database.transactionImmediate(() => {
       const nowIso = new Date(nowMs).toISOString();
       const rows = this.database.db.prepare(`
@@ -554,7 +568,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
           INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
           VALUES(?, ?, 'processing', ?)
           ON CONFLICT(consumer_id, event_id) DO NOTHING
-        `).run(consumerId, eventId, new Date().toISOString());
+        `).run(consumerId, eventId, this.clock.nowIso());
 
         return result.changes === 1;
       });
@@ -628,7 +642,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   async append<T>(
     event: Omit<DurableEvent<T>, "eventId" | "createdAt" | "attempts" | "lastError" | "nextAttemptAt">,
   ): Promise<DurableEvent<T>> {
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
     return this.database.transaction(() =>
       this.appendEventInTransaction(
         event.type,
@@ -652,7 +666,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
         AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)
       ORDER BY o.created_at ASC
       LIMIT ?
-    `).all(new Date().toISOString(), safeLimit) as Array<{
+    `).all(this.clock.nowIso(), safeLimit) as Array<{
       event_id: string;
       type: string;
       version: number;
@@ -698,7 +712,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
   async markPublished(eventId: string): Promise<void> {
     const changed = this.database.db
       .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ? AND published_at IS NULL")
-      .run(new Date().toISOString(), eventId);
+      .run(this.clock.nowIso(), eventId);
 
     if (changed.changes !== 1) {
       throw new AgentiCOSError("Outbox event was already published or does not exist.", {
@@ -730,7 +744,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       UPDATE inbox
       SET status='completed', completed_at=?
       WHERE consumer_id=? AND event_id=? AND status='processing'
-    `).run(new Date().toISOString(), consumerId, eventId);
+    `).run(this.clock.nowIso(), consumerId, eventId);
 
     if (changed.changes !== 1) {
       throw new AgentiCOSError("Inbox completion was lost.", {
@@ -754,7 +768,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       const guard = new BudgetGuard(JSON.parse(row.budget_json) as RunRecord["budget"], current.startedAtMs);
       guard.consume(delta);
       const next = guard.snapshot();
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
 
       const changed = this.database.db
         .prepare("UPDATE runs SET usage_json=?, updated_at=? WHERE id=? AND version=?")
@@ -783,7 +797,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     workerId: string,
     fencingToken: number,
     ttlMs: number,
-    nowMs = Date.now(),
+    nowMs = this.clock.nowMs(),
   ): Lease {
     if (ttlMs <= 0) {
       throw new AgentiCOSError("Lease TTL must be positive.", {
@@ -878,7 +892,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     if (
       lease.ownerId !== workerId ||
       lease.fencingToken !== fencingToken ||
-      Date.parse(lease.expiresAt) <= Date.now()
+      Date.parse(lease.expiresAt) <= this.clock.nowMs()
     ) {
       throw new AgentiCOSError("Run lease fencing rejected.", {
         code: "RUN_LEASE_FENCING_REJECTED",
@@ -908,7 +922,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     createdAt: string,
     metadata?: Omit<DurableEvent<T>, "eventId" | "createdAt" | "payload">,
   ): DurableEvent<T> {
-    const eventId = randomUUID();
+    const eventId = this.ids.next();
 
     const context = runId === undefined
       ? undefined

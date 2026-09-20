@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/mcp-resource.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS MCP Resource v1",
+  "required": [
+    "schemaVersion",
+    "serverId",
+    "kind",
+    "uri",
+    "permissions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "serverId": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "resource",
+        "resource-template",
+        "prompt"
+      ]
+    },
+    "uri": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contentType": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

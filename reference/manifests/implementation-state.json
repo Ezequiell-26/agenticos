@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "step-2-pending",
+  "current_step": "architecture-hardening-2026-09-21",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -180,6 +180,60 @@
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
       ]
+    },
+    {
+      "id": "architecture-hardening-2026-09-21",
+      "number": 2,
+      "status": "in_progress",
+      "scope": [
+        "project-state and implementation-state synchronization",
+        "AI continuity consistency gate",
+        "CI enforcement of state consistency",
+        "canonical Rust lease acquisition invariants",
+        "regression tests for lease ownership"
+      ],
+      "requires": [
+        "rust-kernel-vertical-slice-1"
+      ],
+      "required_checks": [
+        "npm run continuity:verify",
+        "npm run state:verify",
+        "npm run check",
+        "npm run test",
+        "cargo fmt --all -- --check",
+        "cargo check --workspace --all-targets",
+        "cargo test --workspace --all-targets",
+        "cargo clippy --workspace --all-targets -- -D warnings"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
+        "agent-engine-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "agent-engine-vertical-slice-1",
+      "number": 3,
+      "status": "pending",
+      "scope": [
+        "canonical Rust AgentEngine boundary",
+        "model/provider transport boundary integration",
+        "one deterministic model-driven Run slice",
+        "recovery and verification semantics"
+      ],
+      "requires": [
+        "architecture-hardening-2026-09-21"
+      ],
+      "required_checks": [
+        "contract tests",
+        "persistence/recovery tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
+        "provider-plane-vertical-slice-1"
+      ]
     }
   ],
   "transitions": {
@@ -219,6 +273,18 @@
       "from": "rust-kernel-vertical-slice-1",
       "to": "verified",
       "reason": "All Step 1 verification gates passed: contract tests, persistence/recovery tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
+    },
+    {
+      "from": "rust-kernel-vertical-slice-1",
+      "to": "verified",
+      "reason": "Current main baseline contains the verified durable Rust kernel Step 1.",
+      "run_id": null
+    },
+    {
+      "from": "architecture-hardening-2026-09-21:locked",
+      "to": "architecture-hardening-2026-09-21:in_progress",
+      "reason": "Architecture hardening is the single controlled operation before the AgentEngine slice.",
+      "run_id": null
     }
   ]
 }

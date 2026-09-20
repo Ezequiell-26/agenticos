@@ -21,6 +21,7 @@ import {
   DurableKernel,
   SqliteDatabase,
   SqliteKernelStore,
+  DurableOutboxDispatcher,
 } from "../src/kernel/index.js";
 
 const budget = () => ({
@@ -192,6 +193,17 @@ test("sqlite kernel persists runs across reopen and atomically records lifecycle
   const persisted = reopened.getRun(run.id);
   assert.equal(persisted.state, "completed");
   assert.equal(persisted.version >= 4, true);
+  assert.ok(reopened.store.listEvents(run.id).some((event) => event.type === "run.completed"));
+
+  const dispatcher = new DurableOutboxDispatcher(reopened.store);
+  let published = 0;
+  const dispatchResult = await dispatcher.dispatch(() => {
+    published += 1;
+  });
+  assert.equal(dispatchResult.failed, false);
+  assert.equal(dispatchResult.published, published);
+  assert.equal((await reopened.store.listPending(100)).length, 0);
+
   reopened.close();
 
   await rm(directory, { recursive: true, force: true });
@@ -211,12 +223,26 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
   });
   kernelA.admitRun(run.id);
 
-  const first = kernelA.claimNext("worker-a", 60_000);
-  const second = kernelB.claimNext("worker-b", 60_000);
+  const schedulerA = kernelA.createScheduler({
+    workerId: "worker-a",
+    leaseTtlMs: 60_000,
+  });
+  const schedulerB = kernelB.createScheduler({
+    workerId: "worker-b",
+    leaseTtlMs: 60_000,
+  });
+
+  const first = schedulerA.claimNext();
+  const second = schedulerB.claimNext();
 
   assert.equal(first?.id, run.id);
   assert.equal(second, undefined);
   assert.equal(kernelB.getRun(run.id).state, "running");
+
+  const lease = kernelA.store.leaseForRun(run.id);
+  assert.ok(lease);
+  const renewed = schedulerA.heartbeat(run.id, lease.fencingToken);
+  assert.ok(Date.parse(renewed.expiresAt) > Date.parse(lease.expiresAt));
 
   kernelA.close();
   kernelB.close();
@@ -231,5 +257,24 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
   assert.equal(claimAgain?.state, "running");
 
   kernelC.close();
+
+  const kernelD = new DurableKernel(new SqliteKernelStore(new SqliteDatabase(dbPath)));
+  const cancellationRun = kernelD.createRun({
+    id: "cancel-recovery-run",
+    workspaceId: "workspace-2",
+    budget: budget(),
+  });
+  kernelD.admitRun(cancellationRun.id);
+  const claimedCancellation = kernelD.claimNext("worker-d", 60_000);
+  assert.ok(claimedCancellation);
+  const cancellationLease = kernelD.store.leaseForRun(cancellationRun.id);
+  assert.ok(cancellationLease);
+  kernelD.requestCancel(cancellationRun.id, "worker-d", cancellationLease.fencingToken);
+
+  const recovery = kernelD.recoverExpiredRuns(Date.now() + 61_000);
+  assert.ok(recovery.includes(cancellationRun.id));
+  assert.equal(kernelD.getRun(cancellationRun.id).state, "cancelled");
+  kernelD.close();
+
   await rm(directory, { recursive: true, force: true });
 });

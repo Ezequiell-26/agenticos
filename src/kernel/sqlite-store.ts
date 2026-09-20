@@ -429,6 +429,38 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         const target: RunState = row.state === "cancelling" ? "cancelled" : "waiting";
         const machine = new RunStateMachine(row.state);
         machine.transition(target, { reason: "worker-recovery" });
+
+        if (target === "cancelled") {
+          const activeSteps = this.database.db.prepare(`
+            SELECT id, version
+            FROM steps
+            WHERE run_id = ? AND state IN ('pending', 'running', 'waiting')
+          `).all(row.id) as Array<{ id: string; version: number }>;
+
+          for (const step of activeSteps) {
+            const stepChanged = this.database.db.prepare(`
+              UPDATE steps
+              SET state='cancelled', version=version+1, updated_at=?
+              WHERE id=? AND version=?
+            `).run(nowIso, step.id, step.version);
+
+            if (stepChanged.changes !== 1) {
+              throw new AgentiCOSError("Cancellation step recovery conflict.", {
+                code: "STEP_CANCELLATION_RECOVERY_CONFLICT",
+                category: "CONCURRENCY",
+                retryable: true,
+                recoverable: true,
+              });
+            }
+
+            this.appendEventInTransaction("step.recovered", 1, step.id, row.id, {
+              from: "active",
+              to: "cancelled",
+              reason: "worker-recovery",
+            }, nowIso);
+          }
+        }
+
         const changed = this.database.db
           .prepare("UPDATE runs SET state=?, version=version+1, updated_at=? WHERE id=? AND version=?")
           .run(target, nowIso, row.id, row.version);

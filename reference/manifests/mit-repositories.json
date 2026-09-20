@@ -790,7 +790,7 @@
         "status": "verified",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "c4f0b0d4c2c9a5dcf2f3a746e1c0d2d0e640a9d5",
+        "artifact_sha": "e71ac4498bdeec6e3193f9634371860d14696958",
         "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
       },
       "domains": [
@@ -1071,7 +1071,7 @@
         "status": "verified",
         "verified_on": "2026-09-21",
         "artifact_path": "LICENSE",
-        "artifact_sha": "e10c5c0f00000000000000000000000000000000",
+        "artifact_sha": "b96dcb0480a0b0be0727976e5202a1e7b23edc3f",
         "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
       },
       "domains": [

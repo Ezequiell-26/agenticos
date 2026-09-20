@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/tool-call.v1.json",
+  "title":"AgentiCOS Tool Call v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","callId","runId","stepId","toolId","capabilityHandle","arguments"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "callId":{"type":"string","minLength":1},
+    "runId":{"type":"string","minLength":1},
+    "stepId":{"type":"string","minLength":1},
+    "toolId":{"type":"string","minLength":1},
+    "capabilityHandle":{"type":"string","minLength":1},
+    "arguments":{"type":"object"}
+  }
+}

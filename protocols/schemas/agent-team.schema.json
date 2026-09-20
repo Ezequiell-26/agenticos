@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/agent-team.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Agent Team v1",
+  "required": [
+    "schemaVersion",
+    "teamId",
+    "ownerRunId",
+    "members",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "teamId": {
+      "type": "string"
+    },
+    "ownerRunId": {
+      "type": "string"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "state": {
+      "enum": [
+        "forming",
+        "active",
+        "draining",
+        "completed",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "taskBoard": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "budget": {
+      "type": "object"
+    }
+  }
+}

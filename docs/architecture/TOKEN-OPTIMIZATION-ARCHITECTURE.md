@@ -118,7 +118,7 @@ For structured data, AgentiCOS may materialize a canonical structured snapshot a
 derive a content-addressed root. GCF is the primary MIT-admissible reference for
 this boundary. Its specification defines pack roots and requires atomic delta
 application plus root verification; deltas contain complete declarations rather
-than session-only references where reconstruction requires them. citeturn514029search2turn514029search3
+than session-only references where reconstruction requires them.
 
 Session deduplication and delta encoding are therefore treated as separate,
 composable optimizations. A session reference must never be required to validate
@@ -213,7 +213,7 @@ The optimizer must preserve error diagnostics, secrets, security evidence and co
 The trimcp reference demonstrates MCP proxying, deterministic output transforms,
 caching and metrics, including ANSI stripping, compact JSON, duplicate-line folding
 and minification. Its README declares MIT, but Source Forge keeps its source
-integration status pending sufficient license-file verification. citeturn514029search0
+integration status pending sufficient license-file verification.
 
 ## Context compiler
 

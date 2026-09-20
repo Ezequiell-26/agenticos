@@ -23,9 +23,11 @@ Exit: the Rust workspace can be created without changing domain semantics, every
 
 ## Phase 1 — Rust kernel
 
-Runtime lifecycle, dependency composition, event bus, cancellation tree, lifecycle state machines, configuration layers, policy primitives, persistence transaction boundary, structured logging and deterministic test clocks/IDs.
+Runtime lifecycle, dependency composition, event bus, cancellation tree, lifecycle state machines, configuration layers, policy primitives, persistence transaction boundary, structured logging, deterministic test clocks/IDs, explicit Rust trait boundaries and capability-safe dependency injection.
 
-Exit: one durable run can start, transition, cancel, persist and recover through the canonical runtime.
+The kernel establishes an actor-like single-owner state machine for each durable Run. Parallel workers never mutate canonical Run state directly.
+
+Exit: one durable run can start, transition, cancel, persist and recover through the canonical runtime with deterministic state reconstruction.
 
 ## Phase 2 — Provider gateway and model platform
 
@@ -37,7 +39,9 @@ Exit: one model-neutral call path can route, stream, fail, retry and recover acr
 
 ## Phase 3 — Execution and security platform
 
-Tool registry, policy/approval engine, sandbox, local and worker executors, filesystem/process/browser adapters, network policy, secret isolation, artifact store and resource scheduler.
+Tool registry, policy/approval engine, attenuated capability issuance, scoped one-step grants, sandbox, local and worker executors, filesystem/process/browser adapters, network policy, secret isolation, artifact store and resource scheduler.
+
+Source-derived and imported code remains untrusted and executes only through the Source Forge sandbox boundary.
 
 Reference priority: Hermes, OpenHands and browser-use for tool/execution workflows; Codex for Rust-native runtime boundaries; OmniRoute for operational quality gates around gateway execution.
 
@@ -46,6 +50,8 @@ Exit: a real tool action executes inside policy and sandbox controls and produce
 ## Phase 4 — Agent runtime
 
 Task/run lifecycle, context compiler, model/tool loops, verification, bounded repair, continuation, checkpoints, durable background execution, steering/interrupt and idempotent side effects.
+
+AgentEngine owns orchestration. ModelProvider/ModelClient owns model transport. AgentTool owns typed tool execution. Neither layer may hide the other's responsibility.
 
 Reference priority: Hermes, DeepSeek Harness and Codex.
 
@@ -86,11 +92,13 @@ Exit: the same run works through at least one production-grade client and one he
 
 Repository import, dependency/license graph, language/package discovery, documentation and architecture extraction, symbol graph, test/quality-gate extraction, duplicate detection, capability comparison, compatibility analysis, evidence-pack generation, integration proposals, adaptation scaffolding, SBOM/notices, source refresh/diff and upstream regression.
 
+Forge must also provide the untrusted-source execution boundary: isolated builds/tests/indexers, network/filesystem restrictions, ephemeral credentials, resource quotas and artifact scanning before source-derived components can be proposed for integration.
+
 Exit: repositories can be evaluated and adapted without bypassing license or provenance gates.
 
 ## Phase 10 — Reliability and evaluation
 
-Golden tasks, replay, contract conformance, load testing, fault injection, worker/provider chaos tests, sandbox escape tests, prompt-injection tests, quota/cost regression, router evaluation, compression evaluation, semantic-cache regression, upgrade/rollback and cross-language compatibility tests.
+Golden tasks, event/snapshot replay, deterministic external-effect injection, contract conformance, load testing, fault injection, worker/provider chaos tests, sandbox escape tests, prompt-injection tests, capability-reuse tests, quota/cost regression, router evaluation, compression evaluation, cache-invalidation regression, semantic-cache regression, upgrade/rollback and cross-language compatibility tests.
 
 Exit: critical paths have repeatable evidence for functional, security and recovery behavior.
 

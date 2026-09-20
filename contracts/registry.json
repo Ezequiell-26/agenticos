@@ -178,6 +178,83 @@
         "cache-safety",
         "recovery"
       ]
+    },
+    {
+      "id": "skill",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "metadata",
+        "progressive-load",
+        "dependencies",
+        "scope",
+        "rollback"
+      ]
+    },
+    {
+      "id": "memory-provider",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "setup",
+        "prefetch",
+        "sync",
+        "search",
+        "delete"
+      ]
+    },
+    {
+      "id": "channel",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "authenticate",
+        "authorize",
+        "inbound",
+        "outbound",
+        "attachments"
+      ]
+    },
+    {
+      "id": "webhook",
+      "version": 1,
+      "kind": "protocol",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "authenticate",
+        "replay-protection",
+        "filter",
+        "trigger"
+      ]
+    },
+    {
+      "id": "capability-registry",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "discover",
+        "verify",
+        "resolve",
+        "activate",
+        "deactivate"
+      ]
+    },
+    {
+      "id": "hook",
+      "version": 1,
+      "kind": "domain",
+      "compatibility": "backward-compatible",
+      "requiredCapabilities": [
+        "ordering",
+        "scope",
+        "budget",
+        "observability",
+        "cancellation"
+      ]
     }
   ]
 }

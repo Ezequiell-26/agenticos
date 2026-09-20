@@ -1,6 +1,6 @@
 # AgentiCOS — Product Architecture
 
-Status: Architecture-first / hardened foundation.
+Status: Architecture-first / verification pending.
 This document is the source of truth for product architecture.
 
 ## Language and runtime decision
@@ -206,7 +206,7 @@ The canonical runtime is extensible without modifying the AgentEngine loop. APIs
 
 See [docs/architecture/UNIVERSAL-CAPABILITY-PLATFORM.md](./docs/architecture/UNIVERSAL-CAPABILITY-PLATFORM.md) and [reference/manifests/capability-parity.json](./reference/manifests/capability-parity.json).
 
-The capability architecture explicitly covers the reusable platform patterns currently documented by Hermes Agent and DeepSeek Harness: pluggable extensions, progressive skills, memory providers, event-sourced sessions, guarded tool registries, scoped registration, messaging gateways, scheduling, webhooks, management APIs and IDE/ACP boundaries. These remain reference inputs; AgentiCOS contracts, security and sequencing rules remain authoritative. citeturn254296search0turn254296search3turn254296search5turn178395search0turn178395search2
+The capability architecture explicitly covers the reusable platform patterns currently documented by Hermes Agent and DeepSeek Harness: pluggable extensions, progressive skills, memory providers, event-sourced sessions, guarded tool registries, scoped registration, messaging gateways, scheduling, webhooks, management APIs and IDE/ACP boundaries. These remain reference inputs; AgentiCOS contracts, security and sequencing rules remain authoritative.
 
 ## Architecture completeness baseline
 

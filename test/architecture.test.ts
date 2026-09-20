@@ -18,6 +18,7 @@ import {
   loadContractRegistry,
   assertContractRegistry,
   fingerprintOperation,
+  DEFAULT_CLAIM_STALE_AFTER_MS,
 } from "../src/architecture/index.js";
 import {
   DurableKernel,
@@ -83,6 +84,53 @@ test("idempotency fingerprints are canonical and distinguish semantic types", ()
   const circular: Record<string, unknown> = {};
   circular.self = circular;
   assert.throws(() => fingerprintOperation("test", circular));
+});
+
+test("idempotency and inbox claims recover after a stale worker", async () => {
+  const store = new InMemoryIdempotencyStore();
+  const first = {
+    key: "crash-key",
+    operation: "test",
+    fingerprint: fingerprintOperation("test", { x: 1 }),
+    status: "in-progress" as const,
+    createdAt: new Date(1_000).toISOString(),
+    updatedAt: new Date(1_000).toISOString(),
+  };
+
+  assert.equal(await store.claim(first, DEFAULT_CLAIM_STALE_AFTER_MS, 1_000), undefined);
+  const active = await store.claim(first, DEFAULT_CLAIM_STALE_AFTER_MS, 2_000);
+  assert.equal(active?.status, "in-progress");
+
+  const recovered = await store.claim(
+    { ...first, updatedAt: new Date(1_000 + DEFAULT_CLAIM_STALE_AFTER_MS + 1).toISOString() },
+    DEFAULT_CLAIM_STALE_AFTER_MS,
+    1_000 + DEFAULT_CLAIM_STALE_AFTER_MS + 1,
+  );
+  assert.equal(recovered, undefined);
+
+  const inbox = new InMemoryInbox();
+  assert.equal(
+    await inbox.claim("consumer", "event", DEFAULT_CLAIM_STALE_AFTER_MS, 1_000),
+    true,
+  );
+  assert.equal(
+    await inbox.claim("consumer", "event", DEFAULT_CLAIM_STALE_AFTER_MS, 2_000),
+    false,
+  );
+  assert.equal(
+    await inbox.claim(
+      "consumer",
+      "event",
+      DEFAULT_CLAIM_STALE_AFTER_MS,
+      1_000 + DEFAULT_CLAIM_STALE_AFTER_MS + 1,
+    ),
+    true,
+  );
+  await inbox.complete("consumer", "event");
+  assert.equal(
+    await inbox.claim("consumer", "event", DEFAULT_CLAIM_STALE_AFTER_MS, 10_000),
+    false,
+  );
 });
 
 test("lease fencing rejects stale owners", () => {
@@ -236,6 +284,66 @@ test("sqlite kernel migrations install integrity guards and preserve database he
   assert.equal(report.ok, true);
   assert.equal(report.foreignKeyViolations, 0);
   database.assertIntegrity();
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("sqlite owned mutations reject expired and replaced worker leases atomically", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-fencing-"));
+  const dbPath = join(directory, "state.sqlite");
+  const kernel = new DurableKernel(
+    new SqliteKernelStore(new SqliteDatabase(dbPath)),
+  );
+
+  const run = kernel.createRun({
+    id: "fenced-run",
+    workspaceId: "workspace-fenced",
+    budget: budget(),
+  });
+  kernel.admitRun(run.id);
+
+  const claimed = kernel.store.claimNextRunnable("worker-a", 100, 1_000);
+  assert.equal(claimed?.state, "running");
+  const firstLease = kernel.store.leaseForRun(run.id);
+  assert.ok(firstLease);
+
+  const step = kernel.createStep({
+    runId: run.id,
+    sequence: 1,
+  });
+
+  assert.throws(() =>
+    kernel.store.transitionStepOwned(
+      step.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "running",
+      undefined,
+      undefined,
+      1_101,
+    ),
+  );
+
+  kernel.recoverExpiredRuns(1_101);
+  const replacement = kernel.store.claimNextRunnable("worker-b", 100, 1_101);
+  assert.equal(replacement?.state, "running");
+  const secondLease = kernel.store.leaseForRun(run.id);
+  assert.ok(secondLease);
+  assert.notEqual(secondLease.fencingToken, firstLease.fencingToken);
+
+  assert.throws(() =>
+    kernel.store.transitionRunOwned(
+      run.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "failed",
+      "run.failed",
+      new Error("stale worker"),
+      true,
+      1_101,
+    ),
+  );
 
   kernel.close();
   await rm(directory, { recursive: true, force: true });

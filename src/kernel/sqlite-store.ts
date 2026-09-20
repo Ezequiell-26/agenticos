@@ -1168,36 +1168,6 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     }
   }
 
-function assertClaimWindow(staleAfterMs: number, nowMs: number): void {
-  if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
-    throw new AgentiCOSError("Claim staleAfterMs must be a positive integer.", {
-      code: "CLAIM_STALE_WINDOW_INVALID",
-      category: "VALIDATION",
-    });
-  }
-  if (!Number.isFinite(nowMs) || nowMs < 0) {
-    throw new AgentiCOSError("Claim clock value is invalid.", {
-      code: "CLAIM_CLOCK_INVALID",
-      category: "VALIDATION",
-    });
-  }
-}
-
-function validateIdempotencyRecord(record: IdempotencyRecord): void {
-  if (!record.key.trim() || !record.operation.trim() || !record.fingerprint.trim()) {
-    throw new AgentiCOSError("Idempotency record key, operation and fingerprint are required.", {
-      code: "IDEMPOTENCY_RECORD_INVALID",
-      category: "VALIDATION",
-    });
-  }
-  if (!["in-progress", "completed", "failed"].includes(record.status)) {
-    throw new AgentiCOSError("Idempotency record status is invalid.", {
-      code: "IDEMPOTENCY_STATUS_INVALID",
-      category: "VALIDATION",
-    });
-  }
-}
-
   private appendEventInTransaction<T>(
     type: string,
     version: number,
@@ -1374,5 +1344,35 @@ function validateIdempotencyRecord(record: IdempotencyRecord): void {
       ...(row.output_json === null ? {} : { output: JSON.parse(row.output_json) }),
       ...(row.error_json === null ? {} : { error: JSON.parse(row.error_json) }),
     };
+  }
+}
+
+function assertClaimWindow(staleAfterMs: number, nowMs: number): void {
+  if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0) {
+    throw new AgentiCOSError("Claim staleAfterMs must be a positive integer.", {
+      code: "CLAIM_STALE_WINDOW_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!Number.isFinite(nowMs) || nowMs < 0) {
+    throw new AgentiCOSError("Claim clock value is invalid.", {
+      code: "CLAIM_CLOCK_INVALID",
+      category: "VALIDATION",
+    });
+  }
+}
+
+function validateIdempotencyRecord(record: IdempotencyRecord): void {
+  if (!record.key.trim() || !record.operation.trim() || !record.fingerprint.trim()) {
+    throw new AgentiCOSError("Idempotency record key, operation and fingerprint are required.", {
+      code: "IDEMPOTENCY_RECORD_INVALID",
+      category: "VALIDATION",
+    });
+  }
+  if (!["in-progress", "completed", "failed"].includes(record.status)) {
+    throw new AgentiCOSError("Idempotency record status is invalid.", {
+      code: "IDEMPOTENCY_STATUS_INVALID",
+      category: "VALIDATION",
+    });
   }
 }

@@ -2,7 +2,7 @@
   "name": "agenticos",
   "version": "0.1.0",
   "private": true,
-  "description": "Universal, durable, model-agnostic AI agent runtime.",
+  "description": "Transitional TypeScript architecture prototype for the AgentiCOS Rust-first universal agent runtime.",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {

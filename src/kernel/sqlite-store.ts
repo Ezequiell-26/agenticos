@@ -939,9 +939,9 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       INSERT INTO events(
         event_id, type, version, aggregate_id, run_id,
         workspace_id, project_id, thread_id, actor_id,
-        correlation_id, durable, created_at, payload_json
+        parent_event_id, correlation_id, causation_id, durable, created_at, payload_json
       )
-      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).run(
       eventId,
       type,

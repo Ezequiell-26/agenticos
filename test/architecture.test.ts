@@ -269,7 +269,7 @@ test("sqlite kernel migrations install integrity guards and preserve database he
 
   assert.equal(
     (database.db.prepare("SELECT value FROM schema_meta WHERE key='schema_version'").get() as { value: string }).value,
-    "2",
+    "3",
   );
   assert.equal(
     (database.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version=2").get() as { count: number }).count,

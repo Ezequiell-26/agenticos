@@ -1,3 +1,4 @@
+import { AgentiCOSError } from "../architecture/errors.js";
 import type { Lease } from "../architecture/concurrency.js";
 import type { RunRecord } from "./types.js";
 import { SqliteKernelStore } from "./sqlite-store.js";
@@ -12,11 +13,17 @@ export class DurableScheduler {
     private readonly store: SqliteKernelStore,
     private readonly options: SchedulerOptions,
   ) {
-    if (options.leaseTtlMs <= 0) {
-      throw new Error("Scheduler leaseTtlMs must be positive.");
+    if (!Number.isInteger(options.leaseTtlMs) || options.leaseTtlMs <= 0) {
+      throw new AgentiCOSError("Scheduler leaseTtlMs must be a positive integer.", {
+        code: "SCHEDULER_LEASE_TTL_INVALID",
+        category: "VALIDATION",
+      });
     }
     if (!options.workerId.trim()) {
-      throw new Error("Scheduler workerId cannot be empty.");
+      throw new AgentiCOSError("Scheduler workerId cannot be empty.", {
+        code: "SCHEDULER_WORKER_ID_REQUIRED",
+        category: "VALIDATION",
+      });
     }
   }
 

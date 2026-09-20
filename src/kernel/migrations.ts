@@ -140,16 +140,14 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
     id: "outbox-claim-leases",
     checksum: "sha256:agenticos-outbox-claim-leases-v3",
     up(database) {
+      addColumnIfMissing(database, "outbox", "claimed_by", "TEXT");
+      addColumnIfMissing(database, "outbox", "claim_id", "TEXT");
+      addColumnIfMissing(database, "outbox", "claimed_until", "TEXT");
       database.exec(`
-        ALTER TABLE outbox ADD COLUMN claimed_by TEXT;
-        ALTER TABLE outbox ADD COLUMN claim_id TEXT;
-        ALTER TABLE outbox ADD COLUMN claimed_until TEXT;
         CREATE INDEX IF NOT EXISTS idx_outbox_claimable
           ON outbox(published_at, claimed_until, created_at);
       `);
     },
-  },
-
   },
   {
     version: 4,
@@ -330,28 +328,24 @@ export function applyKernelMigrations(
     );
   }
 
-  const appliedRows = database
+  const applied = new Map<number, { version: number; id: string; checksum: string }>();
+  const orderedAppliedRows = database
     .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
     .all() as Array<{ version: number; id: string; checksum: string }>;
 
-  if (appliedRows.length === 0 && currentSchemaVersion >= 1) {
+  if (orderedAppliedRows.length === 0) {
     database.prepare(`
       INSERT INTO schema_migrations(version, id, checksum, applied_at)
       VALUES(1, 'kernel-baseline-v1', 'sha256:agenticos-kernel-baseline-v1', ?)
     `).run(new Date().toISOString());
   }
 
-  const applied = new Map<number, { version: number; id: string; checksum: string }>();
-  const orderedAppliedRows = database
+  const historyRows = database
     .prepare("SELECT version, id, checksum FROM schema_migrations ORDER BY version ASC")
     .all() as Array<{ version: number; id: string; checksum: string }>;
 
-  for (const row of orderedAppliedRows) {
-    applied.set(row.version, row);
-  }
-
   let expectedAppliedVersion = 1;
-  for (const row of orderedAppliedRows) {
+  for (const row of historyRows) {
     if (row.version !== expectedAppliedVersion) {
       throw new AgentiCOSError(
         "Database migration history has a version gap before " + row.version + ".",
@@ -363,33 +357,12 @@ export function applyKernelMigrations(
       );
     }
     expectedAppliedVersion += 1;
-  }
-
-  if (currentSchemaVersion >= 1 && !applied.has(1)) {
-    throw new AgentiCOSError(
-      "Database migration baseline is missing.",
-      {
-        code: "DATABASE_MIGRATION_BASELINE_MISSING",
-        category: "PERSISTENCE",
-        severity: "critical",
-      },
-    );
+    applied.set(row.version, row);
   }
 
   let latest = currentSchemaVersion;
   for (const migration of KERNEL_MIGRATIONS) {
     const recorded = applied.get(migration.version);
-
-    if (migration.version <= latest && !recorded) {
-      throw new AgentiCOSError(
-        "Database migration history is incomplete at version " + migration.version + ".",
-        {
-          code: "DATABASE_MIGRATION_HISTORY_INCOMPLETE",
-          category: "PERSISTENCE",
-          severity: "critical",
-        },
-      );
-    }
 
     if (recorded) {
       if (recorded.id !== migration.id || recorded.checksum !== migration.checksum) {
@@ -402,6 +375,21 @@ export function applyKernelMigrations(
           },
         );
       }
+      continue;
+    }
+
+    if (migration.version <= currentSchemaVersion) {
+      migration.up(database);
+      const appliedAt = new Date().toISOString();
+      database.prepare(`
+        INSERT INTO schema_migrations(version, id, checksum, applied_at)
+        VALUES(?, ?, ?, ?)
+      `).run(migration.version, migration.id, migration.checksum, appliedAt);
+      applied.set(migration.version, {
+        version: migration.version,
+        id: migration.id,
+        checksum: migration.checksum,
+      });
       continue;
     }
 
@@ -422,11 +410,15 @@ export function applyKernelMigrations(
       INSERT INTO schema_migrations(version, id, checksum, applied_at)
       VALUES(?, ?, ?, ?)
     `).run(migration.version, migration.id, migration.checksum, appliedAt);
+    applied.set(migration.version, {
+      version: migration.version,
+      id: migration.id,
+      checksum: migration.checksum,
+    });
     database.prepare(`
       INSERT INTO schema_meta(key, value) VALUES('schema_version', ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `).run(String(migration.version));
-
     latest = migration.version;
   }
 
@@ -458,4 +450,18 @@ function validateMigrationDefinitions(
     versions.add(migration.version);
     expected += 1;
   }
+}
+function addColumnIfMissing(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const columns = database
+    .prepare("PRAGMA table_info(" + table.replaceAll(/[^A-Za-z0-9_]/g, "") + ")")
+    .all() as Array<{ name: string }>;
+  if (columns.some((item) => item.name === column)) return;
+  database.exec(
+    "ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition,
+  );
 }

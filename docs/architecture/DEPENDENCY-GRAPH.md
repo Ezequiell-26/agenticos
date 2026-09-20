@@ -1,36 +1,24 @@
 # AgentiCOS Dependency Graph
 
-## Stable direction
+## Stable dependency direction
+
+The canonical dependency arrow means "depends on":
 
 ```text
-Kernel
-   ↑
-Contracts
-   ↑
-Runtime
-   ↑
-Domain services
-   ↑
-Adapters / Plugins / Engines
-   ↑
-Application protocol
-   ↑
 Applications / Surfaces
+        ↓
+Application Protocol / SDK
+        ↓
+Runtime + Domain Services
+        ↓
+Contracts
+        ↓
+Kernel
 ```
 
-A more precise view is:
+Infrastructure adapters, providers, plugins and engines implement or consume domain contracts without becoming dependencies of the kernel.
 
-```text
-apps
-  ↓
-protocol/sdk
-  ↓
-contracts
-  ↓
-runtime/domains
-  ↓
-kernel
-```
+No reverse dependency is permitted from Kernel/Contracts into Applications or vendor implementations.
 
 Infrastructure adapters sit below the domain that owns their contract.
 

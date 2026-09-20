@@ -3,10 +3,11 @@
 
 //! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
 
-use agenticos_contracts::{
+pub use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, IdempotencyRecord, IdempotencyStatus, LeaseRecord, LogEntry, LogLevel, Logger,
-    RunId, RunState, SerializedEvent, SerializedSnapshot, SnapshotStore,
+    ModelProvider, ModelRequest, ModelResponse, RunId, RunState, SerializedEvent,
+    SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

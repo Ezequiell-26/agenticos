@@ -43,6 +43,11 @@ name = "agenticos-execution"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-kernel",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

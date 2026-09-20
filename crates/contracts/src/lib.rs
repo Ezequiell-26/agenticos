@@ -110,15 +110,55 @@ pub struct EventEnvelope {
 }
 
 /// Model transport is deliberately separated from agent orchestration.
+#[async_trait::async_trait]
 pub trait ModelProvider: Send + Sync + 'static {
     /// Provider identifier.
     fn provider_id(&self) -> &str;
+
+    /// Execute a model request and return the response.
+    async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError>;
+}
+
+/// Model request for execution.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModelRequest {
+    /// Request identifier.
+    pub request_id: String,
+    /// Model identifier.
+    pub model: String,
+    /// Input prompt or context.
+    pub input: String,
+    /// Optional parameters.
+    pub parameters: Option<String>,
+}
+
+/// Model response from execution.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModelResponse {
+    /// Request identifier (echoed).
+    pub request_id: String,
+    /// Generated output.
+    pub output: String,
+    /// Optional metadata.
+    pub metadata: Option<String>,
+    /// Token usage statistics.
+    pub tokens_used: Option<u64>,
 }
 
 /// Agent orchestration engine boundary.
+#[async_trait::async_trait]
 pub trait AgentEngine: Send + Sync + 'static {
-    /// Starts or resumes one durable run.
+    /// Engine identifier.
     fn engine_id(&self) -> &str;
+
+    /// Start a new agent run with the given objective.
+    async fn start_run(&self, run_id: RunId, objective: String) -> Result<(), ContractError>;
+
+    /// Resume an existing agent run.
+    async fn resume_run(&self, run_id: RunId) -> Result<(), ContractError>;
+
+    /// Get the current state of a run.
+    async fn get_run_state(&self, run_id: RunId) -> Result<RunState, ContractError>;
 }
 
 /// Typed tool execution boundary.

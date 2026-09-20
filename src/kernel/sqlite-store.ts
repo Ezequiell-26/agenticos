@@ -8,9 +8,11 @@ import {
 } from "../architecture/idempotency.js";
 import {
   DEFAULT_CLAIM_STALE_AFTER_MS,
+  DEFAULT_OUTBOX_CLAIM_TTL_MS,
   type DurableEvent,
   type Inbox,
   type Outbox,
+  type OutboxClaim,
 } from "../architecture/outbox.js";
 import {
   RunStateMachine,
@@ -889,14 +891,124 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     }));
   }
 
-  async markPublished(eventId: string): Promise<void> {
-    const changed = this.database.db
-      .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ? AND published_at IS NULL")
-      .run(new Date().toISOString(), eventId);
+  async claimPending(
+    ownerId: string,
+    limit = 100,
+    ttlMs = DEFAULT_OUTBOX_CLAIM_TTL_MS,
+    nowMs = Date.now(),
+  ): Promise<readonly OutboxClaim[]> {
+    if (!ownerId.trim()) {
+      throw new AgentiCOSError("Outbox ownerId cannot be empty.", {
+        code: "OUTBOX_OWNER_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isInteger(limit) || limit <= 0) {
+      throw new AgentiCOSError("Outbox limit must be a positive integer.", {
+        code: "OUTBOX_LIMIT_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
+      throw new AgentiCOSError("Outbox claim TTL must be a positive integer.", {
+        code: "OUTBOX_CLAIM_TTL_INVALID",
+        category: "VALIDATION",
+      });
+    }
+    if (!Number.isFinite(nowMs) || nowMs < 0) {
+      throw new AgentiCOSError("Outbox claim clock is invalid.", {
+        code: "OUTBOX_CLAIM_CLOCK_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
+    return this.database.transactionImmediate(() => {
+      const nowIso = new Date(nowMs).toISOString();
+      const rows = this.database.db.prepare(`
+        SELECT e.*
+        FROM events e
+        JOIN outbox o ON o.event_id = e.event_id
+        WHERE o.published_at IS NULL
+          AND (o.claimed_until IS NULL OR o.claimed_until <= ?)
+        ORDER BY o.created_at ASC
+        LIMIT ?
+      `).all(nowIso, limit) as Array<{
+        event_id: string;
+        type: string;
+        version: number;
+        aggregate_id: string;
+        run_id: string | null;
+        created_at: string;
+        payload_json: string;
+      }>;
+
+      const claims: OutboxClaim[] = [];
+      for (const row of rows) {
+        const claimId = randomUUID();
+        const claimedUntil = new Date(nowMs + ttlMs).toISOString();
+        const changed = this.database.db.prepare(`
+          UPDATE outbox
+          SET claimed_by=?, claim_id=?, claimed_until=?
+          WHERE event_id=?
+            AND published_at IS NULL
+            AND (claimed_until IS NULL OR claimed_until <= ?)
+        `).run(ownerId, claimId, claimedUntil, row.event_id, nowIso);
+
+        if (changed.changes !== 1) continue;
+
+        claims.push({
+          event: {
+            eventId: row.event_id,
+            type: row.type,
+            version: row.version,
+            aggregateId: row.aggregate_id,
+            createdAt: row.created_at,
+            payload: JSON.parse(row.payload_json),
+          },
+          claimId,
+          ownerId,
+          claimedUntil,
+        });
+      }
+
+      return claims;
+    });
+  }
+
+  async markPublished(eventId: string, claimId: string): Promise<void> {
+    if (!claimId.trim()) {
+      throw new AgentiCOSError("Outbox claimId is required.", {
+        code: "OUTBOX_CLAIM_ID_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
+
+    const changed = this.database.db.prepare(`
+      UPDATE outbox
+      SET published_at = ?, claimed_by = NULL, claim_id = NULL, claimed_until = NULL
+      WHERE event_id = ? AND claim_id = ? AND published_at IS NULL
+    `).run(new Date().toISOString(), eventId, claimId);
 
     if (changed.changes !== 1) {
-      throw new AgentiCOSError("Outbox event was already published or does not exist.", {
+      throw new AgentiCOSError("Outbox publication claim was lost.", {
         code: "OUTBOX_MARK_PUBLISHED_FAILED",
+        category: "CONCURRENCY",
+        retryable: true,
+        recoverable: true,
+      });
+    }
+  }
+
+  async releaseClaim(eventId: string, claimId: string): Promise<void> {
+    const changed = this.database.db.prepare(`
+      UPDATE outbox
+      SET claimed_by = NULL, claim_id = NULL, claimed_until = NULL
+      WHERE event_id = ? AND claim_id = ? AND published_at IS NULL
+    `).run(eventId, claimId);
+
+    if (changed.changes > 1) {
+      throw new AgentiCOSError("Outbox claim release affected an invalid number of rows.", {
+        code: "OUTBOX_RELEASE_INVALID",
         category: "PERSISTENCE",
         severity: "critical",
       });

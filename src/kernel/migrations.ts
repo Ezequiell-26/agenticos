@@ -149,6 +149,147 @@ export const KERNEL_MIGRATIONS: readonly KernelMigration[] = [
       `);
     },
   },
+
+  },
+  {
+    version: 4,
+    id: "kernel-domain-integrity-preflight",
+    checksum: "sha256:agenticos-kernel-domain-integrity-v4",
+    up(database) {
+      const invalidRuns = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM runs
+         WHERE state NOT IN (
+           'created', 'admitted', 'running', 'waiting', 'paused',
+           'cancelling', 'completed', 'failed', 'cancelled'
+         )
+         OR version < 1\`,
+      ).get() as { count: number };
+
+      const invalidSteps = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM steps
+         WHERE state NOT IN (
+           'pending', 'running', 'waiting', 'completed', 'failed', 'cancelled'
+         )
+         OR version < 1
+         OR sequence < 1\`,
+      ).get() as { count: number };
+
+      const invalidEvents = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM events
+         WHERE version < 1 OR length(trim(type)) = 0\`,
+      ).get() as { count: number };
+
+      const invalidIdempotency = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM idempotency
+         WHERE status NOT IN ('in-progress', 'completed', 'failed')\`,
+      ).get() as { count: number };
+
+      const invalidInbox = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM inbox
+         WHERE status NOT IN ('processing', 'completed')
+           OR (status = 'completed' AND completed_at IS NULL)
+           OR (status = 'processing' AND completed_at IS NOT NULL)\`,
+      ).get() as { count: number };
+
+      const invalidCheckpoints = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM checkpoints
+         WHERE length(content_hash) <> 64\`,
+      ).get() as { count: number };
+
+      const invalidOutbox = database.prepare(
+        \`SELECT COUNT(*) AS count
+         FROM outbox
+         WHERE (published_at IS NOT NULL AND (
+           claimed_by IS NOT NULL OR claim_id IS NOT NULL OR claimed_until IS NOT NULL
+         ))
+         OR (published_at IS NULL AND (
+           (claimed_by IS NULL AND (
+             claim_id IS NOT NULL OR claimed_until IS NOT NULL
+           )) OR
+           (claimed_by IS NOT NULL AND (
+             claim_id IS NULL OR claimed_until IS NULL
+           ))
+         ))\`,
+      ).get() as { count: number };
+
+      if (
+        invalidRuns.count > 0 ||
+        invalidSteps.count > 0 ||
+        invalidEvents.count > 0 ||
+        invalidIdempotency.count > 0 ||
+        invalidInbox.count > 0 ||
+        invalidCheckpoints.count > 0 ||
+        invalidOutbox.count > 0
+      ) {
+        throw new AgentiCOSError(
+          "Existing database contains domain records that fail kernel integrity preflight.",
+          {
+            code: "DATABASE_DOMAIN_INTEGRITY_FAILED",
+            category: "PERSISTENCE",
+            severity: "critical",
+          },
+        );
+      }
+
+      database.exec(\`
+        CREATE TRIGGER IF NOT EXISTS trg_inbox_claim_consistency_insert
+        BEFORE INSERT ON inbox
+        WHEN (NEW.status = 'completed' AND NEW.completed_at IS NULL)
+          OR (NEW.status = 'processing' AND NEW.completed_at IS NOT NULL)
+        BEGIN
+          SELECT RAISE(ABORT, 'invalid inbox completion state');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_inbox_claim_consistency_update
+        BEFORE UPDATE OF status, completed_at ON inbox
+        WHEN (NEW.status = 'completed' AND NEW.completed_at IS NULL)
+          OR (NEW.status = 'processing' AND NEW.completed_at IS NOT NULL)
+        BEGIN
+          SELECT RAISE(ABORT, 'invalid inbox completion state');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_outbox_claim_consistency_insert
+        BEFORE INSERT ON outbox
+        WHEN (NEW.published_at IS NOT NULL AND (
+          NEW.claimed_by IS NOT NULL OR NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
+        ))
+        OR (NEW.published_at IS NULL AND (
+          (NEW.claimed_by IS NULL AND (
+            NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
+          )) OR
+          (NEW.claimed_by IS NOT NULL AND (
+            NEW.claim_id IS NULL OR NEW.claimed_until IS NULL
+          ))
+        ))
+        BEGIN
+          SELECT RAISE(ABORT, 'invalid outbox claim state');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_outbox_claim_consistency_update
+        BEFORE UPDATE OF published_at, claimed_by, claim_id, claimed_until ON outbox
+        WHEN (NEW.published_at IS NOT NULL AND (
+          NEW.claimed_by IS NOT NULL OR NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
+        ))
+        OR (NEW.published_at IS NULL AND (
+          (NEW.claimed_by IS NULL AND (
+            NEW.claim_id IS NOT NULL OR NEW.claimed_until IS NOT NULL
+          )) OR
+          (NEW.claimed_by IS NOT NULL AND (
+            NEW.claim_id IS NULL OR NEW.claimed_until IS NULL
+          ))
+        ))
+        BEGIN
+          SELECT RAISE(ABORT, 'invalid outbox claim state');
+        END;
+      \`);
+    },
+  },
 ];
 
 export function applyKernelMigrations(
@@ -178,7 +319,7 @@ export function applyKernelMigrations(
     });
   }
 
-  if (currentSchemaVersion > 3) {
+  if (currentSchemaVersion > 4) {
     throw new AgentiCOSError(
       "Database schema version is newer than this runtime.",
       {

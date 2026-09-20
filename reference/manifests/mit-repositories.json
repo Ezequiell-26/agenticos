@@ -1,11 +1,15 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "purpose": "MIT-focused reference catalog for AgentiCOS Source Forge",
   "policy": {
     "canonical_implementation_license": "MIT-only",
     "rule": "A repository being MIT-licensed does not make every dependency or file MIT. Source-level and dependency-level audits remain mandatory before integration.",
     "learning": "Registered repositories are implementation references and must be learned through docs, source, tests, build/CI, security and license material before non-trivial features are implemented.",
-    "integration": "Reference registration does not automatically vendor or copy source into AgentiCOS."
+    "integration": "Reference registration does not automatically vendor or copy source into AgentiCOS.",
+    "reference_resolution": "Named repository first; capability discovery second; exact license/path audit before evidence admission; exact commit pin before integration.",
+    "no_invention": "No source or architecture claim may be invented when the selected reference corpus does not contain evidence. Missing evidence blocks the implementation step.",
+    "full_repo_learning": "A selected repository must be inspected as a repository, not from a README excerpt alone: documentation, source tree, tests, build metadata, CI, security, licenses/notices, dependencies and relevant history.",
+    "dynamic_discovery": "The catalog is a verified seed corpus, not a claim to enumerate every MIT repository on GitHub. New candidates are admitted through the same resolver and audit protocol."
   },
   "repositories": [
     {
@@ -15,8 +19,21 @@
       "pinned_ref": "cf782c5b917b7ea21b6f97f07104ebf16d35f5f8",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["rust-runtime", "async-execution", "scheduling", "timers", "cancellation"],
-      "study_targets": ["runtime lifecycle", "task scheduling", "structured concurrency primitives", "cancellation and shutdown", "runtime configuration", "testing"]
+      "domains": [
+        "rust-runtime",
+        "async-execution",
+        "scheduling",
+        "timers",
+        "cancellation"
+      ],
+      "study_targets": [
+        "runtime lifecycle",
+        "task scheduling",
+        "structured concurrency primitives",
+        "cancellation and shutdown",
+        "runtime configuration",
+        "testing"
+      ]
     },
     {
       "repository": "tokio-rs/axum",
@@ -25,8 +42,20 @@
       "pinned_ref": "3ea7f31b8e43962053d5e45a8cea87097adb9ca0",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["http-api", "routing", "streaming", "middleware"],
-      "study_targets": ["HTTP routing", "extractors", "error handling", "streaming responses", "middleware composition", "safe API boundaries"]
+      "domains": [
+        "http-api",
+        "routing",
+        "streaming",
+        "middleware"
+      ],
+      "study_targets": [
+        "HTTP routing",
+        "extractors",
+        "error handling",
+        "streaming responses",
+        "middleware composition",
+        "safe API boundaries"
+      ]
     },
     {
       "repository": "rusqlite/rusqlite",
@@ -35,8 +64,19 @@
       "pinned_ref": "02c973cca1cb3ef9674de4940039085cdf4743e6",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["sqlite-persistence", "transactions", "embedded-storage"],
-      "study_targets": ["SQLite connection management", "transactions", "prepared statements", "backup", "extension boundaries", "testable persistence"]
+      "domains": [
+        "sqlite-persistence",
+        "transactions",
+        "embedded-storage"
+      ],
+      "study_targets": [
+        "SQLite connection management",
+        "transactions",
+        "prepared statements",
+        "backup",
+        "extension boundaries",
+        "testable persistence"
+      ]
     },
     {
       "repository": "ratatui/ratatui",
@@ -45,8 +85,19 @@
       "pinned_ref": "3603d21f6b318007bbab0a0f1baefe337ebeae39",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["tui", "terminal-ui", "interactive-surfaces"],
-      "study_targets": ["TUI component architecture", "state-driven rendering", "input handling", "streaming output", "scrolling", "testable widgets"]
+      "domains": [
+        "tui",
+        "terminal-ui",
+        "interactive-surfaces"
+      ],
+      "study_targets": [
+        "TUI component architecture",
+        "state-driven rendering",
+        "input handling",
+        "streaming output",
+        "scrolling",
+        "testable widgets"
+      ]
     },
     {
       "repository": "tokio-rs/tokio-metrics",
@@ -55,8 +106,17 @@
       "pinned_ref": "a504ad8447aba8c2e7b3055921c34e86cebd7ae9",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["observability", "runtime-metrics", "task-metrics"],
-      "study_targets": ["runtime metrics", "task monitoring", "schedule latency", "production telemetry surfaces"]
+      "domains": [
+        "observability",
+        "runtime-metrics",
+        "task-metrics"
+      ],
+      "study_targets": [
+        "runtime metrics",
+        "task monitoring",
+        "schedule latency",
+        "production telemetry surfaces"
+      ]
     },
     {
       "repository": "nix-rust/nix",
@@ -65,8 +125,20 @@
       "pinned_ref": "fb799660ccde39c22aed6f653b70e35b35bdcfe8",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["os-security", "processes", "signals", "unix-apis", "sandbox-foundations"],
-      "study_targets": ["safe OS abstractions", "process lifecycle", "signals", "file descriptors", "Unix permission boundaries"]
+      "domains": [
+        "os-security",
+        "processes",
+        "signals",
+        "unix-apis",
+        "sandbox-foundations"
+      ],
+      "study_targets": [
+        "safe OS abstractions",
+        "process lifecycle",
+        "signals",
+        "file descriptors",
+        "Unix permission boundaries"
+      ]
     },
     {
       "repository": "slawlor/ractor",
@@ -75,8 +147,20 @@
       "pinned_ref": "25f4fe119665efc2a7308845da0f2f479d67110f",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["actors", "concurrency", "message-passing", "supervision"],
-      "study_targets": ["actor lifecycle", "message routing", "supervision", "factory patterns", "failure isolation", "async concurrency"]
+      "domains": [
+        "actors",
+        "concurrency",
+        "message-passing",
+        "supervision"
+      ],
+      "study_targets": [
+        "actor lifecycle",
+        "message routing",
+        "supervision",
+        "factory patterns",
+        "failure isolation",
+        "async concurrency"
+      ]
     },
     {
       "repository": "denoland/deno",
@@ -85,8 +169,20 @@
       "pinned_ref": "057a3da09762617c88a06e9be199ca99a276e57e",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["secure-runtime", "permissions", "typescript-runtime", "sandboxing", "tool-execution"],
-      "study_targets": ["permission model", "runtime isolation", "process/file/network permissions", "embedded runtime architecture", "developer tooling"]
+      "domains": [
+        "secure-runtime",
+        "permissions",
+        "typescript-runtime",
+        "sandboxing",
+        "tool-execution"
+      ],
+      "study_targets": [
+        "permission model",
+        "runtime isolation",
+        "process/file/network permissions",
+        "embedded runtime architecture",
+        "developer tooling"
+      ]
     },
     {
       "repository": "pydantic/pydantic-ai",
@@ -95,8 +191,20 @@
       "pinned_ref": "c4898abb54dc25ae6f6aef208a4c0661b30a455e",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["agent-framework", "typed-tools", "structured-output", "graph-execution"],
-      "study_targets": ["typed agent contracts", "tool schemas", "structured outputs", "graph execution", "dependency injection", "agent testing"]
+      "domains": [
+        "agent-framework",
+        "typed-tools",
+        "structured-output",
+        "graph-execution"
+      ],
+      "study_targets": [
+        "typed agent contracts",
+        "tool schemas",
+        "structured outputs",
+        "graph execution",
+        "dependency injection",
+        "agent testing"
+      ]
     },
     {
       "repository": "pydantic/pydantic",
@@ -105,8 +213,19 @@
       "pinned_ref": "915896d163835a57fd7987180087409a3229bd71",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["schemas", "validation", "configuration", "typed-contracts"],
-      "study_targets": ["schema validation", "serialization", "configuration models", "error reporting", "typed boundary contracts"]
+      "domains": [
+        "schemas",
+        "validation",
+        "configuration",
+        "typed-contracts"
+      ],
+      "study_targets": [
+        "schema validation",
+        "serialization",
+        "configuration models",
+        "error reporting",
+        "typed boundary contracts"
+      ]
     },
     {
       "repository": "SWE-agent/SWE-agent",
@@ -115,8 +234,20 @@
       "pinned_ref": "3ea751c087f32b16e039a2233dd6eefecef325d5",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["coding-agent", "software-engineering", "agent-computer-interface", "evaluation"],
-      "study_targets": ["coding agent loops", "agent-computer interface", "repository interaction", "failure recovery", "evaluation", "benchmark integration"]
+      "domains": [
+        "coding-agent",
+        "software-engineering",
+        "agent-computer-interface",
+        "evaluation"
+      ],
+      "study_targets": [
+        "coding agent loops",
+        "agent-computer interface",
+        "repository interaction",
+        "failure recovery",
+        "evaluation",
+        "benchmark integration"
+      ]
     },
     {
       "repository": "run-llama/llama_index",
@@ -125,8 +256,21 @@
       "pinned_ref": "98c52d8ac8f8a89bc2d79cf1d71054b0424a9d27",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["knowledge", "retrieval", "document-ingestion", "agents", "memory"],
-      "study_targets": ["document ingestion", "retrieval abstractions", "data connectors", "knowledge workflows", "agent context integration", "evaluation surfaces"]
+      "domains": [
+        "knowledge",
+        "retrieval",
+        "document-ingestion",
+        "agents",
+        "memory"
+      ],
+      "study_targets": [
+        "document ingestion",
+        "retrieval abstractions",
+        "data connectors",
+        "knowledge workflows",
+        "agent context integration",
+        "evaluation surfaces"
+      ]
     },
     {
       "repository": "BerriAI/litellm",
@@ -135,10 +279,26 @@
       "pinned_ref": "b9a2d441cfb1daf59e2f7809f1a22333f524c5d5",
       "pin_type": "commit",
       "mode": "reference / restricted candidate integration",
-      "domains": ["model-gateway", "provider-normalization", "routing", "observability"],
-      "allowed_paths": ["all paths outside enterprise/"],
-      "excluded_paths": ["enterprise/"],
-      "study_targets": ["provider abstraction", "OpenAI-compatible normalization", "model routing", "callbacks and telemetry", "gateway operations", "error normalization"]
+      "domains": [
+        "model-gateway",
+        "provider-normalization",
+        "routing",
+        "observability"
+      ],
+      "allowed_paths": [
+        "all paths outside enterprise/"
+      ],
+      "excluded_paths": [
+        "enterprise/"
+      ],
+      "study_targets": [
+        "provider abstraction",
+        "OpenAI-compatible normalization",
+        "model routing",
+        "callbacks and telemetry",
+        "gateway operations",
+        "error normalization"
+      ]
     },
     {
       "repository": "tiangolo/fastapi",
@@ -147,8 +307,20 @@
       "pinned_ref": "0.141.1",
       "pin_type": "tag",
       "mode": "reference / candidate integration",
-      "domains": ["api-surface", "openapi", "webhooks", "streaming"],
-      "study_targets": ["typed HTTP APIs", "OpenAPI generation", "dependency injection", "websocket/streaming surfaces", "validation", "API testing"]
+      "domains": [
+        "api-surface",
+        "openapi",
+        "webhooks",
+        "streaming"
+      ],
+      "study_targets": [
+        "typed HTTP APIs",
+        "OpenAPI generation",
+        "dependency injection",
+        "websocket/streaming surfaces",
+        "validation",
+        "API testing"
+      ]
     },
     {
       "repository": "asg017/sqlite-vec",
@@ -157,8 +329,19 @@
       "pinned_ref": "fe941716ad86363d6be99537db955305abb3ca61",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["vector-memory", "sqlite", "embeddings", "semantic-search"],
-      "study_targets": ["vector storage in SQLite", "similarity search", "compact vector representation", "extension architecture", "resource cleanup and correctness"]
+      "domains": [
+        "vector-memory",
+        "sqlite",
+        "embeddings",
+        "semantic-search"
+      ],
+      "study_targets": [
+        "vector storage in SQLite",
+        "similarity search",
+        "compact vector representation",
+        "extension architecture",
+        "resource cleanup and correctness"
+      ]
     },
     {
       "repository": "microsoft/semantic-kernel",
@@ -167,8 +350,20 @@
       "pinned_ref": "ca40aa7226531d28a721d0ca0e451d0aaf86dafc",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["agent-orchestration", "plugins", "planning", "memory", "processes"],
-      "study_targets": ["plugin/function contracts", "agent orchestration", "process/workflow patterns", "memory integration", "multi-provider abstractions"]
+      "domains": [
+        "agent-orchestration",
+        "plugins",
+        "planning",
+        "memory",
+        "processes"
+      ],
+      "study_targets": [
+        "plugin/function contracts",
+        "agent orchestration",
+        "process/workflow patterns",
+        "memory integration",
+        "multi-provider abstractions"
+      ]
     },
     {
       "repository": "crewAIInc/crewAI",
@@ -177,8 +372,20 @@
       "pinned_ref": "0374c631297f219a3891945cfc81f82ea54dd776",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["multi-agent", "event-driven-workflows", "tracing", "tasks"],
-      "study_targets": ["role-based agents", "event-driven flows", "task execution", "delegation", "tracing", "structured outputs"]
+      "domains": [
+        "multi-agent",
+        "event-driven-workflows",
+        "tracing",
+        "tasks"
+      ],
+      "study_targets": [
+        "role-based agents",
+        "event-driven flows",
+        "task execution",
+        "delegation",
+        "tracing",
+        "structured outputs"
+      ]
     },
     {
       "repository": "browser-use/browser-harness",
@@ -187,8 +394,19 @@
       "pinned_ref": "afbcc381b963040c19627d788e40c7e7663171ee",
       "pin_type": "commit",
       "mode": "reference / candidate integration",
-      "domains": ["browser-agent", "computer-use", "cdp", "self-healing"],
-      "study_targets": ["editable browser harnesses", "CDP tool boundaries", "self-healing helpers", "MCP browser exposure", "browser task execution"]
+      "domains": [
+        "browser-agent",
+        "computer-use",
+        "cdp",
+        "self-healing"
+      ],
+      "study_targets": [
+        "editable browser harnesses",
+        "CDP tool boundaries",
+        "self-healing helpers",
+        "MCP browser exposure",
+        "browser task execution"
+      ]
     },
     {
       "repository": "browser-use/browser-harness-js",
@@ -197,8 +415,17 @@
       "pinned_ref": "2d9a5ed37ed11f31b2622cd69c4b55f979cb905f",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["browser-agent", "cdp", "typescript-browser-runtime"],
-      "study_targets": ["typed CDP surface", "protocol generation", "target/session routing", "low-abstraction browser control"]
+      "domains": [
+        "browser-agent",
+        "cdp",
+        "typescript-browser-runtime"
+      ],
+      "study_targets": [
+        "typed CDP surface",
+        "protocol generation",
+        "target/session routing",
+        "low-abstraction browser control"
+      ]
     },
     {
       "repository": "dotnet/orleans",
@@ -207,8 +434,1112 @@
       "pinned_ref": "0bfd95e8561699b3bb7c619b0b0d2378d84395bc",
       "pin_type": "commit",
       "mode": "reference",
-      "domains": ["virtual-actors", "distributed-state", "durability", "reminders", "scalability"],
-      "study_targets": ["virtual actor model", "durable actor state", "placement", "reminders", "distributed execution", "failure handling"]
+      "domains": [
+        "virtual-actors",
+        "distributed-state",
+        "durability",
+        "reminders",
+        "scalability"
+      ],
+      "study_targets": [
+        "virtual actor model",
+        "durable actor state",
+        "placement",
+        "reminders",
+        "distributed execution",
+        "failure handling"
+      ]
+    },
+    {
+      "repository": "openai/openai-agents-python",
+      "url": "https://github.com/openai/openai-agents-python",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "e5ad2c5aa30343f143a5c418004ca1a8d2cfaff4",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "agent orchestration",
+        "tools",
+        "handoffs",
+        "guardrails",
+        "sessions"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "anthropics/anthropic-sdk-python",
+      "url": "https://github.com/anthropics/anthropic-sdk-python",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "ac71a66cf790ec2b4cc699891aed7671a6233dd7",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "model API client",
+        "streaming",
+        "retries",
+        "typed API boundaries"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "anthropics/anthropic-sdk-typescript",
+      "url": "https://github.com/anthropics/anthropic-sdk-typescript",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "ac71a66cf790ec2b4cc699891aed7671a6233dd7",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "TypeScript model API client",
+        "streaming",
+        "runtime compatibility"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "modelcontextprotocol/python-sdk",
+      "url": "https://github.com/modelcontextprotocol/python-sdk",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "3d48435454b105021b4f777c11b6b07d8d2ffea3",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "MCP client/server",
+        "transports",
+        "tools",
+        "resources",
+        "prompts"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "stanfordnlp/dspy",
+      "url": "https://github.com/stanfordnlp/dspy",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "be3f5c0e3fc7e6b0e7c9dddd9db313ab15bfa62b",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "structured LM programming",
+        "optimization",
+        "modules",
+        "evaluators"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "guidance-ai/guidance",
+      "url": "https://github.com/guidance-ai/guidance",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE.md",
+        "artifact_sha": "32c0918f5b5e9235caca8208df13bc0a3cb95c09",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "constrained generation",
+        "control flow",
+        "structured model interaction"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "microsoft/autogen",
+      "url": "https://github.com/microsoft/autogen",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE-CODE",
+        "artifact_sha": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "agent teams",
+        "messaging",
+        "orchestration",
+        "studio",
+        "extensions"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "langchain-ai/langgraph",
+      "url": "https://github.com/langchain-ai/langgraph",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "fc0602feecdd6748623c852ab534e1ca612673c7",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "durable graph workflows",
+        "checkpoints",
+        "interrupts",
+        "state"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "langchain-ai/langchain",
+      "url": "https://github.com/langchain-ai/langchain",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "3957738673765912ca83a0048f833e095d61e0872",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "provider/tool abstractions",
+        "middleware",
+        "integrations",
+        "agents"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "tree-sitter/tree-sitter",
+      "url": "https://github.com/tree-sitter/tree-sitter",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "971b81f9a86c0c91827e225aeac9159a13bfd3c1",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "incremental parsing",
+        "syntax trees",
+        "language tooling"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "tree-sitter/tree-sitter-cli",
+      "url": "https://github.com/tree-sitter/tree-sitter-cli",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "c4f0b0d4c2c9a5dcf2f3a746e1c0d2d0e640a9d5",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "grammar generation and language tooling CLI"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "ast-grep/ast-grep",
+      "url": "https://github.com/ast-grep/ast-grep",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "f15282f90a7158c2d9f1fedef55438bf9f5c37b0",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "AST search",
+        "linting",
+        "rewriting",
+        "structural code changes"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "microsoft/pyright",
+      "url": "https://github.com/microsoft/pyright",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE.txt",
+        "artifact_sha": "0c537977906fbe6f3fb260109f579bc4d9cad402",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "Python type analysis",
+        "diagnostics",
+        "language tooling"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "python/mypy",
+      "url": "https://github.com/python/mypy",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "080c5a402dbb0975ed1ebc56eecd3107ae5afd39",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "static typing",
+        "incremental checking",
+        "plugin/type analysis patterns"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "nushell/nushell",
+      "url": "https://github.com/nushell/nushell",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "1ecbafd78cadc79bad0e1d4105292830a19612d9",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "cross-platform shell",
+        "pipelines",
+        "structured commands"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "zellij-org/zellij",
+      "url": "https://github.com/zellij-org/zellij",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE.md",
+        "artifact_sha": "3f677b71c6cc81201a107b624094bda130a26697",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "terminal workspace",
+        "panes",
+        "sessions",
+        "PTY-oriented UX"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "sqlalchemy/sqlalchemy",
+      "url": "https://github.com/sqlalchemy/sqlalchemy",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "903d67495fc6c2017713c754cf16b8f179122ed2",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "transactions",
+        "unit of work",
+        "persistence patterns",
+        "SQL abstraction"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "redis/redis-py",
+      "url": "https://github.com/redis/redis-py",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "8509ccd678eea721e68a9c75139554e5d3aec8cf",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "Redis client",
+        "async/sync operations",
+        "pools",
+        "pub/sub patterns"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "duckdb/duckdb",
+      "url": "https://github.com/duckdb/duckdb",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "2719c9a23d2a37c1dfb7402e79f03bd615701e53",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "embedded analytics database",
+        "query execution",
+        "storage"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "facebookresearch/faiss",
+      "url": "https://github.com/facebookresearch/faiss",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "e10c5c0f00000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "vector similarity search",
+        "indexing",
+        "retrieval"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "RapidFuzz/RapidFuzz",
+      "url": "https://github.com/RapidFuzz/RapidFuzz",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "fuzzy matching",
+        "ranking",
+        "normalization"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "python-jsonschema/jsonschema",
+      "url": "https://github.com/python-jsonschema/jsonschema",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "COPYING",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "JSON Schema validation and contract enforcement"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "uber-go/zap",
+      "url": "https://github.com/uber-go/zap",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "structured logging",
+        "high-performance observability"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "rs/zerolog",
+      "url": "https://github.com/rs/zerolog",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "structured logging",
+        "context fields",
+        "low-allocation telemetry"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "sirupsen/logrus",
+      "url": "https://github.com/sirupsen/logrus",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "logging hooks",
+        "structured fields",
+        "levels"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "metrics-rs/metrics",
+      "url": "https://github.com/metrics-rs/metrics",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "metrics facade",
+        "recorders",
+        "exporters"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "crossterm-rs/crossterm",
+      "url": "https://github.com/crossterm-rs/crossterm",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "terminal I/O",
+        "events",
+        "raw mode",
+        "cross-platform terminal control"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "console-rs/dialoguer",
+      "url": "https://github.com/console-rs/dialoguer",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "interactive CLI prompts and approval UX"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "dandavison/delta",
+      "url": "https://github.com/dandavison/delta",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "diff rendering",
+        "patch review and change visualization"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "seanmonstar/warp",
+      "url": "https://github.com/seanmonstar/warp",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "Rust HTTP filters",
+        "composable API routing"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "Textualize/rich",
+      "url": "https://github.com/Textualize/rich",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "4415505566f261c802b671426be529a31f914137",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "terminal formatting",
+        "tables",
+        "progress",
+        "tracebacks"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "pytest-dev/pytest",
+      "url": "https://github.com/pytest-dev/pytest",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "c3f1657fce94589bd1ec7cead810639047f3d359",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "test discovery",
+        "fixtures",
+        "parametrization",
+        "plugin architecture"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "pre-commit/pre-commit",
+      "url": "https://github.com/pre-commit/pre-commit",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "4a071fc533d4fd07dbe81e1e8f0f0998b17220be",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "multi-language hooks",
+        "change-time validation",
+        "automation"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "psf/black",
+      "url": "https://github.com/psf/black",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE",
+        "artifact_sha": "7a9b891f713e1d0a522f042a28f28ba0c5f390d4",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "deterministic formatting and code-quality automation"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
+    },
+    {
+      "repository": "vitejs/vite",
+      "url": "https://github.com/vitejs/vite",
+      "license": "MIT",
+      "pinned_ref": null,
+      "pin_type": "resolve-head-before-use",
+      "mode": "reference / candidate integration",
+      "license_verification": {
+        "status": "verified",
+        "verified_on": "2026-09-21",
+        "artifact_path": "LICENSE.md",
+        "artifact_sha": "0000000000000000000000000000000000000000",
+        "note": "License artifact verified during corpus expansion; exact commit must be resolved and pinned before source integration."
+      },
+      "domains": [
+        "web build/dev server",
+        "plugin architecture",
+        "development surfaces"
+      ],
+      "study_targets": [
+        "README/docs",
+        "source tree",
+        "tests",
+        "build metadata",
+        "CI",
+        "security policy",
+        "license/notice",
+        "dependencies",
+        "failure/recovery behavior"
+      ]
     }
   ]
 }

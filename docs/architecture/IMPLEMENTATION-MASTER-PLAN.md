@@ -2,6 +2,8 @@
 
 This is the architecture-derived implementation order. It is designed to prevent features from being built on unstable abstractions.
 
+**Foundation status:** the Rust workspace, canonical crate ownership, versioned protocol schemas, contract registry, reference catalog, sequential implementation manifest, executable architecture-readiness gate and Rust CI enforcement are now materialized. Functional implementation remains locked behind the architecture-foundation verification state.
+
 ## Phase 0 — Architecture, references, language and contracts
 
 - finalize Product Blueprint and domain ownership;

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "project": "agenticos",
+  "mode": "sequential-verified",
+  "current_step": "architecture-foundation",
+  "steps": [
+    {
+      "id": "architecture-foundation",
+      "number": 0,
+      "status": "in_progress",
+      "scope": [
+        "root Cargo workspace",
+        "Rust crate boundaries",
+        "versioned protocol schemas",
+        "contract registry",
+        "architecture gates",
+        "source/license provenance rules",
+        "reference corpus catalog",
+        "sequential implementation protocol"
+      ],
+      "unlocks": ["rust-kernel-vertical-slice-1"]
+    },
+    {
+      "id": "rust-kernel-vertical-slice-1",
+      "number": 1,
+      "status": "locked",
+      "scope": [
+        "durable Run lifecycle",
+        "event store contract",
+        "snapshot/replay",
+        "cancellation",
+        "idempotency",
+        "lease/fencing",
+        "SQLite adapter",
+        "kernel smoke path"
+      ],
+      "requires": ["architecture-foundation"]
+    }
+  ],
+  "policy": {
+    "one_step_at_a_time": true,
+    "next_step_requires_verified_previous": true,
+    "fail_closed": true,
+    "future_scope_preimplementation_forbidden": true,
+    "reference_lookup_required_for_nontrivial_features": true,
+    "mit_only_canonical_third_party_source": true
+  }
+}

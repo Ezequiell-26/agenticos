@@ -22,7 +22,8 @@ This contract defines how an AI coding agent must build AgentiCOS during iterati
 16. Add failure and recovery behavior.
 17. Add integration and end-to-end verification.
 18. Update the manifest and architecture documentation.
-19. Apply the applicable token-optimization contract at model/tool boundaries.\n20. Leave a stable checkpoint.
+19. Apply the applicable token-optimization contract at model/tool boundaries.
+20. Leave a stable checkpoint.
 
 ## Reference-first engineering rule
 

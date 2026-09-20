@@ -48,3 +48,29 @@ Then read [docs/architecture/README.md](./docs/architecture/README.md).
 - DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
 - OpenAI Codex: https://github.com/openai/codex
 - Google Antigravity: https://antigravity.google/docs/ide/overview
+
+---
+
+<p align="center">
+  <img src="./assets/agenticos-banner.svg" alt="AgentiCOS" width="100%">
+</p>
+
+<p align="center">
+  <a href="./ARCHITECTURE.md">
+    <img src="https://img.shields.io/badge/ARCHITECTURE-FIRST-FFD700?style=for-the-badge&labelColor=111318" alt="Architecture-first">
+  </a>
+  <a href="./docs/architecture/README.md">
+    <img src="https://img.shields.io/badge/DOCUMENTATION-1F2937?style=for-the-badge&labelColor=111318" alt="Documentation">
+  </a>
+  <a href="./THIRD_PARTY_SOURCES.md">
+    <img src="https://img.shields.io/badge/SOURCE%20PROVENANCE-6B7280?style=for-the-badge&labelColor=111318" alt="Source provenance">
+  </a>
+</p>
+
+<p align="center">
+  <strong>AgentiCOS</strong> · Universal, model-agnostic agent infrastructure designed around stable contracts, extensibility and verifiable execution.
+</p>
+
+<p align="center">
+  <sub>Build the agent layer once. Extend it everywhere.</sub>
+</p>

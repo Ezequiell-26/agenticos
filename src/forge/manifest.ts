@@ -47,11 +47,27 @@ export async function saveManifest(
 ): Promise<void> {
   assertSourceManifest(manifest);
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(
-    filePath,
-    JSON.stringify(manifest, null, 2) + "\n",
-    "utf8",
-  );
+
+  const temporaryPath = filePath + "." + randomUUID() + ".tmp";
+
+  try {
+    await writeFile(
+      temporaryPath,
+      JSON.stringify(manifest, null, 2) + "\\n",
+      "utf8",
+    );
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+    throw new AgentiCOSError(
+      "Source manifest could not be persisted atomically.",
+      {
+        code: "FORGE_MANIFEST_SAVE_FAILED",
+        category: "PERSISTENCE",
+        cause: error,
+      },
+    );
+  }
 }
 
 export function upsertRepository(
@@ -121,6 +137,7 @@ export function assertSourceManifest(
         "Duplicate source repository id: " + repository.id,
       );
     }
+
     repositoryIds.add(repository.id);
   }
 
@@ -133,6 +150,7 @@ export function assertSourceManifest(
       !candidate.sourceId.trim() ||
       !candidate.path.trim() ||
       candidate.path.startsWith("/") ||
+      candidate.path.includes("\\\\") ||
       candidate.path.split("/").some(
         (part) => part === "" || part === "." || part === "..",
       ) ||
@@ -157,15 +175,18 @@ export function assertSourceManifest(
       );
     }
 
-    const key = candidate.sourceId + "\n" + candidate.path;
+    const key = candidate.sourceId + "\\n" + candidate.path;
     if (candidateKeys.has(key)) {
       throw invalidManifest("Duplicate source candidate: " + key);
     }
+
     candidateKeys.add(key);
   }
 }
 
-function assertSourceRepository(value: unknown): asserts value is SourceRepository {
+function assertSourceRepository(
+  value: unknown,
+): asserts value is SourceRepository {
   if (!isRecord(value)) {
     throw invalidManifest("Source repository entry is invalid.");
   }
@@ -225,7 +246,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isLicenseStatus(value: unknown): value is SourceRepository["licenseStatus"] {
+function isLicenseStatus(
+  value: unknown,
+): value is SourceRepository["licenseStatus"] {
   return (
     value === "verified-mit" ||
     value === "non-mit" ||

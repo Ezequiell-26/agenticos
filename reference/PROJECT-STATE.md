@@ -6,9 +6,9 @@
 
 - Repository: `Ezequiell-26/agenticos`
 - Architecture mode: sequential-verified
-- Current implementation step: `architecture-foundation`
-- Current step status: `in_progress`
-- Functional implementation remains locked until the foundation verification gate passes.
+- Current implementation step: `rust-kernel-vertical-slice-1`
+- Current step status: `pending`
+- Architecture foundation verification has passed. Functional Step 1 is now the single authorized next slice and has not yet started.
 - Canonical runtime: Rust/Tokio.
 - Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
 - Destructive AI operations: disabled by default.
@@ -78,3 +78,18 @@ The next AI must continue from this file and the append-only journal, not from m
 - Architecture status: verification pending, no functional implementation unlocked.
 - Structural findings corrected: readiness corpus bug, continuity portability/enforcement, root license, Cargo.lock, MIT-corpus/source-registry reconciliation, dependency-direction wording, embedded citation artifacts and state-consistency enforcement.
 - Remaining verification truth: Rust toolchain checks and final remote CI evidence are still UNVERIFIED.
+
+## Foundation verification checkpoint
+
+- `architecture-foundation`: VERIFIED.
+- GitHub Actions run: #354 (`35539582335`).
+- Commit verified: `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`.
+- TypeScript verification: PASS.
+- Continuity verification: PASS.
+- Architecture/readiness verification: PASS.
+- Implementation-state validation: PASS.
+- npm audit: PASS.
+- npm dependency tree: PASS.
+- Rust fmt/check/test/clippy: PASS.
+- No functional Step 1 code has been started.
+- Exactly one next step is authorized: `rust-kernel-vertical-slice-1`.

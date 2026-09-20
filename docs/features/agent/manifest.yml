@@ -1,0 +1,70 @@
+id: agent-experience
+version: 1
+status: planned
+ownerDomain: runtime
+
+surfaces:
+  - web
+  - tui
+  - desktop
+
+contracts:
+  - application-protocol
+  - agent-contract
+  - thread-contract
+  - provider-contract
+  - tool-contract
+  - artifact-contract
+
+dependencies:
+  - kernel
+  - contracts
+  - persistence
+  - providers
+  - protocol
+
+slices:
+  - id: agent-01-window
+    goal: "Create the Agent workspace shell and navigation."
+  - id: agent-02-chat-shell
+    goal: "Connect message composition and rendering to canonical thread types using a deterministic provider fixture."
+  - id: agent-03-persistence
+    goal: "Persist threads and reconnect after reload/restart."
+  - id: agent-04-real-provider
+    goal: "Use a configured real Provider Contract implementation."
+  - id: agent-05-streaming
+    goal: "Render normalized streaming events with interrupt support."
+  - id: agent-06-tools
+    goal: "Execute one safe read-only tool through the canonical tool pipeline."
+  - id: agent-07-security
+    goal: "Add policy, approval and sandbox controls."
+  - id: agent-08-context-skills
+    goal: "Add bounded context compilation and skill loading."
+  - id: agent-09-memory
+    goal: "Add scoped persistent memory and retrieval."
+  - id: agent-10-verification
+    goal: "Add evidence-based verification and bounded repair."
+  - id: agent-11-subagents
+    goal: "Add isolated child runs and parallel delegation."
+  - id: agent-12-background
+    goal: "Add durable background execution and reconnect."
+  - id: agent-13-interoperability
+    goal: "Add MCP, A2A and external engine integration through existing contracts."
+
+security:
+  secretPolicy: "secrets-are-never-model-visible-by-default"
+  sandboxRequiredForGeneratedExecution: true
+  privilegedActionsRequireApproval: true
+
+persistence:
+  canonical: "runtime persistence"
+
+tests:
+  required:
+    - unit
+    - contract
+    - integration
+    - e2e
+
+currentSlice: agent-01-window
+nextSlice: agent-02-chat-shell

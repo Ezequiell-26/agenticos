@@ -347,7 +347,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       const fencingToken = (currentLease?.fencing_token ?? 0) + 1;
       const lease: Lease = {
         resourceId,
-        leaseId: randomUUID(),
+        leaseId: this.ids.next(),
         ownerId: workerId,
         fencingToken,
         acquiredAt: nowIso,
@@ -541,40 +541,7 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
     );
   }
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
-  async claim(consumerId: string, eventId: string): Promise<boolean>;
-  async claim(
-    first: IdempotencyRecord | string,
-    second?: string,
-  ): Promise<IdempotencyRecord | undefined | boolean> {
-    if (typeof first === "string") {
-      const consumerId = first;
-      const eventId = second;
-      if (!eventId) {
-        throw new AgentiCOSError("Inbox eventId is required.", {
-          code: "INBOX_EVENT_ID_REQUIRED",
-          category: "VALIDATION",
-        });
-      }
-
-      return this.database.transactionImmediate(() => {
-        const existing = this.database.db
-          .prepare("SELECT status FROM inbox WHERE consumer_id = ? AND event_id = ?")
-          .get(consumerId, eventId) as { status: "processing" | "completed" } | undefined;
-
-        if (existing) return false;
-
-        const result = this.database.db.prepare(`
-          INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
-          VALUES(?, ?, 'processing', ?)
-          ON CONFLICT(consumer_id, event_id) DO NOTHING
-        `).run(consumerId, eventId, this.clock.nowIso());
-
-        return result.changes === 1;
-      });
-    }
-
-    const record = first;
+  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
     return this.database.transactionImmediate(() => {
       const existing = this.database.db
         .prepare("SELECT * FROM idempotency WHERE key = ?")
@@ -605,6 +572,25 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       );
 
       return undefined;
+    });
+  }
+
+  async claimEvent(consumerId: string, eventId: string): Promise<boolean> {
+    if (!consumerId.trim() || !eventId.trim()) {
+      throw new AgentiCOSError("Inbox consumerId and eventId are required.", {
+        code: "INBOX_ID_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
+
+    return this.database.transactionImmediate(() => {
+      const result = this.database.db.prepare(`
+        INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
+        VALUES(?, ?, 'processing', ?)
+        ON CONFLICT(consumer_id, event_id) DO NOTHING
+      `).run(consumerId, eventId, this.clock.nowIso());
+
+      return result.changes === 1;
     });
   }
 
@@ -935,6 +921,12 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
             actor_id: string | null;
           } | undefined;
 
+    const workspaceId = metadata?.workspaceId ?? context?.workspace_id;
+    const projectId = metadata?.projectId ?? context?.project_id ?? undefined;
+    const threadId = metadata?.threadId ?? context?.thread_id ?? undefined;
+    const actorId = metadata?.actorId ?? context?.actor_id ?? undefined;
+    const correlationId = metadata?.correlationId ?? runId;
+
     this.database.db.prepare(`
       INSERT INTO events(
         event_id, type, version, aggregate_id, run_id,
@@ -948,10 +940,10 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       version,
       aggregateId,
       runId ?? null,
-      metadata?.workspaceId ?? context?.workspace_id ?? null,
-      metadata?.projectId ?? context?.project_id ?? null,
-      metadata?.threadId ?? context?.thread_id ?? null,
-      metadata?.actorId ?? context?.actor_id ?? null,
+      workspaceId ?? null,
+      projectId ?? null,
+      threadId ?? null,
+      actorId ?? null,
       metadata?.correlationId ?? runId ?? null,
       createdAt,
       JSON.stringify(payload),
@@ -968,12 +960,12 @@ export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox,
       aggregateId,
       createdAt,
       ...(runId ? { runId } : {}),
-      ...(metadata?.workspaceId ?? context?.workspace_id ? { workspaceId: metadata?.workspaceId ?? context?.workspace_id } : {}),
-      ...(metadata?.projectId ?? context?.project_id ? { projectId: metadata?.projectId ?? context?.project_id } : {}),
-      ...(metadata?.threadId ?? context?.thread_id ? { threadId: metadata?.threadId ?? context?.thread_id } : {}),
-      ...(metadata?.actorId ?? context?.actor_id ? { actorId: metadata?.actorId ?? context?.actor_id } : {}),
+      ...(workspaceId === undefined ? {} : { workspaceId }),
+      ...(projectId === undefined ? {} : { projectId }),
+      ...(threadId === undefined ? {} : { threadId }),
+      ...(actorId === undefined ? {} : { actorId }),
       ...(metadata?.parentEventId ? { parentEventId: metadata.parentEventId } : {}),
-      ...(metadata?.correlationId ?? runId ? { correlationId: metadata?.correlationId ?? runId } : {}),
+      ...(correlationId === undefined ? {} : { correlationId }),
       ...(metadata?.causationId ? { causationId: metadata.causationId } : {}),
       durable: metadata?.durable ?? true,
       attempts: 0,

@@ -1,5 +1,6 @@
 import type { BudgetUsage, ExecutionBudget } from "../architecture/budget.js";
 import type { RunState } from "../architecture/state-machine.js";
+import type { StepState } from "./step-state.js";
 
 export interface RunRecord {
   readonly id: string;
@@ -16,7 +17,6 @@ export interface RunRecord {
   readonly error?: unknown;
 }
 
-export type StepState = "pending" | "running" | "waiting" | "completed" | "failed" | "cancelled";
 
 export interface StepRecord {
   readonly id: string;

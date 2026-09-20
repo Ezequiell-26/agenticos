@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { assertExecutionBudget, BudgetGuard } from "../architecture/budget.js";
 import { AgentiCOSError, serializeError } from "../architecture/errors.js";
+import { SystemClock, SystemIdGenerator, type Clock, type IdGenerator } from "../architecture/runtime.js";
 import {
   executeIdempotent,
   type IdempotencyRecord,
@@ -11,12 +11,7 @@ import {
   type Inbox,
   type Outbox,
 } from "../architecture/outbox.js";
-import {
-  RunStateMachine,
-  StateMachine,
-  type RunState,
-  type TransitionTable,
-} from "../architecture/state-machine.js";
+import { RunStateMachine, type RunState } from "../architecture/state-machine.js";
 import {
   assertSnapshotIntegrity,
   type WorkspaceSnapshot,
@@ -27,18 +22,11 @@ import type {
   CreateStepInput,
   RunRecord,
   StepRecord,
-  StepState,
 } from "./types.js";
 import { SqliteDatabase } from "./database.js";
-
-const STEP_TRANSITIONS: TransitionTable<StepState> = {
-  pending: ["running", "cancelled"],
-  running: ["waiting", "completed", "failed", "cancelled"],
-  waiting: ["running", "completed", "failed", "cancelled"],
-  completed: [],
-  failed: [],
-  cancelled: [],
-};
+import { StepStateMachine } from "./step-state.js";
+import type { StepState } from "./step-state.js";
+import type { KernelStore } from "./ports.js";
 
 interface RunRow {
   id: string;
@@ -78,8 +66,22 @@ type IdempotencyRow = {
   updated_at: string;
 };
 
-export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
-  constructor(readonly database: SqliteDatabase) {}
+export interface KernelStoreOptions {
+  readonly clock?: Clock;
+  readonly ids?: IdGenerator;
+}
+
+export class SqliteKernelStore implements KernelStore, IdempotencyStore, Outbox, Inbox {
+  private readonly clock: Clock;
+  private readonly ids: IdGenerator;
+
+  constructor(
+    readonly database: SqliteDatabase,
+    options: KernelStoreOptions = {},
+  ) {
+    this.clock = options.clock ?? new SystemClock();
+    this.ids = options.ids ?? new SystemIdGenerator();
+  }
 
   close(): void {
     this.database.close();
@@ -93,9 +95,9 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         category: "VALIDATION",
       });
     }
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
     const usage = {
-      startedAtMs: Date.now(),
+      startedAtMs: this.clock.nowMs(),
       steps: 0,
       childAgents: 0,
       toolCalls: 0,
@@ -205,7 +207,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         }
       }
 
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
       const nextVersion = row.version + 1;
       const nextError = error === undefined
         ? row.error_json
@@ -237,7 +239,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   }
 
   createStep(input: CreateStepInput): StepRecord {
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
 
     return this.database.transaction(() => {
       const run = this.requireRunRow(input.runId);
@@ -278,10 +280,10 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   ): StepRecord {
     return this.database.transaction(() => {
       const row = this.requireStepRow(id);
-      const machine = new StateMachine(row.state, STEP_TRANSITIONS);
+      const machine = new StepStateMachine(row.state);
       machine.transition(to);
 
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
       const nextVersion = row.version + 1;
       const nextOutput = output === undefined ? row.output_json : JSON.stringify(output);
       const nextError = error === undefined ? row.error_json : JSON.stringify(serializeError(error));
@@ -314,7 +316,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   claimNextRunnable(
     workerId: string,
     ttlMs: number,
-    nowMs = Date.now(),
+    nowMs = this.clock.nowMs(),
   ): RunRecord | undefined {
     if (ttlMs <= 0) {
       throw new AgentiCOSError("Lease TTL must be positive.", {
@@ -345,7 +347,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       const fencingToken = (currentLease?.fencing_token ?? 0) + 1;
       const lease: Lease = {
         resourceId,
-        leaseId: randomUUID(),
+        leaseId: this.ids.next(),
         ownerId: workerId,
         fencingToken,
         acquiredAt: nowIso,
@@ -418,7 +420,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     });
   }
 
-  recoverExpiredRuns(nowMs = Date.now()): readonly string[] {
+  recoverExpiredRuns(nowMs = this.clock.nowMs()): readonly string[] {
     return this.database.transactionImmediate(() => {
       const nowIso = new Date(nowMs).toISOString();
       const rows = this.database.db.prepare(`
@@ -539,40 +541,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     );
   }
 
-  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined>;
-  async claim(consumerId: string, eventId: string): Promise<boolean>;
-  async claim(
-    first: IdempotencyRecord | string,
-    second?: string,
-  ): Promise<IdempotencyRecord | undefined | boolean> {
-    if (typeof first === "string") {
-      const consumerId = first;
-      const eventId = second;
-      if (!eventId) {
-        throw new AgentiCOSError("Inbox eventId is required.", {
-          code: "INBOX_EVENT_ID_REQUIRED",
-          category: "VALIDATION",
-        });
-      }
-
-      return this.database.transactionImmediate(() => {
-        const existing = this.database.db
-          .prepare("SELECT status FROM inbox WHERE consumer_id = ? AND event_id = ?")
-          .get(consumerId, eventId) as { status: "processing" | "completed" } | undefined;
-
-        if (existing) return false;
-
-        const result = this.database.db.prepare(`
-          INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
-          VALUES(?, ?, 'processing', ?)
-          ON CONFLICT(consumer_id, event_id) DO NOTHING
-        `).run(consumerId, eventId, new Date().toISOString());
-
-        return result.changes === 1;
-      });
-    }
-
-    const record = first;
+  async claim(record: IdempotencyRecord): Promise<IdempotencyRecord | undefined> {
     return this.database.transactionImmediate(() => {
       const existing = this.database.db
         .prepare("SELECT * FROM idempotency WHERE key = ?")
@@ -603,6 +572,25 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       );
 
       return undefined;
+    });
+  }
+
+  async claimEvent(consumerId: string, eventId: string): Promise<boolean> {
+    if (!consumerId.trim() || !eventId.trim()) {
+      throw new AgentiCOSError("Inbox consumerId and eventId are required.", {
+        code: "INBOX_ID_REQUIRED",
+        category: "VALIDATION",
+      });
+    }
+
+    return this.database.transactionImmediate(() => {
+      const result = this.database.db.prepare(`
+        INSERT INTO inbox(consumer_id, event_id, status, claimed_at)
+        VALUES(?, ?, 'processing', ?)
+        ON CONFLICT(consumer_id, event_id) DO NOTHING
+      `).run(consumerId, eventId, this.clock.nowIso());
+
+      return result.changes === 1;
     });
   }
 
@@ -638,17 +626,18 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   }
 
   async append<T>(
-    event: Omit<DurableEvent<T>, "eventId" | "createdAt">,
+    event: Omit<DurableEvent<T>, "eventId" | "createdAt" | "attempts" | "lastError" | "nextAttemptAt">,
   ): Promise<DurableEvent<T>> {
-    const now = new Date().toISOString();
+    const now = this.clock.nowIso();
     return this.database.transaction(() =>
       this.appendEventInTransaction(
         event.type,
         event.version,
         event.aggregateId,
-        event.aggregateId,
+        event.runId,
         event.payload,
         now,
+        event,
       ),
     );
   }
@@ -656,20 +645,32 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   async listPending(limit = 100): Promise<readonly DurableEvent[]> {
     const safeLimit = Math.max(1, Math.floor(limit));
     const rows = this.database.db.prepare(`
-      SELECT e.*
+      SELECT e.*, o.attempts, o.last_error_json, o.next_attempt_at
       FROM events e
       JOIN outbox o ON o.event_id = e.event_id
       WHERE o.published_at IS NULL
+        AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= ?)
       ORDER BY o.created_at ASC
       LIMIT ?
-    `).all(safeLimit) as Array<{
+    `).all(this.clock.nowIso(), safeLimit) as Array<{
       event_id: string;
       type: string;
       version: number;
       aggregate_id: string;
       run_id: string | null;
+      workspace_id: string | null;
+      project_id: string | null;
+      thread_id: string | null;
+      actor_id: string | null;
+      parent_event_id: string | null;
+      correlation_id: string | null;
+      causation_id: string | null;
+      durable: number;
       created_at: string;
       payload_json: string;
+      attempts: number;
+      last_error_json: string | null;
+      next_attempt_at: string | null;
     }>;
 
     return rows.map((row) => ({
@@ -678,6 +679,18 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       version: row.version,
       aggregateId: row.aggregate_id,
       createdAt: row.created_at,
+      ...(row.run_id === null ? {} : { runId: row.run_id }),
+      ...(row.workspace_id === null ? {} : { workspaceId: row.workspace_id }),
+      ...(row.project_id === null ? {} : { projectId: row.project_id }),
+      ...(row.thread_id === null ? {} : { threadId: row.thread_id }),
+      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+      ...(row.parent_event_id === null ? {} : { parentEventId: row.parent_event_id }),
+      ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+      ...(row.causation_id === null ? {} : { causationId: row.causation_id }),
+      durable: row.durable === 1,
+      attempts: row.attempts,
+      ...(row.last_error_json === null ? {} : { lastError: JSON.parse(row.last_error_json) }),
+      ...(row.next_attempt_at === null ? {} : { nextAttemptAt: row.next_attempt_at }),
       payload: JSON.parse(row.payload_json),
     }));
   }
@@ -685,11 +698,27 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   async markPublished(eventId: string): Promise<void> {
     const changed = this.database.db
       .prepare("UPDATE outbox SET published_at = ? WHERE event_id = ? AND published_at IS NULL")
-      .run(new Date().toISOString(), eventId);
+      .run(this.clock.nowIso(), eventId);
 
     if (changed.changes !== 1) {
       throw new AgentiCOSError("Outbox event was already published or does not exist.", {
         code: "OUTBOX_MARK_PUBLISHED_FAILED",
+        category: "PERSISTENCE",
+        severity: "critical",
+      });
+    }
+  }
+
+  async markFailed(eventId: string, error: unknown, nextAttemptAt: string): Promise<void> {
+    const changed = this.database.db.prepare(`
+      UPDATE outbox
+      SET attempts = attempts + 1, last_error_json = ?, next_attempt_at = ?
+      WHERE event_id = ? AND published_at IS NULL
+    `).run(JSON.stringify(serializeError(error)), nextAttemptAt, eventId);
+
+    if (changed.changes !== 1) {
+      throw new AgentiCOSError("Outbox failure update was lost or event is already published.", {
+        code: "OUTBOX_MARK_FAILED_FAILED",
         category: "PERSISTENCE",
         severity: "critical",
       });
@@ -701,7 +730,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       UPDATE inbox
       SET status='completed', completed_at=?
       WHERE consumer_id=? AND event_id=? AND status='processing'
-    `).run(new Date().toISOString(), consumerId, eventId);
+    `).run(this.clock.nowIso(), consumerId, eventId);
 
     if (changed.changes !== 1) {
       throw new AgentiCOSError("Inbox completion was lost.", {
@@ -725,7 +754,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       const guard = new BudgetGuard(JSON.parse(row.budget_json) as RunRecord["budget"], current.startedAtMs);
       guard.consume(delta);
       const next = guard.snapshot();
-      const now = new Date().toISOString();
+      const now = this.clock.nowIso();
 
       const changed = this.database.db
         .prepare("UPDATE runs SET usage_json=?, updated_at=? WHERE id=? AND version=?")
@@ -754,7 +783,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     workerId: string,
     fencingToken: number,
     ttlMs: number,
-    nowMs = Date.now(),
+    nowMs = this.clock.nowMs(),
   ): Lease {
     if (ttlMs <= 0) {
       throw new AgentiCOSError("Lease TTL must be positive.", {
@@ -801,7 +830,9 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
   listEvents(runId: string): readonly DurableEvent[] {
     this.requireRunRow(runId);
     const rows = this.database.db.prepare(`
-      SELECT event_id, type, version, aggregate_id, created_at, payload_json
+      SELECT event_id, type, version, aggregate_id, run_id, workspace_id,
+             project_id, thread_id, actor_id, parent_event_id,
+             correlation_id, causation_id, durable, created_at, payload_json
       FROM events
       WHERE run_id = ?
       ORDER BY created_at ASC, rowid ASC
@@ -810,6 +841,15 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       type: string;
       version: number;
       aggregate_id: string;
+      run_id: string | null;
+      workspace_id: string | null;
+      project_id: string | null;
+      thread_id: string | null;
+      actor_id: string | null;
+      parent_event_id: string | null;
+      correlation_id: string | null;
+      causation_id: string | null;
+      durable: number;
       created_at: string;
       payload_json: string;
     }>;
@@ -820,6 +860,15 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       version: row.version,
       aggregateId: row.aggregate_id,
       createdAt: row.created_at,
+      ...(row.run_id === null ? {} : { runId: row.run_id }),
+      ...(row.workspace_id === null ? {} : { workspaceId: row.workspace_id }),
+      ...(row.project_id === null ? {} : { projectId: row.project_id }),
+      ...(row.thread_id === null ? {} : { threadId: row.thread_id }),
+      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+      ...(row.parent_event_id === null ? {} : { parentEventId: row.parent_event_id }),
+      ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+      ...(row.causation_id === null ? {} : { causationId: row.causation_id }),
+      durable: row.durable === 1,
       payload: JSON.parse(row.payload_json),
     }));
   }
@@ -829,7 +878,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     if (
       lease.ownerId !== workerId ||
       lease.fencingToken !== fencingToken ||
-      Date.parse(lease.expiresAt) <= Date.now()
+      Date.parse(lease.expiresAt) <= this.clock.nowMs()
     ) {
       throw new AgentiCOSError("Run lease fencing rejected.", {
         code: "RUN_LEASE_FENCING_REJECTED",
@@ -854,30 +903,57 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     type: string,
     version: number,
     aggregateId: string,
-    runId: string,
+    runId: string | undefined,
     payload: T,
     createdAt: string,
+    metadata?: Omit<DurableEvent<T>, "eventId" | "createdAt" | "payload">,
   ): DurableEvent<T> {
-    const eventId = randomUUID();
+    const eventId = this.ids.next();
+
+    const context = runId === undefined
+      ? undefined
+      : this.database.db
+          .prepare("SELECT workspace_id, project_id, thread_id, actor_id FROM runs WHERE id = ?")
+          .get(runId) as {
+            workspace_id: string;
+            project_id: string | null;
+            thread_id: string | null;
+            actor_id: string | null;
+          } | undefined;
+
+    const workspaceId = metadata?.workspaceId ?? context?.workspace_id;
+    const projectId = metadata?.projectId ?? context?.project_id ?? undefined;
+    const threadId = metadata?.threadId ?? context?.thread_id ?? undefined;
+    const actorId = metadata?.actorId ?? context?.actor_id ?? undefined;
+    const correlationId = metadata?.correlationId ?? runId;
 
     this.database.db.prepare(`
       INSERT INTO events(
-        event_id, type, version, aggregate_id, run_id, created_at, payload_json
+        event_id, type, version, aggregate_id, run_id,
+        workspace_id, project_id, thread_id, actor_id,
+        parent_event_id, correlation_id, causation_id, durable, created_at, payload_json
       )
-      VALUES(?, ?, ?, ?, ?, ?, ?)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).run(
       eventId,
       type,
       version,
       aggregateId,
-      runId,
+      runId ?? null,
+      workspaceId ?? null,
+      projectId ?? null,
+      threadId ?? null,
+      actorId ?? null,
+      metadata?.parentEventId ?? null,
+      correlationId ?? null,
+      metadata?.causationId ?? null,
       createdAt,
       JSON.stringify(payload),
     );
 
     this.database.db
-      .prepare("INSERT INTO outbox(event_id, created_at) VALUES(?, ?)")
-      .run(eventId, createdAt);
+      .prepare("INSERT INTO outbox(event_id, created_at, attempts, next_attempt_at) VALUES(?, ?, 0, ?)")
+      .run(eventId, createdAt, createdAt);
 
     return {
       eventId,
@@ -885,6 +961,17 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       version,
       aggregateId,
       createdAt,
+      ...(runId ? { runId } : {}),
+      ...(workspaceId === undefined ? {} : { workspaceId }),
+      ...(projectId === undefined ? {} : { projectId }),
+      ...(threadId === undefined ? {} : { threadId }),
+      ...(actorId === undefined ? {} : { actorId }),
+      ...(metadata?.parentEventId ? { parentEventId: metadata.parentEventId } : {}),
+      ...(correlationId === undefined ? {} : { correlationId }),
+      ...(metadata?.causationId ? { causationId: metadata.causationId } : {}),
+      durable: metadata?.durable ?? true,
+      attempts: 0,
+      nextAttemptAt: createdAt,
       payload,
     };
   }

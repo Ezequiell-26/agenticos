@@ -1,7 +1,17 @@
 # AgentiCOS — Product Architecture
 
-Status: Architecture-first / hardened implementation foundation.
-This is the source of truth for the product architecture.
+Status: Architecture-first / hardened foundation.
+This document is the source of truth for product architecture.
+
+## Language and runtime decision
+
+The canonical AgentiCOS core runtime is **Rust**, with Tokio as the target async runtime.
+
+TypeScript is primarily for Web/product surfaces, Python for ecosystem integrations and SDKs, and WASM for selected portable sandboxed plugins.
+
+The current TypeScript code is a transitional architecture prototype, not the final runtime boundary.
+
+See [ADR-0006](./docs/adr/0006-rust-core-runtime.md).
 
 ## Global invariants
 
@@ -27,56 +37,55 @@ This is the source of truth for the product architecture.
 20. AI-generated code changes pass Change Plane gates before promotion.
 21. Execution and repair loops are bounded by explicit budgets.
 22. Workspace changes have a rollback/snapshot path.
-
-## Hardened control flow
-
-TypeScript strictness -> executable contract registry -> architecture guard -> contract and recovery tests -> CI verification and dependency audit -> Change Plane promotion.
-
-A failed structural or behavioral gate is a hard stop. Architecture exceptions require an explicit documented change.
-
-## Durable state and recovery
-
-Runs use strict state machines. Retryable side effects use idempotency. Distributed execution uses leases and fencing. Durable events use outbox/inbox patterns. Workspace mutations use snapshots and rollback semantics.
-
-The repository includes in-memory reference adapters for these contracts. Production deployments must provide transactional, durable implementations behind the same interfaces.
-
-See docs/architecture/CONTRACTS.md, ITERATION-ARCHITECTURE.md, ITERATION-GATES.md, STATE-RECOVERY.md, CHANGE-PLANE.md and ARCHITECTURE-ENFORCEMENT.md for detailed rules.
-
-The remaining universal-provider, agent interoperability, Source Forge, plugin and execution architecture described below remains canonical.
+23. Cross-language behavior is defined by versioned protocols, not internal structs/classes.
+24. Prototype code cannot become an undeclared production dependency.
+25. No capability is considered complete until it has an executable vertical slice and recovery semantics.
 
 ## Product definition
 
-AgentiCOS is a universal, model-agnostic agent runtime and application platform. It combines AI providers, models, tools, skills, memory, workflows, subagents, sandboxes, channels and developer surfaces behind one durable execution model.
+AgentiCOS is a universal, model-agnostic agent operating layer. It turns user objectives into durable, observable and verifiable execution.
 
-The product must support user-owned free-tier APIs, paid APIs, local models and arbitrary compatible endpoints without coupling the agent core to a vendor.
+It combines models, providers, tools, sandboxes, browser/computer control, memory, skills, workflows, child agents, interoperability, artifacts, scheduling and developer surfaces behind one execution model.
+
+Detailed scope: [PRODUCT-BLUEPRINT.md](./docs/architecture/PRODUCT-BLUEPRINT.md).
 
 ## Architectural strategy
 
 AgentiCOS uses a small microkernel with pluggable domains around it.
 
-The kernel owns only lifecycle, stable IDs, correlation, cancellation, event transport, contract/version negotiation, persistence boundaries, plugin lifecycle, capability primitives, policy hooks, and normalized error/recovery semantics.
+The kernel owns lifecycle, stable IDs, correlation, cancellation, event transport, contract/version negotiation, persistence boundaries, plugin lifecycle, capability primitives, policy hooks and normalized error/recovery semantics.
 
-Feature domains must remain replaceable. The kernel must never depend on a specific model vendor, UI, browser implementation or storage vendor.
+Feature domains must remain replaceable. The kernel never depends on a specific provider, UI, browser implementation or storage vendor.
 
 ## Primary object model
 
-User/Profile -> Workspace -> Project -> Thread -> Turn -> Step -> Item.
+User/Profile -> Workspace -> Project -> Task -> Run -> Thread -> Turn -> Step -> Item -> Artifact.
 
-A durable Task/Run owns execution. A Thread owns conversational/context lineage. A Turn is one model-driven work cycle. A Step is one model/tool iteration. Items are typed and bounded observable units.
+A durable Task/Run owns execution. A Thread owns conversational/context lineage. A Turn is one model-driven work cycle. A Step is one model/tool iteration. Items are bounded observable units. Artifacts are durable outputs with provenance.
 
-## Execution model
+## Capability planes
 
-Request -> Admission -> Policy -> Context -> Model routing -> Plan/Act -> Tool execution -> Observation -> Verification -> Repair loop if required -> Artifact publication -> Durable commit -> Completion.
+```
+Control plane       → lifecycle, policy, budgets, approvals
+Model plane         → providers, models, routing, streaming, multimodal
+Tool plane          → native tools, MCP, browser/computer, files, processes
+Knowledge plane     → context, memory, retrieval, skills
+Agent plane         → delegation, child runs, DAGs, A2A
+Execution plane     → workers, sandboxes, resources, leases
+Artifact plane      → files, media, reports, evidence, provenance
+Integration plane   → plugins, SDKs, protocols, engine adapters
+Source plane        → Source Forge, licensing, SBOM, fusion
+Evaluation plane    → replay, golden tasks, regression, fault injection
+Surface plane       → CLI, TUI, Web, Desktop, IDE, API, SDK, messaging
+```
 
-Cancellation is first-class. Long-running work must survive client disconnects and may be resumed.
+Each plane has an explicit owner and communicates through contracts rather than hidden cross-plane dependencies.
 
-## Universal interoperability principle
+## Universal interoperability
 
-Any AI means any model or service that can be represented by an existing protocol adapter or a new adapter/plugin, not a hard-coded vendor list.
+The core accepts any model/service that can be represented by an existing adapter or new plugin.
 
 The Provider layer separates model, provider, account/credential, endpoint, proxy/gateway hop, protocol and capabilities.
-
-Initial protocol families include OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, generic HTTP/JSON, local inference APIs, MCP, A2A and AgentiCOS application/engine/plugin protocols.
 
 ## Agent interoperability
 
@@ -84,37 +93,38 @@ MCP is the vertical capability plane for tools/context/integrations. A2A is the 
 
 ## Resource and autonomy
 
-Every run can be bounded by duration, steps, child agents, tool calls, tokens, cost and infrastructure resources. Client disconnect does not terminate a durable run unless policy says so.
+Every run can be bounded by duration, steps, child agents, tool calls, tokens, cost and infrastructure resources.
+
+Autonomy is policy-controlled. A child agent cannot acquire more authority than its parent policy permits.
+
+## Security model
+
+```
+User intent
+  ↓
+Policy
+  ↓
+Capability grant
+  ↓
+Tool authorization
+  ↓
+Sandbox
+  ↓
+Execution
+  ↓
+Audit event
+```
+
+Model text alone never grants privileged capability.
+
+## Durability and recovery
+
+Runs use strict state machines. Retryable side effects use idempotency. Distributed execution uses leases/fencing. Durable events use outbox/inbox. Workspace mutations use snapshots/rollback.
+
+The kernel depends on storage ports, not a database driver. SQLite is a local adapter; PostgreSQL and other transactional stores can be added behind the same semantics.
 
 ## Architecture completion rule
 
-Before broad implementation, the completeness matrix must have a conceptual owner for model/provider/proxy interoperability, multimodal execution, agent interoperability, tools/MCP, skills/memory/context, sandbox/security, scheduling/resources, persistence/recovery, protocols/surfaces, Source Forge and observability/evaluation.
+Before broad implementation, every major capability must have an owner, contract, state model, security boundary, persistence semantics and verification strategy.
 
-
-## Architecture hardening v2
-
-The runtime is split into domain contracts, infrastructure adapters and composition roots:
-
-```
-surfaces / composition roots
-        ↓
-application orchestration
-        ↓
-domain contracts + kernel ports
-        ↓
-infrastructure adapters
-        ↓
-SQLite / network / external systems
-```
-
-The durable kernel depends on `KernelStore`, not on SQLite. SQLite is an adapter behind that port, preserving a path to PostgreSQL or another transactional backend without forking runtime semantics.
-
-Cross-cutting runtime services are replaceable: clocks and identifier generators can be injected for deterministic tests and controlled deployments. Cancellation uses an `AbortSignal`-compatible token. Retry/backoff and circuit-breaker policies are provider- and tool-neutral.
-
-Persistence is schema-versioned with explicit migrations. Startup performs SQLite integrity and foreign-key checks and fails closed on an unknown future schema. Durable events retain workspace/project/thread/actor and correlation metadata, while the outbox persists attempt counts, error state and next-attempt scheduling.
-
-Compatibility is explicit: stale implementations are rejected, newer implementations are accepted for backward-compatible contracts, and breaking contracts require an exact version. Contract descriptors are structurally validated before use.
-
-Each lifecycle owns one canonical state machine. Run orchestration and step persistence no longer duplicate step-transition definitions. State changes, durable events and outbox records are written within the same transaction.
-
-This is the architectural foundation for the next vertical slices: Agent Runtime, Context/Memory/Skills, Tool/Sandbox execution, provider routing, MCP/A2A interoperability, workflows, artifacts, observability/evaluation and Source Forge integration.
+The architecture is implementation-ready when those constraints are explicit and the next vertical slice has a clear entry/exit contract.

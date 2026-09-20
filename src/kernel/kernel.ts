@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { AgentiCOSError } from "../architecture/errors.js";
 import { DurableScheduler, type SchedulerOptions } from "./scheduler.js";
-import { SqliteKernelStore } from "./sqlite-store.js";
+import type { KernelStore } from "./ports.js";
 import type { CreateRunInput, CreateStepInput, RunRecord, StepRecord } from "./types.js";
 
 export class DurableKernel {
-  constructor(readonly store: SqliteKernelStore) {}
+  constructor(readonly store: KernelStore) {}
 
   createRun(input: Omit<CreateRunInput, "id"> & { id?: string }): RunRecord {
     return this.store.createRun({ ...input, id: input.id ?? randomUUID() });
@@ -12,13 +13,23 @@ export class DurableKernel {
 
   getRun(runId: string): RunRecord {
     const run = this.store.getRun(runId);
-    if (!run) throw new Error("Run not found: " + runId);
+    if (!run) {
+      throw new AgentiCOSError("Run not found: " + runId, {
+        code: "RUN_NOT_FOUND",
+        category: "VALIDATION",
+      });
+    }
     return run;
   }
 
   getStep(stepId: string): StepRecord {
     const step = this.store.getStep(stepId);
-    if (!step) throw new Error("Step not found: " + stepId);
+    if (!step) {
+      throw new AgentiCOSError("Step not found: " + stepId, {
+        code: "STEP_NOT_FOUND",
+        category: "VALIDATION",
+      });
+    }
     return step;
   }
 

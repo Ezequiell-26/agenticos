@@ -38,8 +38,8 @@ export class AgentiCOSError extends Error {
   readonly retryable: boolean;
   readonly recoverable: boolean;
   readonly userActionRequired: boolean;
-  readonly retryAfterMs?: number;
-  readonly metadata?: Readonly<Record<string, string | number | boolean>>;
+  readonly retryAfterMs: number | undefined;
+  readonly metadata: Readonly<Record<string, string | number | boolean>> | undefined;
 
   constructor(message: string, options: AgentiCOSErrorOptions) {
     super(message, { cause: options.cause });

@@ -32,9 +32,16 @@ export function assertContractCompatibility(
       { code: "CONTRACT_ID_MISMATCH", category: "PROTOCOL" },
     );
   }
-  if (implementation.version < contract.version && contract.compatibility === "breaking") {
+  if (implementation.version < contract.version) {
     throw new AgentiCOSError(
       `Implementation ${implementation.implementationId} is too old for ${contract.id} v${contract.version}.`,
+      { code: "CONTRACT_VERSION_INCOMPATIBLE", category: "PROTOCOL" },
+    );
+  }
+
+  if (contract.compatibility === "breaking" && implementation.version !== contract.version) {
+    throw new AgentiCOSError(
+      `Breaking contract ${contract.id} v${contract.version} requires an exact implementation version.`,
       { code: "CONTRACT_VERSION_INCOMPATIBLE", category: "PROTOCOL" },
     );
   }
@@ -112,7 +119,20 @@ export function assertContractRegistry(
     const descriptor = item as Record<string, unknown>;
     const id = descriptor.id;
     const version = descriptor.version;
-    if (typeof id !== "string" || id.length === 0 || !Number.isInteger(version) || Number(version) < 1) {
+    const kind = descriptor.kind;
+    const compatibility = descriptor.compatibility;
+    const capabilities = descriptor.requiredCapabilities;
+
+    if (
+      typeof id !== "string" ||
+      id.length === 0 ||
+      !Number.isInteger(version) ||
+      Number(version) < 1 ||
+      (kind !== "protocol" && kind !== "domain" && kind !== "plugin" && kind !== "schema") ||
+      (compatibility !== "backward-compatible" && compatibility !== "breaking") ||
+      !Array.isArray(capabilities) ||
+      capabilities.some((item) => typeof item !== "string" || item.length === 0)
+    ) {
       throw new AgentiCOSError("Contract descriptor id/version is invalid.", {
         code: "CONTRACT_DESCRIPTOR_INVALID",
         category: "VALIDATION",

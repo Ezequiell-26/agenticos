@@ -25,7 +25,12 @@ Every imported or reference repository must be recorded with:
 | Microsoft AutoGen | MIT code license; repository can contain separately licensed material | reference | multi-agent orchestration |
 | OpenHands/OpenHands | MIT for core project; enterprise content requires separate review | reference | coding agents, runtimes, sessions |
 | browser-use/browser-use | MIT package metadata | reference | browser automation |
-| langchain-ai/langgraph | MIT for LangGraph package | reference | durable graph/workflow orchestration |\n| blackwell-systems/gcf-rust | MIT repository license | reference / candidate integration | compact structured encoding, session deduplication, delta encoding, streaming and conformance |\n| rustkit-ai/trimcp | README declares MIT; license artifact not verified at intake | reference only pending audit | MCP output compaction, lossless transforms, caching and metrics |\n| ojuschugh1/sqz | Elastic License 2.0 | reference only | session deduplication, tool-output compression, MCP compression and recovery |\n| signalbreak-labs/ogham | Apache-2.0 | reference only | reversible context compression, budgets, CCR and protected-content rules |\n| rtk-ai/rtk | Apache-2.0 | reference only | CLI output filtering, recovery and token-savings analytics |
+| langchain-ai/langgraph | MIT for LangGraph package | reference | durable graph/workflow orchestration |
+| blackwell-systems/gcf-rust | MIT repository license | reference / candidate integration | compact structured encoding, session deduplication, delta encoding, streaming and conformance |
+| rustkit-ai/trimcp | README declares MIT; license artifact not verified at intake | reference only pending audit | MCP output compaction, lossless transforms, caching and metrics |
+| ojuschugh1/sqz | Elastic License 2.0 | reference only | session deduplication, tool-output compression, MCP compression and recovery |
+| signalbreak-labs/ogham | Apache-2.0 | reference only | reversible context compression, budgets, CCR and protected-content rules |
+| rtk-ai/rtk | Apache-2.0 | reference only | CLI output filtering, recovery and token-savings analytics |
 
 ## OmniRoute intake record
 
@@ -98,4 +103,6 @@ For registered repositories, especially MIT-licensed sources, Source Forge must 
 
 An MIT root repository does not automatically make all code in its dependency tree MIT.
 
-AgentiCOS must preserve required copyright/license notices and must not remove third-party attribution when integrating source code.\n\nFor the optimization plane, source integration is MIT-only. A non-MIT or unverified source can still be learned and benchmarked, but no copied/vendored source from it may enter the canonical implementation.
+AgentiCOS must preserve required copyright/license notices and must not remove third-party attribution when integrating source code.
+
+For the optimization plane, source integration is MIT-only. A non-MIT or unverified source can still be learned and benchmarked, but no copied/vendored source from it may enter the canonical implementation.

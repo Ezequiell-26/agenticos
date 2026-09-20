@@ -25,20 +25,10 @@ jobs:
           node-version: 22
 
       - name: Install
-        run: npm install --no-audit --no-fund --package-lock=false
+        run: npm ci --no-audit --no-fund
 
       - name: Verify durable AI continuity
         run: npm run continuity:verify
-
-      - name: Generate npm lockfile for audit
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      - name: Upload generated npm lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: agenticos-npm-lockfile
-          path: package-lock.json
-          if-no-files-found: error
 
       - name: Verify architecture, types and tests
         run: npm run verify

@@ -74,24 +74,31 @@ The readiness gate now requires the root license, Cargo.lock, continuity artifac
 
 The architecture has explicit boundaries for the planned universal runtime and no unresolved structural contradiction was found during this audit.
 
-This is **architecture readiness**, not functional readiness.
+This is **verified architecture readiness**, not functional readiness.
 
-## Verification not yet available
+## Final verification evidence
 
-The following checks remain unverified because the current execution environment does not contain Rust/Cargo and cannot access the public Git repository over the network:
+The final GitHub Actions verification run completed successfully:
 
+- `npm run verify`;
+- continuity verification;
+- architecture/readiness validation;
+- implementation-state validation;
+- `npm audit --audit-level=high`;
+- `npm ls --depth=0`;
 - `cargo fmt --all -- --check`;
 - `cargo check --workspace --all-targets`;
 - `cargo test --workspace --all-targets`;
-- `cargo clippy --workspace --all-targets -- -D warnings`;
-- final remote GitHub Actions result for the latest commit.
+- `cargo clippy --workspace --all-targets -- -D warnings`.
 
-These must remain marked `UNVERIFIED` until actual evidence exists.
+Run: #354 (`35539582335`), commit `34d3299cdc865e8c2aa8d6662b841ae9b93e7b14`.
+
+Local execution is unavailable in this environment, but the CI runner provided the required executable evidence.
 
 ## Implementation lock
 
-Do not unlock `rust-kernel-vertical-slice-1` until the architecture-foundation verification evidence is complete.
+The architecture-foundation verification evidence is complete. `rust-kernel-vertical-slice-1` is now unlocked as the sole next step.
 
 ## Next authorized step
 
-Run the architecture-foundation verification suite, record exact results in the continuity journal, correct any failure, rerun failed checks and only then unlock the Rust kernel slice.
+Implement only `rust-kernel-vertical-slice-1`, following the sequential implementation protocol. No later step is unlocked.

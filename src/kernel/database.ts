@@ -20,6 +20,10 @@ export class SqliteDatabase {
     return this.db.transaction(fn)();
   }
 
+  transactionImmediate<T>(fn: () => T): T {
+    return this.db.transaction(fn).immediate();
+  }
+
   close(): void {
     if (this.db.open) this.db.close();
   }

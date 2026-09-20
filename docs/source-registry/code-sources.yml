@@ -135,3 +135,38 @@ sources:
       - observability
       - mcp
       - rag
+
+  - id: langchain
+    repository: https://github.com/langchain-ai/langchain
+    license: MIT
+    role: agent-engineering-and-integration-source
+    capabilities:
+      - agents
+      - tools
+      - model-integrations
+      - structured-output
+      - orchestration
+      - retrieval
+
+  - id: langgraph
+    repository: https://github.com/langchain-ai/langgraph
+    license: MIT
+    role: durable-agent-orchestration-source
+    capabilities:
+      - stateful-agents
+      - graph-execution
+      - persistence
+      - interrupts
+      - checkpointing
+
+  - id: deepagents
+    repository: https://github.com/langchain-ai/deepagents
+    license: MIT
+    role: batteries-included-agent-harness-source
+    capabilities:
+      - agent-harness
+      - planning
+      - filesystem-tools
+      - subagents
+      - context-management
+

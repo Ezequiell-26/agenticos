@@ -1,5 +1,9 @@
 # AgentiCOS Third-Party Sources
 
+## Global implementation rule
+
+Canonical AgentiCOS product code uses only third-party source that Source Forge has explicitly admitted under the project's MIT-only implementation policy. Non-MIT repositories listed below are reference-only and cannot supply copied, vendored or directly adapted source.
+
 AgentiCOS intentionally incorporates or evaluates open-source agent software.
 
 Every imported or reference repository must be recorded with:

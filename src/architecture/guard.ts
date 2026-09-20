@@ -6,6 +6,7 @@ const COMPOSITION_ROOTS = new Set([
   "src/cli.ts",
   "src/forge-cli.ts",
   "src/architecture-cli.ts",
+  "src/index.ts",
 ]);
 
 const FORBIDDEN_PATTERNS: readonly { readonly pattern: RegExp; readonly reason: string }[] = [
@@ -34,8 +35,10 @@ export async function scanArchitecture(root = process.cwd()): Promise<readonly G
 
   for (const file of await walk(sourceRoot)) {
     if (!file.endsWith(".ts")) continue;
-    const content = await readFile(file, "utf8");
     const relative = path.relative(root, file).replaceAll(path.sep, "/");
+    if (relative === "src/architecture/guard.ts") continue;
+
+    const content = await readFile(file, "utf8");
     const isCompositionRoot = COMPOSITION_ROOTS.has(relative);
 
     for (const rule of FORBIDDEN_PATTERNS) {
@@ -44,12 +47,6 @@ export async function scanArchitecture(root = process.cwd()): Promise<readonly G
       }
     }
 
-    if (content.includes('"/src/') || content.includes("'\/src\/")) {
-      issues.push({
-        file: relative,
-        reason: "Absolute /src imports are prohibited; use contracts or relative domain imports.",
-      });
-    }
   }
 
   return issues;

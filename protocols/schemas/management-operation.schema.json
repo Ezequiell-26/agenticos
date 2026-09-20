@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/management-operation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Management Operation v1",
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "principalId",
+    "operation",
+    "target",
+    "authorization"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "principalId": {
+      "type": "string"
+    },
+    "operation": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string"
+    },
+    "authorization": {
+      "type": "object"
+    },
+    "audit": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

@@ -333,6 +333,13 @@
           "command": "cargo clippy --workspace --all-targets -- -D warnings",
           "result": "success",
           "evidence": "CI run 35542057325 / verify-rust"
+        },
+        {
+          "kind": "github-actions",
+          "run_id": 35542712791,
+          "run_number": 377,
+          "commit": "4137c90828d1a57e77048a7161024b3c66099495",
+          "result": "success"
         }
       ],
       "unlocks": [
@@ -395,6 +402,13 @@
           "gate": "architecture",
           "result": "success",
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
+        },
+        {
+          "kind": "github-actions",
+          "run_id": 35542712791,
+          "run_number": 377,
+          "commit": "4137c90828d1a57e77048a7161024b3c66099495",
+          "result": "success"
         }
       ],
       "unlocks": [

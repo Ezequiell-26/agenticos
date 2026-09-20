@@ -12,5 +12,7 @@ pub struct RuntimeInfo {
 
 /// Returns the canonical runtime identity.
 pub fn info() -> RuntimeInfo {
-    RuntimeInfo { version: env!("CARGO_PKG_VERSION") }
+    RuntimeInfo {
+        version: env!("CARGO_PKG_VERSION"),
+    }
 }

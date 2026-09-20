@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/planning.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Planning v1",
+  "required": [
+    "schemaVersion",
+    "planId",
+    "goalId",
+    "state",
+    "tasks"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "planId": {
+      "type": "string"
+    },
+    "goalId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "draft",
+        "proposed",
+        "awaiting-approval",
+        "approved",
+        "executing",
+        "revised",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "approval": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

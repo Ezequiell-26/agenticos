@@ -1,101 +1,50 @@
 # AgentiCOS
 
-AgentiCOS is a multi-provider AI agent runtime.
+AgentiCOS is being designed as a universal, model-agnostic agent runtime and application platform.
 
-## First subsystem: Provider Engine
+## Architecture-first
 
-The Provider Engine lets one AgentiCOS installation connect to:
+Before broad implementation, the repository freezes the complete product architecture:
 
-- free APIs and free-tier services;
-- paid APIs;
-- local model servers;
-- custom OpenAI-compatible endpoints.
+- one runtime for CLI, TUI, Web, Desktop, IDE, API, SDK and messaging;
+- multi-provider AI access for free-tier, paid, local and custom APIs;
+- typed task/run/thread/turn/step/item execution;
+- pluggable tools, sandboxes, memory, skills, workflows and agents;
+- asynchronous and parallel child agents;
+- first-class artifacts and verification;
+- durable sessions, persistence, replay and recovery;
+- capability-based security and explicit approvals;
+- plugin and engine adapter architecture;
+- Source Forge for importing and fusing external agent repositories.
 
-The agent will not be coupled to one company or model. Provider selection is a separate runtime concern.
+## Reference architecture
 
-### Current built-in providers
+The design studies current public architectures from:
 
-- OpenRouter — free plan/free models plus paid usage.
-- Groq — free tier plus paid Developer tier.
-- Google Gemini — free tier for selected models plus paid usage.
-- DeepSeek — paid API.
-- OpenAI — paid API.
-- Custom OpenAI-compatible endpoints — user supplied.
+- Hermes Agent;
+- DeepSeek Harness;
+- OpenAI Codex;
+- Google Antigravity.
 
-Provider pricing and quotas change over time, so the catalog stores provider metadata while model catalogs and limits are discovered dynamically when possible.
+These are used as architectural references. AgentiCOS defines its own contracts instead of treating any one project as the product core.
 
-## Current architecture
+## Source Forge
 
-```
-User
-  |
-  v
-AgentICOS
-  |
-  +--> Provider Registry
-          |
-          +--> OpenRouter
-          +--> Groq
-          +--> Gemini
-          +--> DeepSeek
-          +--> OpenAI
-          +--> Custom endpoint
-          |
-          v
-      Model Router
-          |
-          v
-      Agent Engine
-```
+Source Forge can import complete repositories, preserve their source snapshots and commits, audit licenses and dependencies, extract capabilities, compare implementations and prepare integration proposals.
 
-## What is already implemented
+The target is to combine useful implementations from multiple projects while retaining provenance and keeping AgentiCOS-owned code behind stable contracts.
 
-- typed provider contract;
-- billing classification: free/free-tier/paid/local/custom;
-- OpenAI-compatible HTTP adapter;
-- model discovery through `GET /models`;
-- normalized chat requests/responses;
-- normalized rate-limit/quota/network errors;
-- provider health state;
-- ordered fallback execution;
-- environment-variable based API keys;
-- custom OpenAI-compatible endpoint support;
-- CLI provider/model inspection and chat smoke test.
+## Current status
 
-## Configuration
+Provider Engine and Source Forge prototypes exist. The repository is now in an architecture-first stage; production feature implementation should follow the architecture documents before expanding the prototypes.
 
-Copy `.env.example` to `.env` and add any keys you own.
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) first.
 
-Never commit real keys.
+Then read [docs/architecture/README.md](./docs/architecture/README.md).
 
-Install and validate:
+## References
 
-```bash
-npm install
-npm run check
-npm run providers
-npm run models
-```
-
-Smoke-test one provider:
-
-```bash
-npm run dev -- chat openrouter <MODEL_ID> "Hello from AgentiCOS"
-```
-
-## Next step
-
-The next subsystem is the Intelligent Model Router.
-
-It will choose providers/models using:
-
-- requested capabilities;
-- free-first or paid-first policy;
-- current health;
-- quota/rate-limit state;
-- latency;
-- estimated token cost;
-- explicit user preferences;
-- fallback order.
-
-AgentiCOS will keep provider-specific features inside adapters so the agent core remains vendor-neutral.
+- Hermes Agent: https://github.com/NousResearch/hermes-agent
+- DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
+- OpenAI Codex: https://github.com/openai/codex
+- Google Antigravity: https://antigravity.google/docs/ide/overview

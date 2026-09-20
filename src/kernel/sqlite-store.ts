@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BudgetGuard } from "../architecture/budget.js";
-import { AgentiCOSError } from "../architecture/errors.js";
+import { AgentiCOSError, serializeError } from "../architecture/errors.js";
 import {
   executeIdempotent,
   type IdempotencyRecord,
@@ -180,11 +180,29 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       const machine = new RunStateMachine(row.state);
       machine.transition(to);
 
+      if (to === "completed" || to === "cancelled") {
+        const open = this.database.db.prepare(`
+          SELECT COUNT(*) AS count
+          FROM steps
+          WHERE run_id = ? AND state IN ('pending', 'running', 'waiting')
+        `).get(id) as { count: number };
+
+        if (open.count > 0) {
+          throw new AgentiCOSError(
+            "Run cannot enter a terminal state while active steps remain.",
+            {
+              code: "RUN_HAS_ACTIVE_STEPS",
+              category: "VALIDATION",
+            },
+          );
+        }
+      }
+
       const now = new Date().toISOString();
       const nextVersion = row.version + 1;
       const nextError = error === undefined
         ? row.error_json
-        : JSON.stringify(error);
+        : JSON.stringify(serializeError(error));
 
       const changed = this.database.db.prepare(`
         UPDATE runs
@@ -259,7 +277,7 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
       const now = new Date().toISOString();
       const nextVersion = row.version + 1;
       const nextOutput = output === undefined ? row.output_json : JSON.stringify(output);
-      const nextError = error === undefined ? row.error_json : JSON.stringify(error);
+      const nextError = error === undefined ? row.error_json : JSON.stringify(serializeError(error));
 
       const changed = this.database.db.prepare(`
         UPDATE steps
@@ -397,22 +415,23 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
     return this.database.transactionImmediate(() => {
       const nowIso = new Date(nowMs).toISOString();
       const rows = this.database.db.prepare(`
-        SELECT r.id
+        SELECT r.id, r.state
         FROM runs r
         LEFT JOIN leases l ON l.resource_id = 'run:' || r.id
-        WHERE r.state = 'running'
+        WHERE r.state IN ('running', 'cancelling')
           AND (l.resource_id IS NULL OR l.expires_at <= ?)
         ORDER BY r.created_at ASC
-      `).all(nowIso) as Array<{ id: string }>;
+      `).all(nowIso) as Array<{ id: string; state: RunState }>;
 
       const recovered: string[] = [];
       for (const item of rows) {
         const row = this.requireRunRow(item.id);
+        const target: RunState = row.state === "cancelling" ? "cancelled" : "waiting";
         const machine = new RunStateMachine(row.state);
-        machine.transition("waiting", { reason: "worker-recovery" });
+        machine.transition(target, { reason: "worker-recovery" });
         const changed = this.database.db
-          .prepare("UPDATE runs SET state='waiting', version=version+1, updated_at=? WHERE id=? AND version=?")
-          .run(nowIso, row.id, row.version);
+          .prepare("UPDATE runs SET state=?, version=version+1, updated_at=? WHERE id=? AND version=?")
+          .run(target, nowIso, row.id, row.version);
 
         if (changed.changes !== 1) {
           throw new AgentiCOSError("Recovery version conflict.", {
@@ -424,8 +443,8 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         }
 
         this.appendEventInTransaction("run.recovered", 1, row.id, row.id, {
-          from: "running",
-          to: "waiting",
+          from: row.state,
+          to: target,
           reason: "worker-recovery",
         }, nowIso);
         recovered.push(row.id);
@@ -636,8 +655,88 @@ export class SqliteKernelStore implements IdempotencyStore, Outbox, Inbox {
         });
       }
 
+      this.appendEventInTransaction("run.usage.updated", 1, runId, runId, {
+        delta,
+        usage: next,
+      }, now);
+
       return this.requireRun(runId);
     });
+  }
+
+  renewRunLease(
+    runId: string,
+    workerId: string,
+    fencingToken: number,
+    ttlMs: number,
+    nowMs = Date.now(),
+  ): Lease {
+    if (ttlMs <= 0) {
+      throw new AgentiCOSError("Lease TTL must be positive.", {
+        code: "LEASE_TTL_INVALID",
+        category: "VALIDATION",
+      });
+    }
+
+    return this.database.transactionImmediate(() => {
+      const lease = this.requireLease("run:" + runId);
+      if (
+        lease.ownerId !== workerId ||
+        lease.fencingToken !== fencingToken ||
+        Date.parse(lease.expiresAt) <= nowMs
+      ) {
+        throw new AgentiCOSError("Run lease cannot be renewed.", {
+          code: "RUN_LEASE_RENEW_REJECTED",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      const nextExpiresAt = new Date(nowMs + ttlMs).toISOString();
+      const result = this.database.db.prepare(`
+        UPDATE leases
+        SET expires_at = ?
+        WHERE resource_id = ? AND lease_id = ? AND fencing_token = ?
+      `).run(nextExpiresAt, lease.resourceId, lease.leaseId, lease.fencingToken);
+
+      if (result.changes !== 1) {
+        throw new AgentiCOSError("Run lease renewal lost ownership.", {
+          code: "RUN_LEASE_RENEW_CONFLICT",
+          category: "CONCURRENCY",
+          retryable: true,
+          recoverable: true,
+        });
+      }
+
+      return { ...lease, expiresAt: nextExpiresAt };
+    });
+  }
+
+  listEvents(runId: string): readonly DurableEvent[] {
+    this.requireRunRow(runId);
+    const rows = this.database.db.prepare(`
+      SELECT event_id, type, version, aggregate_id, created_at, payload_json
+      FROM events
+      WHERE run_id = ?
+      ORDER BY created_at ASC, rowid ASC
+    `).all(runId) as Array<{
+      event_id: string;
+      type: string;
+      version: number;
+      aggregate_id: string;
+      created_at: string;
+      payload_json: string;
+    }>;
+
+    return rows.map((row) => ({
+      eventId: row.event_id,
+      type: row.type,
+      version: row.version,
+      aggregateId: row.aggregate_id,
+      createdAt: row.created_at,
+      payload: JSON.parse(row.payload_json),
+    }));
   }
 
   assertRunLease(runId: string, workerId: string, fencingToken: number): void {

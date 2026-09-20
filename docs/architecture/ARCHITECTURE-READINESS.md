@@ -73,3 +73,9 @@ The parity gate covers API/provider integration, tool/toolset registration, plug
 
 This is an architectural completeness requirement only. Individual capabilities remain locked until their own vertical slices are implemented and verified.
 
+## Completeness requirements
+
+The readiness gate additionally requires the machine-readable [architecture completeness manifest](../../reference/manifests/architecture-completeness.json), its referenced contracts in [contracts/registry.json](../../contracts/registry.json), and the protocol schemas for terminal/jobs, filesystem changes, attachments, teams, MCP resources, A2A, credentials, planning, AI changes, packages, trajectories, supervisor, scopes, feature flags and management operations.
+
+A passing readiness gate means the architecture is structurally closed enough to begin functional slices. It does not mean those capabilities have been implemented.
+

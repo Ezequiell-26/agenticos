@@ -23,7 +23,9 @@ This contract defines how an AI coding agent must build AgentiCOS during iterati
 17. Add integration and end-to-end verification.
 18. Update the manifest and architecture documentation.
 19. Apply the applicable token-optimization contract at model/tool boundaries.
-20. Leave a stable checkpoint.
+20. Verify persistence/replay behavior when the feature crosses a durable Run boundary.
+21. Verify capability scoping and sandbox behavior when the feature executes tools or imported code.
+22. Leave a stable checkpoint.
 
 ## Reference-first engineering rule
 
@@ -46,6 +48,8 @@ Map to AgentiCOS contracts
 Implement
 
 The objective is to minimize unnecessary reinvention while maintaining AgentiCOS-specific contracts, security, portability and architecture.
+
+For implementation code, MIT-admitted sources have priority. Non-MIT references may provide comparative evidence but are not source inputs to canonical MIT-only product code.
 
 ## Source priority
 

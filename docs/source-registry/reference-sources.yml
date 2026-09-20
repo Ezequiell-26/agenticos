@@ -1,0 +1,44 @@
+schemaVersion: 1
+sources:
+  - id: openai-codex
+    repository: https://github.com/openai/codex
+    license: Apache-2.0
+    codeReuseClass: separate-license-review
+    architectureRoles:
+      - app-server
+      - thread-turn-item-model
+      - sandbox
+      - approval-policy
+      - external-exec
+
+  - id: ag2
+    repository: https://github.com/ag2ai/ag2
+    license: Apache-2.0
+    codeReuseClass: separate-license-review
+    architectureRoles:
+      - multi-agent
+      - orchestration
+      - agent-conversation
+
+  - id: agno
+    repository: https://github.com/agno-agi/agno
+    license: Apache-2.0
+    codeReuseClass: separate-license-review
+    architectureRoles:
+      - teams
+      - workflows
+      - human-approval
+      - observability
+      - a2a
+      - channels
+
+  - id: google-antigravity
+    repository: null
+    license: product-not-open-source-reference
+    codeReuseClass: no-source-import
+    architectureRoles:
+      - agent-first-workspace
+      - asynchronous-agents
+      - artifacts
+      - browser
+      - agent-manager

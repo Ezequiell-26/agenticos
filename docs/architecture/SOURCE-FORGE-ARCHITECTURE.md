@@ -4,7 +4,7 @@
 
 Source Forge turns external repositories into auditable candidate components and a structured reference knowledge corpus for AgentiCOS.
 
-It must support complete repository import because AgentiCOS may study systems such as Hermes Agent, DeepSeek Harness, Codex and FreeLLMAPI while keeping source snapshots separate from first-party code.
+It supports complete repository import because AgentiCOS may study systems such as Hermes Agent, DeepSeek Harness, Codex, FreeLLMAPI and OmniRoute while keeping source snapshots separate from first-party code.
 
 ## Two output modes
 
@@ -13,33 +13,31 @@ It must support complete repository import because AgentiCOS may study systems s
 
 Reference evidence does not automatically become executable product code.
 
-## Pipeline
+## Repository learning pipeline
 
 URL
  ↓
 Git import
  ↓
-commit snapshot
+commit/ref pin
  ↓
 license scan
  ↓
 dependency scan
  ↓
-language/package discovery
- ↓
 documentation extraction
  ↓
 architecture extraction
  ↓
+source-tree discovery
+ ↓
 symbol/component graph
  ↓
+test/fixture extraction
+ ↓
+CI/quality-gate extraction
+ ↓
 capability taxonomy
- ↓
-test/evidence extraction
- ↓
-duplicate detection
- ↓
-compatibility analysis
  ↓
 security review
  ↓
@@ -51,7 +49,26 @@ adapt/vendor/reference/exclude
  ↓
 tests + provenance gates
 
-## Source states
+## Mandatory full-repository learning
+
+For approved repositories, the learner must inspect the useful project surface, not just the README.
+
+Required inspection targets include:
+
+- README and docs;
+- architecture notes;
+- source modules related to the capability;
+- tests and fixtures;
+- package/build metadata;
+- CI and quality configuration;
+- security documentation;
+- agent instructions;
+- LICENSE and third-party notices;
+- dependency boundaries.
+
+For very large repositories, Source Forge may summarize and index the whole tree while retrieving exact files/symbols on demand. It must preserve a mapping back to the exact source snapshot.
+
+## Reference states
 
 imported → audited → analyzed → evidence-ready
                          ├────────→ reference
@@ -61,9 +78,9 @@ imported → audited → analyzed → evidence-ready
 
 ## Reference evidence packs
 
-For each approved repository, Forge should generate:
+Each approved repository should produce:
 
-- repository and exact commit;
+- repository and exact commit/ref;
 - license evidence;
 - dependency/license findings;
 - architecture summary;
@@ -73,11 +90,10 @@ For each approved repository, Forge should generate:
 - failure/retry semantics;
 - security boundaries;
 - test references;
+- quality/CI gates;
 - API/protocol shape;
 - compatibility constraints;
 - applicability to AgentiCOS domains.
-
-The evidence pack is designed so an AI implementation agent can retrieve relevant source material instead of reasoning from a blank page.
 
 ## FreeLLMAPI
 
@@ -87,26 +103,33 @@ Pinned intake commit: b882473c3a23251be312a7270e2e0dc1eae1329d
 
 At intake the repository declares an MIT license.
 
-High-value reference areas include its gateway/router, provider adapter model, model catalog, free-tier aggregation, quota/rate-limit ledger, health/cooldown handling, failover, streaming, compatibility surfaces, credential handling, MCP and operational tooling.
+High-value reference areas include its gateway/router, provider adapters, model catalog, free-tier aggregation, quota/rate-limit ledger, health/cooldown handling, failover, streaming, compatibility surfaces, credential handling, MCP and operational tooling.
 
-It is a reference for these capabilities. AgentiCOS must not silently copy its architecture or dependencies.
+## OmniRoute
 
-## Component graph
+Repository: https://github.com/diegosouzapw/OmniRoute
 
-A component record references:
+Pinned intake branch: release/v3.8.51
+Representative source snapshot observed during intake: 7a921299c5b4c28dcf837f56a1c312b61414a646
 
-- source repository;
-- exact commit;
-- package/module;
-- symbols/files;
-- dependencies;
-- capabilities;
-- license evidence;
-- security findings;
-- test evidence;
-- API shape;
-- integration/reference decision;
-- modifications.
+At intake the repository declares an MIT license.
+
+High-value reference areas include:
+
+- multi-strategy combo routing;
+- routing policy modules separate from execution;
+- resilience layers with retry/backoff/breakers and emergency fallback;
+- quota-share and live quota telemetry concepts;
+- router evaluation and comparison tooling;
+- prompt compression;
+- semantic cache and opt-in controls;
+- provider/model discovery and modality handling;
+- MCP/A2A integration;
+- CLI automation for AI coding clients;
+- strict testing, linting, typecheck and release-quality gates;
+- third-party notice enforcement.
+
+AgentiCOS should use these as evidence for contracts and design. It must not blindly copy OmniRoute internals or dependencies.
 
 ## Fusion algorithm
 

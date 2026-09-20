@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/agent-operation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_id",
+    "timestamp",
+    "actor",
+    "previous_commit",
+    "request",
+    "scope",
+    "status",
+    "summary",
+    "created",
+    "modified",
+    "deleted",
+    "preserved",
+    "verification",
+    "risks",
+    "rollback",
+    "next_step",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "operation_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": "string"
+    },
+    "previous_commit": {
+      "type": "string"
+    },
+    "current_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "request": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "in_progress",
+        "verifying",
+        "blocked",
+        "completed",
+        "rolled_back"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "created": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modified": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deleted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "preserved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification": {
+      "type": "object"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rollback": {
+      "type": "object"
+    },
+    "next_step": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

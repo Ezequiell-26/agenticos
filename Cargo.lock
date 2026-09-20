@@ -29,6 +29,8 @@ name = "agenticos-contracts"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -100,6 +102,17 @@ name = "agenticos-projects"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+]
+
+[[package]]
+name = "agenticos-protocols"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -56,6 +56,8 @@ pub enum ContractError {
     MissingCapability,
     /// A persistence or storage operation failed.
     Persistence,
+    /// A parsing or serialization error occurred.
+    ParseError(String),
 }
 
 impl fmt::Display for ContractError {
@@ -65,6 +67,7 @@ impl fmt::Display for ContractError {
             Self::IncompatibleVersion => write!(f, "incompatible contract version"),
             Self::MissingCapability => write!(f, "missing required capability"),
             Self::Persistence => write!(f, "persistence or storage failure"),
+            Self::ParseError(msg) => write!(f, "parse error: {}", msg),
         }
     }
 }
@@ -619,6 +622,57 @@ pub trait MemoryStore: Send + Sync {
 
     /// Delete expired memories.
     async fn delete_expired(&self, now: u64) -> Result<usize, ContractError>;
+}
+
+/// Protocol message for agent communication.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ProtocolMessage {
+    /// Message identifier.
+    pub message_id: String,
+    /// Protocol version.
+    pub protocol_version: String,
+    /// Source agent ID.
+    pub source: String,
+    /// Destination agent ID.
+    pub destination: String,
+    /// Message type.
+    pub message_type: String,
+    /// Message payload.
+    pub payload: String,
+    /// Timestamp.
+    pub timestamp: u64,
+    /// Correlation ID for request/response matching.
+    pub correlation_id: Option<String>,
+}
+
+/// Protocol message serialization contract.
+#[async_trait::async_trait]
+pub trait ProtocolSerializer: Send + Sync {
+    /// Serialize a protocol message to bytes.
+    async fn serialize(&self, message: ProtocolMessage) -> Result<Vec<u8>, ContractError>;
+
+    /// Deserialize bytes to a protocol message.
+    async fn deserialize(&self, data: Vec<u8>) -> Result<ProtocolMessage, ContractError>;
+}
+
+/// Protocol validation contract.
+#[async_trait::async_trait]
+pub trait ProtocolValidator: Send + Sync {
+    /// Validate a protocol message.
+    async fn validate(&self, message: &ProtocolMessage) -> Result<bool, ContractError>;
+
+    /// Check protocol version compatibility.
+    async fn check_version(&self, version: &str) -> Result<bool, ContractError>;
+}
+
+/// Protocol transport contract.
+#[async_trait::async_trait]
+pub trait ProtocolTransport: Send + Sync {
+    /// Send a protocol message.
+    async fn send(&self, message: ProtocolMessage) -> Result<(), ContractError>;
+
+    /// Receive a protocol message.
+    async fn receive(&self) -> Result<Option<ProtocolMessage>, ContractError>;
 }
 
 /// Quota information for a provider.

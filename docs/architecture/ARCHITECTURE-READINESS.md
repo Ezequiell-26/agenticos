@@ -64,3 +64,12 @@ Reference repositories are knowledge inputs. They are never authority over Agent
 ## Change boundary
 
 Architecture changes require an ADR and must update the affected contract/protocol/readiness gates before implementation resumes.
+
+## Universal capability completeness gate
+
+The readiness baseline also requires the capability-parity manifest at [reference/manifests/capability-parity.json](../../reference/manifests/capability-parity.json).
+
+The parity gate covers API/provider integration, tool/toolset registration, plugins, skills, memory providers, sessions, multi-agent execution, channels/gateway, webhooks, scheduling, hooks, MCP/A2A, IDE/ACP and the management plane.
+
+This is an architectural completeness requirement only. Individual capabilities remain locked until their own vertical slices are implemented and verified.
+

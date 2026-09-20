@@ -1,6 +1,6 @@
 # AgentiCOS — Product Architecture
 
-Status: Architecture-first / verification pending.
+Status: Architecture baseline established; runtime integration verification pending.
 This document is the source of truth for product architecture.
 
 ## Language and runtime decision

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenticos.dev/schemas/feature-flag.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "AgentiCOS Feature Flag v1",
+  "required": [
+    "schemaVersion",
+    "flagId",
+    "state",
+    "scope",
+    "authoritySeparate"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "flagId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "disabled",
+        "enabled",
+        "staged",
+        "rollback"
+      ]
+    },
+    "scope": {
+      "enum": [
+        "global",
+        "profile",
+        "workspace",
+        "project",
+        "run"
+      ]
+    },
+    "authoritySeparate": {
+      "const": true
+    },
+    "rollout": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

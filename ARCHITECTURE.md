@@ -1,7 +1,48 @@
 # AgentiCOS — Product Architecture
 
-Status: Architecture-first / pre-implementation.
+Status: Architecture-first / hardened implementation foundation.
 This is the source of truth for the product architecture.
+
+## Global invariants
+
+1. No model vendor is hard-coded into the agent core.
+2. No tool bypasses policy and sandbox infrastructure.
+3. No secret is placed into model context accidentally.
+4. No UI contains a second agent loop.
+5. Durable state never exists only in UI memory.
+6. Every model-visible input has provenance.
+7. Every external action has a run/item identity.
+8. Child agents are isolated and budgeted.
+9. Context has explicit size limits.
+10. Provider failures are recoverable.
+11. Plugin activation failure cannot corrupt the runtime.
+12. Third-party source provenance is preserved.
+13. Persisted schema changes are versioned and migratable.
+14. Dangerous permissions are explicit.
+15. A disconnected client does not imply a lost background run.
+16. Illegal state transitions are rejected.
+17. Retryable side effects use idempotency keys.
+18. Worker ownership is protected by leases and fencing.
+19. Durable event publication uses an outbox/inbox boundary.
+20. AI-generated code changes pass Change Plane gates before promotion.
+21. Execution and repair loops are bounded by explicit budgets.
+22. Workspace changes have a rollback/snapshot path.
+
+## Hardened control flow
+
+TypeScript strictness -> executable contract registry -> architecture guard -> contract and recovery tests -> CI verification and dependency audit -> Change Plane promotion.
+
+A failed structural or behavioral gate is a hard stop. Architecture exceptions require an explicit documented change.
+
+## Durable state and recovery
+
+Runs use strict state machines. Retryable side effects use idempotency. Distributed execution uses leases and fencing. Durable events use outbox/inbox patterns. Workspace mutations use snapshots and rollback semantics.
+
+The repository includes in-memory reference adapters for these contracts. Production deployments must provide transactional, durable implementations behind the same interfaces.
+
+See docs/architecture/CONTRACTS.md, ITERATION-ARCHITECTURE.md, ITERATION-GATES.md, STATE-RECOVERY.md, CHANGE-PLANE.md and ARCHITECTURE-ENFORCEMENT.md for detailed rules.
+
+The remaining universal-provider, agent interoperability, Source Forge, plugin and execution architecture described below remains canonical.
 
 ## Product definition
 
@@ -29,107 +70,22 @@ Request -> Admission -> Policy -> Context -> Model routing -> Plan/Act -> Tool e
 
 Cancellation is first-class. Long-running work must survive client disconnects and may be resumed.
 
-## Global invariants
-
-1. No model vendor is hard-coded into the agent core.
-2. No tool bypasses policy and sandbox infrastructure.
-3. No secret is placed into model context accidentally.
-4. No UI contains a second agent loop.
-5. Durable state never exists only in UI memory.
-6. Every model-visible input has provenance.
-7. Every external action has a run/item identity.
-8. Child agents are isolated and budgeted.
-9. Context has explicit size limits.
-10. Provider failures are recoverable.
-11. Plugin activation failure cannot corrupt the runtime.
-12. Third-party source provenance is preserved.
-13. Persisted schema changes are versioned and migratable.
-14. Dangerous permissions are explicit.
-15. A disconnected client does not imply a lost background run.
-
-## Reference principles
-
-Hermes contributes the reusable-agent and broad operational model: provider resolution, tools/toolsets, persistent memory, skills, context files, delegation, scheduling, gateway and multiple execution backends.
-
-DeepSeek Harness contributes plugin-first composition, profiles, bundles, typed events and durable session architecture.
-
-Codex contributes the typed app-server boundary, explicit Thread/Turn/Item semantics, bounded context, separate approval/sandbox policy axes and external execution boundaries.
-
-Antigravity contributes the agent-first workspace model, asynchronous parallel agents, browser operation and artifacts/transparency as product primitives.
-
-AgentiCOS unifies these patterns through its own contracts rather than becoming a literal fork of any one product.
-
-## Target system shape
-
-PRODUCT SURFACES -> APPLICATION PROTOCOL -> AGENT RUNTIME -> DOMAIN SERVICES -> KERNEL -> INFRASTRUCTURE
-
-Domain services include Providers, Router, Tools, Sandbox, Context, Memory, Skills, Workflows, Agents, Projects, Artifacts, Plugins, Gateway, Observability, Security and Source Forge.
-
-## Architecture-first rule
-
-Do not implement a major feature until it has a domain owner, public contract, state model, lifecycle, permission model, observability, failure/recovery semantics, compatibility/versioning strategy and tests.
-
 ## Universal interoperability principle
 
-"Any AI" is defined as "any model/service that can be represented by an existing protocol adapter or a new adapter/plugin", not as a hard-coded list of vendors.
+Any AI means any model or service that can be represented by an existing protocol adapter or a new adapter/plugin, not a hard-coded vendor list.
 
-The Provider layer therefore separates:
-- model;
-- provider;
-- account/credential;
-- endpoint;
-- proxy/gateway hop;
-- protocol;
-- capabilities.
+The Provider layer separates model, provider, account/credential, endpoint, proxy/gateway hop, protocol and capabilities.
 
-A route may traverse multiple proxy/gateway hops before reaching the model service. Protocols are registered independently from providers.
+Initial protocol families include OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Google Gemini, generic HTTP/JSON, local inference APIs, MCP, A2A and AgentiCOS application/engine/plugin protocols.
 
-Initial protocol families:
-- OpenAI Chat Completions;
-- OpenAI Responses;
-- Anthropic Messages;
-- Google Gemini;
-- generic HTTP/JSON mapping;
-- local inference APIs;
-- MCP;
-- A2A;
-- AgentiCOS Application/Engine/Plugin protocols.
+## Agent interoperability
 
-The Model layer is multimodal and task-oriented. Generation, reasoning, embeddings, reranking, image, audio, video, realtime and computer interaction are separate capability contracts.
+MCP is the vertical capability plane for tools/context/integrations. A2A is the horizontal collaboration plane for independent agents. Remote agents are untrusted external principals.
 
-## Agent interoperability principle
+## Resource and autonomy
 
-MCP is the vertical capability plane for tools/context/integrations. A2A is the horizontal collaboration plane for independent agents. AgentiCOS supports both without giving either protocol privileged access to canonical state.
-
-Remote agents are untrusted external principals. Their messages, instructions and artifacts enter AgentiCOS as external data and are subject to trust, policy and provenance rules.
-
-## Resource and autonomy principle
-
-Autonomy is bounded by a scheduler and policy system. Every run can have limits on:
-- duration;
-- steps;
-- child agents;
-- tool calls;
-- tokens;
-- cost;
-- network;
-- CPU/memory/storage.
-
-A client disconnect does not terminate a durable run unless policy explicitly says so.
+Every run can be bounded by duration, steps, child agents, tool calls, tokens, cost and infrastructure resources. Client disconnect does not terminate a durable run unless policy says so.
 
 ## Architecture completion rule
 
-Before broad implementation, the completeness matrix must have no missing conceptual owner for:
-- model/provider/proxy interoperability;
-- multimodal execution;
-- agent-to-agent interoperability;
-- tools/MCP;
-- skills/memory/context;
-- sandbox/security;
-- scheduling/resources;
-- persistence/recovery;
-- protocols/surfaces;
-- Source Forge;
-- observability/evaluation.
-
-See `docs/architecture/COMPLETENESS-MATRIX.md` and `docs/architecture/IMPLEMENTATION-MASTER-PLAN.md`.
+Before broad implementation, the completeness matrix must have a conceptual owner for model/provider/proxy interoperability, multimodal execution, agent interoperability, tools/MCP, skills/memory/context, sandbox/security, scheduling/resources, persistence/recovery, protocols/surfaces, Source Forge and observability/evaluation.

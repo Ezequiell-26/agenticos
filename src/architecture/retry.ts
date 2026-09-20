@@ -38,7 +38,7 @@ export async function retryAsync<T>(
       return await operation(attempt);
     } catch (error) {
       const normalized = asAgentiCOSError(error);
-      const context = { attempt, maxAttempts: policy.maxAttempts, error };
+      const context: RetryContext = { attempt, maxAttempts: policy.maxAttempts, error: normalized };
 
       if (
         attempt >= policy.maxAttempts ||
@@ -106,7 +106,12 @@ async function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
 
     const onAbort = () => {
       clearTimeout(timer);
-      reject(asAgentiCOSError(signal.reason ?? new Error("cancelled")));
+      reject(new AgentiCOSError("Operation was cancelled.", {
+        code: "OPERATION_CANCELLED",
+        category: "RESOURCE",
+        recoverable: true,
+        metadata: { reason: String(signal.reason ?? "cancelled") },
+      }));
     };
     signal.addEventListener("abort", onAbort, { once: true });
   });

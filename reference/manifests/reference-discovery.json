@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "purpose": "Reference resolver for no-invention, repository-first architecture and implementation work.",
+  "resolution_order": [
+    "exact-user-repository-or-URL",
+    "exact-catalog-repository",
+    "capability-parity-mapped-repositories",
+    "GitHub-repository-search-by-capability",
+    "license-admission-audit",
+    "full-repository-evidence-pack",
+    "exact-commit-pin-before-source-integration"
+  ],
+  "selection_policy": {
+    "exact_repo_hint_wins": true,
+    "license_required_before_source_use": true,
+    "full_repo_evidence_required_for_nontrivial_work": true,
+    "dependency_audit_required_before_integration": true,
+    "no_readme_only_decisions": true,
+    "no_source_without_provenance": true,
+    "no_architecture_claim_without_evidence": true,
+    "fail_closed_on_missing_evidence": true,
+    "non_mit_reference_can_inform_comparison_but_not_supply_canonical_source": true
+  },
+  "evidence_pack_required": [
+    "README and documentation",
+    "repository tree and module boundaries",
+    "source files relevant to requested capability",
+    "tests and fixtures",
+    "build/package manifests and lockfiles",
+    "CI workflows and quality gates",
+    "security policy/advisories",
+    "LICENSE/COPYING and path-level notices",
+    "dependency/license graph",
+    "configuration/examples",
+    "relevant changelog/release history",
+    "failure/recovery behavior"
+  ],
+  "license_admission": {
+    "canonical_source": "MIT",
+    "acceptable_statuses": [
+      "verified-mit",
+      "verified-mit-with-explicit-excluded-paths"
+    ],
+    "reject_statuses": [
+      "unknown",
+      "unverified",
+      "non-mit-only",
+      "license-transition",
+      "missing-path-license"
+    ],
+    "required_checks": [
+      "root-license",
+      "package-metadata-license",
+      "path-level-overrides",
+      "bundled-dependencies",
+      "third-party-notices"
+    ]
+  },
+  "capability_query_index": {
+    "runtime": [
+      "tokio",
+      "ractor",
+      "nix",
+      "deno",
+      "actors",
+      "async runtime",
+      "cancellation",
+      "supervision"
+    ],
+    "api_gateway": [
+      "axum",
+      "warp",
+      "provider gateway",
+      "HTTP routing",
+      "webhooks",
+      "streaming"
+    ],
+    "models": [
+      "model provider",
+      "LLM SDK",
+      "OpenAI compatible",
+      "Anthropic",
+      "credentials",
+      "streaming"
+    ],
+    "agents": [
+      "hermes",
+      "deepseek harness",
+      "OpenHands",
+      "SWE-agent",
+      "AutoGen",
+      "Pydantic AI",
+      "CrewAI",
+      "LangGraph",
+      "LangChain",
+      "DSPy",
+      "Guidance"
+    ],
+    "tools": [
+      "tool registry",
+      "typed tools",
+      "toolsets",
+      "hooks",
+      "MCP tools"
+    ],
+    "plugins": [
+      "plugin manager",
+      "plugin lifecycle",
+      "extension",
+      "registry"
+    ],
+    "skills": [
+      "SKILL.md",
+      "skill loader",
+      "progressive disclosure",
+      "skill dependencies"
+    ],
+    "memory": [
+      "memory provider",
+      "retrieval",
+      "RAG",
+      "FAISS",
+      "sqlite-vec",
+      "vector search",
+      "consolidation"
+    ],
+    "sessions": [
+      "event sourced session",
+      "checkpoint",
+      "replay",
+      "lineage",
+      "SQLite",
+      "Redis"
+    ],
+    "execution": [
+      "terminal",
+      "PTY",
+      "background job",
+      "process manager",
+      "sandbox",
+      "filesystem"
+    ],
+    "filesystem": [
+      "file watcher",
+      "change detection",
+      "atomic write",
+      "diff",
+      "rollback"
+    ],
+    "multimodal": [
+      "attachments",
+      "image",
+      "audio",
+      "video",
+      "document",
+      "vision"
+    ],
+    "coding": [
+      "LSP",
+      "tree-sitter",
+      "ast-grep",
+      "Pyright",
+      "Mypy",
+      "code intelligence"
+    ],
+    "multi_agent": [
+      "agent teams",
+      "delegation",
+      "child runs",
+      "task board",
+      "messaging"
+    ],
+    "interoperability": [
+      "MCP",
+      "A2A",
+      "Agent Card",
+      "resources",
+      "resource templates",
+      "transports"
+    ],
+    "observability": [
+      "tracing",
+      "metrics",
+      "structured logging",
+      "trajectory",
+      "evaluation"
+    ],
+    "cli_tui": [
+      "Ratatui",
+      "Crossterm",
+      "Dialoguer",
+      "Rich",
+      "Textual",
+      "terminal workspace"
+    ],
+    "web_surface": [
+      "Vite",
+      "HTTP API",
+      "OpenAPI",
+      "streaming"
+    ],
+    "persistence": [
+      "Rusqlite",
+      "SQLAlchemy",
+      "DuckDB",
+      "transactions",
+      "snapshots",
+      "event store"
+    ],
+    "quality": [
+      "pytest",
+      "pre-commit",
+      "Black",
+      "contract tests",
+      "fixtures",
+      "CI"
+    ]
+  },
+  "agent_procedure": [
+    "Translate the requested feature into capability IDs.",
+    "Resolve exact named repositories before broad search.",
+    "Read the entire relevant repository evidence pack.",
+    "Record repository, ref, commit, license evidence and relevant paths.",
+    "Compare the strongest applicable references.",
+    "Choose the architecture seam already supported by AgentiCOS contracts.",
+    "Only create a new seam when evidence shows existing seams are insufficient.",
+    "Write the implementation step with its reference evidence before coding.",
+    "Implement only that step.",
+    "Run verification and record evidence before unlocking the next step."
+  ],
+  "dynamic_discovery": {
+    "enabled": true,
+    "search_source": "GitHub",
+    "seed_catalog": "reference/manifests/mit-repositories.json",
+    "update_rule": "A newly discovered repository is not canonical until its license, dependency surface, provenance, security and relevant source evidence have been audited.",
+    "freshness_rule": "Re-resolve default branch and upstream changes before each integration; preserve the prior pinned commit in evidence for reproducibility."
+  }
+}

@@ -296,6 +296,100 @@ test("repair controller bounds repair attempts", () => {
   assert.throws(() => repair.nextAttempt(2, 10, 0.1, 1_200));
 });
 
+test("sqlite migrations install integrity guards and reach the latest schema", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-migrations-"));
+  const dbPath = join(directory, "state.sqlite");
+  const database = new SqliteDatabase(dbPath);
+  const kernel = new DurableKernel(new SqliteKernelStore(database));
+
+  const run = kernel.createRun({
+    id: "guarded-run",
+    workspaceId: "workspace-guard",
+    budget: budget(),
+  });
+
+  assert.equal(
+    (database.db.prepare("SELECT value FROM schema_meta WHERE key='schema_version'").get() as { value: string }).value,
+    "4",
+  );
+  assert.equal(
+    (database.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version=4").get() as { count: number }).count,
+    1,
+  );
+  assert.throws(() =>
+    database.db.prepare("UPDATE runs SET state='corrupted' WHERE id=?").run(run.id),
+  );
+
+  const report = database.integrity();
+  assert.equal(report.ok, true);
+  assert.equal(report.foreignKeyViolations, 0);
+  assert.equal(report.schemaVersion, 4);
+  database.assertIntegrity();
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("sqlite owned mutations reject expired and replaced worker leases atomically", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-fencing-"));
+  const dbPath = join(directory, "state.sqlite");
+  const kernel = new DurableKernel(
+    new SqliteKernelStore(new SqliteDatabase(dbPath)),
+  );
+
+  const run = kernel.createRun({
+    id: "fenced-run",
+    workspaceId: "workspace-fenced",
+    budget: budget(),
+  });
+  kernel.admitRun(run.id);
+
+  const claimed = kernel.store.claimNextRunnable("worker-a", 100, 1_000);
+  assert.equal(claimed?.state, "running");
+  const firstLease = kernel.store.leaseForRun(run.id);
+  assert.ok(firstLease);
+
+  const step = kernel.createStep({
+    runId: run.id,
+    sequence: 1,
+  });
+
+  assert.throws(() =>
+    kernel.store.transitionStepOwned(
+      step.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "running",
+      undefined,
+      undefined,
+      1_101,
+    ),
+  );
+
+  kernel.recoverExpiredRuns(1_101);
+  const replacement = kernel.store.claimNextRunnable("worker-b", 100, 1_101);
+  assert.equal(replacement?.state, "running");
+  const secondLease = kernel.store.leaseForRun(run.id);
+  assert.ok(secondLease);
+  assert.notEqual(secondLease.fencingToken, firstLease.fencingToken);
+
+  assert.throws(() =>
+    kernel.store.transitionRunOwned(
+      run.id,
+      "worker-a",
+      firstLease.fencingToken,
+      "failed",
+      "run.failed",
+      new Error("stale worker"),
+      true,
+      1_101,
+    ),
+  );
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
+});
+
 test("sqlite kernel persists runs across reopen and atomically records lifecycle events", async () => {
   const directory = await mkdtemp(join(tmpdir(), "agenticos-kernel-"));
   const dbPath = join(directory, "state.sqlite");

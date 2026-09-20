@@ -15,6 +15,7 @@ This is the architecture-derived implementation order. It is designed to prevent
 - define persistence ports;
 - define architecture lint rules;
 - establish the Reference Knowledge Corpus;
+- fully ingest/index registered reference repositories at project level, with exact source provenance;
 - create source evidence packs for the highest-value reference repositories.
 
 Exit: the Rust workspace can be created without changing domain semantics, every critical boundary has a testable contract, and a coding agent can retrieve source evidence for each planned subsystem.
@@ -27,9 +28,9 @@ Exit: one durable run can start, transition, cancel, persist and recover through
 
 ## Phase 2 — Provider gateway and model platform
 
-Provider/protocol registries, hosted and local adapters, generic HTTP mapping, proxy hops, credential pools, model catalog, capability registry, quota/rate limits, cost, health/circuit breakers, intelligent routing, controlled failover, streaming and multimodal normalization.
+Provider/protocol registries, hosted and local adapters, generic HTTP mapping, proxy hops, credential pools, model catalog, capability registry, quota/rate limits, quota-aware scheduling, cost, health/circuit breakers, intelligent multi-strategy routing, controlled failover, streaming and multimodal normalization.
 
-Reference priority: FreeLLMAPI for gateway/router patterns; Hermes, DeepSeek Harness and Codex for provider/client integration patterns.
+Reference priority: FreeLLMAPI for gateway/provider/fallback/quota/catalog patterns; OmniRoute for multi-strategy routing, resilience, telemetry, quota-aware behavior and router evaluation; Hermes, DeepSeek Harness and Codex for provider/client integration patterns.
 
 Exit: one model-neutral call path can route, stream, fail, retry and recover across multiple provider families.
 
@@ -37,7 +38,7 @@ Exit: one model-neutral call path can route, stream, fail, retry and recover acr
 
 Tool registry, policy/approval engine, sandbox, local and worker executors, filesystem/process/browser adapters, network policy, secret isolation, artifact store and resource scheduler.
 
-Reference priority: Hermes, OpenHands and browser-use for tool/execution workflows; Codex for Rust-native runtime boundaries.
+Reference priority: Hermes, OpenHands and browser-use for tool/execution workflows; Codex for Rust-native runtime boundaries; OmniRoute for operational quality gates around gateway execution.
 
 Exit: a real tool action executes inside policy and sandbox controls and produces an auditable event/artifact trail.
 
@@ -61,7 +62,7 @@ Exit: a project can accumulate controlled knowledge without silently promoting u
 
 Child runs, DAG scheduler, fan-out/fan-in, delegation, reviewer/specialist agents, remote agent adapter, A2A, budget propagation and authority containment.
 
-Reference priority: AutoGen, DeepSeek Harness and A2A-compatible implementations.
+Reference priority: AutoGen, DeepSeek Harness, OmniRoute MCP/A2A patterns and A2A-compatible implementations.
 
 Exit: child agents collaborate without bypassing parent budgets, security or provenance.
 
@@ -79,13 +80,13 @@ Exit: the same run works through at least one production-grade client and one he
 
 ## Phase 9 — Source Forge / Fusion
 
-Repository import, dependency/license graph, language/package discovery, architecture extraction, symbol graph, duplicate detection, capability comparison, compatibility analysis, integration proposals, adaptation scaffolding, SBOM/notices, source refresh/diff, evidence-pack generation and upstream regression.
+Repository import, dependency/license graph, language/package discovery, documentation and architecture extraction, symbol graph, test/quality-gate extraction, duplicate detection, capability comparison, compatibility analysis, evidence-pack generation, integration proposals, adaptation scaffolding, SBOM/notices, source refresh/diff and upstream regression.
 
 Exit: repositories can be evaluated and adapted without bypassing license or provenance gates.
 
 ## Phase 10 — Reliability and evaluation
 
-Golden tasks, replay, contract conformance, load testing, fault injection, worker/provider chaos tests, sandbox escape tests, prompt-injection tests, quota/cost regression, upgrade/rollback and cross-language compatibility tests.
+Golden tasks, replay, contract conformance, load testing, fault injection, worker/provider chaos tests, sandbox escape tests, prompt-injection tests, quota/cost regression, router evaluation, compression evaluation, semantic-cache regression, upgrade/rollback and cross-language compatibility tests.
 
 Exit: critical paths have repeatable evidence for functional, security and recovery behavior.
 

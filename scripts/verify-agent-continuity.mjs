@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const root = process.cwd();
 
 async function readJson(relativePath) {
-  const raw = await readFile(new URL(relativePath, `file://${root.replace(/\\\\/g, "/")}/`), "utf8");
+  const raw = await readFile(new URL(relativePath, pathToFileURL(root + "/")), "utf8");
   return JSON.parse(raw);
 }
 
@@ -78,8 +79,9 @@ if (!projectState.includes("## Anti-regression rule")) fail("PROJECT-STATE.md ha
 let gitStatus;
 try { gitStatus = execFileSync("git", ["status", "--porcelain=v1"], {encoding:"utf8"}).trim(); }
 catch { gitStatus = ""; }
-if (gitStatus) {
-  console.error("AGENT CONTINUITY: WARNING — working tree contains uncommitted changes.");
+const untracked = gitStatus.split(/\\r?\\n/).filter((line) => line.startsWith("?? "));
+if (continuity.policies.no_untracked_changes === true && untracked.length > 0) {
+  fail("untracked files are present: " + untracked.map((line) => line.slice(3)).join(", "));
 }
 
 console.log(`AGENT CONTINUITY: PASS — ${lines.length} journal operations, ${ordered.length} implementation steps checked.`);

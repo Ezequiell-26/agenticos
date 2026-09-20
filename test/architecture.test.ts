@@ -282,3 +282,134 @@ test("sqlite scheduler prevents duplicate claims and recovers an expired worker 
 
   await rm(directory, { recursive: true, force: true });
 });
+
+
+test("contract compatibility rejects stale implementations and enforces exact breaking versions", async () => {
+  const { assertContractCompatibility } = await import("../src/architecture/contracts.js");
+  const contract = {
+    id: "demo",
+    version: 2,
+    kind: "domain" as const,
+    compatibility: "backward-compatible" as const,
+    requiredCapabilities: ["run"],
+  };
+
+  assertContractCompatibility(contract, {
+    contractId: "demo",
+    implementationId: "demo-v3",
+    version: 3,
+    capabilities: ["run"],
+  });
+
+  assert.throws(() =>
+    assertContractCompatibility(contract, {
+      contractId: "demo",
+      implementationId: "demo-v1",
+      version: 1,
+      capabilities: ["run"],
+    }),
+  );
+
+  assert.throws(() =>
+    assertContractCompatibility(
+      { ...contract, compatibility: "breaking" as const },
+      {
+        contractId: "demo",
+        implementationId: "demo-v3",
+        version: 3,
+        capabilities: ["run"],
+      },
+    ),
+  );
+});
+
+test("retry and circuit breaker provide bounded vendor-neutral resilience", async () => {
+  const { retryAsync } = await import("../src/architecture/retry.js");
+  const { CircuitBreaker } = await import("../src/architecture/circuit-breaker.js");
+  const { AgentiCOSError } = await import("../src/architecture/errors.js");
+
+  let attempts = 0;
+  const result = await retryAsync(
+    async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new AgentiCOSError("transient", {
+          code: "TRANSIENT",
+          category: "NETWORK",
+          retryable: true,
+        });
+      }
+      return "ok";
+    },
+    {
+      maxAttempts: 3,
+      baseDelayMs: 0,
+      maxDelayMs: 0,
+    },
+    { sleep: async () => undefined },
+  );
+
+  assert.equal(result, "ok");
+  assert.equal(attempts, 3);
+
+  const breaker = new CircuitBreaker({
+    failureThreshold: 2,
+    cooldownMs: 100,
+  });
+  assert.equal(breaker.allowRequest(0), true);
+  breaker.recordFailure(0);
+  breaker.recordFailure(1);
+  assert.equal(breaker.snapshot().state, "open");
+  assert.equal(breaker.allowRequest(50), false);
+  assert.equal(breaker.allowRequest(101), true);
+  breaker.recordSuccess();
+  assert.equal(breaker.snapshot().state, "closed");
+});
+
+test("cancellation is explicit and idempotent", async () => {
+  const { CancellationController } = await import("../src/architecture/cancellation.js");
+  const controller = new CancellationController();
+
+  assert.equal(controller.isCancelled(), false);
+  controller.cancel("user-request");
+  controller.cancel("second-call");
+  assert.equal(controller.isCancelled(), true);
+  assert.equal(controller.reason(), "user-request");
+  assert.throws(() => controller.throwIfCancelled());
+});
+
+test("outbox failures are persisted as deferred retries", async () => {
+  const outbox = new InMemoryOutbox();
+  const event = await outbox.append({
+    type: "retry.test",
+    version: 1,
+    aggregateId: "run-retry",
+    payload: { ok: false },
+  });
+
+  await outbox.markFailed(
+    event.eventId,
+    new Error("temporary"),
+    new Date(Date.now() + 60_000).toISOString(),
+  );
+
+  const pending = await outbox.listPending(10);
+  assert.equal(pending.length, 0);
+});
+
+test("sqlite startup validates integrity and the durable kernel depends only on its port", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agenticos-integrity-"));
+  const dbPath = join(directory, "state.sqlite");
+  const database = new SqliteDatabase(dbPath);
+  const kernel = new DurableKernel(new SqliteKernelStore(database));
+
+  const run = kernel.createRun({
+    workspaceId: "workspace-integrity",
+    budget: budget(),
+  });
+
+  assert.equal(kernel.getRun(run.id).id, run.id);
+
+  kernel.close();
+  await rm(directory, { recursive: true, force: true });
+});

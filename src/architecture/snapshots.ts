@@ -57,7 +57,47 @@ export function diffSnapshots(
   const left = new Map(before.files.map((file) => [file.path, file.content]));
   const right = new Map(after.files.map((file) => [file.path, file.content]));
   const paths = new Set([...left.keys(), ...right.keys()]);
-  return [...paths]
-    .sort()
-    .filter((file) => left.get(file) !== right.get(file));
+  return [...paths].sort().filter((file) => left.get(file) !== right.get(file));
+}
+
+export class InMemoryWorkspace {
+  private files: WorkspaceFile[];
+
+  constructor(
+    readonly workspaceId: string,
+    initialFiles: readonly WorkspaceFile[] = [],
+  ) {
+    this.files = [...initialFiles].sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  snapshot(): WorkspaceSnapshot {
+    return createWorkspaceSnapshot(this.workspaceId, this.files);
+  }
+
+  replace(snapshot: WorkspaceSnapshot): void {
+    assertSnapshotIntegrity(snapshot);
+    if (snapshot.workspaceId !== this.workspaceId) {
+      throw new AgentiCOSError("Snapshot belongs to another workspace.", {
+        code: "SNAPSHOT_WORKSPACE_MISMATCH",
+        category: "VALIDATION",
+      });
+    }
+    this.files = [...snapshot.files];
+  }
+
+  async transaction<T>(
+    mutate: (files: WorkspaceFile[]) => Promise<T> | T,
+  ): Promise<T> {
+    const before = this.snapshot();
+    const working = [...before.files];
+
+    try {
+      const result = await mutate(working);
+      this.files = working.sort((a, b) => a.path.localeCompare(b.path));
+      return result;
+    } catch (error) {
+      this.replace(before);
+      throw error;
+    }
+  }
 }

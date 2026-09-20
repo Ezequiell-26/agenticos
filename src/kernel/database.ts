@@ -25,6 +25,7 @@ export class SqliteDatabase {
     try {
       this.configure();
       this.migrate();
+      this.assertIntegrity();
     } catch (error) {
       this.db.close();
       throw error;

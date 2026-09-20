@@ -65,7 +65,7 @@ Adapters for local servers and runtimes such as Ollama, vLLM, llama.cpp and SGLa
 
 The compatibility layer is a baseline. Native adapters remain available whenever a provider exposes capabilities that cannot be represented safely through a generic protocol.
 
-Google currently documents Gemini access through an OpenAI-compatible endpoint, while vLLM documents an OpenAI-compatible HTTP server. This validates the value of the compatibility layer but also shows why AgentiCOS must not hard-code one API shape. citeturn902940search1turn902940search0
+Google currently documents Gemini access through an OpenAI-compatible endpoint, while vLLM documents an OpenAI-compatible HTTP server. This validates the value of the compatibility layer but also shows why AgentiCOS must not hard-code one API shape.
 
 ## Generic endpoint descriptor
 

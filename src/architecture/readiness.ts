@@ -35,6 +35,22 @@ const REQUIRED_PROTOCOLS = [
   "channel-event.schema.json",
   "webhook-trigger.schema.json",
   "provider-descriptor.schema.json",
+  "terminal.schema.json",
+  "job.schema.json",
+  "filesystem-change.schema.json",
+  "attachment.schema.json",
+  "agent-team.schema.json",
+  "mcp-resource.schema.json",
+  "a2a-task.schema.json",
+  "credential.schema.json",
+  "planning.schema.json",
+  "change-request.schema.json",
+  "package-release.schema.json",
+  "trajectory.schema.json",
+  "supervisor.schema.json",
+  "scope.schema.json",
+  "feature-flag.schema.json",
+  "management-operation.schema.json",
 ] as const;
 
 const REQUIRED_CRATE_NAMES = [
@@ -50,6 +66,24 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   await readRequired(root, "contracts/registry.json");
   await readRequired(root, "reference/manifests/mit-repositories.json");
   await readRequired(root, "reference/manifests/capability-parity.json");
+  const completenessRaw = await readRequired(root, "reference/manifests/architecture-completeness.json");
+  const completeness = JSON.parse(completenessRaw) as {
+    schema_version: number;
+    capabilities: readonly (readonly [string, string, string])[];
+    policy: {
+      architecture_only: boolean;
+      implementation_requires_step_unlock: boolean;
+      canonical_agent_loop_modification_requires_adr: boolean;
+      future_scope_preimplementation_forbidden: boolean;
+      reference_first: boolean;
+      mit_only_canonical_source_integration: boolean;
+    };
+  };
+  assertArchitectureCompletenessManifest(completeness);
+  const contractRegistry = JSON.parse(
+    await readRequired(root, "contracts/registry.json"),
+  ) as { contracts: readonly { id: string }[] };
+  assertCompletenessContractsRegistered(completeness, contractRegistry);
   await readRequired(root, "reference/manifests/implementation-state.json");
 
   for (const protocol of REQUIRED_PROTOCOLS) {
@@ -66,6 +100,58 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   ) as ImplementationState;
 
   assertImplementationState(state);
+}
+
+
+function assertArchitectureCompletenessManifest(value: {
+  schema_version: number;
+  capabilities: readonly (readonly [string, string, string])[];
+  policy: {
+    architecture_only: boolean;
+    implementation_requires_step_unlock: boolean;
+    canonical_agent_loop_modification_requires_adr: boolean;
+    future_scope_preimplementation_forbidden: boolean;
+    reference_first: boolean;
+    mit_only_canonical_source_integration: boolean;
+  };
+}): void {
+  if (
+    value.schema_version !== 1 ||
+    !Array.isArray(value.capabilities) ||
+    !value.capabilities.length ||
+    !value.policy.architecture_only ||
+    !value.policy.implementation_requires_step_unlock ||
+    !value.policy.canonical_agent_loop_modification_requires_adr ||
+    !value.policy.future_scope_preimplementation_forbidden ||
+    !value.policy.reference_first ||
+    !value.policy.mit_only_canonical_source_integration
+  ) {
+    throw new AgentiCOSError("Architecture completeness manifest is invalid or weakened.", {
+      code: "ARCHITECTURE_COMPLETENESS_INVALID",
+      category: "SECURITY",
+      severity: "critical",
+    });
+  }
+}
+
+function assertCompletenessContractsRegistered(
+  completeness: { capabilities: readonly (readonly [string, string, string])[] },
+  registry: { contracts: readonly { id: string }[] },
+): void {
+  const ids = new Set(registry.contracts.map((contract) => contract.id));
+  for (const capability of completeness.capabilities) {
+    const contractId = capability[1];
+    if (!ids.has(contractId)) {
+      throw new AgentiCOSError(
+        `Architecture completeness capability ${capability[0]} references missing contract ${contractId}.`,
+        {
+          code: "ARCHITECTURE_COMPLETENESS_CONTRACT_MISSING",
+          category: "PROTOCOL",
+          severity: "critical",
+        },
+      );
+    }
+  }
 }
 
 function assertImplementationState(state: ImplementationState): void {

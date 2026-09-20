@@ -166,3 +166,17 @@ Every implementation step that uses repository evidence records:
 
 A step cannot become VERIFIED without this record.
 
+## Mandatory continuity memory
+
+Before starting any operation, the agent MUST read `reference/PROJECT-STATE.md`, `reference/manifests/implementation-state.json`, the latest `reference/journal/agent-operations.jsonl` entries and `docs/architecture/AGENT-CONTINUITY-PROTOCOL.md`.
+
+After every operation, it MUST append an operation report recording what it did, what it created, what it modified, what it deleted, what it preserved, what it actually verified, what remains unverified, risks, rollback point and exactly one next step.
+
+A completed operation without evidence is invalid.
+
+The agent must never infer project state from conversation memory when repository state is available.
+
+The agent must preserve code, data and history by default. Destructive changes are blocked unless the continuity destructive-change gate is satisfied.
+
+The continuity verifier `scripts/verify-agent-continuity.mjs` is part of the architecture gate.
+

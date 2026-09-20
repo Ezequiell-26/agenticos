@@ -208,6 +208,11 @@ test("snapshot integrity rejects traversal, duplicate and NUL-byte paths", async
       { path: "bad" + String.fromCharCode(0) + ".txt", content: "x" },
     ]),
   );
+  assert.throws(() =>
+    createWorkspaceSnapshot("workspace-1", [
+      { path: "C:relative.txt", content: "x" },
+    ]),
+  );
 });
 
 test("snapshot integrity detects tampering and transactions rollback on failure", async () => {
@@ -357,6 +362,16 @@ test("openai-compatible provider isolates credentials, validates requests and pr
       billing: "custom",
       protocol: "openai-chat-completions",
       baseUrl: "https://user:password@example.com/v1",
+    }),
+  );
+  assert.throws(() =>
+    new OpenAICompatibleProvider({
+      id: "unsafe-headers",
+      name: "Unsafe Headers",
+      billing: "custom",
+      protocol: "openai-chat-completions",
+      baseUrl: "https://example.com/v1",
+      extraHeaders: { Authorization: "Bearer forged" },
     }),
   );
 });

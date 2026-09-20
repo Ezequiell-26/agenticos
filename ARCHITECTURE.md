@@ -19,7 +19,7 @@ AgentiCOS maintains an approved Reference Knowledge Corpus.
 
 Before implementing a non-trivial capability, the coding agent must search the corpus, read relevant documentation/implementation/tests, extract applicable behavior and edge cases, and map those findings onto AgentiCOS contracts.
 
-The purpose is to reuse proven patterns and avoid unnecessary reinvention.
+For registered repositories—especially MIT-licensed repositories—the learning process must inspect the relevant project documentation, source modules, tests, build/quality configuration, security material, licenses and third-party notices. Large repositories may be indexed/summarized, but exact implementation evidence must remain retrievable by file/symbol and pinned source snapshot.
 
 See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMPLEMENTATION-CONTRACT.md.
 
@@ -52,6 +52,7 @@ See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMP
 25. No capability is considered complete until it has an executable vertical slice and recovery semantics.
 26. Reference evidence must be traceable to an exact source snapshot.
 27. Reference code cannot override AgentiCOS security, contracts or license policy.
+28. Registered source repositories must be fully learned at the project level before they are treated as trusted implementation references.
 
 ## Product definition
 
@@ -71,18 +72,42 @@ AgentiCOS should cover:
 - model catalog;
 - capability registry;
 - smart routing;
+- multiple routing strategies;
 - provider health;
 - rate-limit and quota ledgers;
+- quota-aware scheduling;
 - cooldowns;
 - key/account pools;
 - controlled failover;
+- retry/backoff;
+- circuit breakers;
+- degradation policies;
 - streaming normalization;
 - multimodal normalization;
 - compatible API surfaces;
 - local and custom OpenAI-compatible endpoints;
-- observability for latency, failures and usage.
+- routing telemetry and evaluation.
 
-FreeLLMAPI is a primary reference for this domain. Study its provider aggregation, fallback, quota/rate tracking, catalog and compatibility patterns while keeping AgentiCOS contracts and Rust implementation independent.
+FreeLLMAPI is the primary reference for provider aggregation, model catalogs, quotas, fallback and compatibility.
+
+OmniRoute is a primary reference for multi-strategy routing, resilience policy separation, telemetry, quota-aware behavior, router evaluation and operational quality controls.
+
+AgentiCOS keeps these ideas behind Rust-owned contracts and does not depend on either project's internal implementation.
+
+## Compression and cache plane
+
+The provider/execution path may include optional, measurable optimizations for:
+
+- prompt compression;
+- tool-output compaction;
+- semantic caching;
+- exact-match caching;
+- cache provenance;
+- cache safety boundaries;
+- explicit opt-in/feature flags;
+- compression/evaluation benchmarks.
+
+OmniRoute and FreeLLMAPI are references for relevant gateway optimization patterns.
 
 ## Architectural strategy
 
@@ -109,7 +134,7 @@ Execution plane     → workers, sandboxes, resources, leases
 Artifact plane      → files, media, reports, evidence, provenance
 Integration plane   → plugins, SDKs, protocols, engine adapters
 Source plane        → Source Forge, licensing, SBOM, fusion, reference corpus
-Evaluation plane    → replay, golden tasks, regression, fault injection
+Evaluation plane    → replay, golden tasks, regression, fault injection, router evaluation
 Surface plane       → CLI, TUI, Web, Desktop, IDE, API, SDK, messaging
 
 Each plane has an explicit owner and communicates through contracts rather than hidden cross-plane dependencies.

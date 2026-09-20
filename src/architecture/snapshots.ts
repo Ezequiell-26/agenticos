@@ -161,7 +161,7 @@ function canonicalWorkspacePath(value: string): string {
     !path ||
     path.includes("\0") ||
     path.startsWith("/") ||
-    /^[A-Za-z]:\//.test(path) ||
+    /^[A-Za-z]:/.test(path) ||
     path.split("/").some((part) => part === "" || part === "." || part === "..")
   ) {
     throw new AgentiCOSError("Workspace file path is invalid: " + value, {

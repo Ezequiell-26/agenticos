@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://agenticos.dev/schemas/plugin-activation.v1.json",
+  "title":"AgentiCOS Plugin Activation v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","pluginId","version","action","requestId"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "pluginId":{"type":"string","minLength":1},
+    "version":{"type":"string","minLength":1},
+    "action":{"enum":["validate","install","enable","disable","upgrade","rollback","uninstall","health"]},
+    "requestId":{"type":"string","minLength":1},
+    "configuration":{"type":"object"},
+    "capabilityGrants":{"type":"array","items":{"type":"string"}}
+  }
+}

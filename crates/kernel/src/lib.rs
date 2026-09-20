@@ -4,8 +4,9 @@
 //! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
 
 use agenticos_contracts::{
-    CancellationToken, ContractError, EventStore, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, RunId, RunState, SerializedEvent, SerializedSnapshot, SnapshotStore,
+    CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
+    EventStore, IdempotencyRecord, IdempotencyStatus, LeaseRecord, LogEntry, LogLevel, Logger,
+    RunId, RunState, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -364,6 +365,12 @@ pub struct KernelRuntime {
     pub snapshot_store: Arc<dyn SnapshotStore>,
     /// In-memory run registry.
     pub runs: Arc<RwLock<HashMap<RunId, DurableRun>>>,
+    /// Structured logger.
+    pub logger: Arc<dyn Logger>,
+    /// Configuration layer.
+    pub config: Arc<RwLock<dyn ConfigLayer>>,
+    /// Capability issuer.
+    pub capability_issuer: Arc<dyn CapabilityIssuer>,
 }
 
 impl std::fmt::Debug for KernelRuntime {
@@ -372,23 +379,60 @@ impl std::fmt::Debug for KernelRuntime {
             .field("event_store", &"<EventStore>")
             .field("snapshot_store", &"<SnapshotStore>")
             .field("runs", &self.runs)
+            .field("logger", &"<Logger>")
+            .field("config", &"<ConfigLayer>")
+            .field("capability_issuer", &"<CapabilityIssuer>")
             .finish()
     }
 }
 
 impl KernelRuntime {
-    /// Create a new kernel runtime with given stores.
-    pub fn new(event_store: Arc<dyn EventStore>, snapshot_store: Arc<dyn SnapshotStore>) -> Self {
+    /// Create a new kernel runtime with given stores and components.
+    pub fn new(
+        event_store: Arc<dyn EventStore>,
+        snapshot_store: Arc<dyn SnapshotStore>,
+        logger: Arc<dyn Logger>,
+        config: Arc<RwLock<dyn ConfigLayer>>,
+        capability_issuer: Arc<dyn CapabilityIssuer>,
+    ) -> Self {
         Self {
             event_store,
             snapshot_store,
             runs: Arc::new(RwLock::new(HashMap::new())),
+            logger,
+            config,
+            capability_issuer,
         }
+    }
+
+    /// Create a minimal kernel runtime with default components.
+    pub fn minimal(
+        event_store: Arc<dyn EventStore>,
+        snapshot_store: Arc<dyn SnapshotStore>,
+    ) -> Self {
+        Self::new(
+            event_store,
+            snapshot_store,
+            Arc::new(InMemoryLogger::new(LogLevel::Info)),
+            Arc::new(RwLock::new(InMemoryConfig::default())),
+            Arc::new(InMemoryCapabilityIssuer::new()),
+        )
     }
 
     /// Create a new run and persist its creation event.
     pub async fn create_run(&self, run_id: RunId) -> Result<DurableRun, ContractError> {
         let mut run = DurableRun::new(run_id.clone());
+
+        // Log creation attempt
+        let log_entry = LogEntry {
+            level: LogLevel::Info,
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            component: "KernelRuntime".to_string(),
+            message: format!("Creating run: {}", run_id.as_str()),
+            fields: vec![("run_id".to_string(), run_id.as_str().to_string())],
+            correlation_id: None,
+        };
+        self.logger.log(log_entry).await?;
 
         // Persist creation event
         let event = SerializedEvent {
@@ -406,6 +450,20 @@ impl KernelRuntime {
 
         // Increment version after successful persistence
         run.version = 1;
+
+        // Log successful creation
+        let success_log = LogEntry {
+            level: LogLevel::Info,
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            component: "KernelRuntime".to_string(),
+            message: format!("Run created successfully: {}", run_id.as_str()),
+            fields: vec![
+                ("run_id".to_string(), run_id.as_str().to_string()),
+                ("version".to_string(), run.version.to_string()),
+            ],
+            correlation_id: None,
+        };
+        self.logger.log(success_log).await?;
 
         // Register in memory
         let mut runs = self.runs.write().await;
@@ -801,5 +859,242 @@ impl SnapshotStore for SqliteSnapshotStore {
                 schema_version: schema_version as u16,
             },
         ))
+    }
+}
+
+/// In-memory structured logger implementation.
+#[derive(Debug)]
+pub struct InMemoryLogger {
+    entries: Arc<RwLock<Vec<LogEntry>>>,
+    min_level: LogLevel,
+}
+
+impl InMemoryLogger {
+    /// Create a new in-memory logger.
+    pub fn new(min_level: LogLevel) -> Self {
+        Self {
+            entries: Arc::new(RwLock::new(Vec::new())),
+            min_level,
+        }
+    }
+
+    /// Get all logged entries.
+    pub async fn entries(&self) -> Vec<LogEntry> {
+        self.entries.read().await.clone()
+    }
+
+    /// Clear all logged entries.
+    pub async fn clear(&self) {
+        self.entries.write().await.clear();
+    }
+}
+
+impl Default for InMemoryLogger {
+    fn default() -> Self {
+        Self::new(LogLevel::Info)
+    }
+}
+
+#[async_trait::async_trait]
+impl Logger for InMemoryLogger {
+    async fn log(&self, entry: LogEntry) -> Result<(), ContractError> {
+        if entry.level >= self.min_level {
+            self.entries.write().await.push(entry);
+        }
+        Ok(())
+    }
+
+    fn is_enabled(&self, level: LogLevel) -> bool {
+        level >= self.min_level
+    }
+}
+
+/// In-memory configuration layer implementation.
+#[derive(Debug)]
+pub struct InMemoryConfig {
+    values: Arc<RwLock<HashMap<String, String>>>,
+    required_keys: Vec<String>,
+}
+
+impl InMemoryConfig {
+    /// Create a new in-memory configuration layer.
+    pub fn new(required_keys: Vec<String>) -> Self {
+        Self {
+            values: Arc::new(RwLock::new(HashMap::new())),
+            required_keys,
+        }
+    }
+
+    /// Set initial configuration values.
+    pub async fn initialize(&self, values: HashMap<String, String>) -> Result<(), ConfigError> {
+        let mut config = self.values.write().await;
+        for (key, value) in values {
+            config.insert(key, value);
+        }
+        Ok(())
+    }
+}
+
+impl Default for InMemoryConfig {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
+}
+
+impl ConfigLayer for InMemoryConfig {
+    fn get(&self, key: &str) -> Result<String, ConfigError> {
+        let config = self.values.blocking_read();
+        config
+            .get(key)
+            .cloned()
+            .ok_or_else(|| ConfigError::MissingValue(key.to_string()))
+    }
+
+    fn set(&mut self, key: String, value: String) -> Result<(), ConfigError> {
+        let mut config = self.values.blocking_write();
+        config.insert(key, value);
+        Ok(())
+    }
+
+    fn validate(&self) -> Result<(), ConfigError> {
+        let config = self.values.blocking_read();
+        for required_key in &self.required_keys {
+            if !config.contains_key(required_key) {
+                return Err(ConfigError::MissingValue(required_key.clone()));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// In-memory capability issuer implementation.
+#[derive(Debug)]
+pub struct InMemoryCapabilityIssuer {
+    grants: Arc<RwLock<HashMap<String, CapabilityGrant>>>,
+}
+
+impl InMemoryCapabilityIssuer {
+    /// Create a new in-memory capability issuer.
+    pub fn new() -> Self {
+        Self {
+            grants: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Get all active grants.
+    pub async fn all_grants(&self) -> Vec<CapabilityGrant> {
+        self.grants.read().await.values().cloned().collect()
+    }
+}
+
+impl Default for InMemoryCapabilityIssuer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait::async_trait]
+impl CapabilityIssuer for InMemoryCapabilityIssuer {
+    async fn issue(&self, request: CapabilityGrant) -> Result<String, ContractError> {
+        let mut grants = self.grants.write().await;
+        let grant_id = request.grant_id.clone();
+        grants.insert(grant_id.clone(), request);
+        Ok(grant_id)
+    }
+
+    async fn revoke(&self, grant_id: &str) -> Result<(), ContractError> {
+        let mut grants = self.grants.write().await;
+        grants
+            .remove(grant_id)
+            .ok_or(ContractError::MissingCapability)?;
+        Ok(())
+    }
+
+    async fn validate(&self, grant_id: &str) -> Result<bool, ContractError> {
+        let grants = self.grants.read().await;
+        if let Some(grant) = grants.get(grant_id) {
+            let current_time = chrono::Utc::now().timestamp() as u64;
+            if grant.expires_at > 0 && grant.expires_at < current_time {
+                return Ok(false);
+            }
+            return Ok(true);
+        }
+        Ok(false)
+    }
+}
+
+/// Deterministic test clock for reproducible testing.
+#[derive(Debug, Clone)]
+pub struct TestClock {
+    current_time: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl TestClock {
+    /// Create a new test clock starting at timestamp 0.
+    pub fn new() -> Self {
+        Self {
+            current_time: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+
+    /// Get the current timestamp.
+    pub fn now(&self) -> u64 {
+        self.current_time.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Advance the clock by a given duration in milliseconds.
+    pub fn advance(&self, duration_ms: u64) {
+        self.current_time
+            .fetch_add(duration_ms, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Set the clock to a specific timestamp.
+    pub fn set(&self, timestamp: u64) {
+        self.current_time
+            .store(timestamp, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Default for TestClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Deterministic ID generator for testing.
+#[derive(Debug)]
+pub struct TestIdGenerator {
+    counter: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl TestIdGenerator {
+    /// Create a new test ID generator.
+    pub fn new() -> Self {
+        Self {
+            counter: Arc::new(std::sync::atomic::AtomicU64::new(1)),
+        }
+    }
+
+    /// Generate a new deterministic ID.
+    pub fn generate(&self) -> String {
+        format!(
+            "test-{}",
+            self.counter
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        )
+    }
+
+    /// Generate a new UUID-like deterministic ID.
+    pub fn generate_uuid(&self) -> String {
+        let id = self
+            .counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        format!("{:08x}-{:04x}-{:04x}-{:04x}-{:012x}", id, 0, 0, 0, 0)
+    }
+}
+
+impl Default for TestIdGenerator {
+    fn default() -> Self {
+        Self::new()
     }
 }

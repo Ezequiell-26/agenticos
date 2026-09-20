@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "step-2-pending",
+  "current_step": "step-3-pending",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -179,6 +179,74 @@
           "result": "success",
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
+      ],
+      "unlocks": [
+        "rust-kernel-vertical-slice-2"
+      ]
+    },
+    {
+      "id": "rust-kernel-vertical-slice-2",
+      "number": 2,
+      "status": "verified",
+      "scope": [
+        "configuration layers and validation",
+        "structured logging with event publishing",
+        "deterministic test clocks/IDs",
+        "policy primitives and capability gates",
+        "capability-safe dependency injection",
+        "kernel runtime integration"
+      ],
+      "requires": [
+        "rust-kernel-vertical-slice-1"
+      ],
+      "required_checks": [
+        "integration tests",
+        "configuration validation tests",
+        "logging event tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        {
+          "kind": "command",
+          "command": "cargo test --workspace --all-targets",
+          "result": "success",
+          "evidence": "12 tests passed including durable run lifecycle, optimistic concurrency, lease acquisition, snapshot/recovery, cancellation propagation, invalid state transitions, SQLite persistence, structured logging, config layer, capability issuer, deterministic clock, and deterministic ID generator"
+        },
+        {
+          "kind": "command",
+          "command": "cargo fmt --all",
+          "result": "success",
+          "evidence": "Code formatting passed"
+        },
+        {
+          "kind": "command",
+          "command": "cargo check --workspace --all-targets",
+          "result": "success",
+          "evidence": "All crates compiled successfully"
+        },
+        {
+          "kind": "command",
+          "command": "cargo clippy --workspace --all-targets -- -D warnings",
+          "result": "success",
+          "evidence": "No clippy warnings found"
+        },
+        {
+          "kind": "gate",
+          "gate": "security",
+          "result": "success",
+          "evidence": "All code uses #![forbid(unsafe_code)] and follows AgentiCOS security patterns"
+        },
+        {
+          "kind": "gate",
+          "gate": "architecture",
+          "result": "success",
+          "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
+        }
+      ],
+      "unlocks": [
+        "step-3-pending"
       ]
     }
   ],
@@ -219,6 +287,16 @@
       "from": "rust-kernel-vertical-slice-1",
       "to": "verified",
       "reason": "All Step 1 verification gates passed: contract tests, persistence/recovery tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
+    },
+    {
+      "from": "rust-kernel-vertical-slice-2:locked",
+      "to": "rust-kernel-vertical-slice-2:pending",
+      "reason": "Predecessor rust-kernel-vertical-slice-1 verified."
+    },
+    {
+      "from": "rust-kernel-vertical-slice-2",
+      "to": "verified",
+      "reason": "All Step 2 verification gates passed: integration tests, configuration validation tests, logging event tests, security gate, architecture gate, and Rust fmt/check/test/clippy."
     }
   ]
 }

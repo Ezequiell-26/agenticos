@@ -204,6 +204,130 @@ pub enum IdempotencyStatus {
     Failed,
 }
 
+/// Structured log level.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum LogLevel {
+    /// Trace-level logging.
+    Trace,
+    /// Debug-level logging.
+    Debug,
+    /// Info-level logging.
+    Info,
+    /// Warning-level logging.
+    Warn,
+    /// Error-level logging.
+    Error,
+}
+
+/// Structured log entry.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LogEntry {
+    /// Log level.
+    pub level: LogLevel,
+    /// Timestamp.
+    pub timestamp: u64,
+    /// Component/module identifier.
+    pub component: String,
+    /// Log message.
+    pub message: String,
+    /// Structured fields.
+    pub fields: Vec<(String, String)>,
+    /// Optional correlation ID.
+    pub correlation_id: Option<String>,
+}
+
+/// Configuration validation error.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ConfigError {
+    /// Missing required configuration value.
+    MissingValue(String),
+    /// Invalid configuration value.
+    InvalidValue(String),
+    /// Configuration parse error.
+    ParseError(String),
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingValue(key) => write!(f, "missing required configuration: {}", key),
+            Self::InvalidValue(key) => write!(f, "invalid configuration value: {}", key),
+            Self::ParseError(msg) => write!(f, "configuration parse error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl From<ConfigError> for ContractError {
+    fn from(_err: ConfigError) -> Self {
+        ContractError::Persistence // Map config errors to persistence for now
+    }
+}
+
+/// Capability grant type.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CapabilityType {
+    /// Read-only capability.
+    Read,
+    /// Write capability.
+    Write,
+    /// Execute capability.
+    Execute,
+    /// Admin capability.
+    Admin,
+}
+
+/// Capability grant with scope.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapabilityGrant {
+    /// Capability type.
+    pub capability_type: CapabilityType,
+    /// Resource scope.
+    pub resource: String,
+    /// Permission level.
+    pub permission: String,
+    /// Expiration timestamp (0 = no expiration).
+    pub expires_at: u64,
+    /// Grant ID.
+    pub grant_id: String,
+}
+
+/// Structured logging trait.
+#[async_trait::async_trait]
+pub trait Logger: Send + Sync {
+    /// Log a structured entry.
+    async fn log(&self, entry: LogEntry) -> Result<(), ContractError>;
+
+    /// Check if a log level is enabled.
+    fn is_enabled(&self, level: LogLevel) -> bool;
+}
+
+/// Configuration layer trait.
+pub trait ConfigLayer: Send + Sync {
+    /// Get a configuration value.
+    fn get(&self, key: &str) -> Result<String, ConfigError>;
+
+    /// Set a configuration value.
+    fn set(&mut self, key: String, value: String) -> Result<(), ConfigError>;
+
+    /// Validate the configuration.
+    fn validate(&self) -> Result<(), ConfigError>;
+}
+
+/// Capability issuer trait.
+#[async_trait::async_trait]
+pub trait CapabilityIssuer: Send + Sync {
+    /// Issue a capability grant.
+    async fn issue(&self, request: CapabilityGrant) -> Result<String, ContractError>;
+
+    /// Revoke a capability grant.
+    async fn revoke(&self, grant_id: &str) -> Result<(), ContractError>;
+
+    /// Validate a capability grant.
+    async fn validate(&self, grant_id: &str) -> Result<bool, ContractError>;
+}
+
 /// Lease record for distributed execution ownership.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaseRecord {

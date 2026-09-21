@@ -3229,6 +3229,64 @@ impl Default for ToolRegistry {
     }
 }
 
+/// Subagent for specialized agent tasks (LangChain multi-agent pattern).
+#[derive(Debug, Clone)]
+pub struct Subagent {
+    /// Subagent name
+    pub name: String,
+    /// Subagent description
+    pub description: String,
+    /// Subagent role/specialization
+    pub role: String,
+    /// Subagent tools
+    pub tools: Vec<String>,
+}
+
+/// Supervisor for coordinating subagents (LangGraph supervisor pattern).
+#[derive(Debug, Clone)]
+pub struct Supervisor {
+    /// Registered subagents
+    subagents: std::collections::HashMap<String, Subagent>,
+}
+
+impl Supervisor {
+    /// Create a new supervisor.
+    pub fn new() -> Self {
+        Self {
+            subagents: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Register a subagent.
+    pub fn register_subagent(&mut self, subagent: Subagent) {
+        self.subagents.insert(subagent.name.clone(), subagent);
+    }
+
+    /// Get a subagent by name.
+    pub fn get_subagent(&self, name: &str) -> Option<&Subagent> {
+        self.subagents.get(name)
+    }
+
+    /// List all subagents.
+    pub fn list_subagents(&self) -> Vec<String> {
+        self.subagents.keys().cloned().collect()
+    }
+
+    /// Decide which subagent to invoke for a task.
+    /// For now, returns None (no decision logic implemented).
+    /// TODO: Integrate with LLM for intelligent subagent selection.
+    pub fn decide_subagent(&self, _task: &str) -> Option<String> {
+        // TODO: Use LLM to decide which subagent to invoke
+        None
+    }
+}
+
+impl Default for Supervisor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// LLM provider configuration with API keys.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
@@ -4246,5 +4304,38 @@ Test procedure"#;
         let deserialized: ToolDefinition = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.name, "test_tool");
+    }
+
+    #[test]
+    fn test_supervisor() {
+        let mut supervisor = Supervisor::new();
+
+        let subagent = Subagent {
+            name: "research_agent".to_string(),
+            description: "Research specialist".to_string(),
+            role: "research".to_string(),
+            tools: vec!["search".to_string()],
+        };
+
+        supervisor.register_subagent(subagent);
+
+        assert_eq!(supervisor.list_subagents().len(), 1);
+        assert_eq!(
+            supervisor.get_subagent("research_agent").unwrap().name,
+            "research_agent"
+        );
+    }
+
+    #[test]
+    fn test_subagent_creation() {
+        let subagent = Subagent {
+            name: "test_agent".to_string(),
+            description: "Test agent".to_string(),
+            role: "test".to_string(),
+            tools: vec!["tool1".to_string(), "tool2".to_string()],
+        };
+
+        assert_eq!(subagent.name, "test_agent");
+        assert_eq!(subagent.tools.len(), 2);
     }
 }

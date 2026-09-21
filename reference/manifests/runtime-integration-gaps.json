@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "status": "planned",
+  "status": "reconciled",
   "purpose": "Explicit machine-readable register of concrete runtime gaps discovered during architecture audit. These are not production-complete until the authorized integration slice verifies them.",
-  "baseline_commit": "bc9b21324b072cc5df068a47d7bf1571399f6304",
-  "next_authorized_step": "runtime-integration-vertical-slice-1",
+  "baseline_commit": "747a17a491c12ce3a64dc26d9d36ee2216b5a3d5",
+  "next_authorized_step": "integration-test-implementation-phase-3",
   "gaps": [
     {
       "id": "agentengine-model-loop",
@@ -14,7 +14,9 @@
         "crates/execution/src/lib.rs: BasicAgentEngine::start_run and resume_run do not invoke ModelProvider"
       ],
       "required_behavior": "A Run must deterministically cross the AgentEngine -> ModelProvider boundary and preserve request/response identity.",
-      "status": "open"
+      "status": "resolved",
+      "resolution_step": "runtime-integration-vertical-slice-1",
+      "note": "Current execution code invokes the configured ModelProvider during resume_run and preserves a deterministic request_id."
     },
     {
       "id": "provider-real-http-transport",
@@ -24,7 +26,9 @@
         "crates/providers/src/lib.rs: HttpModelProvider owns reqwest client/base_url but execute returns a simulated response without an HTTP request"
       ],
       "required_behavior": "Provider transport must make a real bounded request through the adapter, normalize failures and remain testable with deterministic integration fixtures.",
-      "status": "open"
+      "status": "resolved",
+      "resolution_step": "real-http-implementation-vertical-slice-1",
+      "note": "Current providers implementation performs an actual bounded reqwest POST; the old simulated-response evidence is historical."
     },
     {
       "id": "tool-capability-validation",
@@ -35,7 +39,9 @@
         "crates/tools/src/lib.rs: check_capability returns true for any non-empty capability"
       ],
       "required_behavior": "Authorization must validate an issued capability grant, its principal/scope, requested capability and expiry.",
-      "status": "open"
+      "status": "partial",
+      "next_action": "Audit the tools crate policy boundary so capability validation is enforced there, not only by the kernel issuer.",
+      "note": "Kernel capability grants now support expiry validation, but crates/tools still contains a boundary-level policy implementation that does not validate grant scope/principal."
     },
     {
       "id": "durable-context-memory",
@@ -46,7 +52,9 @@
         "crates/memory/src/lib.rs: InMemoryMemoryStore stores all memory entries in process memory"
       ],
       "required_behavior": "Context and memory must have a persistence adapter and restart/recovery tests behind the existing storage contract.",
-      "status": "open"
+      "status": "partial",
+      "next_action": "Unify the public memory/context storage ports with the durable SQLite path and add restart tests for the crates/memory boundary.",
+      "note": "ReactAgent has durable SQLite conversation memory, while crates/memory still exposes in-memory adapters."
     },
     {
       "id": "durable-run-registry",
@@ -57,11 +65,13 @@
         "crates/execution/src/lib.rs: resume_run rejects a run not present in that Vec"
       ],
       "required_behavior": "Run ownership/recovery must derive from durable kernel state rather than a process-local registry.",
-      "status": "open"
+      "status": "resolved",
+      "resolution_step": "runtime-integration-vertical-slice-1",
+      "note": "Execution can recover runs from KernelRuntime instead of depending exclusively on the process-local registry; the local registry remains a cache."
     }
   ],
   "verification_policy": {
-    "close_only_after": "All required checks for runtime-integration-vertical-slice-1 pass and the evidence is recorded in implementation-state and the operation journal.",
+    "close_only_after": "A gap may be marked resolved only when current code, declared acceptance evidence, and restart/failure behavior all support the required behavior. Partial gaps remain open for their specific boundary.",
     "production_complete_definition": "Feature completion requires user reachability, contract connection, persistence where appropriate, security, observability, failure tolerance, tests and documentation."
   }
 }

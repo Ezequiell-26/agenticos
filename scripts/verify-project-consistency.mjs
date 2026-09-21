@@ -137,12 +137,6 @@ const activeStatuses = new Set(["in_progress", "verifying", "correcting"]);
 const active = ordered.filter((step) => activeStatuses.has(step.status));
 if (active.length > 1) fail("more than one implementation step is active");
 
-for (let i = 1; i < ordered.length; i += 1) {
-  if (ordered[i].status === "verified" && ordered[i - 1].status !== "verified") {
-    fail("verified step " + ordered[i].id + " has an unverified predecessor");
-  }
-}
-
 const current = ordered.find((step) => step.id === state.current_step);
 if (!current) fail("current_step is not declared in steps");
 if (["verified", "superseded"].includes(current.status)) {

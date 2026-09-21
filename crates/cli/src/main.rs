@@ -4,7 +4,7 @@
 //! AgentiCOS CLI - Command-line interface for the AgentiCOS platform.
 
 use agenticos_contracts::{FeatureFlagStore, ModelProvider, ModelRequest, RunId};
-use agenticos_kernel::{HttpModelProvider, InMemoryFeatureFlagStore, KernelRuntime};
+use agenticos_kernel::{HttpModelProvider, InMemoryFeatureFlagStore, KernelRuntime, ReactAgent};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
@@ -408,29 +408,70 @@ async fn handle_flag_command(
 }
 
 async fn handle_chat_mode(_runtime: Arc<KernelRuntime>, _verbose: bool) -> Result<()> {
-    println!("AgentiCOS Chat Mode");
+    println!("AgentiCOS Chat Mode with ReAct Architecture");
     println!("Type 'exit' or 'quit' to exit");
     println!("Type 'help' for available commands");
     println!();
+
+    // Initialize ReAct agent with SOUL.md identity
+    let identity = r#"You are a pragmatic senior engineer with strong taste.
+You optimize for truth, clarity, and usefulness over politeness theater.
+You use the ReAct pattern: Thought → Action → Observation → repeat."#;
+
+    let mut agent = ReactAgent::new(identity.to_string());
+
+    // Add skills to catalog
+    agent.add_skill("git_operations".to_string());
+    agent.add_skill("file_editing".to_string());
+    agent.add_skill("code_search".to_string());
+    agent.add_skill("debugging".to_string());
+
+    // Set memory
+    agent.set_memory_md(
+        "Environment: Rust/Tokio workspace with 28 verified vertical slices.".to_string(),
+    );
+    agent.set_user_md("User prefers concise, technical responses without fluff.".to_string());
+
     println!("Current Status:");
     println!("  Runtime: Active");
     println!("  Kernel: Initialized");
     println!("  Providers: Connected");
     println!("  Tools: Available");
+    println!("  ReAct Agent: Initialized");
     println!();
+
+    // Show system prompt (simulated)
+    println!("System Prompt Preview:");
+    println!("---");
+    let system_prompt = agent.build_system_prompt();
+    let preview = if system_prompt.len() > 500 {
+        format!("{}...", &system_prompt[..500])
+    } else {
+        system_prompt.clone()
+    };
+    println!("{}", preview);
+    println!("---");
+    println!();
+
+    println!("ReAct Loop Features:");
+    println!("  ✓ SOUL.md identity system");
+    println!("  ✓ Three-tier memory (MEMORY.md, USER.md)");
+    println!("  ✓ Skills catalog (4 skills loaded)");
+    println!("  ✓ Turn management (max 90 turns)");
+    println!("  ✓ Thought → Action → Observation pattern");
+    println!();
+
     println!("This is a conversational mode similar to Hermes/Devin.");
-    println!("For now, it shows the current system status.");
-    println!("Full conversational capabilities will be added in future steps.");
+    println!("Full ReAct loop execution will be added in future steps.");
     println!();
     println!("Available commands:");
     println!("  help - Show this help message");
     println!("  exit/quit - Exit chat mode");
     println!("  status - Show system status");
-    println!("  runs - List all runs");
+    println!("  prompt - Show full system prompt");
+    println!("  skills - Show skills catalog");
     println!();
 
-    // For now, just show the welcome message and exit
-    // Full interactive mode will be implemented in a future step
     println!("Chat mode initialized. Use the CLI commands for now.");
     println!("Run 'agenticos --help' to see all available commands.");
 

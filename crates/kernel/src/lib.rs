@@ -1550,3 +1550,184 @@ impl ModelProvider for HttpModelProvider {
         })
     }
 }
+
+/// ReAct agent core loop implementation.
+#[derive(Debug)]
+pub struct ReactAgent {
+    /// Agent identity (SOUL.md equivalent)
+    identity: String,
+    /// Memory tier 1: MEMORY.md
+    memory_md: String,
+    /// Memory tier 1: USER.md
+    user_md: String,
+    /// Skills catalog
+    skills_catalog: Vec<String>,
+    /// Maximum turns per session
+    max_turns: usize,
+    /// Current turn count
+    current_turn: usize,
+}
+
+impl ReactAgent {
+    /// Create a new ReAct agent with default configuration.
+    pub fn new(identity: String) -> Self {
+        Self {
+            identity,
+            memory_md: String::new(),
+            user_md: String::new(),
+            skills_catalog: Vec::new(),
+            max_turns: 90,
+            current_turn: 0,
+        }
+    }
+
+    /// Create a new ReAct agent with custom max turns.
+    pub fn with_max_turns(identity: String, max_turns: usize) -> Self {
+        Self {
+            identity,
+            memory_md: String::new(),
+            user_md: String::new(),
+            skills_catalog: Vec::new(),
+            max_turns,
+            current_turn: 0,
+        }
+    }
+
+    /// Add a skill to the catalog.
+    pub fn add_skill(&mut self, skill: String) {
+        self.skills_catalog.push(skill);
+    }
+
+    /// Set MEMORY.md content.
+    pub fn set_memory_md(&mut self, content: String) {
+        self.memory_md = content;
+    }
+
+    /// Set USER.md content.
+    pub fn set_user_md(&mut self, content: String) {
+        self.user_md = content;
+    }
+
+    /// Build system prompt from SOUL, memory snapshot, and skills catalog.
+    pub fn build_system_prompt(&self) -> String {
+        let mut prompt = String::new();
+
+        // Slot #1: SOUL.md (identity)
+        prompt.push_str(&self.identity);
+        prompt.push_str("\n\n");
+
+        // Memory snapshot
+        if !self.memory_md.is_empty() {
+            prompt.push_str("## Memory (MEMORY.md)\n");
+            prompt.push_str(&self.memory_md);
+            prompt.push_str("\n\n");
+        }
+
+        if !self.user_md.is_empty() {
+            prompt.push_str("## User Preferences (USER.md)\n");
+            prompt.push_str(&self.user_md);
+            prompt.push_str("\n\n");
+        }
+
+        // Skills catalog (progressive disclosure)
+        if !self.skills_catalog.is_empty() {
+            prompt.push_str("## Available Skills\n");
+            for skill in &self.skills_catalog {
+                prompt.push_str(&format!("- {}\n", skill));
+            }
+            prompt.push('\n');
+        }
+
+        prompt.push_str("## Instructions\n");
+        prompt.push_str("Use ReAct pattern: Thought → Action → Observation → repeat.\n");
+        prompt.push_str("Be concise and precise.\n");
+
+        prompt
+    }
+
+    /// Get current turn count.
+    pub fn current_turn(&self) -> usize {
+        self.current_turn
+    }
+
+    /// Increment turn count.
+    pub fn increment_turn(&mut self) {
+        self.current_turn += 1;
+    }
+
+    /// Check if agent has reached max turns.
+    pub fn is_finished(&self) -> bool {
+        self.current_turn >= self.max_turns
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_react_agent_creation() {
+        let agent = ReactAgent::new("You are a helpful assistant.".to_string());
+        assert_eq!(agent.identity, "You are a helpful assistant.");
+        assert_eq!(agent.current_turn(), 0);
+        assert!(!agent.is_finished());
+    }
+
+    #[test]
+    fn test_react_agent_with_max_turns() {
+        let agent = ReactAgent::with_max_turns("Test agent".to_string(), 10);
+        assert_eq!(agent.max_turns, 10);
+        assert_eq!(agent.current_turn(), 0);
+    }
+
+    #[test]
+    fn test_react_agent_add_skill() {
+        let mut agent = ReactAgent::new("Test agent".to_string());
+        agent.add_skill("git_operations".to_string());
+        agent.add_skill("file_editing".to_string());
+        assert_eq!(agent.skills_catalog.len(), 2);
+    }
+
+    #[test]
+    fn test_react_agent_set_memory() {
+        let mut agent = ReactAgent::new("Test agent".to_string());
+        agent.set_memory_md("Test memory content".to_string());
+        agent.set_user_md("Test user preferences".to_string());
+        assert_eq!(agent.memory_md, "Test memory content");
+        assert_eq!(agent.user_md, "Test user preferences");
+    }
+
+    #[test]
+    fn test_react_agent_build_system_prompt() {
+        let mut agent = ReactAgent::new("You are a helpful assistant.".to_string());
+        agent.set_memory_md("Test memory content".to_string());
+        agent.add_skill("git_operations".to_string());
+
+        let prompt = agent.build_system_prompt();
+        assert!(prompt.contains("You are a helpful assistant."));
+        assert!(prompt.contains("Memory (MEMORY.md)"));
+        assert!(prompt.contains("Test memory content"));
+        assert!(prompt.contains("Available Skills"));
+        assert!(prompt.contains("git_operations"));
+        assert!(prompt.contains("ReAct pattern"));
+    }
+
+    #[test]
+    fn test_react_agent_turn_management() {
+        let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 3);
+        assert_eq!(agent.current_turn(), 0);
+        assert!(!agent.is_finished());
+
+        agent.increment_turn();
+        assert_eq!(agent.current_turn(), 1);
+        assert!(!agent.is_finished());
+
+        agent.increment_turn();
+        assert_eq!(agent.current_turn(), 2);
+        assert!(!agent.is_finished());
+
+        agent.increment_turn();
+        assert_eq!(agent.current_turn, 3);
+        assert!(agent.is_finished());
+    }
+}

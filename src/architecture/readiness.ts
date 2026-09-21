@@ -5,13 +5,22 @@ import { AgentiCOSError } from "./errors.js";
 interface ImplementationStep {
   readonly id: string;
   readonly number: number;
-  readonly status: "pending" | "locked" | "in_progress" | "verifying" | "correcting" | "verified";
+  readonly status: "pending" | "locked" | "in_progress" | "verifying" | "correcting" | "verified" | "blocked" | "superseded";
 }
 
 interface ImplementationState {
   readonly schema_version: number;
   readonly current_step: string;
   readonly steps: readonly ImplementationStep[];
+  readonly control_plane?: {
+    readonly pending_steps_are_backlog: boolean;
+    readonly exactly_one_current_authorized_step: boolean;
+    readonly verified_requirements_must_be_verified: boolean;
+    readonly superseded_steps_are_historical_only: boolean;
+  };
+  readonly change_control?: {
+    readonly current_step_must_have_scope_policy: boolean;
+  };
   readonly policy: {
     readonly one_step_at_a_time: boolean;
     readonly next_step_requires_verified_previous: boolean;
@@ -324,10 +333,7 @@ function assertImplementationState(state: ImplementationState): void {
 
   const activeStep = active.length === 1 ? active[0] : undefined;
 
-  if (
-    activeStep &&
-    activeStep.id !== current.id
-  ) {
+  if (activeStep && activeStep.id !== current.id) {
     throw new AgentiCOSError("Current step does not match the active step.", {
       code: "CURRENT_STEP_MISMATCH",
       category: "VALIDATION",
@@ -335,32 +341,120 @@ function assertImplementationState(state: ImplementationState): void {
     });
   }
 
-  for (let index = 0; index < ordered.length; index += 1) {
-    const step = ordered[index];
-    const previous = index > 0 ? ordered[index - 1] : undefined;
-    if (!step) continue;
+  if (["verified", "superseded"].includes(current.status)) {
+    throw new AgentiCOSError("Current implementation step is terminal.", {
+      code: "CURRENT_STEP_TERMINAL",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
 
-    if (step.status === "verified" && previous && previous.status !== "verified") {
+  if (
+    state.control_plane?.pending_steps_are_backlog !== true ||
+    state.control_plane?.exactly_one_current_authorized_step !== true ||
+    state.control_plane?.verified_requirements_must_be_verified !== true ||
+    state.control_plane?.superseded_steps_are_historical_only !== true ||
+    state.change_control?.current_step_must_have_scope_policy !== true
+  ) {
+    throw new AgentiCOSError("Implementation control-plane policy is incomplete.", {
+      code: "IMPLEMENTATION_CONTROL_PLANE_INVALID",
+      category: "SECURITY",
+      severity: "critical",
+    });
+  }
+
+  const ids = new Set(ordered.map((step) => step.id));
+  for (const step of ordered) {
+    if (step.status === "verified" && step.verification_evidence.length === 0) {
+      throw new AgentiCOSError(`Verified step ${step.id} has no verification evidence.`, {
+        code: "VERIFIED_STEP_WITHOUT_EVIDENCE",
+        category: "VALIDATION",
+        severity: "critical",
+      });
+    }
+
+    for (const requiredId of step.requires ?? []) {
+      if (!ids.has(requiredId)) {
+        throw new AgentiCOSError(`Step ${step.id} requires unknown step ${requiredId}.`, {
+          code: "STEP_REQUIREMENT_UNKNOWN",
+          category: "VALIDATION",
+          severity: "critical",
+        });
+      }
+      const required = ordered.find((candidate) => candidate.id === requiredId);
+      if (step.status === "verified" && required?.status !== "verified") {
+        throw new AgentiCOSError(
+          `Verified step ${step.id} depends on unverified step ${requiredId}.`,
+          {
+            code: "STEP_REQUIREMENT_UNVERIFIED",
+            category: "VALIDATION",
+            severity: "critical",
+          },
+        );
+      }
+    }
+
+    if (step.status === "superseded") {
+      const replacement = ordered.find((candidate) => candidate.id === (step as ImplementationStep & { superseded_by?: string }).superseded_by);
+      if (!replacement || replacement.status !== "verified") {
+        throw new AgentiCOSError(`Superseded step ${step.id} has no verified replacement.`, {
+          code: "SUPERSEDED_REPLACEMENT_INVALID",
+          category: "VALIDATION",
+          severity: "critical",
+        });
+      }
+    }
+
+    for (const unlockId of step.unlocks) {
+      if (!ids.has(unlockId)) {
+        throw new AgentiCOSError(`Step ${step.id} unlocks unknown step ${unlockId}.`, {
+          code: "STEP_UNLOCK_UNKNOWN",
+          category: "VALIDATION",
+          severity: "critical",
+        });
+      }
+    }
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string, trail: readonly string[] = []): void => {
+    if (visiting.has(id)) {
       throw new AgentiCOSError(
-        `Step ${step.id} is verified before its predecessor ${previous.id}.`,
+        `Implementation dependency cycle detected: ${[...trail, id].join(" -> ")}`,
         {
-          code: "STEP_ORDER_VIOLATION",
+          code: "STEP_DEPENDENCY_CYCLE",
           category: "VALIDATION",
           severity: "critical",
         },
       );
     }
+    if (visited.has(id)) return;
+    visiting.add(id);
+    const step = ordered.find((candidate) => candidate.id === id);
+    for (const requiredId of step?.requires ?? []) visit(requiredId, [...trail, id]);
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const step of ordered) visit(step.id);
 
-    if (previous && step.status === "in_progress" && previous.status !== "verified") {
-      throw new AgentiCOSError(
-        `Step ${step.id} started before predecessor ${previous.id} was verified.`,
-        {
-          code: "STEP_UNLOCK_VIOLATION",
-          category: "SECURITY",
-          severity: "critical",
-        },
-      );
-    }
+  const eligiblePending = ordered.filter(
+    (step) =>
+      step.status === "pending" &&
+      (step.requires ?? []).every(
+        (requiredId) =>
+          ordered.find((candidate) => candidate.id === requiredId)?.status === "verified",
+      ),
+  );
+  if (current.status === "pending" && eligiblePending.length > 0 && eligiblePending[0]?.id !== current.id) {
+    throw new AgentiCOSError(
+      `Current pending step ${current.id} is not the first eligible pending implementation step ${eligiblePending[0]?.id}.`,
+      {
+        code: "CURRENT_PENDING_STEP_NOT_ELIGIBLE",
+        category: "VALIDATION",
+        severity: "critical",
+      },
+    );
   }
 }
 

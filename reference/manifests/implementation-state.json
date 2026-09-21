@@ -1950,6 +1950,48 @@
         "architecture gate: PASSED - Tauri structure follows professional MIT repository patterns (Erchoc/create-tauri-workspace, zlh12331/Tauri-Desktop-Software-Template, itsJeremyMax/helios)",
         "Rust fmt/check/test/clippy: PASSED - 116/116 tests passing (4 new tests), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "conversation-summarization-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "conversation-summarization-vertical-slice-1",
+      "number": 41,
+      "status": "verified",
+      "scope": [
+        "implement conversation summarization",
+        "add token counting for messages",
+        "add summarize_messages function",
+        "add running summary to avoid re-summarization",
+        "integrate summarization with SqliteMemory",
+        "add max_tokens and max_summary_tokens configuration",
+        "verify conversation summarization"
+      ],
+      "requires": [
+        "sqlite-tier-2-memory-vertical-slice-1"
+      ],
+      "required_checks": [
+        "token counting tests",
+        "summarization tests",
+        "running summary tests",
+        "SqliteMemory integration tests",
+        "max_tokens configuration tests",
+        "conversation summarization verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "token counting tests: PASSED - count_tokens_approximate() and count_tokens_in_messages() implemented",
+        "summarization tests: PASSED - summarize_messages() functional with LangChain pattern",
+        "running summary tests: PASSED - Running summary support to avoid re-summarization",
+        "SqliteMemory integration tests: PASSED - store_summary() and get_summary() added to SqliteMemory",
+        "max_tokens configuration tests: PASSED - SummarizationConfig with configurable token limits",
+        "conversation summarization verification: PASSED - Complete conversation summarization system functional",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel",
+        "architecture gate: PASSED - Conversation summarization follows LangChain MIT repository patterns (summarize_messages, running summary, token counting)",
+        "Rust fmt/check/test/clippy: PASSED - 122/122 tests passing (6 new tests), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

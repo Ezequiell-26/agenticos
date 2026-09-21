@@ -2787,7 +2787,7 @@ pub struct SummarizationResult {
 /// Simple token counter (approximate character-based).
 pub fn count_tokens_approximate(text: &str) -> usize {
     // Rough approximation: ~4 characters per token
-    (text.len() + 3) / 4
+    text.len().div_ceil(4)
 }
 
 /// Count tokens in a list of messages.
@@ -3737,7 +3737,7 @@ Test procedure"#;
 
         assert!(result.was_summarized);
         assert!(result.running_summary.is_some());
-        assert!(result.messages.len() > 0);
+        assert!(!result.messages.is_empty());
     }
 
     #[test]
@@ -3754,6 +3754,10 @@ Test procedure"#;
 
         assert!(result.was_summarized);
         assert!(result.running_summary.is_some());
-        assert!(result.running_summary.as_ref().unwrap().contains("Previous summary"));
+        assert!(result
+            .running_summary
+            .as_ref()
+            .unwrap()
+            .contains("Previous summary"));
     }
 }

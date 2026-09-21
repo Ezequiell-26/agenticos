@@ -15,8 +15,11 @@ If these sources contradict each other, stop. Do not guess. Run the repository c
 
 ## One-step rule
 
-Only the step named by `implementation-state.json.current_step` is authorized.
+Only the step named by `implementation-state.json.current_step` is authorized for new implementation work.
+Other `pending` records are explicit backlog only and are not authorized.
+A step may depend on any earlier verified requirement; the dependency graph, not array position alone, is authoritative.
 Do not pre-implement later product capabilities.
+Superseded records are historical only and must never be reactivated implicitly.
 
 ## Preserve by default
 
@@ -43,3 +46,9 @@ Every operation must record what changed, what was created, what was deleted, wh
 
 Run `npm run verify` before declaring the current operation complete.
 The repository state, not conversational memory, is the source of truth.
+
+## State reconciliation rule
+
+When implementation history and the current manifest disagree, preserve the historical evidence and repair the current projection. Never fabricate verification to make the graph contiguous.
+The current step must exist, have verified requirements, and have a matching entry in `reference/manifests/step-scope-policy.json`.
+

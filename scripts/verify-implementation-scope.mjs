@@ -70,7 +70,48 @@ if (baseRef) {
 
 const controlPlane = scope.control_plane_paths ?? [];
 const allowed = [...controlPlane, ...(policy.allowed_paths ?? [])];
-const violations = changed.filter((file) => !matchesAny(file, allowed));
+
+const headBranch = process.env.GITHUB_HEAD_REF ?? "";
+const approvedRegression = (scope.controlled_regressions ?? []).find(
+  (exception) =>
+    exception.branch === headBranch &&
+    exception.journal_operation_id &&
+    Array.isArray(exception.paths) &&
+    Array.isArray(changed) &&
+    changed.every((file) => matchesAny(file, exception.paths)),
+);
+
+let violations = changed.filter((file) => !matchesAny(file, allowed));
+if (approvedRegression) {
+  const journalSource = await readFile(
+    new URL("../reference/journal/agent-operations.jsonl", pathToFileURL(root + "/")),
+    "utf8",
+  );
+  const journalEntries = journalSource
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  const operation = journalEntries.find(
+    (entry) => entry.operation_id === approvedRegression.journal_operation_id,
+  );
+  if (
+    !operation ||
+    operation.status !== "approved" ||
+    operation.authorized_step !== current.id ||
+    !Array.isArray(operation.changed_paths) ||
+    operation.changed_paths.sort().join("\n") !== [...approvedRegression.paths].sort().join("\n")
+  ) {
+    fail("controlled regression exception is missing matching approved journal evidence");
+  }
+  violations = violations.filter((file) => !matchesAny(file, approvedRegression.paths));
+}
 
 if (violations.length > 0) {
   fail(
@@ -87,5 +128,6 @@ console.log(
     "; changed=" +
     changed.length +
     "; allowed_patterns=" +
-    allowed.length,
+    allowed.length +
+    (approvedRegression ? "; audited_regression=PASS" : ""),
 );

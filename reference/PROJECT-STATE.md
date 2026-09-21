@@ -64,6 +64,11 @@ These are intentionally not reported as production-complete:
 - API and desktop surfaces still contain simplified paths and development-oriented coupling;
 - some capabilities have contracts and tests but still need broader end-to-end, fault-injection and production-environment verification.
 
+## Anti-regression rule
+
+Do not delete, replace or rewrite project history, code, data, manifests or evidence as an optimization.
+Preserve first. Any exceptional destructive change requires explicit authorization, a snapshot/rollback point, impact analysis, verification and a journal record.
+
 ## Anti-hallucination rules
 
 Never infer implementation status from commit messages alone.

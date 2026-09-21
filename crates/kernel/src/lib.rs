@@ -1761,47 +1761,29 @@ impl ReactAgent {
 
     /// Execute thought/reasoning step using LLM.
     async fn think(&self, input: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.think_inner(&inner, input).await
-    }
+        let (provider, current_turn) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.model_provider.clone(), inner.current_turn)
+        };
+        let provider = provider.ok_or(ContractError::MissingCapability)?;
+        let system_prompt = self.build_system_prompt().await;
+        let request = ModelRequest {
+            request_id: format!("think-{}", current_turn),
+            model: "default".to_string(),
+            input: format!("{}\n\nUser: {}", system_prompt, input),
+            parameters: None,
+        };
 
-    /// Inner thought method taking reference to inner state.
-    async fn think_inner(
-        &self,
-        inner: &ReactAgentInner,
-        input: &str,
-    ) -> Result<String, ContractError> {
-        if let Some(provider) = &inner.model_provider {
-            let system_prompt = self.build_system_prompt().await;
-            let request = ModelRequest {
-                request_id: format!("think-{}", inner.current_turn),
-                model: "default".to_string(),
-                input: format!("{}\n\nUser: {}", system_prompt, input),
-                parameters: None,
-            };
-
-            match provider.execute(request).await {
-                Ok(response) => Ok(response.output),
-                Err(e) => Err(ContractError::ParseError(format!("LLM error: {:?}", e))),
-            }
-        } else {
-            Err(ContractError::MissingCapability)
+        match provider.execute(request).await {
+            Ok(response) => Ok(response.output),
+            Err(e) => Err(ContractError::ParseError(format!("LLM error: {:?}", e))),
         }
     }
 
     /// Execute action step (tool call).
     pub async fn act(&self, action: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.act_inner(&inner, action).await
-    }
-
-    /// Inner act method taking reference to inner state.
-    async fn act_inner(
-        &self,
-        inner: &ReactAgentInner,
-        action: &str,
-    ) -> Result<String, ContractError> {
-        if let Some(executor) = &inner.tool_executor {
+        let executor = { self.inner.lock().unwrap().tool_executor.clone() };
+        if let Some(executor) = executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
             if action.starts_with("read_file:") {

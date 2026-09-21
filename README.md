@@ -4,7 +4,7 @@
 
 ## Overview
 
-AgentiCOS is a production-ready agent runtime platform built with Rust as the canonical runtime. It provides a universal, model-agnostic foundation for building, deploying, and managing AI agents with robust architecture, event sourcing, CQRS patterns, and comprehensive observability.
+AgentiCOS is a Rust-first agent runtime and application platform in active development. The repository contains verified vertical slices, but it is not yet production-complete. It provides a universal, model-agnostic foundation for building, deploying, and managing AI agents with robust architecture, event sourcing, CQRS patterns, and comprehensive observability.
 
 ## Features
 
@@ -20,7 +20,7 @@ AgentiCOS is a production-ready agent runtime platform built with Rust as the ca
 - **Memory Management**: Context window management with compression and summarization
 
 ### Architecture
-- **Clean Architecture**: Layered design with dependency inversion
+- **Architecture**: Functional crate boundaries with a documented Clean Architecture target; full layer migration is not yet complete
 - **Vertical Slices**: Sequential, verified implementation protocol
 - **Contract-First**: Domain contracts drive implementation
 - **MIT References**: Patterns from Tokio, Tower, Bulletproof Rust Web, ddd-cqres-es, Mnesis
@@ -192,7 +192,7 @@ Based on patterns from:
 ## Status
 
 **Version**: 0.1.0  
-**Status**: Architecture Foundation Complete  
-**Verified Steps**: 19/19  
-**Tests**: 54 passing  
-**Architecture**: Clean Architecture with CQRS and Event Sourcing
+**Status**: Advanced development / architecture reconciliation  
+**Verified Steps**: 51/53 records  
+**Latest recorded Rust acceptance evidence**: 145/145 tests passing  
+**Architecture**: Contract-first Rust runtime with CQRS, event-sourcing, workflows, observability and desktop/API surfaces; production hardening remains

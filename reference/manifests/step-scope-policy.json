@@ -4,10 +4,14 @@
   "current_step": "integration-test-implementation-phase-3",
   "mode": "current-step-plus-controlled-state-updates",
   "control_plane_paths": [
-    "reference/PROJECT-STATE.md",
-    "reference/manifests/implementation-state.json",
-    "reference/manifests/step-scope-policy.json",
-    "reference/journal/agent-operations.jsonl"
+    "AGENTS.md",
+    "ARCHITECTURE.md",
+    ".github/workflows/**",
+    "docs/architecture/**",
+    "docs/adr/**",
+    "package.json",
+    "reference/**",
+    "scripts/verify-*.mjs"
   ],
   "steps": {
     "integration-test-implementation-phase-3": {

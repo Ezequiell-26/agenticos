@@ -1,6 +1,6 @@
 # AgentiCOS — Product Architecture
 
-Status: Architecture baseline established; runtime integration verification pending.
+Status: Architecture baseline reconciled; dependency-aware implementation control is enforced; production hardening remains ongoing.
 This document is the source of truth for product architecture.
 
 ## Language and runtime decision
@@ -216,6 +216,19 @@ See [ARCHITECTURE-COMPLETENESS.md](./docs/architecture/ARCHITECTURE-COMPLETENESS
 
 The contract registry and readiness gate now require these seams to be represented before the architecture foundation can be marked verified.
 
+
+## State and scope control
+
+The implementation manifest is a dependency-aware graph rather than a claim that every numbered item is a strict predecessor of the next record.
+
+- `current_step` identifies the only newly authorized implementation slice.
+- Additional `pending` records are backlog and are not implementation authorization.
+- A VERIFIED record must reference existing VERIFIED requirements.
+- A superseded record remains in history and must point to a verified replacement.
+- Current-step scope is mirrored by `reference/manifests/step-scope-policy.json`.
+- State contradictions are blocking; agents must reconcile from repository evidence instead of guessing.
+
+This control layer exists specifically to prevent later implementations, stale documentation, or model memory from silently changing the project's declared architecture or progression.
 
 ## AI-driven product execution boundary
 

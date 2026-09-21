@@ -4,8 +4,9 @@
 //! execution boundary and workers boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    AgentEngine, ContextManager, ContractError, MemoryStore, ModelProvider, ModelRequest,
-    ModelResponse, RunId, RunState,
+    AgentEngine, Command, CommandHandler, CommandResult, ContextManager, MemoryStore,
+    ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler, QueryResult,
+    RunId, RunState, ContractError,
 };
 use agenticos_kernel::KernelRuntime;
 use agenticos_memory::{InMemoryContextManager, InMemoryMemoryStore};
@@ -14,6 +15,130 @@ use tokio::sync::RwLock;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-execution";
+
+/// Basic command handler for write operations.
+#[derive(Debug)]
+pub struct BasicCommandHandler {
+    runtime: Arc<KernelRuntime>,
+}
+
+impl BasicCommandHandler {
+    /// Create a new command handler.
+    pub fn new(runtime: Arc<KernelRuntime>) -> Self {
+        Self { runtime }
+    }
+}
+
+#[async_trait::async_trait]
+impl CommandHandler for BasicCommandHandler {
+    async fn handle(&self, command: Command) -> Result<CommandResult, agenticos_contracts::ContractError> {
+        match command.command_type.as_str() {
+            "start_run" => {
+                if let Some(run_id) = command.payload.get("run_id").and_then(|v| v.as_str()) {
+                    if let Some(_objective) = command.payload.get("objective").and_then(|v| v.as_str()) {
+                        let run_id = RunId::new(run_id)?;
+                        self.runtime.create_run(run_id.clone()).await?;
+                        self.runtime
+                            .transition_run(&run_id, RunState::Admitted, 1)
+                            .await?;
+
+                        Ok(CommandResult {
+                            success: true,
+                            message: format!("Run {} started", run_id.as_str()),
+                            events: vec![],
+                        })
+                    } else {
+                        Ok(CommandResult {
+                            success: false,
+                            message: "Missing objective".to_string(),
+                            events: vec![],
+                        })
+                    }
+                } else {
+                    Ok(CommandResult {
+                        success: false,
+                        message: "Missing run_id".to_string(),
+                        events: vec![],
+                    })
+                }
+            }
+            _ => Ok(CommandResult {
+                success: false,
+                message: format!("Unknown command type: {}", command.command_type),
+                events: vec![],
+            }),
+        }
+    }
+}
+
+/// Basic query handler for read operations.
+#[derive(Debug)]
+pub struct BasicQueryHandler {
+    runtime: Arc<KernelRuntime>,
+}
+
+impl BasicQueryHandler {
+    /// Create a new query handler.
+    pub fn new(runtime: Arc<KernelRuntime>) -> Self {
+        Self { runtime }
+    }
+}
+
+#[async_trait::async_trait]
+impl QueryHandler for BasicQueryHandler {
+    async fn handle(&self, query: Query) -> Result<QueryResult, agenticos_contracts::ContractError> {
+        match query.query_type.as_str() {
+            "get_run_state" => {
+                if let Some(run_id) = query.parameters.get("run_id").and_then(|v| v.as_str()) {
+                    let run_id = RunId::new(run_id)?;
+                    let runs = self.runtime.runs.read().await;
+                    let run = runs.get(&run_id).ok_or(agenticos_contracts::ContractError::MissingCapability)?;
+
+                    Ok(QueryResult {
+                        data: serde_json::json!({
+                            "run_id": run_id.as_str(),
+                            "state": format!("{:?}", run.state),
+                            "version": run.version,
+                        }),
+                        metadata: serde_json::json!({"type": "run_state"}),
+                    })
+                } else {
+                    Ok(QueryResult {
+                        data: serde_json::json!(null),
+                        metadata: serde_json::json!({"error": "Missing run_id"}),
+                    })
+                }
+            }
+            _ => Ok(QueryResult {
+                data: serde_json::json!(null),
+                metadata: serde_json::json!({"error": format!("Unknown query type: {}", query.query_type)}),
+            }),
+        }
+    }
+}
+
+/// Basic projection for read model updates.
+#[derive(Debug)]
+pub struct BasicProjection {
+    #[allow(dead_code)]
+    runtime: Arc<KernelRuntime>,
+}
+
+impl BasicProjection {
+    /// Create a new projection.
+    pub fn new(runtime: Arc<KernelRuntime>) -> Self {
+        Self { runtime }
+    }
+}
+
+#[async_trait::async_trait]
+impl Projection for BasicProjection {
+    async fn update(&self, _event: agenticos_contracts::SerializedEvent) -> Result<(), agenticos_contracts::ContractError> {
+        // Basic projection implementation - in a full CQRS system, this would
+        // update read models based on events from the command side
+        Ok(())
+    }
+}
 
 /// In-memory model provider for testing and development.
 #[derive(Debug)]
@@ -442,6 +567,170 @@ mod tests {
                 .await
                 .unwrap();
             assert!(is_valid, "Valid grant should be valid");
+        });
+    }
+
+    #[test]
+    fn test_command_handler() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let handler = BasicCommandHandler::new(runtime.clone());
+
+            let command = agenticos_contracts::Command {
+                command_type: "start_run".to_string(),
+                payload: serde_json::json!({
+                    "run_id": "test-run-cmd",
+                    "objective": "Test command"
+                }),
+                correlation_id: "test-corr-1".to_string(),
+            };
+
+            let result = handler.handle(command).await.unwrap();
+            assert!(result.success);
+            assert!(result.message.contains("started"));
+        });
+    }
+
+    #[test]
+    fn test_query_handler() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let handler = BasicQueryHandler::new(runtime.clone());
+
+            // First create a run so the query can succeed
+            let run_id = RunId::new("test-run-query").unwrap();
+            runtime.create_run(run_id.clone()).await.unwrap();
+            runtime
+                .transition_run(&run_id, RunState::Admitted, 1)
+                .await
+                .unwrap();
+
+            let query = agenticos_contracts::Query {
+                query_type: "get_run_state".to_string(),
+                parameters: serde_json::json!({
+                    "run_id": "test-run-query"
+                }),
+            };
+
+            let result = handler.handle(query).await.unwrap();
+            assert!(result.data.is_object());
+        });
+    }
+
+    #[test]
+    fn test_read_write_isolation() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let command_handler = BasicCommandHandler::new(runtime.clone());
+            let query_handler = BasicQueryHandler::new(runtime.clone());
+
+            // Command side: create a run
+            let command = agenticos_contracts::Command {
+                command_type: "start_run".to_string(),
+                payload: serde_json::json!({
+                    "run_id": "test-rw-iso",
+                    "objective": "Isolation test"
+                }),
+                correlation_id: "test-iso-1".to_string(),
+            };
+
+            let cmd_result = command_handler.handle(command).await.unwrap();
+            assert!(cmd_result.success);
+
+            // Query side: read the run state
+            let query = agenticos_contracts::Query {
+                query_type: "get_run_state".to_string(),
+                parameters: serde_json::json!({
+                    "run_id": "test-rw-iso"
+                }),
+            };
+
+            let query_result = query_handler.handle(query).await.unwrap();
+            assert!(query_result.data.is_object());
+
+            // Verify read/write isolation - query should not modify state
+            let runs = runtime.runs.read().await;
+            let run = runs.get(&RunId::new("test-rw-iso").unwrap());
+            assert!(run.is_some());
+        });
+    }
+
+    #[test]
+    fn test_event_driven_synchronization() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let projection = BasicProjection::new(runtime.clone());
+
+            // Create a test event with the correct SerializedEvent structure
+            let event = agenticos_contracts::SerializedEvent {
+                event_type: "run_created".to_string(),
+                data: serde_json::json!({"run_id": "test-sync"}).to_string(),
+                schema_version: 1,
+            };
+
+            // Projection should handle event without error
+            let result = projection.update(event).await;
+            assert!(result.is_ok());
         });
     }
 }

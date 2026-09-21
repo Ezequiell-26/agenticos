@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "none-pending-definition",
+  "current_step": "cqrs-separation-vertical-slice-1",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -764,6 +764,33 @@
         "security gate: PASSED - #![forbid(unsafe_code)] enforced in execution, providers, kernel; no credential exposure",
         "architecture gate: PASSED - Follows contracts, maintains layer boundaries, respects sequential protocol"
       ],
+      "unlocks": []
+    },
+    {
+      "id": "cqrs-separation-vertical-slice-1",
+      "number": 12,
+      "status": "pending",
+      "scope": [
+        "separate command handlers from query handlers in execution layer",
+        "create read model projections for optimized queries",
+        "implement command validation before execution",
+        "separate write model (aggregates) from read model (projections)",
+        "apply event-driven synchronization between command and query sides"
+      ],
+      "requires": [
+        "runtime-integration-vertical-slice-1"
+      ],
+      "required_checks": [
+        "command handler separation tests",
+        "query handler separation tests",
+        "projection update tests",
+        "event-driven synchronization tests",
+        "read/write model isolation tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [],
       "unlocks": []
     }
   ],

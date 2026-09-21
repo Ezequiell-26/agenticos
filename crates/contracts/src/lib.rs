@@ -375,6 +375,67 @@ pub trait CapabilityIssuer: Send + Sync {
     async fn validate_with_expiry(&self, grant_id: &str) -> Result<bool, ContractError>;
 }
 
+/// Command for write operations.
+#[derive(Clone, Debug)]
+pub struct Command {
+    /// Command type.
+    pub command_type: String,
+    /// Command payload.
+    pub payload: serde_json::Value,
+    /// Correlation ID for tracking.
+    pub correlation_id: String,
+}
+
+/// Result of a command execution.
+#[derive(Clone, Debug)]
+pub struct CommandResult {
+    /// Whether the command succeeded.
+    pub success: bool,
+    /// Result message.
+    pub message: String,
+    /// Generated events from command execution.
+    pub events: Vec<SerializedEvent>,
+}
+
+/// Query for read operations.
+#[derive(Clone, Debug)]
+pub struct Query {
+    /// Query type.
+    pub query_type: String,
+    /// Query parameters.
+    pub parameters: serde_json::Value,
+}
+
+/// Result of a query execution.
+#[derive(Clone, Debug)]
+pub struct QueryResult {
+    /// Query result data.
+    pub data: serde_json::Value,
+    /// Metadata about the query.
+    pub metadata: serde_json::Value,
+}
+
+/// Command handler trait for write operations.
+#[async_trait::async_trait]
+pub trait CommandHandler: Send + Sync {
+    /// Handle a command and return the result.
+    async fn handle(&self, command: Command) -> Result<CommandResult, ContractError>;
+}
+
+/// Query handler trait for read operations.
+#[async_trait::async_trait]
+pub trait QueryHandler: Send + Sync {
+    /// Handle a query and return the result.
+    async fn handle(&self, query: Query) -> Result<QueryResult, ContractError>;
+}
+
+/// Projection trait for read model updates.
+#[async_trait::async_trait]
+pub trait Projection: Send + Sync {
+    /// Update the read model based on an event.
+    async fn update(&self, event: SerializedEvent) -> Result<(), ContractError>;
+}
+
 /// Provider registry entry.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProviderEntry {

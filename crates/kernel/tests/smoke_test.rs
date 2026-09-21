@@ -5,12 +5,13 @@
 
 use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, LogEntry, LogLevel, Logger,
-    OutboxStore, RunId, RunState,
+    OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus,
+    SagaStepType,
 };
 use agenticos_kernel::{
     BackgroundEventPublisher, InMemoryCapabilityIssuer, InMemoryConfig, InMemoryEventStore,
-    InMemoryLogger, InMemoryOutboxStore, InMemorySnapshotStore, KernelRuntime, SqliteEventStore,
-    SqliteSnapshotStore, TestClock, TestIdGenerator,
+    InMemoryLogger, InMemoryOutboxStore, InMemorySagaCoordinator, InMemorySnapshotStore,
+    KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock, TestIdGenerator,
 };
 use std::sync::Arc;
 
@@ -480,6 +481,115 @@ fn test_background_event_publisher() {
 
         let published = publisher.process_pending().await.unwrap();
         assert_eq!(published, 1);
+    });
+}
+
+#[test]
+fn test_saga_coordinator() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let coordinator = InMemorySagaCoordinator::new();
+
+        let saga = Saga {
+            saga_id: "test-saga-1".to_string(),
+            name: "Test Saga".to_string(),
+            steps: vec![
+                SagaStep {
+                    step_id: "step-1".to_string(),
+                    name: "Step 1".to_string(),
+                    step_type: SagaStepType::Execute,
+                    payload: serde_json::json!({"action": "test"}),
+                    status: SagaStepStatus::Pending,
+                    created_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                    completed_at: None,
+                },
+                SagaStep {
+                    step_id: "step-2".to_string(),
+                    name: "Step 2".to_string(),
+                    step_type: SagaStepType::Execute,
+                    payload: serde_json::json!({"action": "test2"}),
+                    status: SagaStepStatus::Pending,
+                    created_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                    completed_at: None,
+                },
+            ],
+            status: SagaStatus::Pending,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            completed_at: None,
+            current_step_index: None,
+        };
+
+        coordinator.start_saga(saga).await.unwrap();
+
+        let retrieved = coordinator.get_saga("test-saga-1").await.unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().steps.len(), 2);
+
+        coordinator.execute_next_step("test-saga-1").await.unwrap();
+
+        let after_execute = coordinator.get_saga("test-saga-1").await.unwrap();
+        assert!(after_execute.is_some());
+        let saga_state = after_execute.unwrap();
+        assert_eq!(saga_state.current_step_index, Some(0));
+        assert_eq!(saga_state.status, SagaStatus::InProgress);
+    });
+}
+
+#[test]
+fn test_saga_compensation() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let coordinator = InMemorySagaCoordinator::new();
+
+        let saga = Saga {
+            saga_id: "test-saga-comp-1".to_string(),
+            name: "Test Compensation Saga".to_string(),
+            steps: vec![SagaStep {
+                step_id: "step-1".to_string(),
+                name: "Step 1".to_string(),
+                step_type: SagaStepType::Execute,
+                payload: serde_json::json!({"action": "test"}),
+                status: SagaStepStatus::Completed,
+                created_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                completed_at: Some(
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                ),
+            }],
+            status: SagaStatus::InProgress,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            completed_at: None,
+            current_step_index: Some(0),
+        };
+
+        coordinator.start_saga(saga).await.unwrap();
+
+        coordinator
+            .compensate_saga("test-saga-comp-1")
+            .await
+            .unwrap();
+
+        let after_compensate = coordinator.get_saga("test-saga-comp-1").await.unwrap();
+        assert!(after_compensate.is_some());
+        let saga_state = after_compensate.unwrap();
+        assert_eq!(saga_state.status, SagaStatus::Compensated);
     });
 }
 

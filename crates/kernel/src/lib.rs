@@ -7,7 +7,8 @@ pub use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, IdempotencyRecord, IdempotencyStatus, LeaseRecord, LogEntry, LogLevel, Logger,
     ModelProvider, ModelRequest, ModelResponse, OutboxEntry, OutboxStatus, OutboxStore, RunId,
-    RunState, SerializedEvent, SerializedSnapshot, SnapshotStore,
+    RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
+    SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1198,6 +1199,118 @@ impl BackgroundEventPublisher {
         }
 
         Ok(processed)
+    }
+}
+
+/// In-memory saga coordinator for multi-step workflow orchestration.
+pub struct InMemorySagaCoordinator {
+    sagas: Arc<RwLock<HashMap<String, Saga>>>,
+}
+
+impl std::fmt::Debug for InMemorySagaCoordinator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemorySagaCoordinator")
+            .field("sagas", &"<Arc<RwLock<HashMap>>>")
+            .finish()
+    }
+}
+
+impl InMemorySagaCoordinator {
+    /// Create a new in-memory saga coordinator.
+    pub fn new() -> Self {
+        Self {
+            sagas: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl SagaCoordinator for InMemorySagaCoordinator {
+    async fn start_saga(&self, saga: Saga) -> Result<(), ContractError> {
+        let mut sagas = self.sagas.write().await;
+        sagas.insert(saga.saga_id.clone(), saga);
+        Ok(())
+    }
+
+    async fn get_saga(&self, saga_id: &str) -> Result<Option<Saga>, ContractError> {
+        let sagas = self.sagas.read().await;
+        Ok(sagas.get(saga_id).cloned())
+    }
+
+    async fn execute_next_step(&self, saga_id: &str) -> Result<(), ContractError> {
+        let mut sagas = self.sagas.write().await;
+        let saga = sagas
+            .get_mut(saga_id)
+            .ok_or(ContractError::MissingCapability)?;
+
+        // Find next pending step
+        if let Some(index) = saga.current_step_index {
+            let next_index = index + 1;
+            if next_index < saga.steps.len() {
+                saga.current_step_index = Some(next_index);
+                saga.steps[next_index].status = SagaStepStatus::InProgress;
+                saga.status = SagaStatus::InProgress;
+            } else {
+                saga.status = SagaStatus::Completed;
+                saga.completed_at = Some(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                );
+            }
+        } else if !saga.steps.is_empty() {
+            saga.current_step_index = Some(0);
+            saga.steps[0].status = SagaStepStatus::InProgress;
+            saga.status = SagaStatus::InProgress;
+        }
+
+        Ok(())
+    }
+
+    async fn compensate_saga(&self, saga_id: &str) -> Result<(), ContractError> {
+        let mut sagas = self.sagas.write().await;
+        let saga = sagas
+            .get_mut(saga_id)
+            .ok_or(ContractError::MissingCapability)?;
+
+        saga.status = SagaStatus::Compensating;
+
+        // Compensate all completed steps in reverse order
+        if let Some(current_index) = saga.current_step_index {
+            for i in (0..=current_index).rev() {
+                if saga.steps[i].status == SagaStepStatus::Completed {
+                    saga.steps[i].status = SagaStepStatus::Compensating;
+                }
+            }
+        }
+
+        saga.status = SagaStatus::Compensated;
+        saga.completed_at = Some(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        );
+
+        Ok(())
+    }
+
+    async fn get_pending_sagas(&self, limit: usize) -> Result<Vec<Saga>, ContractError> {
+        let sagas = self.sagas.read().await;
+        let pending: Vec<Saga> = sagas
+            .values()
+            .filter(|s| s.status == SagaStatus::Pending || s.status == SagaStatus::InProgress)
+            .take(limit)
+            .cloned()
+            .collect();
+        Ok(pending)
+    }
+}
+
+impl Default for InMemorySagaCoordinator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

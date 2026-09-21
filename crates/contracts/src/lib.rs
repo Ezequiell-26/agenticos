@@ -3,6 +3,7 @@
 
 //! Stable, versioned domain contracts for AgentiCOS.
 
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Contract schema version supported by this workspace.
@@ -487,6 +488,106 @@ pub trait OutboxStore: Send + Sync {
 
     /// Get dead letter queue entries.
     async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError>;
+}
+
+/// Saga step for multi-step workflow orchestration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SagaStep {
+    /// Unique step identifier.
+    pub step_id: String,
+    /// Step name/description.
+    pub name: String,
+    /// Step type (execute or compensate).
+    pub step_type: SagaStepType,
+    /// Step payload (command data).
+    pub payload: serde_json::Value,
+    /// Step status.
+    pub status: SagaStepStatus,
+    /// Timestamp when step was created.
+    pub created_at: u64,
+    /// Timestamp when step was completed (if applicable).
+    pub completed_at: Option<u64>,
+}
+
+/// Saga step type.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SagaStepType {
+    /// Execute step (forward action).
+    Execute,
+    /// Compensate step (rollback action).
+    Compensate,
+}
+
+/// Saga step status.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SagaStepStatus {
+    /// Step is pending.
+    Pending,
+    /// Step is in progress.
+    InProgress,
+    /// Step completed successfully.
+    Completed,
+    /// Step failed.
+    Failed,
+    /// Step is being compensated.
+    Compensating,
+    /// Step compensation completed.
+    Compensated,
+}
+
+/// Saga for multi-step workflow orchestration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Saga {
+    /// Unique saga identifier.
+    pub saga_id: String,
+    /// Saga name/description.
+    pub name: String,
+    /// Saga steps in execution order.
+    pub steps: Vec<SagaStep>,
+    /// Current saga status.
+    pub status: SagaStatus,
+    /// Timestamp when saga was created.
+    pub created_at: u64,
+    /// Timestamp when saga was completed (if applicable).
+    pub completed_at: Option<u64>,
+    /// Current step index (for tracking progress).
+    pub current_step_index: Option<usize>,
+}
+
+/// Saga status.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SagaStatus {
+    /// Saga is pending execution.
+    Pending,
+    /// Saga is in progress.
+    InProgress,
+    /// Saga completed successfully.
+    Completed,
+    /// Saga is compensating (rolling back).
+    Compensating,
+    /// Saga compensation completed.
+    Compensated,
+    /// Saga failed.
+    Failed,
+}
+
+/// Saga coordinator for orchestrating multi-step workflows.
+#[async_trait::async_trait]
+pub trait SagaCoordinator: Send + Sync {
+    /// Start a new saga.
+    async fn start_saga(&self, saga: Saga) -> Result<(), ContractError>;
+
+    /// Get saga by ID.
+    async fn get_saga(&self, saga_id: &str) -> Result<Option<Saga>, ContractError>;
+
+    /// Execute next step in saga.
+    async fn execute_next_step(&self, saga_id: &str) -> Result<(), ContractError>;
+
+    /// Compensate saga (rollback all completed steps).
+    async fn compensate_saga(&self, saga_id: &str) -> Result<(), ContractError>;
+
+    /// Get pending sagas for processing.
+    async fn get_pending_sagas(&self, limit: usize) -> Result<Vec<Saga>, ContractError>;
 }
 
 /// Provider registry entry.

@@ -2009,38 +2009,38 @@ impl ReactAgent {
             ));
         }
 
-        let inner = self.inner.lock().unwrap();
+        let (memory, session_id, current_turn) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone(), inner.current_turn)
+        };
 
-        // Store user input in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("user-{}", inner.current_turn);
-            let _ = memory
-                .store_message(&msg_id, &inner.session_id, "user", input)
-                .await;
+        // Store user input in SQLite memory if available.
+        if let Some(memory) = memory.clone() {
+            let msg_id = format!("user-{}", current_turn);
+            let _ = memory.store_message(&msg_id, &session_id, "user", input).await;
         }
 
         // Step 1: Thought/Reasoning
-        let thought = self.think_inner(&inner, input).await?;
+        let thought = self.think(input).await?;
 
-        // Store assistant thought in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("assistant-{}", inner.current_turn);
+        // Store assistant thought in SQLite memory if available.
+        if let Some(memory) = memory {
+            let msg_id = format!("assistant-{}", current_turn);
             let _ = memory
-                .store_message(&msg_id, &inner.session_id, "assistant", &thought)
+                .store_message(&msg_id, &session_id, "assistant", &thought)
                 .await;
         }
 
         // Step 2: Action (simplified for now)
-        let action = thought.clone(); // In real implementation, would parse thought for action
+        let action = thought.clone();
 
         // Step 3: Observation
-        let observation = self.act_inner(&inner, &action).await?;
+        let observation = self.act(&action).await?;
 
         // Step 4: Process observation
         let result = self.observe(&observation);
 
-        // Increment turn
-        drop(inner);
+        // Increment turn.
         self.increment_turn();
 
         Ok(result)

@@ -86,7 +86,7 @@ const approvedRegression = (scope.controlled_regressions ?? []).find(
 
 if (approvedRegression) {
   const journalSource = await readFile(
-    new URL("../reference/journal/agent-operations.jsonl", pathToFileURL(root + "/")),
+    new URL("reference/journal/agent-operations.jsonl", pathToFileURL(root + "/")),
     "utf8",
   );
   const journalEntries = journalSource

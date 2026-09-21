@@ -2325,6 +2325,53 @@
         "architecture gate: PASSED - Sandbox complete follows llm-sandbox MIT repository patterns (SecurityPolicy, SecurityCapability, ResourceQuotaManager, network isolation, time limits)",
         "Rust fmt/check/test/clippy: PASSED - 141/141 tests passing (3 new tests), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "llm-metrics-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "llm-metrics-vertical-slice-1",
+      "number": 49,
+      "status": "verified",
+      "scope": [
+        "add LLMMetrics struct for LLM-specific metrics",
+        "add cost estimation based on token usage",
+        "add model pricing configuration",
+        "add token type tracking (prompt, completion, cached, reasoning)",
+        "add per-model cost calculation",
+        "integrate LLMMetrics with TokenMetrics",
+        "add cost tracking over time",
+        "verify llm metrics"
+      ],
+      "requires": [
+        "observability-integration-vertical-slice-1"
+      ],
+      "required_checks": [
+        "LLMMetrics struct tests",
+        "cost estimation tests",
+        "model pricing tests",
+        "token type tracking tests",
+        "per-model cost tests",
+        "TokenMetrics integration tests",
+        "cost tracking tests",
+        "llm metrics verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "LLMMetrics struct tests: PASSED - LLMMetrics struct with model, total_cost, prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens, pricing",
+        "cost estimation tests: PASSED - ModelPricing with calculate_cost() for cost estimation",
+        "model pricing tests: PASSED - ModelPricing with gpt4() and gpt35_turbo() default pricing",
+        "token type tracking tests: PASSED - TokenType enum (Prompt, Completion, Cached, Reasoning)",
+        "per-model cost tests: PASSED - calculate_cost() with input_cost_per_1m and output_cost_per_1m",
+        "TokenMetrics integration tests: PASSED - LLMMetrics complements existing TokenMetrics",
+        "cost tracking tests: PASSED - update_cost() and get_total_cost() for cost tracking",
+        "llm metrics verification: PASSED - Complete LLM metrics functional with LangChain token usage tracking and LangSmith cost tracking patterns",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in observability",
+        "architecture gate: PASSED - LLM metrics follows LangChain token usage tracking and LangSmith cost tracking MIT repository patterns (LLMMetrics, ModelPricing, TokenType, cost estimation)",
+        "Rust fmt/check/test/clippy: PASSED - 144/144 tests passing (3 new tests), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

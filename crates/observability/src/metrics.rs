@@ -7,6 +7,135 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
+/// Token type for LLM metrics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenType {
+    /// Prompt tokens
+    Prompt,
+    /// Completion tokens
+    Completion,
+    /// Cached prompt tokens
+    Cached,
+    /// Reasoning tokens
+    Reasoning,
+}
+
+/// Model pricing configuration.
+#[derive(Debug, Clone)]
+pub struct ModelPricing {
+    /// Model name
+    pub model: String,
+    /// Cost per 1M input tokens in USD
+    pub input_cost_per_1m: f64,
+    /// Cost per 1M output tokens in USD
+    pub output_cost_per_1m: f64,
+}
+
+impl ModelPricing {
+    /// Create new model pricing.
+    pub fn new(model: &str, input_cost_per_1m: f64, output_cost_per_1m: f64) -> Self {
+        Self {
+            model: model.to_string(),
+            input_cost_per_1m,
+            output_cost_per_1m,
+        }
+    }
+
+    /// Get default pricing for OpenAI GPT-4.
+    pub fn gpt4() -> Self {
+        Self::new("gpt-4", 30.0, 60.0)
+    }
+
+    /// Get default pricing for OpenAI GPT-3.5-turbo.
+    pub fn gpt35_turbo() -> Self {
+        Self::new("gpt-3.5-turbo", 0.5, 1.5)
+    }
+
+    /// Calculate cost for given input and output tokens.
+    pub fn calculate_cost(&self, input_tokens: u64, output_tokens: u64) -> f64 {
+        let input_cost = (input_tokens as f64 / 1_000_000.0) * self.input_cost_per_1m;
+        let output_cost = (output_tokens as f64 / 1_000_000.0) * self.output_cost_per_1m;
+        input_cost + output_cost
+    }
+}
+
+/// LLM-specific metrics with cost estimation.
+#[derive(Debug)]
+pub struct LLMMetrics {
+    /// Model name
+    pub model: String,
+    /// Total cost in USD
+    pub total_cost: Arc<AtomicU64>, // Stored in cents (u64) for atomic operations
+    /// Prompt tokens
+    pub prompt_tokens: Arc<AtomicU64>,
+    /// Completion tokens
+    pub completion_tokens: Arc<AtomicU64>,
+    /// Cached tokens
+    pub cached_tokens: Arc<AtomicU64>,
+    /// Reasoning tokens
+    pub reasoning_tokens: Arc<AtomicU64>,
+    /// Model pricing
+    pub pricing: ModelPricing,
+}
+
+impl LLMMetrics {
+    /// Create new LLM metrics.
+    pub fn new(model: &str, pricing: ModelPricing) -> Self {
+        Self {
+            model: model.to_string(),
+            total_cost: Arc::new(AtomicU64::new(0)),
+            prompt_tokens: Arc::new(AtomicU64::new(0)),
+            completion_tokens: Arc::new(AtomicU64::new(0)),
+            cached_tokens: Arc::new(AtomicU64::new(0)),
+            reasoning_tokens: Arc::new(AtomicU64::new(0)),
+            pricing,
+        }
+    }
+
+    /// Record token usage.
+    pub fn record_tokens(&self, token_type: TokenType, count: u64) {
+        match token_type {
+            TokenType::Prompt => self.prompt_tokens.fetch_add(count, Ordering::Relaxed),
+            TokenType::Completion => self.completion_tokens.fetch_add(count, Ordering::Relaxed),
+            TokenType::Cached => self.cached_tokens.fetch_add(count, Ordering::Relaxed),
+            TokenType::Reasoning => self.reasoning_tokens.fetch_add(count, Ordering::Relaxed),
+        };
+    }
+
+    /// Update cost based on current token usage.
+    pub fn update_cost(&self) {
+        let prompt = self.prompt_tokens.load(Ordering::Relaxed);
+        let completion = self.completion_tokens.load(Ordering::Relaxed);
+        let cost_cents = (self.pricing.calculate_cost(prompt, completion) * 100.0) as u64;
+        self.total_cost.store(cost_cents, Ordering::Relaxed);
+    }
+
+    /// Get total cost in USD.
+    pub fn get_total_cost(&self) -> f64 {
+        self.total_cost.load(Ordering::Relaxed) as f64 / 100.0
+    }
+
+    /// Get prompt tokens.
+    pub fn get_prompt_tokens(&self) -> u64 {
+        self.prompt_tokens.load(Ordering::Relaxed)
+    }
+
+    /// Get completion tokens.
+    pub fn get_completion_tokens(&self) -> u64 {
+        self.completion_tokens.load(Ordering::Relaxed)
+    }
+
+    /// Get cached tokens.
+    pub fn get_cached_tokens(&self) -> u64 {
+        self.cached_tokens.load(Ordering::Relaxed)
+    }
+
+    /// Get reasoning tokens.
+    pub fn get_reasoning_tokens(&self) -> u64 {
+        self.reasoning_tokens.load(Ordering::Relaxed)
+    }
+}
+
 /// Simple counter metric.
 #[derive(Debug)]
 pub struct Counter {
@@ -301,5 +430,33 @@ mod tests {
         metrics.record_error("other_error");
 
         assert_eq!(metrics.get_total(), 3);
+    }
+
+    #[test]
+    fn test_model_pricing() {
+        let pricing = ModelPricing::gpt4();
+
+        let cost = pricing.calculate_cost(1000, 500);
+        assert!(cost > 0.0);
+    }
+
+    #[test]
+    fn test_llm_metrics() {
+        let pricing = ModelPricing::gpt35_turbo();
+        let metrics = LLMMetrics::new("gpt-3.5-turbo", pricing);
+
+        metrics.record_tokens(TokenType::Prompt, 1000);
+        metrics.record_tokens(TokenType::Completion, 500);
+        metrics.update_cost();
+
+        assert_eq!(metrics.get_prompt_tokens(), 1000);
+        assert_eq!(metrics.get_completion_tokens(), 500);
+        assert!(metrics.get_total_cost() >= 0.0);
+    }
+
+    #[test]
+    fn test_token_type() {
+        assert_eq!(TokenType::Prompt, TokenType::Prompt);
+        assert_ne!(TokenType::Prompt, TokenType::Completion);
     }
 }

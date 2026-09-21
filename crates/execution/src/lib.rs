@@ -102,21 +102,20 @@ impl BasicAgentEngine {
 
     /// Recover runs from memory (durable run identity across restart).
     pub async fn recover_runs(&self) -> Result<Vec<RunId>, ContractError> {
-        let all_memories = self.memory_store.retrieve_by_run(RunId::new("system")?).await?;
         let mut recovered_runs = Vec::new();
 
-        for memory in all_memories {
-            if memory.key == "registry" && memory.value == "active" {
-                if let Ok(run_id) = RunId::new(&memory.run_id.as_str().replace("-registry", "")) {
-                    recovered_runs.push(run_id);
-                }
+        // Query kernel runs to recover active runs
+        let runs = self.runtime.runs.read().await;
+        for (run_id, run) in runs.iter() {
+            if run.state != RunState::Failed {
+                recovered_runs.push(run_id.clone());
             }
         }
 
         // Update local registry with recovered runs
-        let mut runs = self.runs.write().await;
-        runs.clear();
-        runs.extend(recovered_runs.clone());
+        let mut local_runs = self.runs.write().await;
+        local_runs.clear();
+        local_runs.extend(recovered_runs.clone());
 
         Ok(recovered_runs)
     }
@@ -325,6 +324,42 @@ mod tests {
             assert_eq!(response.request_id, "req-1");
             assert!(response.output.contains("Hello, world!"));
             assert_eq!(response.metadata, Some("in-memory".to_string()));
+        });
+    }
+
+    #[test]
+    fn test_durable_run_recovery() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let engine = BasicAgentEngine::with_kernel("test-engine".to_string(), runtime.clone());
+
+            let run_id = RunId::new("test-run-recovery").unwrap();
+            engine.start_run(run_id.clone(), "Recovery test".to_string()).await.unwrap();
+
+            // Simulate engine restart by creating new engine instance
+            let engine2 = BasicAgentEngine::with_kernel("test-engine-2".to_string(), runtime.clone());
+
+            // Recover runs from memory
+            let recovered = engine2.recover_runs().await.unwrap();
+            assert!(recovered.contains(&run_id));
+
+            // Resume the recovered run
+            engine2.resume_run(run_id).await.unwrap();
         });
     }
 }

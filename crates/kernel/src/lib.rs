@@ -3474,7 +3474,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_turn_management() {
-        let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 3);
+        let agent = ReactAgent::with_max_turns("Test agent".to_string(), 3);
         assert_eq!(agent.current_turn(), 0);
         assert!(!agent.is_finished());
 
@@ -3526,7 +3526,7 @@ mod tests {
     fn test_react_agent_execute_turn_without_provider() {
         let rt = test_runtime();
         rt.block_on(async {
-            let mut agent = ReactAgent::new("Test agent".to_string());
+            let agent = ReactAgent::new("Test agent".to_string());
             let result = agent.execute_turn("test input").await;
             // Should fail without model provider
             assert!(result.is_err());
@@ -3537,7 +3537,7 @@ mod tests {
     fn test_react_agent_execute_turn_finished() {
         let rt = test_runtime();
         rt.block_on(async {
-            let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 1);
+            let agent = ReactAgent::with_max_turns("Test agent".to_string(), 1);
             agent.increment_turn();
             let result = agent.execute_turn("test input").await;
             // Should fail due to max turns reached
@@ -3722,7 +3722,8 @@ Test procedure"#;
             assert!(context.is_empty());
 
             // Add some conversation history
-            if let Some(memory) = agent.inner.lock().unwrap().memory.as_ref() {
+            let memory = agent.inner.lock().unwrap().memory.clone();
+            if let Some(memory) = memory.as_ref() {
                 memory
                     .store_message("msg-1", "test-session", "user", "Hello")
                     .await
@@ -3776,7 +3777,8 @@ Test procedure"#;
             agent.set_session_id("test-session".to_string());
 
             // Add some conversation history
-            if let Some(memory) = agent.inner.lock().unwrap().memory.as_ref() {
+            let memory = agent.inner.lock().unwrap().memory.clone();
+            if let Some(memory) = memory.as_ref() {
                 memory
                     .store_message("msg-1", "test-session", "user", "Hello")
                     .await

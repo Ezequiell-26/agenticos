@@ -1,3 +1,5 @@
+//! Regression coverage for ReactAgent mutable state and async mutex safety.
+
 use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
 use agenticos_kernel::{ReactAgent, Skill};
 use std::sync::Arc;

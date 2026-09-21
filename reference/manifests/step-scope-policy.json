@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "purpose": "Machine-readable implementation scope guard. The current step is the only authorized implementation scope; pending entries in implementation-state are backlog only.",
+  "current_step": "integration-test-implementation-phase-3",
+  "mode": "current-step-plus-controlled-state-updates",
+  "control_plane_paths": [
+    "reference/PROJECT-STATE.md",
+    "reference/manifests/implementation-state.json",
+    "reference/manifests/step-scope-policy.json",
+    "reference/journal/agent-operations.jsonl"
+  ],
+  "steps": {
+    "integration-test-implementation-phase-3": {
+      "allowed_paths": [
+        "crates/providers/**",
+        "crates/router/**",
+        "crates/gateway/**",
+        "crates/kernel/tests/**",
+        "tests/**",
+        "reference/PROJECT-STATE.md",
+        "reference/manifests/implementation-state.json",
+        "reference/manifests/step-scope-policy.json",
+        "reference/journal/**",
+        "docs/adr/**"
+      ],
+      "forbidden_future_capabilities": [
+        "new product surfaces",
+        "desktop UI changes",
+        "new sandbox execution backends",
+        "provider changes unrelated to integration tests",
+        "large architectural reorganization"
+      ]
+    }
+  },
+  "policy": {
+    "missing_current_step_policy_is_blocking": true,
+    "paths_outside_current_scope_are_blocking": true,
+    "control_plane_changes_are_audited": true,
+    "historical_verified_steps_are_not_reopened_implicitly": true
+  }
+}

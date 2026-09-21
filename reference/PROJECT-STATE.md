@@ -7,7 +7,7 @@
 - Repository: `Ezequiell-26/agenticos`
 - Architecture mode: `sequential-verified`
 - Current implementation step: none-pending-definition
-- Runtime integration vertical slice: VERIFIED with all gates passing (agent-model invocation, HTTP transport, capability validation, context/memory persistence, durable recovery, security gate, architecture gate)
+- CQRS separation vertical slice: VERIFIED with all gates passing (command/query separation, projections, event-driven synchronization, read/write isolation, security gate, architecture gate)
 - Architecture foundation: VERIFIED on GitHub Actions run #354.
 - Rust durable kernel Step 1: VERIFIED.
 - Rust durable kernel Step 2: VERIFIED.

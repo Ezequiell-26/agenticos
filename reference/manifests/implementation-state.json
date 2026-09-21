@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "none-pending-definition",
+  "current_step": "integration-test-implementation-phase-3",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -246,7 +246,7 @@
         }
       ],
       "unlocks": [
-        "step-3-pending"
+        "architecture-hardening-2026-09-21"
       ]
     },
     {
@@ -763,6 +763,38 @@
         "Rust fmt/check/test/clippy: PASSED - 43/43 tests passing, no clippy warnings, formatting check passed",
         "security gate: PASSED - #![forbid(unsafe_code)] enforced in execution, providers, kernel; no credential exposure",
         "architecture gate: PASSED - Follows contracts, maintains layer boundaries, respects sequential protocol"
+      ],
+      "unlocks": []
+    },
+    {
+      "id": "source-forge-sandbox-vertical-slice-1",
+      "number": 11,
+      "status": "verified",
+      "scope": [
+        "sandbox execution boundary with request/response contracts",
+        "resource isolation with memory and CPU quotas",
+        "capability attenuation for sandbox execution",
+        "in-memory sandbox implementation for testing",
+        "resource quota allocation and release",
+        "sandbox status management",
+        "sandbox violation detection foundation"
+      ],
+      "requires": [
+        "runtime-integration-vertical-slice-1"
+      ],
+      "required_checks": [
+        "sandbox execution boundary tests",
+        "resource quota tests",
+        "capability attenuation tests",
+        "sandbox status tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "Historical implementation commit d861bfa0168dfa1fee2c0e485f04c416a41ac57c records the Source Forge sandbox scope and implementation.",
+        "Recorded verification in d861bfa0168dfa1fee2c0e485f04c416a41ac57c: 37/37 sandbox tests passed, security gate passed, architecture gate passed, cargo fmt/check/test/clippy passed.",
+        "Implementation is explicitly an in-memory testing boundary; it is not treated as production-grade process isolation."
       ],
       "unlocks": []
     },
@@ -1360,7 +1392,7 @@
     },
     {
       "id": "real-http-implementation-vertical-slice-1",
-      "number": 27,
+      "number": 28,
       "status": "verified",
       "scope": [
         "add reqwest dependency to kernel crate",
@@ -1399,7 +1431,7 @@
     },
     {
       "id": "conversational-cli-vertical-slice-1",
-      "number": 28,
+      "number": 29,
       "status": "verified",
       "scope": [
         "add conversational mode to CLI",
@@ -1441,8 +1473,8 @@
     },
     {
       "id": "windows-desktop-app-vertical-slice-1",
-      "number": 29,
-      "status": "pending",
+      "number": 30,
+      "status": "superseded",
       "scope": [
         "add Tauri dependency to workspace",
         "create Tauri app structure",
@@ -1468,12 +1500,16 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [],
-      "unlocks": []
+      "verification_evidence": [
+        "Superseded by windows-desktop-app-tauri-vertical-slice-1, which provides the later Tauri implementation boundary and verification record.",
+        "Historical step definition is preserved; no source history is deleted."
+      ],
+      "unlocks": [],
+      "superseded_by": "windows-desktop-app-tauri-vertical-slice-1"
     },
     {
       "id": "react-architecture-implementation-vertical-slice-1",
-      "number": 30,
+      "number": 31,
       "status": "verified",
       "scope": [
         "implement ReAct core loop in kernel",
@@ -1523,7 +1559,7 @@
     },
     {
       "id": "full-react-loop-execution-vertical-slice-1",
-      "number": 31,
+      "number": 32,
       "status": "verified",
       "scope": [
         "integrate LLM provider (OpenAI/Anthropic/etc) with ReactAgent",
@@ -1570,7 +1606,7 @@
     },
     {
       "id": "skills-yaml-frontmatter-vertical-slice-1",
-      "number": 32,
+      "number": 33,
       "status": "verified",
       "scope": [
         "add serde_yaml dependency to kernel crate",
@@ -1614,7 +1650,7 @@
     },
     {
       "id": "sqlite-tier-2-memory-vertical-slice-1",
-      "number": 33,
+      "number": 34,
       "status": "verified",
       "scope": [
         "implement SQLite tier 2 memory with FTS5",
@@ -1658,7 +1694,7 @@
     },
     {
       "id": "reactagent-sqlite-integration-vertical-slice-1",
-      "number": 34,
+      "number": 35,
       "status": "verified",
       "scope": [
         "integrate SqliteMemory with ReactAgent",
@@ -1699,7 +1735,7 @@
     },
     {
       "id": "system-prompt-integration-vertical-slice-1",
-      "number": 35,
+      "number": 36,
       "status": "verified",
       "scope": [
         "integrate load_context() into build_system_prompt()",
@@ -1738,7 +1774,7 @@
     },
     {
       "id": "real-tool-execution-vertical-slice-1",
-      "number": 36,
+      "number": 37,
       "status": "verified",
       "scope": [
         "implement real tool execution in act() method",
@@ -1782,7 +1818,7 @@
     },
     {
       "id": "advanced-git-operations-vertical-slice-1",
-      "number": 37,
+      "number": 38,
       "status": "verified",
       "scope": [
         "implement git add operation",
@@ -1826,7 +1862,7 @@
     },
     {
       "id": "file-edit-operations-vertical-slice-1",
-      "number": 38,
+      "number": 39,
       "status": "verified",
       "scope": [
         "implement line-based file editing",
@@ -1870,7 +1906,7 @@
     },
     {
       "id": "llm-api-key-management-vertical-slice-1",
-      "number": 39,
+      "number": 40,
       "status": "verified",
       "scope": [
         "implement LLM API key configuration",
@@ -1914,7 +1950,7 @@
     },
     {
       "id": "windows-desktop-app-tauri-vertical-slice-1",
-      "number": 40,
+      "number": 41,
       "status": "verified",
       "scope": [
         "initialize Tauri project structure",
@@ -1956,7 +1992,7 @@
     },
     {
       "id": "conversation-summarization-vertical-slice-1",
-      "number": 41,
+      "number": 42,
       "status": "verified",
       "scope": [
         "implement conversation summarization",
@@ -1998,7 +2034,7 @@
     },
     {
       "id": "rest-api-server-actix-web-vertical-slice-1",
-      "number": 42,
+      "number": 43,
       "status": "verified",
       "scope": [
         "add actix-web dependency",
@@ -2045,7 +2081,7 @@
     },
     {
       "id": "checkpoints-system-vertical-slice-1",
-      "number": 43,
+      "number": 44,
       "status": "verified",
       "scope": [
         "add checkpoint struct for state snapshots",
@@ -2093,7 +2129,7 @@
     },
     {
       "id": "planning-system-vertical-slice-1",
-      "number": 44,
+      "number": 45,
       "status": "verified",
       "scope": [
         "add Plan struct for task planning",
@@ -2140,7 +2176,7 @@
     },
     {
       "id": "observability-integration-vertical-slice-1",
-      "number": 45,
+      "number": 46,
       "status": "verified",
       "scope": [
         "add tracing spans for agent execution",
@@ -2187,7 +2223,7 @@
     },
     {
       "id": "tool-registry-server-vertical-slice-1",
-      "number": 46,
+      "number": 47,
       "status": "verified",
       "scope": [
         "add ToolRegistry struct for tool management",
@@ -2237,7 +2273,7 @@
     },
     {
       "id": "subagents-multi-agent-vertical-slice-1",
-      "number": 47,
+      "number": 48,
       "status": "verified",
       "scope": [
         "add Subagent struct for specialized agents",
@@ -2284,7 +2320,7 @@
     },
     {
       "id": "sandbox-complete-vertical-slice-1",
-      "number": 48,
+      "number": 49,
       "status": "verified",
       "scope": [
         "add SecurityPolicy struct for sandbox security",
@@ -2331,7 +2367,7 @@
     },
     {
       "id": "llm-metrics-vertical-slice-1",
-      "number": 49,
+      "number": 50,
       "status": "verified",
       "scope": [
         "add LLMMetrics struct for LLM-specific metrics",
@@ -2378,7 +2414,7 @@
     },
     {
       "id": "tauri-react-ui-integration-vertical-slice-1",
-      "number": 50,
+      "number": 51,
       "status": "verified",
       "scope": [
         "add React UI structure to Tauri desktop",
@@ -2426,7 +2462,7 @@
     },
     {
       "id": "vite-react-components-vertical-slice-1",
-      "number": 51,
+      "number": 52,
       "status": "verified",
       "scope": [
         "add Vite build setup to desktop crate",
@@ -2593,6 +2629,22 @@
       "from": "product-surfaces-cli-vertical-slice-1:verified",
       "to": "runtime-integration-vertical-slice-1:pending",
       "reason": "Reconciled the current main state after detecting a duplicate top-level steps key and stale human-readable state. The next authorized slice targets the documented integration gaps without rewriting verified history."
+    },
+    {
+      "from": "historical-state-reconciliation-2026-09-22",
+      "to": "integration-test-implementation-phase-3:pending",
+      "reason": "Reconciled the current state from repository evidence: restored the missing Source Forge Sandbox slice, preserved the later verified slices as historical backfill, marked the obsolete early Tauri slice superseded, corrected step numbering and unlock references, and selected the oldest remaining actionable pending slice as the single authorized current step.",
+      "run_id": null
     }
-  ]
+  ],
+  "control_plane": {
+    "pending_steps_are_backlog": true,
+    "exactly_one_current_authorized_step": true,
+    "verified_requirements_must_be_verified": true,
+    "superseded_steps_are_historical_only": true
+  },
+  "change_control": {
+    "scope_manifest": "reference/manifests/step-scope-policy.json",
+    "current_step_must_have_scope_policy": true
+  }
 }

@@ -119,39 +119,74 @@ if (new Set(ids).size !== ids.length) fail("implementation step ids must be uniq
 for (let i = 0; i < ordered.length; i += 1) {
   if (ordered[i].number !== i) fail("implementation steps must use contiguous numbers starting at zero");
   if (!ordered[i].id || typeof ordered[i].id !== "string") fail("implementation step ids must be non-empty strings");
-  if (!["pending", "in_progress", "verifying", "correcting", "verified", "blocked"].includes(ordered[i].status)) {
+  if (!["pending", "in_progress", "verifying", "correcting", "verified", "blocked", "superseded"].includes(ordered[i].status)) {
     fail("implementation step " + ordered[i].id + " has an invalid status");
   }
   if (ordered[i].requires !== undefined && !Array.isArray(ordered[i].requires)) {
     fail("step " + ordered[i].id + " has an invalid requires field");
   }
-  if (i > 0 && !ordered[i].requires?.includes(ordered[i - 1].id)) {
-    fail("step " + ordered[i].id + " must require its immediate predecessor");
+  for (const requiredId of ordered[i].requires || []) {
+    if (!ids.includes(requiredId)) fail("step " + ordered[i].id + " requires unknown step " + requiredId);
   }
   if (!Array.isArray(ordered[i].required_checks)) fail("step " + ordered[i].id + " is missing required_checks");
   if (!Array.isArray(ordered[i].verification_evidence)) fail("step " + ordered[i].id + " is missing verification_evidence");
+  if (ordered[i].status === "verified" && ordered[i].verification_evidence.length === 0) {
+    fail("verified step " + ordered[i].id + " has no verification evidence");
+  }
   if (!Array.isArray(ordered[i].unlocks)) fail("step " + ordered[i].id + " is missing unlocks");
 }
 
-const activeStatuses = new Set(["in_progress", "verifying", "correcting", "blocked"]);
+const activeStatuses = new Set(["in_progress", "verifying", "correcting"]);
 const active = ordered.filter((step) => activeStatuses.has(step.status));
 if (active.length > 1) fail("more than one implementation step is active");
 
-for (let i = 1; i < ordered.length; i += 1) {
-  if (ordered[i].status === "verified" && ordered[i - 1].status !== "verified") {
-    fail("verified step " + ordered[i].id + " has an unverified predecessor");
-  }
+const visiting = new Set();
+const visited = new Set();
+function visit(id, path = []) {
+  if (visiting.has(id)) fail("implementation dependency cycle detected: " + [...path, id].join(" -> "));
+  if (visited.has(id)) return;
+  visiting.add(id);
+  const step = ordered.find((candidate) => candidate.id === id);
+  for (const requiredId of step?.requires || []) visit(requiredId, [...path, id]);
+  visiting.delete(id);
+  visited.add(id);
 }
+for (const step of ordered) visit(step.id);
 
 const current = ordered.find((step) => step.id === state.current_step);
 if (!current) fail("current_step is not declared in steps");
+if (["verified", "superseded"].includes(current.status)) {
+  fail("current_step must point to an authorized non-terminal implementation step");
+}
 
-const firstNonVerified = ordered.find((step) => step.status !== "verified");
-if (!firstNonVerified) fail("no explicit next authorized step remains");
-if (firstNonVerified.id !== current.id) fail("current_step " + current.id + " does not match first non-verified step " + firstNonVerified.id);
+for (const step of ordered) {
+  for (const requiredId of step.requires || []) {
+    const required = ordered.find((candidate) => candidate.id === requiredId);
+    if (!required) fail("step " + step.id + " requires unknown step " + requiredId);
+    if (step.status === "verified" && required.status !== "verified") {
+      fail("verified step " + step.id + " has unverified requirement " + requiredId);
+    }
+  }
+  if (step.status === "superseded") {
+    const replacement = ordered.find((candidate) => candidate.id === step.superseded_by);
+    if (!replacement || replacement.status !== "verified") {
+      fail("superseded step " + step.id + " must name an existing verified replacement");
+    }
+  }
+  for (const unlockId of step.unlocks || []) {
+    if (!ids.includes(unlockId)) fail("step " + step.id + " unlocks unknown step " + unlockId);
+  }
+}
 
-for (const future of ordered.filter((step) => step.number > current.number)) {
-  if (future.status !== "pending") fail("future step " + future.id + " must remain pending");
+const eligiblePending = ordered
+  .filter((step) => step.status === "pending")
+  .filter((step) => (step.requires || []).every((requiredId) => ordered.find((candidate) => candidate.id === requiredId)?.status === "verified"));
+if (eligiblePending.length > 0) {
+  if (current.status === "pending" && eligiblePending[0].id !== current.id) {
+    fail("current_step " + current.id + " is not the first eligible pending step " + eligiblePending[0].id);
+  }
+} else if (current.status === "pending") {
+  fail("current pending step has unverified or missing requirements");
 }
 
 if (!Array.isArray(state.transition_history) || state.transition_history.length === 0) {
@@ -177,8 +212,17 @@ if (current.status !== "verified") {
   if (!nextSection.includes(successor.id)) fail("PROJECT-STATE.md does not name the single pending successor");
 }
 
+if (state.control_plane?.exactly_one_current_authorized_step !== true) fail("control_plane does not require exactly one current authorized step");
+if (state.control_plane?.pending_steps_are_backlog !== true) fail("control_plane does not allow explicit pending backlog");
+if (state.control_plane?.verified_requirements_must_be_verified !== true) fail("control_plane does not enforce verified requirements");
+if (state.change_control?.current_step_must_have_scope_policy !== true) fail("change_control does not require a current-step scope policy");
+
+const scopeManifest = await readJson("reference/manifests/step-scope-policy.json");
+if (scopeManifest.current_step !== current.id) fail("step-scope-policy current_step disagrees with implementation-state");
+if (!scopeManifest.steps || !scopeManifest.steps[current.id]) fail("current implementation step has no scope policy");
+
 const currentSuccessors = current.unlocks;
-if (current.status !== "verified" && currentSuccessors.length > 1) {
+if (current.status !== "verified" && current.status !== "superseded" && currentSuccessors.length > 1) {
   fail("non-verified current step may not unlock multiple successors");
 }
 

@@ -144,16 +144,50 @@ for (const [index, line] of lines.entries()) {
 }
 
 const ordered = [...state.steps].sort((a, b) => a.number - b.number);
-for (let i = 1; i < ordered.length; i += 1) {
-  if (ordered[i].status === "verified" && ordered[i - 1].status !== "verified") {
-    fail(`verified step ${ordered[i].id} precedes an unverified predecessor`);
+const idsForValidation = new Set(ordered.map((step) => step.id));
+for (const step of ordered) {
+  if (step.status === "verified" && (!Array.isArray(step.verification_evidence) || step.verification_evidence.length === 0)) {
+    fail(`verified step ${step.id} has no verification evidence`);
+  }
+  for (const requiredId of step.requires || []) {
+    if (!idsForValidation.has(requiredId)) fail(`step ${step.id} requires unknown step ${requiredId}`);
+    const required = ordered.find((candidate) => candidate.id === requiredId);
+    if (step.status === "verified" && required?.status !== "verified") {
+      fail(`verified step ${step.id} has unverified requirement ${requiredId}`);
+    }
+  }
+  if (step.status === "superseded") {
+    const replacement = ordered.find((candidate) => candidate.id === step.superseded_by);
+    if (!replacement || replacement.status !== "verified") {
+      fail(`superseded step ${step.id} has no verified replacement`);
+    }
   }
 }
 const active = ordered.filter((step) => ["in_progress", "verifying", "correcting"].includes(step.status));
 if (active.length > 1) fail("multiple implementation steps are active");
 
+const visiting = new Set();
+const visited = new Set();
+function visit(id, path = []) {
+  if (visiting.has(id)) fail("implementation dependency cycle detected: " + [...path, id].join(" -> "));
+  if (visited.has(id)) return;
+  visiting.add(id);
+  const step = ordered.find((candidate) => candidate.id === id);
+  for (const requiredId of step?.requires || []) visit(requiredId, [...path, id]);
+  visiting.delete(id);
+  visited.add(id);
+}
+for (const step of ordered) visit(step.id);
+
 const current = ordered.find((step) => step.id === state.current_step);
 if (!current) fail("current_step is not declared in implementation-state");
+if (["verified", "superseded"].includes(current.status)) fail("current_step must point to an authorized non-terminal step");
+if (state.control_plane?.exactly_one_current_authorized_step !== true) fail("control_plane current-step rule is disabled");
+if (state.control_plane?.pending_steps_are_backlog !== true) fail("control_plane pending-backlog rule is disabled");
+
+const scopeManifest = await readJson("reference/manifests/step-scope-policy.json");
+if (scopeManifest.current_step !== current.id) fail("step-scope-policy current_step disagrees with implementation-state");
+if (!scopeManifest.steps?.[current.id]) fail("current implementation step has no scope policy");
 
 const projectState = await readText("reference/PROJECT-STATE.md");
 if (!projectState.includes("## Next authorized progression")) fail("PROJECT-STATE.md has no next-step section");

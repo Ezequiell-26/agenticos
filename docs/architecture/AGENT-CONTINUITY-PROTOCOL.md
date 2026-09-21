@@ -105,7 +105,11 @@ Without all seven, the operation is BLOCKED.
 
 Implementation state follows:
 
-`PENDING → IN_PROGRESS → VERIFYING → CORRECTING → VERIFIED → UNLOCKED_NEXT`
+`PENDING → IN_PROGRESS → VERIFYING → CORRECTING → VERIFIED`
+
+The manifest may also contain explicit historical `SUPERSEDED` records when an older plan item was replaced by a later verified implementation. Superseded records are preserved for traceability and cannot be reactivated implicitly.
+
+The implementation manifest is dependency-aware. A verified step may depend on any explicitly declared earlier verified requirement; array position is not itself a dependency. Pending records may exist as backlog, but only `current_step` is authorized for new implementation.
 
 Normal development may not move a verified step backward.
 
@@ -113,9 +117,11 @@ Rollback is a separate controlled operation and must restore to a recorded check
 
 ## Scope lock
 
-An agent may not implement future steps while working on the current step.
+An agent may not implement backlog or future steps while working on the current step.
 
 Finding a future concern is recorded as a risk or follow-up, not implemented opportunistically.
+Every current step must have a matching machine-readable entry in `reference/manifests/step-scope-policy.json`.
+A missing or contradictory scope policy is BLOCKED.
 
 ## Memory integrity
 

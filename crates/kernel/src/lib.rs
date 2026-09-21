@@ -1595,20 +1595,20 @@ impl ModelProvider for HttpModelProvider {
 pub struct ReactAgent {
     /// Agent identity (SOUL.md equivalent)
     identity: String,
+    /// Maximum turns per session
+    max_turns: usize,
+    /// Interior mutable state for concurrent-safe agent configuration and execution.
+    inner: Mutex<ReactAgentInner>,
+}
+
+/// Interior mutable state of ReactAgent.
+struct ReactAgentInner {
     /// Memory tier 1: MEMORY.md
     memory_md: String,
     /// Memory tier 1: USER.md
     user_md: String,
     /// Skills catalog with full skill metadata
     skills_catalog: Vec<Skill>,
-    /// Maximum turns per session
-    max_turns: usize,
-    /// Interior mutability for concurrent access
-    inner: Mutex<ReactAgentInner>,
-}
-
-/// Interior mutable state of ReactAgent.
-struct ReactAgentInner {
     /// Current turn count
     current_turn: usize,
     /// Model provider for LLM integration
@@ -1626,11 +1626,11 @@ impl ReactAgent {
     pub fn new(identity: String) -> Self {
         Self {
             identity,
-            memory_md: String::new(),
-            user_md: String::new(),
-            skills_catalog: Vec::new(),
             max_turns: 90,
             inner: Mutex::new(ReactAgentInner {
+                memory_md: String::new(),
+                user_md: String::new(),
+                skills_catalog: Vec::new(),
                 current_turn: 0,
                 model_provider: None,
                 memory: None,
@@ -1649,11 +1649,11 @@ impl ReactAgent {
     pub fn with_max_turns(identity: String, max_turns: usize) -> Self {
         Self {
             identity,
-            memory_md: String::new(),
-            user_md: String::new(),
-            skills_catalog: Vec::new(),
             max_turns,
             inner: Mutex::new(ReactAgentInner {
+                memory_md: String::new(),
+                user_md: String::new(),
+                skills_catalog: Vec::new(),
                 current_turn: 0,
                 model_provider: None,
                 memory: None,
@@ -1685,28 +1685,24 @@ impl ReactAgent {
 
     /// Add a skill to the catalog.
     pub fn add_skill(&self, skill: Skill) {
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+        self.inner.lock().unwrap().skills_catalog.push(skill);
     }
 
     /// Add a skill from markdown content.
     pub fn add_skill_from_markdown(&self, markdown: &str) -> Result<(), String> {
         let skill = Skill::from_markdown(markdown)?;
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+        self.add_skill(skill);
         Ok(())
     }
 
     /// Set MEMORY.md content.
     pub fn set_memory_md(&self, content: String) {
-        // For now, we'll skip this as memory_md is immutable
-        // TODO: Add interior mutability for memory_md
+        self.inner.lock().unwrap().memory_md = content;
     }
 
     /// Set USER.md content.
     pub fn set_user_md(&self, content: String) {
-        // For now, we'll skip this as user_md is immutable
-        // TODO: Add interior mutability for user_md
+        self.inner.lock().unwrap().user_md = content;
     }
 
     /// Build system prompt from SOUL, memory snapshot, and skills catalog.
@@ -1717,23 +1713,32 @@ impl ReactAgent {
         prompt.push_str(&self.identity);
         prompt.push('\n');
 
-        // Memory snapshot
-        if !self.memory_md.is_empty() {
+        let (memory_md, user_md, skills_catalog, memory, session_id) = {
+            let inner = self.inner.lock().unwrap();
+            (
+                inner.memory_md.clone(),
+                inner.user_md.clone(),
+                inner.skills_catalog.clone(),
+                inner.memory.clone(),
+                inner.session_id.clone(),
+            )
+        };
+
+        if !memory_md.is_empty() {
             prompt.push_str("## Memory (MEMORY.md)\n");
-            prompt.push_str(&self.memory_md);
+            prompt.push_str(&memory_md);
             prompt.push('\n');
         }
 
-        if !self.user_md.is_empty() {
+        if !user_md.is_empty() {
             prompt.push_str("## User Preferences (USER.md)\n");
-            prompt.push_str(&self.user_md);
+            prompt.push_str(&user_md);
             prompt.push('\n');
         }
 
-        // Tier 2 memory: Conversation History from SQLite
-        let inner = self.inner.lock().unwrap();
-        if let Some(memory) = &inner.memory {
-            if let Ok(context) = memory.get_session_history(&inner.session_id, 10).await {
+        // Tier 2 memory: Conversation History from SQLite.
+        if let Some(memory) = memory {
+            if let Ok(context) = memory.get_session_history(&session_id, 10).await {
                 if !context.is_empty() {
                     prompt.push_str("## Conversation History (Recent)\n");
                     for msg in context.iter().take(10) {
@@ -1744,10 +1749,10 @@ impl ReactAgent {
             }
         }
 
-        // Skills catalog (progressive disclosure)
-        if !self.skills_catalog.is_empty() {
+        // Skills catalog (progressive disclosure).
+        if !skills_catalog.is_empty() {
             prompt.push_str("## Available Skills\n");
-            for skill in &self.skills_catalog {
+            for skill in &skills_catalog {
                 prompt.push_str(&format!("- {}\n", skill.summary()));
             }
             prompt.push('\n');
@@ -1762,39 +1767,30 @@ impl ReactAgent {
 
     /// Execute thought/reasoning step using LLM.
     async fn think(&self, input: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.think_inner(&inner, input).await
-    }
+        let (provider, current_turn) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.model_provider.clone(), inner.current_turn)
+        };
+        let provider = provider.ok_or(ContractError::MissingCapability)?;
 
-    /// Inner thought method taking reference to inner state.
-    async fn think_inner(&self, inner: &ReactAgentInner, input: &str) -> Result<String, ContractError> {
-        if let Some(provider) = &inner.model_provider {
-            let system_prompt = self.build_system_prompt().await;
-            let request = ModelRequest {
-                request_id: format!("think-{}", inner.current_turn),
-                model: "default".to_string(),
-                input: format!("{}\n\nUser: {}", system_prompt, input),
-                parameters: None,
-            };
+        let system_prompt = self.build_system_prompt().await;
+        let request = ModelRequest {
+            request_id: format!("think-{}", current_turn),
+            model: "default".to_string(),
+            input: format!("{}\n\nUser: {}", system_prompt, input),
+            parameters: None,
+        };
 
-            match provider.execute(request).await {
-                Ok(response) => Ok(response.output),
-                Err(e) => Err(ContractError::ParseError(format!("LLM error: {:?}", e))),
-            }
-        } else {
-            Err(ContractError::MissingCapability)
+        match provider.execute(request).await {
+            Ok(response) => Ok(response.output),
+            Err(e) => Err(ContractError::ParseError(format!("LLM error: {:?}", e))),
         }
     }
 
     /// Execute action step (tool call).
     pub async fn act(&self, action: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.act_inner(&inner, action).await
-    }
-
-    /// Inner act method taking reference to inner state.
-    async fn act_inner(&self, inner: &ReactAgentInner, action: &str) -> Result<String, ContractError> {
-        if let Some(executor) = &inner.tool_executor {
+        let executor = { self.inner.lock().unwrap().tool_executor.clone() };
+        if let Some(executor) = executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
             if action.starts_with("read_file:") {
@@ -2020,38 +2016,38 @@ impl ReactAgent {
             ));
         }
 
-        let inner = self.inner.lock().unwrap();
+        let (memory, session_id, current_turn) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone(), inner.current_turn)
+        };
 
-        // Store user input in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("user-{}", inner.current_turn);
-            let _ = memory
-                .store_message(&msg_id, &inner.session_id, "user", input)
-                .await;
+        // Store user input in SQLite memory if available.
+        if let Some(memory) = memory.clone() {
+            let msg_id = format!("user-{}", current_turn);
+            let _ = memory.store_message(&msg_id, &session_id, "user", input).await;
         }
 
         // Step 1: Thought/Reasoning
-        let thought = self.think_inner(&inner, input).await?;
+        let thought = self.think(input).await?;
 
-        // Store assistant thought in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("assistant-{}", inner.current_turn);
+        // Store assistant thought in SQLite memory if available.
+        if let Some(memory) = memory {
+            let msg_id = format!("assistant-{}", current_turn);
             let _ = memory
-                .store_message(&msg_id, &inner.session_id, "assistant", &thought)
+                .store_message(&msg_id, &session_id, "assistant", &thought)
                 .await;
         }
 
         // Step 2: Action (simplified for now)
-        let action = thought.clone(); // In real implementation, would parse thought for action
+        let action = thought.clone();
 
         // Step 3: Observation
-        let observation = self.act_inner(&inner, &action).await?;
+        let observation = self.act(&action).await?;
 
         // Step 4: Process observation
         let result = self.observe(&observation);
 
-        // Increment turn
-        drop(inner);
+        // Increment turn.
         self.increment_turn();
 
         Ok(result)
@@ -3434,8 +3430,8 @@ mod tests {
         };
         agent.add_skill(skill1);
         agent.add_skill(skill2);
-        // TODO: Add interior mutability for skills_catalog
-        // assert_eq!(agent.skills_catalog.len(), 2);
+        let skill_count = agent.inner.lock().unwrap().skills_catalog.len();
+        assert_eq!(skill_count, 2);
     }
 
     #[test]
@@ -3443,8 +3439,9 @@ mod tests {
         let agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
-        // TODO: Add interior mutability for memory_md and user_md
-        // For now, just verify the methods don't panic
+        let inner = agent.inner.lock().unwrap();
+        assert_eq!(inner.memory_md, "Test memory content");
+        assert_eq!(inner.user_md, "Test user preferences");
     }
 
     #[test]
@@ -3467,12 +3464,10 @@ mod tests {
 
             let prompt = agent.build_system_prompt().await;
             assert!(prompt.contains("You are a helpful assistant."));
-            // TODO: Add interior mutability for memory_md
-            // assert!(prompt.contains("Memory (MEMORY.md)"));
-            // assert!(prompt.contains("Test memory content"));
-            // TODO: Add interior mutability for skills_catalog
-            // assert!(prompt.contains("Available Skills"));
-            // assert!(prompt.contains("git_operations"));
+            assert!(prompt.contains("Memory (MEMORY.md)"));
+            assert!(prompt.contains("Test memory content"));
+            assert!(prompt.contains("Available Skills"));
+            assert!(prompt.contains("git_operations"));
             assert!(prompt.contains("ReAct pattern"));
         });
     }

@@ -1684,29 +1684,25 @@ impl ReactAgent {
     }
 
     /// Add a skill to the catalog.
-    pub fn add_skill(&self, skill: Skill) {
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+    pub fn add_skill(&mut self, skill: Skill) {
+        self.skills_catalog.push(skill);
     }
 
     /// Add a skill from markdown content.
-    pub fn add_skill_from_markdown(&self, markdown: &str) -> Result<(), String> {
+    pub fn add_skill_from_markdown(&mut self, markdown: &str) -> Result<(), String> {
         let skill = Skill::from_markdown(markdown)?;
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+        self.skills_catalog.push(skill);
         Ok(())
     }
 
     /// Set MEMORY.md content.
-    pub fn set_memory_md(&self, content: String) {
-        // For now, we'll skip this as memory_md is immutable
-        // TODO: Add interior mutability for memory_md
+    pub fn set_memory_md(&mut self, content: String) {
+        self.memory_md = content;
     }
 
     /// Set USER.md content.
-    pub fn set_user_md(&self, content: String) {
-        // For now, we'll skip this as user_md is immutable
-        // TODO: Add interior mutability for user_md
+    pub fn set_user_md(&mut self, content: String) {
+        self.user_md = content;
     }
 
     /// Build system prompt from SOUL, memory snapshot, and skills catalog.

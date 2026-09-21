@@ -1726,10 +1726,13 @@ impl ReactAgent {
             prompt.push('\n');
         }
 
-        // Tier 2 memory: Conversation History from SQLite
-        let inner = self.inner.lock().unwrap();
-        if let Some(memory) = &inner.memory {
-            if let Ok(context) = memory.get_session_history(&inner.session_id, 10).await {
+        // Tier 2 memory: Conversation History from SQLite.
+        let (memory, session_id) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone())
+        };
+        if let Some(memory) = memory {
+            if let Ok(context) = memory.get_session_history(&session_id, 10).await {
                 if !context.is_empty() {
                     prompt.push_str("## Conversation History (Recent)\n");
                     for msg in context.iter().take(10) {

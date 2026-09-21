@@ -130,12 +130,28 @@ for (let i = 0; i < ordered.length; i += 1) {
   }
   if (!Array.isArray(ordered[i].required_checks)) fail("step " + ordered[i].id + " is missing required_checks");
   if (!Array.isArray(ordered[i].verification_evidence)) fail("step " + ordered[i].id + " is missing verification_evidence");
+  if (ordered[i].status === "verified" && ordered[i].verification_evidence.length === 0) {
+    fail("verified step " + ordered[i].id + " has no verification evidence");
+  }
   if (!Array.isArray(ordered[i].unlocks)) fail("step " + ordered[i].id + " is missing unlocks");
 }
 
 const activeStatuses = new Set(["in_progress", "verifying", "correcting"]);
 const active = ordered.filter((step) => activeStatuses.has(step.status));
 if (active.length > 1) fail("more than one implementation step is active");
+
+const visiting = new Set();
+const visited = new Set();
+function visit(id, path = []) {
+  if (visiting.has(id)) fail("implementation dependency cycle detected: " + [...path, id].join(" -> "));
+  if (visited.has(id)) return;
+  visiting.add(id);
+  const step = ordered.find((candidate) => candidate.id === id);
+  for (const requiredId of step?.requires || []) visit(requiredId, [...path, id]);
+  visiting.delete(id);
+  visited.add(id);
+}
+for (const step of ordered) visit(step.id);
 
 const current = ordered.find((step) => step.id === state.current_step);
 if (!current) fail("current_step is not declared in steps");

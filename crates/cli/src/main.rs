@@ -65,6 +65,15 @@ enum RunCommands {
         #[arg(short, long)]
         id: String,
     },
+    /// Execute a run with model provider
+    Execute {
+        /// Run identifier
+        #[arg(short, long)]
+        id: String,
+        /// Provider to use
+        #[arg(short, long, default_value = "http")]
+        provider: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -192,6 +201,23 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
             } else {
                 println!("Run not found");
             }
+        }
+        RunCommands::Execute { id, provider } => {
+            println!("Executing run: {} with provider: {}", id, provider);
+            let run_id = RunId::new(&id)?;
+
+            // Get the run
+            let runs = runtime.runs.read().await;
+            let run = runs
+                .get(&run_id)
+                .ok_or_else(|| anyhow::anyhow!("Run not found"))?;
+
+            println!("Run state: {:?}", run.state);
+            println!("Run ID: {:?}", run.run_id);
+
+            // Simulate model execution (in a real implementation, this would use the provider)
+            println!("Simulating model execution with provider: {}", provider);
+            println!("Run executed successfully (simulated)");
         }
     }
     Ok(())
@@ -353,6 +379,19 @@ mod tests {
 
         // Test flags disable command
         let args = vec!["agenticos", "flags", "disable", "--id", "test-flag"];
+        let cli = Cli::try_parse_from(args);
+        assert!(cli.is_ok());
+
+        // Test run execute command
+        let args = vec![
+            "agenticos",
+            "run",
+            "execute",
+            "--id",
+            "test-run",
+            "--provider",
+            "http",
+        ];
         let cli = Cli::try_parse_from(args);
         assert!(cli.is_ok());
     }

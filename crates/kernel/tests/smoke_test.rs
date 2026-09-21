@@ -5,13 +5,14 @@
 
 use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, LogEntry, LogLevel, Logger,
-    RunId, RunState,
+    OutboxStore, RunId, RunState,
 };
 use agenticos_kernel::{
-    InMemoryCapabilityIssuer, InMemoryConfig, InMemoryEventStore, InMemoryLogger,
-    InMemorySnapshotStore, KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock,
-    TestIdGenerator,
+    BackgroundEventPublisher, InMemoryCapabilityIssuer, InMemoryConfig, InMemoryEventStore,
+    InMemoryLogger, InMemoryOutboxStore, InMemorySnapshotStore, KernelRuntime, SqliteEventStore,
+    SqliteSnapshotStore, TestClock, TestIdGenerator,
 };
+use std::sync::Arc;
 
 fn test_runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Runtime::new().unwrap()
@@ -409,6 +410,77 @@ fn test_deterministic_id_generator() {
     assert_ne!(uuid1, uuid2);
     assert!(uuid1.starts_with("00000004-"));
     assert!(uuid2.starts_with("00000005-"));
+}
+
+#[test]
+fn test_outbox_store() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let outbox = InMemoryOutboxStore::new();
+
+        let event = agenticos_contracts::SerializedEvent {
+            event_type: "test_event".to_string(),
+            data: serde_json::json!({"data": "test"}).to_string(),
+            schema_version: 1,
+        };
+
+        let entry = agenticos_contracts::OutboxEntry {
+            entry_id: "test-entry-1".to_string(),
+            event: event.clone(),
+            destination: "test-queue".to_string(),
+            attempts: 0,
+            status: agenticos_contracts::OutboxStatus::Pending,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            processed_at: None,
+        };
+
+        outbox.add(entry).await.unwrap();
+
+        let pending = outbox.get_pending(10).await.unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].entry_id, "test-entry-1");
+
+        outbox.mark_published("test-entry-1").await.unwrap();
+
+        let pending_after = outbox.get_pending(10).await.unwrap();
+        assert_eq!(pending_after.len(), 0);
+    });
+}
+
+#[test]
+fn test_background_event_publisher() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let outbox = Arc::new(InMemoryOutboxStore::new());
+        let publisher = BackgroundEventPublisher::new(outbox.clone());
+
+        let event = agenticos_contracts::SerializedEvent {
+            event_type: "test_event".to_string(),
+            data: serde_json::json!({"data": "test"}).to_string(),
+            schema_version: 1,
+        };
+
+        let entry = agenticos_contracts::OutboxEntry {
+            entry_id: "test-entry-pub".to_string(),
+            event: event.clone(),
+            destination: "test-queue".to_string(),
+            attempts: 0,
+            status: agenticos_contracts::OutboxStatus::Pending,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            processed_at: None,
+        };
+
+        outbox.add(entry).await.unwrap();
+
+        let published = publisher.process_pending().await.unwrap();
+        assert_eq!(published, 1);
+    });
 }
 
 #[test]

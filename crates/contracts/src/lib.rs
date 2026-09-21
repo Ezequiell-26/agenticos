@@ -436,6 +436,59 @@ pub trait Projection: Send + Sync {
     async fn update(&self, event: SerializedEvent) -> Result<(), ContractError>;
 }
 
+/// Outbox entry for reliable event publication.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OutboxEntry {
+    /// Unique outbox entry ID.
+    pub entry_id: String,
+    /// Event data to publish.
+    pub event: SerializedEvent,
+    /// Target destination (e.g., queue, topic).
+    pub destination: String,
+    /// Number of delivery attempts.
+    pub attempts: u32,
+    /// Status of the entry.
+    pub status: OutboxStatus,
+    /// When the entry was created.
+    pub created_at: u64,
+    /// When the entry was processed.
+    pub processed_at: Option<u64>,
+}
+
+/// Outbox entry status.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OutboxStatus {
+    /// Entry is pending publication.
+    Pending,
+    /// Entry is being processed.
+    Processing,
+    /// Entry was successfully published.
+    Published,
+    /// Entry failed to publish (moved to dead letter queue).
+    Failed,
+    /// Entry is in dead letter queue.
+    DeadLetter,
+}
+
+/// Outbox store for reliable event publication.
+#[async_trait::async_trait]
+pub trait OutboxStore: Send + Sync {
+    /// Add an entry to the outbox.
+    async fn add(&self, entry: OutboxEntry) -> Result<(), ContractError>;
+
+    /// Get pending entries for processing.
+    async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError>;
+
+    /// Mark entry as published.
+    async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError>;
+
+    /// Mark entry as failed (move to dead letter queue).
+    async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError>;
+
+    /// Get dead letter queue entries.
+    async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError>;
+}
+
 /// Provider registry entry.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProviderEntry {

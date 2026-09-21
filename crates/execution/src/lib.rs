@@ -4,9 +4,9 @@
 //! execution boundary and workers boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    AgentEngine, Command, CommandHandler, CommandResult, ContextManager, MemoryStore,
-    ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler, QueryResult,
-    RunId, RunState, ContractError,
+    AgentEngine, Command, CommandHandler, CommandResult, ContextManager, ContractError,
+    MemoryStore, ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler,
+    QueryResult, RunId, RunState,
 };
 use agenticos_kernel::KernelRuntime;
 use agenticos_memory::{InMemoryContextManager, InMemoryMemoryStore};
@@ -31,11 +31,16 @@ impl BasicCommandHandler {
 
 #[async_trait::async_trait]
 impl CommandHandler for BasicCommandHandler {
-    async fn handle(&self, command: Command) -> Result<CommandResult, agenticos_contracts::ContractError> {
+    async fn handle(
+        &self,
+        command: Command,
+    ) -> Result<CommandResult, agenticos_contracts::ContractError> {
         match command.command_type.as_str() {
             "start_run" => {
                 if let Some(run_id) = command.payload.get("run_id").and_then(|v| v.as_str()) {
-                    if let Some(_objective) = command.payload.get("objective").and_then(|v| v.as_str()) {
+                    if let Some(_objective) =
+                        command.payload.get("objective").and_then(|v| v.as_str())
+                    {
                         let run_id = RunId::new(run_id)?;
                         self.runtime.create_run(run_id.clone()).await?;
                         self.runtime
@@ -86,13 +91,18 @@ impl BasicQueryHandler {
 
 #[async_trait::async_trait]
 impl QueryHandler for BasicQueryHandler {
-    async fn handle(&self, query: Query) -> Result<QueryResult, agenticos_contracts::ContractError> {
+    async fn handle(
+        &self,
+        query: Query,
+    ) -> Result<QueryResult, agenticos_contracts::ContractError> {
         match query.query_type.as_str() {
             "get_run_state" => {
                 if let Some(run_id) = query.parameters.get("run_id").and_then(|v| v.as_str()) {
                     let run_id = RunId::new(run_id)?;
                     let runs = self.runtime.runs.read().await;
-                    let run = runs.get(&run_id).ok_or(agenticos_contracts::ContractError::MissingCapability)?;
+                    let run = runs
+                        .get(&run_id)
+                        .ok_or(agenticos_contracts::ContractError::MissingCapability)?;
 
                     Ok(QueryResult {
                         data: serde_json::json!({
@@ -133,7 +143,10 @@ impl BasicProjection {
 
 #[async_trait::async_trait]
 impl Projection for BasicProjection {
-    async fn update(&self, _event: agenticos_contracts::SerializedEvent) -> Result<(), agenticos_contracts::ContractError> {
+    async fn update(
+        &self,
+        _event: agenticos_contracts::SerializedEvent,
+    ) -> Result<(), agenticos_contracts::ContractError> {
         // Basic projection implementation - in a full CQRS system, this would
         // update read models based on events from the command side
         Ok(())

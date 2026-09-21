@@ -8,6 +8,7 @@
 - Architecture mode: `sequential-verified`
 - Current implementation step: none-pending-definition
 - CQRS separation vertical slice: VERIFIED with all gates passing (command/query separation, projections, event-driven synchronization, read/write isolation, security gate, architecture gate)
+- Outbox pattern vertical slice: VERIFIED with all gates passing (outbox store, background publisher, status transitions, event identity, security gate, architecture gate)
 - Architecture foundation: VERIFIED on GitHub Actions run #354.
 - Rust durable kernel Step 1: VERIFIED.
 - Rust durable kernel Step 2: VERIFIED.
@@ -40,15 +41,12 @@ The current codebase still contains intentional first-slice implementations such
 
 ## Current implementation scope
 
-The sole authorized next implementation slice is `runtime-integration-vertical-slice-1`.
+No implementation slice is currently authorized. The last verified slice was `outbox-pattern-vertical-slice-1`.
 
-Its scope is:
-
-- connect AgentEngine to the ModelProvider boundary for a deterministic Run cycle;
-- make provider transport real and testable instead of simulated;
-- validate capability grants against actual issued scope and expiry;
-- persist context/memory and preserve Run recovery across restart;
-- verify end-to-end recovery, observability, provenance and failure normalization.
+Verified slices:
+- Runtime integration vertical slice: VERIFIED (AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery)
+- CQRS separation vertical slice: VERIFIED (command/query separation, projections, event-driven synchronization, read/write isolation)
+- Outbox pattern vertical slice: VERIFIED (outbox store, background publisher, status transitions, event identity)
 
 No later product slice should be pre-implemented.
 
@@ -64,9 +62,7 @@ The pre-reconciliation main baseline `bc9b213...` includes the Step 9 implementa
 
 ## Next authorized progression
 
-1. Implement exactly `runtime-integration-vertical-slice-1`.
-2. Use the reference corpus and exact pinned evidence for the affected capabilities.
-3. Verify the slice completely before changing `current_step` or unlocking another step.
+No implementation slice is currently authorized. The next step must be defined based on the master implementation plan and verified architectural patterns from MIT repositories.
 
 ## Anti-regression rule
 

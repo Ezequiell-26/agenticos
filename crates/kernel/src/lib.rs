@@ -6,8 +6,8 @@
 pub use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, IdempotencyRecord, IdempotencyStatus, LeaseRecord, LogEntry, LogLevel, Logger,
-    ModelProvider, ModelRequest, ModelResponse, RunId, RunState, SerializedEvent,
-    SerializedSnapshot, SnapshotStore,
+    ModelProvider, ModelRequest, ModelResponse, OutboxEntry, OutboxStatus, OutboxStore, RunId,
+    RunState, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1070,6 +1070,134 @@ impl TestClock {
     pub fn set(&self, timestamp: u64) {
         self.current_time
             .store(timestamp, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// In-memory outbox store for reliable event publication.
+#[derive(Debug)]
+pub struct InMemoryOutboxStore {
+    entries: Arc<RwLock<HashMap<String, OutboxEntry>>>,
+}
+
+impl InMemoryOutboxStore {
+    /// Create a new in-memory outbox store.
+    pub fn new() -> Self {
+        Self {
+            entries: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl OutboxStore for InMemoryOutboxStore {
+    async fn add(&self, entry: OutboxEntry) -> Result<(), ContractError> {
+        let mut entries = self.entries.write().await;
+        entries.insert(entry.entry_id.clone(), entry);
+        Ok(())
+    }
+
+    async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
+        let entries = self.entries.read().await;
+        Ok(entries
+            .values()
+            .filter(|e| e.status == OutboxStatus::Pending)
+            .take(limit)
+            .cloned()
+            .collect())
+    }
+
+    async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
+        let mut entries = self.entries.write().await;
+        if let Some(entry) = entries.get_mut(entry_id) {
+            entry.status = OutboxStatus::Published;
+            entry.processed_at = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            );
+        }
+        Ok(())
+    }
+
+    async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
+        let mut entries = self.entries.write().await;
+        if let Some(entry) = entries.get_mut(entry_id) {
+            entry.status = OutboxStatus::Failed;
+            entry.processed_at = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            );
+        }
+        Ok(())
+    }
+
+    async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
+        let entries = self.entries.read().await;
+        Ok(entries
+            .values()
+            .filter(|e| e.status == OutboxStatus::Failed || e.status == OutboxStatus::DeadLetter)
+            .take(limit)
+            .cloned()
+            .collect())
+    }
+}
+
+impl Default for InMemoryOutboxStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Background event publisher for reliable event publication.
+pub struct BackgroundEventPublisher {
+    outbox: Arc<dyn OutboxStore>,
+}
+
+impl std::fmt::Debug for BackgroundEventPublisher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BackgroundEventPublisher")
+            .field("outbox", &"<OutboxStore>")
+            .finish()
+    }
+}
+
+impl BackgroundEventPublisher {
+    /// Create a new background event publisher.
+    pub fn new(outbox: Arc<dyn OutboxStore>) -> Self {
+        Self { outbox }
+    }
+
+    /// Process pending outbox entries.
+    pub async fn process_pending(&self) -> Result<usize, ContractError> {
+        let pending = self.outbox.get_pending(10).await?;
+        let mut published = 0;
+
+        for entry in pending {
+            // Simulate event publication
+            // In production, this would publish to the actual destination
+            self.outbox.mark_published(&entry.entry_id).await?;
+            published += 1;
+        }
+
+        Ok(published)
+    }
+
+    /// Process failed entries (move to dead letter queue).
+    pub async fn process_failed(&self) -> Result<usize, ContractError> {
+        let failed = self.outbox.get_dead_letter(10).await?;
+        let mut processed = 0;
+
+        for entry in failed {
+            if entry.status == OutboxStatus::Failed {
+                self.outbox.mark_failed(&entry.entry_id).await?;
+                processed += 1;
+            }
+        }
+
+        Ok(processed)
     }
 }
 

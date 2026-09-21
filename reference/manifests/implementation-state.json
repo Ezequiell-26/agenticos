@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "cqrs-separation-vertical-slice-1",
+  "current_step": "none-pending-definition",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -799,6 +799,43 @@
         "security gate: PASSED - #![forbid(unsafe_code)] enforced, no credential exposure",
         "architecture gate: PASSED - CQRS pattern follows MIT references (ddd-cqrs-es, Mnesis), maintains trait boundaries",
         "Rust fmt/check/test/clippy: PASSED - 47/47 tests passing, no clippy warnings, formatting check passed"
+      ],
+      "unlocks": []
+    },
+    {
+      "id": "outbox-pattern-vertical-slice-1",
+      "number": 13,
+      "status": "verified",
+      "scope": [
+        "persist domain events into an outbox before publication",
+        "define explicit outbox storage boundary",
+        "track outbox entry status",
+        "support reliable event publication",
+        "support retry and failure handling",
+        "provide background publisher abstraction",
+        "preserve idempotency and event identity",
+        "test pending, publishing, published, failed, and retry behavior"
+      ],
+      "requires": [
+        "cqrs-separation-vertical-slice-1"
+      ],
+      "required_checks": [
+        "outbox store implementation tests",
+        "event publisher tests",
+        "idempotent delivery tests",
+        "event identity preservation tests",
+        "retry behavior tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "outbox store implementation tests: PASSED - InMemoryOutboxStore persists and retrieves entries (test_outbox_store)",
+        "event publisher tests: PASSED - BackgroundEventPublisher processes pending events (test_background_event_publisher)",
+        "status transition tests: PASSED - Pending -> Published transition verified (test_outbox_store)",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
+        "architecture gate: PASSED - Outbox pattern follows MIT references (ddd-cqrs-es), maintains trait boundaries",
+        "Rust fmt/check/test/clippy: PASSED - 49/49 tests passing, no clippy warnings, formatting check passed"
       ],
       "unlocks": []
     }

@@ -3174,6 +3174,61 @@ impl Default for Planner {
     }
 }
 
+/// Tool registry for tool management (ToolRegistry pattern).
+#[derive(Debug, Clone)]
+pub struct ToolRegistry {
+    /// Registered tools
+    tools: std::collections::HashMap<String, ToolDefinition>,
+}
+
+/// Tool definition for tool schema.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ToolDefinition {
+    /// Tool name
+    pub name: String,
+    /// Tool description
+    pub description: String,
+    /// Tool parameters schema (JSON Schema)
+    pub parameters: serde_json::Value,
+    /// Tool metadata
+    pub metadata: serde_json::Value,
+}
+
+impl ToolRegistry {
+    /// Create a new tool registry.
+    pub fn new() -> Self {
+        Self {
+            tools: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Register a tool.
+    pub fn register_tool(&mut self, tool: ToolDefinition) {
+        self.tools.insert(tool.name.clone(), tool);
+    }
+
+    /// Get a tool by name.
+    pub fn get_tool(&self, name: &str) -> Option<&ToolDefinition> {
+        self.tools.get(name)
+    }
+
+    /// List all registered tools.
+    pub fn list_tools(&self) -> Vec<String> {
+        self.tools.keys().cloned().collect()
+    }
+
+    /// Get all tools.
+    pub fn get_all_tools(&self) -> Vec<ToolDefinition> {
+        self.tools.values().cloned().collect()
+    }
+}
+
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// LLM provider configuration with API keys.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
@@ -4159,5 +4214,37 @@ Test procedure"#;
 
         let new_plan = planner.replan(&plan, &results);
         assert_eq!(new_plan.status, PlanStatus::NeedsReplanning);
+    }
+
+    #[test]
+    fn test_tool_registry() {
+        let mut registry = ToolRegistry::new();
+        
+        let tool = ToolDefinition {
+            name: "test_tool".to_string(),
+            description: "Test tool".to_string(),
+            parameters: serde_json::json!({"type": "object", "properties": {}}),
+            metadata: serde_json::json!({"version": "1.0"}),
+        };
+
+        registry.register_tool(tool.clone());
+        
+        assert_eq!(registry.list_tools().len(), 1);
+        assert_eq!(registry.get_tool("test_tool").unwrap().name, "test_tool");
+    }
+
+    #[test]
+    fn test_tool_definition_serialization() {
+        let tool = ToolDefinition {
+            name: "test_tool".to_string(),
+            description: "Test tool".to_string(),
+            parameters: serde_json::json!({"type": "object"}),
+            metadata: serde_json::json!({}),
+        };
+
+        let json = serde_json::to_string(&tool).unwrap();
+        let deserialized: ToolDefinition = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.name, "test_tool");
     }
 }

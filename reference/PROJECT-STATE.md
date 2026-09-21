@@ -12,6 +12,7 @@
 - Saga coordinator vertical slice: VERIFIED with all gates passing (saga contracts, coordinator execution, compensating transactions, recovery, security gate, architecture gate)
 - Feature flags vertical slice: VERIFIED with all gates passing (feature flag contracts, flag store, flag evaluation, flag types, security gate, architecture gate)
 - Architecture refactoring vertical slice: VERIFIED with all gates passing (crate organization documentation, migration plan, Clean Architecture principles)
+- Integration test coverage vertical slice: VERIFIED with all gates passing (test coverage audit, gap documentation, integration test plan)
 - Architecture foundation: VERIFIED on GitHub Actions run #354.
 - Rust durable kernel Step 1: VERIFIED.
 - Rust durable kernel Step 2: VERIFIED.
@@ -44,7 +45,18 @@ The current codebase still contains intentional first-slice implementations such
 
 ## Current implementation scope
 
-No implementation slice is currently authorized. The last verified slice was `architecture-refactoring-vertical-slice-1`.
+No implementation slice is currently authorized. The last verified slice was `integration-test-coverage-vertical-slice-1`.
+
+Verified slices:
+- Runtime integration vertical slice: VERIFIED (AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery)
+- CQRS separation vertical slice: VERIFIED (command/query separation, projections, event-driven synchronization, read/write isolation)
+- Outbox pattern vertical slice: VERIFIED (outbox store, background publisher, status transitions, event identity)
+- Saga coordinator vertical slice: VERIFIED (saga contracts, coordinator execution, compensating transactions, recovery)
+- Feature flags vertical slice: VERIFIED (feature flag contracts, flag store, flag evaluation, flag types)
+- Architecture refactoring vertical slice: VERIFIED (crate organization documentation, migration plan, Clean Architecture principles)
+- Integration test coverage vertical slice: VERIFIED (test coverage audit, gap documentation, integration test plan)
+
+No later product slice should be pre-implemented.
 
 Verified slices:
 - Runtime integration vertical slice: VERIFIED (AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery)

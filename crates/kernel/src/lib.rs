@@ -2011,13 +2011,19 @@ impl ReactAgent {
 
         let (memory, session_id, current_turn) = {
             let inner = self.inner.lock().unwrap();
-            (inner.memory.clone(), inner.session_id.clone(), inner.current_turn)
+            (
+                inner.memory.clone(),
+                inner.session_id.clone(),
+                inner.current_turn,
+            )
         };
 
         // Store user input in SQLite memory if available.
         if let Some(memory) = memory.clone() {
             let msg_id = format!("user-{}", current_turn);
-            let _ = memory.store_message(&msg_id, &session_id, "user", input).await;
+            let _ = memory
+                .store_message(&msg_id, &session_id, "user", input)
+                .await;
         }
 
         // Step 1: Thought/Reasoning

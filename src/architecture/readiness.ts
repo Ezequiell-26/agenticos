@@ -126,8 +126,20 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
   ) as ImplementationState;
 
   const projectState = await readRequired(root, "reference/PROJECT-STATE.md");
+  const scopeRaw = await readRequired(root, "reference/manifests/step-scope-policy.json");
+  const scope = JSON.parse(scopeRaw) as {
+    current_step: string;
+    steps: Record<string, unknown>;
+  };
   assertImplementationState(state);
   assertProjectStateConsistency(state, projectState);
+  if (scope.current_step !== state.current_step || !scope.steps[state.current_step]) {
+    throw new AgentiCOSError("Current implementation step has no matching scope policy.", {
+      code: "IMPLEMENTATION_SCOPE_POLICY_MISMATCH",
+      category: "SECURITY",
+      severity: "critical",
+    });
+  }
 }
 
 

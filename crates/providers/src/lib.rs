@@ -368,9 +368,10 @@ impl ModelProvider for HttpModelProvider {
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         // Make actual HTTP call to the provider
+        let url = format!("{}/v1/chat/completions", self.base_url);
         let response = self
             .client
-            .post(&format!("{}/v1/chat/completions", self.base_url))
+            .post(&url)
             .json(&serde_json::json!({
                 "model": request.model,
                 "messages": [{"role": "user", "content": request.input}],
@@ -382,9 +383,8 @@ impl ModelProvider for HttpModelProvider {
         match response {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    let json: serde_json::Value = resp.json().await.map_err(|_e| {
-                        ContractError::Persistence
-                    })?;
+                    let json: serde_json::Value =
+                        resp.json().await.map_err(|_e| ContractError::Persistence)?;
 
                     let output = json["choices"][0]["message"]["content"]
                         .as_str()

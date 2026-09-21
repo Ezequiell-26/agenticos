@@ -4,7 +4,7 @@
 //! execution boundary and workers boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    AgentEngine, ContractError, ContextManager, MemoryStore, ModelProvider, ModelRequest,
+    AgentEngine, ContextManager, ContractError, MemoryStore, ModelProvider, ModelRequest,
     ModelResponse, RunId, RunState,
 };
 use agenticos_kernel::KernelRuntime;
@@ -97,7 +97,13 @@ impl BasicAgentEngine {
         let model_provider = Arc::new(InMemoryModelProvider::default());
         let context_manager = Arc::new(InMemoryContextManager::new());
         let memory_store = Arc::new(InMemoryMemoryStore::new());
-        Self::new(engine_id, runtime, model_provider, context_manager, memory_store)
+        Self::new(
+            engine_id,
+            runtime,
+            model_provider,
+            context_manager,
+            memory_store,
+        )
     }
 
     /// Recover runs from memory (durable run identity across restart).
@@ -222,7 +228,10 @@ impl AgentEngine for BasicAgentEngine {
             message: format!("Model execution: {}", response.output),
             fields: vec![
                 ("run_id".to_string(), run_id.as_str().to_string()),
-                ("tokens_used".to_string(), response.tokens_used.unwrap_or(0).to_string()),
+                (
+                    "tokens_used".to_string(),
+                    response.tokens_used.unwrap_or(0).to_string(),
+                ),
             ],
             correlation_id: Some(run_id.as_str().to_string()),
         };
@@ -349,10 +358,14 @@ mod tests {
             let engine = BasicAgentEngine::with_kernel("test-engine".to_string(), runtime.clone());
 
             let run_id = RunId::new("test-run-recovery").unwrap();
-            engine.start_run(run_id.clone(), "Recovery test".to_string()).await.unwrap();
+            engine
+                .start_run(run_id.clone(), "Recovery test".to_string())
+                .await
+                .unwrap();
 
             // Simulate engine restart by creating new engine instance
-            let engine2 = BasicAgentEngine::with_kernel("test-engine-2".to_string(), runtime.clone());
+            let engine2 =
+                BasicAgentEngine::with_kernel("test-engine-2".to_string(), runtime.clone());
 
             // Recover runs from memory
             let recovered = engine2.recover_runs().await.unwrap();
@@ -388,7 +401,8 @@ mod tests {
             let past_time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs() - 3600; // 1 hour ago
+                .as_secs()
+                - 3600; // 1 hour ago
             let expired_grant = agenticos_contracts::CapabilityGrant {
                 capability_type: agenticos_contracts::CapabilityType::Read,
                 resource: "test-resource".to_string(),
@@ -400,14 +414,18 @@ mod tests {
             let grant_id = capability_issuer.issue(expired_grant).await.unwrap();
 
             // Validate should fail for expired grant
-            let is_valid = capability_issuer.validate_with_expiry(&grant_id).await.unwrap();
+            let is_valid = capability_issuer
+                .validate_with_expiry(&grant_id)
+                .await
+                .unwrap();
             assert!(!is_valid, "Expired grant should be invalid");
 
             // Create a grant that expires in the future
             let future_time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs() + 3600; // 1 hour from now
+                .as_secs()
+                + 3600; // 1 hour from now
             let valid_grant = agenticos_contracts::CapabilityGrant {
                 capability_type: agenticos_contracts::CapabilityType::Read,
                 resource: "test-resource".to_string(),
@@ -419,7 +437,10 @@ mod tests {
             let valid_grant_id = capability_issuer.issue(valid_grant).await.unwrap();
 
             // Validate should succeed for valid grant
-            let is_valid = capability_issuer.validate_with_expiry(&valid_grant_id).await.unwrap();
+            let is_valid = capability_issuer
+                .validate_with_expiry(&valid_grant_id)
+                .await
+                .unwrap();
             assert!(is_valid, "Valid grant should be valid");
         });
     }

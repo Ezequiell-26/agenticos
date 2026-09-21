@@ -16,17 +16,14 @@ pub const OWNER: &str = "agenticos-observability";
 /// # Errors
 /// Returns error if the subscriber cannot be initialized.
 pub fn init_logging(service_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(
-            fmt::layer()
-                .with_target(false)
-                .with_thread_ids(true)
-                .with_line_number(true),
-        );
+    let subscriber = Registry::default().with(env_filter).with(
+        fmt::layer()
+            .with_target(false)
+            .with_thread_ids(true)
+            .with_line_number(true),
+    );
 
     tracing::subscriber::set_global_default(subscriber)?;
 

@@ -62,6 +62,7 @@ version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
  "agenticos-kernel",
+ "agenticos-memory",
  "async-trait",
  "serde",
  "serde_json",

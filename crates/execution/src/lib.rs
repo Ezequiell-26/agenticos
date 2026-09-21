@@ -4,9 +4,11 @@
 //! execution boundary and workers boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    AgentEngine, ContractError, ModelProvider, ModelRequest, ModelResponse, RunId, RunState,
+    AgentEngine, ContractError, ContextManager, MemoryStore, ModelProvider, ModelRequest,
+    ModelResponse, RunId, RunState,
 };
 use agenticos_kernel::KernelRuntime;
+use agenticos_memory::{InMemoryContextManager, InMemoryMemoryStore};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -56,6 +58,8 @@ pub struct BasicAgentEngine {
     #[allow(dead_code)]
     model_provider: Arc<dyn ModelProvider>,
     runs: Arc<RwLock<Vec<RunId>>>,
+    context_manager: Arc<InMemoryContextManager>,
+    memory_store: Arc<InMemoryMemoryStore>,
 }
 
 impl std::fmt::Debug for BasicAgentEngine {
@@ -75,19 +79,25 @@ impl BasicAgentEngine {
         engine_id: String,
         runtime: Arc<KernelRuntime>,
         model_provider: Arc<dyn ModelProvider>,
+        context_manager: Arc<InMemoryContextManager>,
+        memory_store: Arc<InMemoryMemoryStore>,
     ) -> Self {
         Self {
             engine_id,
             runtime,
             model_provider,
             runs: Arc::new(RwLock::new(Vec::new())),
+            context_manager,
+            memory_store,
         }
     }
 
     /// Create a basic agent engine with a kernel runtime.
     pub fn with_kernel(engine_id: String, runtime: Arc<KernelRuntime>) -> Self {
         let model_provider = Arc::new(InMemoryModelProvider::default());
-        Self::new(engine_id, runtime, model_provider)
+        let context_manager = Arc::new(InMemoryContextManager::new());
+        let memory_store = Arc::new(InMemoryMemoryStore::new());
+        Self::new(engine_id, runtime, model_provider, context_manager, memory_store)
     }
 }
 
@@ -97,7 +107,7 @@ impl AgentEngine for BasicAgentEngine {
         &self.engine_id
     }
 
-    async fn start_run(&self, run_id: RunId, _objective: String) -> Result<(), ContractError> {
+    async fn start_run(&self, run_id: RunId, objective: String) -> Result<(), ContractError> {
         // Create the run in the kernel
         self.runtime.create_run(run_id.clone()).await?;
 
@@ -105,6 +115,34 @@ impl AgentEngine for BasicAgentEngine {
         self.runtime
             .transition_run(&run_id, RunState::Admitted, 1)
             .await?;
+
+        // Store objective in memory for recovery
+        let memory_entry = agenticos_contracts::MemoryEntry {
+            memory_id: format!("{}-objective", run_id.as_str()),
+            run_id: run_id.clone(),
+            key: "objective".to_string(),
+            value: objective.clone(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            expires_at: 0,
+        };
+        self.memory_store.store(memory_entry).await?;
+
+        // Log the start
+        let log_entry = agenticos_contracts::LogEntry {
+            level: agenticos_contracts::LogLevel::Info,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            component: "AgentEngine".to_string(),
+            message: format!("Starting run with objective: {}", objective),
+            fields: vec![("run_id".to_string(), run_id.as_str().to_string())],
+            correlation_id: Some(run_id.as_str().to_string()),
+        };
+        self.runtime.logger.log(log_entry).await?;
 
         // Register the run
         let mut runs = self.runs.write().await;
@@ -151,6 +189,20 @@ impl AgentEngine for BasicAgentEngine {
             correlation_id: Some(run_id.as_str().to_string()),
         };
         self.runtime.logger.log(log_entry).await?;
+
+        // Add message to context for recovery
+        let message = agenticos_contracts::Message {
+            message_id: format!("{}-msg-1", run_id.as_str()),
+            role: "agent".to_string(),
+            content: response.output.clone(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            token_count: response.output.len() as u32,
+            run_id: run_id.clone(),
+        };
+        self.context_manager.add_message(message).await?;
 
         Ok(())
     }

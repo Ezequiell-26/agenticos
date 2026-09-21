@@ -72,16 +72,18 @@ const controlPlane = scope.control_plane_paths ?? [];
 const allowed = [...controlPlane, ...(policy.allowed_paths ?? [])];
 
 const headBranch = process.env.GITHUB_HEAD_REF ?? "";
+
+let violations = changed.filter((file) => !matchesAny(file, allowed));
+
 const approvedRegression = (scope.controlled_regressions ?? []).find(
   (exception) =>
     exception.branch === headBranch &&
     exception.journal_operation_id &&
     Array.isArray(exception.paths) &&
-    Array.isArray(changed) &&
-    changed.every((file) => matchesAny(file, exception.paths)),
+    violations.length > 0 &&
+    violations.every((file) => matchesAny(file, exception.paths)),
 );
 
-let violations = changed.filter((file) => !matchesAny(file, allowed));
 if (approvedRegression) {
   const journalSource = await readFile(
     new URL("../reference/journal/agent-operations.jsonl", pathToFileURL(root + "/")),
@@ -112,7 +114,6 @@ if (approvedRegression) {
   }
   violations = violations.filter((file) => !matchesAny(file, approvedRegression.paths));
 }
-
 if (violations.length > 0) {
   fail(
     "changed paths are outside the authorized current-step scope (" +

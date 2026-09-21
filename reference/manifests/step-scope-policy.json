@@ -13,7 +13,8 @@
     "reference/**",
     "scripts/verify-*.mjs",
     "README.md",
-    "docs/PROJECT-EXECUTIVE-SUMMARY.md"
+    "docs/PROJECT-EXECUTIVE-SUMMARY.md",
+    "src/architecture/readiness.ts"
   ],
   "steps": {
     "integration-test-implementation-phase-3": {

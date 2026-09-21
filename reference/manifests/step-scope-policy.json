@@ -42,6 +42,12 @@
     "missing_current_step_policy_is_blocking": true,
     "paths_outside_current_scope_are_blocking": true,
     "control_plane_changes_are_audited": true,
-    "historical_verified_steps_are_not_reopened_implicitly": true
-  }
+    "historical_verified_steps_are_not_reopened_implicitly": true,
+    "critical_regression_changes_require_journal": true
+  },
+  "controlled_regression_paths": [
+    "crates/kernel/src/lib.rs",
+    "crates/kernel/Cargo.toml",
+    "crates/kernel/tests/reactagent_concurrency_regression.rs"
+  ]
 }

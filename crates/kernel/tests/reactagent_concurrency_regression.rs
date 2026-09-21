@@ -34,6 +34,8 @@ async fn react_agent_mutable_state_is_preserved() {
         author: "test".to_string(),
         platforms: vec!["all".to_string()],
         procedure: "test".to_string(),
+        pitfalls: Vec::new(),
+        verification: Vec::new(),
     });
 
     let prompt = agent.build_system_prompt().await;

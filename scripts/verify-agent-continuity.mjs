@@ -146,6 +146,9 @@ for (const [index, line] of lines.entries()) {
 const ordered = [...state.steps].sort((a, b) => a.number - b.number);
 const idsForValidation = new Set(ordered.map((step) => step.id));
 for (const step of ordered) {
+  if (step.status === "verified" && (!Array.isArray(step.verification_evidence) || step.verification_evidence.length === 0)) {
+    fail(`verified step ${step.id} has no verification evidence`);
+  }
   for (const requiredId of step.requires || []) {
     if (!idsForValidation.has(requiredId)) fail(`step ${step.id} requires unknown step ${requiredId}`);
     const required = ordered.find((candidate) => candidate.id === requiredId);
@@ -162,6 +165,19 @@ for (const step of ordered) {
 }
 const active = ordered.filter((step) => ["in_progress", "verifying", "correcting"].includes(step.status));
 if (active.length > 1) fail("multiple implementation steps are active");
+
+const visiting = new Set();
+const visited = new Set();
+function visit(id, path = []) {
+  if (visiting.has(id)) fail("implementation dependency cycle detected: " + [...path, id].join(" -> "));
+  if (visited.has(id)) return;
+  visiting.add(id);
+  const step = ordered.find((candidate) => candidate.id === id);
+  for (const requiredId of step?.requires || []) visit(requiredId, [...path, id]);
+  visiting.delete(id);
+  visited.add(id);
+}
+for (const step of ordered) visit(step.id);
 
 const current = ordered.find((step) => step.id === state.current_step);
 if (!current) fail("current_step is not declared in implementation-state");

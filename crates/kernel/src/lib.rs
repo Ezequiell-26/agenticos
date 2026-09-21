@@ -1756,6 +1756,95 @@ impl ReactAgent {
                         "Invalid write_file format".to_string(),
                     ))
                 }
+            } else if action.starts_with("edit_line:") {
+                // Format: "edit_line:path:line_number:new_content"
+                let parts: Vec<&str> = action.splitn(4, ':').collect();
+                if parts.len() >= 3 {
+                    let path = parts[1];
+                    let line_number: usize = parts[2].parse().unwrap_or(0);
+                    let new_content = if parts.len() >= 4 { parts[3] } else { "" };
+                    let result = executor.edit_line(path, line_number, new_content);
+                    if result.success {
+                        Ok(result.output)
+                    } else {
+                        Err(ContractError::ParseError(
+                            result.error.unwrap_or("Unknown error".to_string()),
+                        ))
+                    }
+                } else {
+                    Err(ContractError::ParseError(
+                        "Invalid edit_line format".to_string(),
+                    ))
+                }
+            } else if action.starts_with("insert_line:") {
+                // Format: "insert_line:path:line_number:new_content"
+                let parts: Vec<&str> = action.splitn(4, ':').collect();
+                if parts.len() >= 3 {
+                    let path = parts[1];
+                    let line_number: usize = parts[2].parse().unwrap_or(0);
+                    let new_content = if parts.len() >= 4 { parts[3] } else { "" };
+                    let result = executor.insert_line(path, line_number, new_content);
+                    if result.success {
+                        Ok(result.output)
+                    } else {
+                        Err(ContractError::ParseError(
+                            result.error.unwrap_or("Unknown error".to_string()),
+                        ))
+                    }
+                } else {
+                    Err(ContractError::ParseError(
+                        "Invalid insert_line format".to_string(),
+                    ))
+                }
+            } else if action.starts_with("delete_line:") {
+                // Format: "delete_line:path:line_number"
+                let parts: Vec<&str> = action.splitn(3, ':').collect();
+                if parts.len() >= 2 {
+                    let path = parts[1];
+                    let line_number: usize = parts[2].parse().unwrap_or(0);
+                    let result = executor.delete_line(path, line_number);
+                    if result.success {
+                        Ok(result.output)
+                    } else {
+                        Err(ContractError::ParseError(
+                            result.error.unwrap_or("Unknown error".to_string()),
+                        ))
+                    }
+                } else {
+                    Err(ContractError::ParseError(
+                        "Invalid delete_line format".to_string(),
+                    ))
+                }
+            } else if action.starts_with("find_and_replace:") {
+                // Format: "find_and_replace:path:find:replace"
+                let parts: Vec<&str> = action.splitn(4, ':').collect();
+                if parts.len() >= 3 {
+                    let path = parts[1];
+                    let find = parts[2];
+                    let replace = if parts.len() >= 4 { parts[3] } else { "" };
+                    let result = executor.find_and_replace(path, find, replace);
+                    if result.success {
+                        Ok(result.output)
+                    } else {
+                        Err(ContractError::ParseError(
+                            result.error.unwrap_or("Unknown error".to_string()),
+                        ))
+                    }
+                } else {
+                    Err(ContractError::ParseError(
+                        "Invalid find_and_replace format".to_string(),
+                    ))
+                }
+            } else if action.starts_with("file_exists:") {
+                let path = action.strip_prefix("file_exists:").unwrap_or("");
+                let result = executor.file_exists(path);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
             } else if action == "git_status" {
                 let result = executor.git_status();
                 if result.success {
@@ -2290,6 +2379,94 @@ impl ToolExecutor {
         match std::fs::write(&full_path, content) {
             Ok(_) => ToolResult::success(format!("File written: {}", path)),
             Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+        }
+    }
+
+    /// Edit a specific line in a file.
+    pub fn edit_line(&self, path: &str, line_number: usize, new_content: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let mut lines: Vec<&str> = content.lines().collect();
+                if line_number > 0 && line_number <= lines.len() {
+                    lines[line_number - 1] = new_content;
+                    let new_content = lines.join("\n");
+                    match std::fs::write(&full_path, new_content) {
+                        Ok(_) => ToolResult::success(format!("Line {} edited in {}", line_number, path)),
+                        Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+                    }
+                } else {
+                    ToolResult::failure(format!("Invalid line number: {}", line_number))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
+        }
+    }
+
+    /// Insert a line at a specific position in a file.
+    pub fn insert_line(&self, path: &str, line_number: usize, new_content: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let mut lines: Vec<&str> = content.lines().collect();
+                if line_number > 0 && line_number <= lines.len() + 1 {
+                    lines.insert(line_number - 1, new_content);
+                    let new_content = lines.join("\n");
+                    match std::fs::write(&full_path, new_content) {
+                        Ok(_) => ToolResult::success(format!("Line inserted at {} in {}", line_number, path)),
+                        Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+                    }
+                } else {
+                    ToolResult::failure(format!("Invalid line number: {}", line_number))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
+        }
+    }
+
+    /// Delete a specific line from a file.
+    pub fn delete_line(&self, path: &str, line_number: usize) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let mut lines: Vec<&str> = content.lines().collect();
+                if line_number > 0 && line_number <= lines.len() {
+                    lines.remove(line_number - 1);
+                    let new_content = lines.join("\n");
+                    match std::fs::write(&full_path, new_content) {
+                        Ok(_) => ToolResult::success(format!("Line {} deleted from {}", line_number, path)),
+                        Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+                    }
+                } else {
+                    ToolResult::failure(format!("Invalid line number: {}", line_number))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
+        }
+    }
+
+    /// Find and replace text in a file.
+    pub fn find_and_replace(&self, path: &str, find: &str, replace: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let new_content = content.replace(find, replace);
+                match std::fs::write(&full_path, new_content) {
+                    Ok(_) => ToolResult::success(format!("Replaced '{}' with '{}' in {}", find, replace, path)),
+                    Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
+        }
+    }
+
+    /// Check if a file exists.
+    pub fn file_exists(&self, path: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        if full_path.exists() {
+            ToolResult::success(format!("File exists: {}", path))
+        } else {
+            ToolResult::failure(format!("File does not exist: {}", path))
         }
     }
 
@@ -3024,5 +3201,116 @@ Test procedure"#;
         let result = executor.git_branch();
         // Git might not be available or not initialized, so just check it doesn't crash
         assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_edit_line() {
+        let workdir = std::env::temp_dir();
+        let executor = ToolExecutor::new(workdir.clone());
+
+        let test_path = "test_edit_line.txt";
+        let initial_content = "Line 1\nLine 2\nLine 3";
+
+        // Create test file
+        let full_path = workdir.join(test_path);
+        std::fs::write(&full_path, initial_content).unwrap();
+
+        // Edit line 2
+        let result = executor.edit_line(test_path, 2, "Modified Line 2");
+        assert!(result.success);
+
+        // Verify the edit
+        let content = std::fs::read_to_string(&full_path).unwrap();
+        assert!(content.contains("Modified Line 2"));
+
+        // Clean up
+        let _ = std::fs::remove_file(full_path);
+    }
+
+    #[test]
+    fn test_tool_executor_insert_line() {
+        let workdir = std::env::temp_dir();
+        let executor = ToolExecutor::new(workdir.clone());
+
+        let test_path = "test_insert_line.txt";
+        let initial_content = "Line 1\nLine 3";
+
+        // Create test file
+        let full_path = workdir.join(test_path);
+        std::fs::write(&full_path, initial_content).unwrap();
+
+        // Insert line at position 2
+        let result = executor.insert_line(test_path, 2, "Line 2");
+        assert!(result.success);
+
+        // Verify the insertion
+        let content = std::fs::read_to_string(&full_path).unwrap();
+        assert!(content.contains("Line 1\nLine 2\nLine 3"));
+
+        // Clean up
+        let _ = std::fs::remove_file(full_path);
+    }
+
+    #[test]
+    fn test_tool_executor_delete_line() {
+        let workdir = std::env::temp_dir();
+        let executor = ToolExecutor::new(workdir.clone());
+
+        let test_path = "test_delete_line.txt";
+        let initial_content = "Line 1\nLine 2\nLine 3";
+
+        // Create test file
+        let full_path = workdir.join(test_path);
+        std::fs::write(&full_path, initial_content).unwrap();
+
+        // Delete line 2
+        let result = executor.delete_line(test_path, 2);
+        assert!(result.success);
+
+        // Verify the deletion
+        let content = std::fs::read_to_string(&full_path).unwrap();
+        assert!(!content.contains("Line 2"));
+
+        // Clean up
+        let _ = std::fs::remove_file(full_path);
+    }
+
+    #[test]
+    fn test_tool_executor_find_and_replace() {
+        let workdir = std::env::temp_dir();
+        let executor = ToolExecutor::new(workdir.clone());
+
+        let test_path = "test_find_replace.txt";
+        let initial_content = "Hello World\nHello Universe";
+
+        // Create test file
+        let full_path = workdir.join(test_path);
+        std::fs::write(&full_path, initial_content).unwrap();
+
+        // Find and replace
+        let result = executor.find_and_replace(test_path, "Hello", "Hi");
+        assert!(result.success);
+
+        // Verify the replacement
+        let content = std::fs::read_to_string(&full_path).unwrap();
+        assert!(content.contains("Hi World"));
+        assert!(!content.contains("Hello"));
+
+        // Clean up
+        let _ = std::fs::remove_file(full_path);
+    }
+
+    #[test]
+    fn test_tool_executor_file_exists() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        // Test existing file
+        let result = executor.file_exists("Cargo.toml");
+        assert!(result.success);
+
+        // Test non-existing file
+        let result = executor.file_exists("non_existent_file.txt");
+        assert!(!result.success);
     }
 }

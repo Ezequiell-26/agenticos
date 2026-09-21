@@ -1028,7 +1028,7 @@ impl CapabilityIssuer for InMemoryCapabilityIssuer {
         Ok(())
     }
 
-    async fn validate(&self, grant_id: &str) -> Result<bool, ContractError> {
+    async fn validate_with_expiry(&self, grant_id: &str) -> Result<bool, ContractError> {
         let grants = self.grants.read().await;
         if let Some(grant) = grants.get(grant_id) {
             let current_time = chrono::Utc::now().timestamp() as u64;

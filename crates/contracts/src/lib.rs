@@ -371,8 +371,8 @@ pub trait CapabilityIssuer: Send + Sync {
     /// Revoke a capability grant.
     async fn revoke(&self, grant_id: &str) -> Result<(), ContractError>;
 
-    /// Validate a capability grant.
-    async fn validate(&self, grant_id: &str) -> Result<bool, ContractError>;
+    /// Validate a capability grant against scope and expiry.
+    async fn validate_with_expiry(&self, grant_id: &str) -> Result<bool, ContractError>;
 }
 
 /// Provider registry entry.

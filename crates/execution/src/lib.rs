@@ -125,6 +125,33 @@ impl AgentEngine for BasicAgentEngine {
             .transition_run(&run_id, RunState::Running, 2)
             .await?;
 
+        // Execute model request through the provider
+        let request = ModelRequest {
+            request_id: format!("{}-model-req", run_id.as_str()),
+            model: "default-model".to_string(),
+            input: "Process run".to_string(),
+            parameters: None,
+        };
+
+        let response = self.model_provider.execute(request).await?;
+
+        // Log the model execution
+        let log_entry = agenticos_contracts::LogEntry {
+            level: agenticos_contracts::LogLevel::Info,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            component: "AgentEngine".to_string(),
+            message: format!("Model execution: {}", response.output),
+            fields: vec![
+                ("run_id".to_string(), run_id.as_str().to_string()),
+                ("tokens_used".to_string(), response.tokens_used.unwrap_or(0).to_string()),
+            ],
+            correlation_id: Some(run_id.as_str().to_string()),
+        };
+        self.runtime.logger.log(log_entry).await?;
+
         Ok(())
     }
 

@@ -364,14 +364,14 @@ fn test_capability_issuer() {
         let grant_id = issuer.issue(grant.clone()).await.unwrap();
         assert_eq!(grant_id, "test_grant_1");
 
-        // Validate the grant
-        assert!(issuer.validate("test_grant_1").await.unwrap());
+        // Validate the grant with expiry
+        assert!(issuer.validate_with_expiry("test_grant_1").await.unwrap());
 
         // Revoke the grant
         issuer.revoke("test_grant_1").await.unwrap();
 
         // Validation should fail after revocation
-        assert!(!issuer.validate("test_grant_1").await.unwrap());
+        assert!(!issuer.validate_with_expiry("test_grant_1").await.unwrap());
     });
 }
 

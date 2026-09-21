@@ -99,6 +99,27 @@ impl BasicAgentEngine {
         let memory_store = Arc::new(InMemoryMemoryStore::new());
         Self::new(engine_id, runtime, model_provider, context_manager, memory_store)
     }
+
+    /// Recover runs from memory (durable run identity across restart).
+    pub async fn recover_runs(&self) -> Result<Vec<RunId>, ContractError> {
+        let all_memories = self.memory_store.retrieve_by_run(RunId::new("system")?).await?;
+        let mut recovered_runs = Vec::new();
+
+        for memory in all_memories {
+            if memory.key == "registry" && memory.value == "active" {
+                if let Ok(run_id) = RunId::new(&memory.run_id.as_str().replace("-registry", "")) {
+                    recovered_runs.push(run_id);
+                }
+            }
+        }
+
+        // Update local registry with recovered runs
+        let mut runs = self.runs.write().await;
+        runs.clear();
+        runs.extend(recovered_runs.clone());
+
+        Ok(recovered_runs)
+    }
 }
 
 #[async_trait::async_trait]
@@ -130,6 +151,20 @@ impl AgentEngine for BasicAgentEngine {
         };
         self.memory_store.store(memory_entry).await?;
 
+        // Store run registry entry in memory for recovery
+        let registry_entry = agenticos_contracts::MemoryEntry {
+            memory_id: format!("{}-registry", run_id.as_str()),
+            run_id: run_id.clone(),
+            key: "registry".to_string(),
+            value: "active".to_string(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            expires_at: 0,
+        };
+        self.memory_store.store(registry_entry).await?;
+
         // Log the start
         let log_entry = agenticos_contracts::LogEntry {
             level: agenticos_contracts::LogLevel::Info,
@@ -144,7 +179,7 @@ impl AgentEngine for BasicAgentEngine {
         };
         self.runtime.logger.log(log_entry).await?;
 
-        // Register the run
+        // Register the run in local registry for fast access
         let mut runs = self.runs.write().await;
         runs.push(run_id);
 
@@ -152,10 +187,14 @@ impl AgentEngine for BasicAgentEngine {
     }
 
     async fn resume_run(&self, run_id: RunId) -> Result<(), ContractError> {
-        // Check if run exists in our registry
+        // Check if run exists in our registry or memory
         let runs = self.runs.read().await;
         if !runs.contains(&run_id) {
-            return Err(ContractError::MissingCapability);
+            // Try to recover from memory
+            let recovered = self.recover_runs().await?;
+            if !recovered.contains(&run_id) {
+                return Err(ContractError::MissingCapability);
+            }
         }
 
         // Transition to Running

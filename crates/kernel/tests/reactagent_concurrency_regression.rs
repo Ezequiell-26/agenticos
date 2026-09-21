@@ -23,7 +23,7 @@ impl ModelProvider for TestProvider {
 
 #[tokio::test]
 async fn react_agent_mutable_state_is_preserved() {
-    let agent = ReactAgent::new("Test agent".to_string());
+    let mut agent = ReactAgent::new("Test agent".to_string());
 
     agent.set_memory_md("Persistent memory".to_string());
     agent.set_user_md("Persistent preferences".to_string());

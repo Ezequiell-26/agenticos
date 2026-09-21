@@ -5,14 +5,14 @@
 
 use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, FeatureFlag, FeatureFlagStore,
-    FlagValue, LogEntry, LogLevel, Logger, OutboxStore, RunId, RunState, Saga, SagaCoordinator,
-    SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
+    FlagValue, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, OutboxStore, RunId,
+    RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
 };
 use agenticos_kernel::{
-    BackgroundEventPublisher, InMemoryCapabilityIssuer, InMemoryConfig, InMemoryEventStore,
-    InMemoryFeatureFlagStore, InMemoryLogger, InMemoryOutboxStore, InMemorySagaCoordinator,
-    InMemorySnapshotStore, KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock,
-    TestIdGenerator,
+    BackgroundEventPublisher, HttpModelProvider, InMemoryCapabilityIssuer, InMemoryConfig,
+    InMemoryEventStore, InMemoryFeatureFlagStore, InMemoryLogger, InMemoryOutboxStore,
+    InMemorySagaCoordinator, InMemorySnapshotStore, KernelRuntime, SqliteEventStore,
+    SqliteSnapshotStore, TestClock, TestIdGenerator,
 };
 use std::sync::Arc;
 
@@ -733,6 +733,56 @@ fn test_feature_flag_types() {
         let numeric_value = store.get_value("numeric-flag").await.unwrap();
         assert!(numeric_value.is_some());
         matches!(numeric_value.unwrap(), FlagValue::Numeric(_));
+    });
+}
+
+#[test]
+fn test_http_model_provider() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let provider = HttpModelProvider::new("https://api.example.com".to_string());
+
+        assert_eq!(provider.provider_id(), "http-model-provider");
+
+        let request = ModelRequest {
+            request_id: "test-request".to_string(),
+            model: "gpt-4".to_string(),
+            input: "Test input".to_string(),
+            parameters: None,
+        };
+
+        let response = provider.execute(request).await.unwrap();
+
+        assert_eq!(response.request_id, "test-request");
+        assert!(response.output.contains("gpt-4"));
+        assert!(response.output.contains("Test input"));
+        assert!(response.metadata.is_some());
+        assert_eq!(response.tokens_used, Some(100));
+    });
+}
+
+#[test]
+fn test_http_model_provider_with_custom_id() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let provider = HttpModelProvider::with_provider_id(
+            "https://api.example.com".to_string(),
+            "custom-provider".to_string(),
+        );
+
+        assert_eq!(provider.provider_id(), "custom-provider");
+
+        let request = ModelRequest {
+            request_id: "test-request-2".to_string(),
+            model: "gpt-3.5".to_string(),
+            input: "Another test".to_string(),
+            parameters: None,
+        };
+
+        let response = provider.execute(request).await.unwrap();
+
+        assert_eq!(response.request_id, "test-request-2");
+        assert!(response.output.contains("gpt-3.5"));
     });
 }
 

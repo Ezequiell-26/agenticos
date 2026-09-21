@@ -3,8 +3,8 @@
 
 //! AgentiCOS CLI - Command-line interface for the AgentiCOS platform.
 
-use agenticos_contracts::{FeatureFlagStore, RunId};
-use agenticos_kernel::{InMemoryFeatureFlagStore, KernelRuntime};
+use agenticos_contracts::{FeatureFlagStore, ModelProvider, ModelRequest, RunId};
+use agenticos_kernel::{HttpModelProvider, InMemoryFeatureFlagStore, KernelRuntime};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
@@ -215,9 +215,24 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
             println!("Run state: {:?}", run.state);
             println!("Run ID: {:?}", run.run_id);
 
-            // Simulate model execution (in a real implementation, this would use the provider)
-            println!("Simulating model execution with provider: {}", provider);
-            println!("Run executed successfully (simulated)");
+            // Create HTTP provider
+            let http_provider = HttpModelProvider::new("https://api.example.com".to_string());
+
+            // Create model request
+            let request = ModelRequest {
+                request_id: format!("req-{}", run_id.as_str()),
+                model: "gpt-4".to_string(),
+                input: format!("Run objective: {:?}", run.run_id),
+                parameters: None,
+            };
+
+            // Execute model request
+            println!("Executing model request...");
+            let response = http_provider.execute(request).await?;
+
+            println!("Model response: {}", response.output);
+            println!("Tokens used: {:?}", response.tokens_used);
+            println!("Run executed successfully");
         }
     }
     Ok(())

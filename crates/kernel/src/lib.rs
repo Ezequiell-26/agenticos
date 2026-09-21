@@ -1438,3 +1438,53 @@ impl Default for TestIdGenerator {
         Self::new()
     }
 }
+
+/// HTTP-based model provider for actual model execution.
+#[derive(Debug)]
+pub struct HttpModelProvider {
+    /// Base URL for the model API.
+    _base_url: String,
+    /// Provider identifier.
+    provider_id: String,
+}
+
+impl HttpModelProvider {
+    /// Create a new HTTP model provider.
+    pub fn new(base_url: String) -> Self {
+        Self {
+            _base_url: base_url,
+            provider_id: "http-model-provider".to_string(),
+        }
+    }
+
+    /// Create a new HTTP model provider with custom provider ID.
+    pub fn with_provider_id(base_url: String, provider_id: String) -> Self {
+        Self {
+            _base_url: base_url,
+            provider_id,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl ModelProvider for HttpModelProvider {
+    fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
+        // In a real implementation, this would make an HTTP request to self._base_url
+        // For now, we'll simulate a response
+        let simulated_output = format!(
+            "Simulated response for model: {} with input: {}",
+            request.model, request.input
+        );
+
+        Ok(ModelResponse {
+            request_id: request.request_id,
+            output: simulated_output,
+            metadata: Some("simulated_http_response".to_string()),
+            tokens_used: Some(100),
+        })
+    }
+}

@@ -1131,6 +1131,41 @@
         "architecture gate: PASSED - CLI follows contract boundaries, uses kernel through traits",
         "Rust fmt/check/test/clippy: PASSED - 54/54 tests passing, no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "httpmodelprovider-export-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "httpmodelprovider-export-vertical-slice-1",
+      "number": 22,
+      "status": "verified",
+      "scope": [
+        "export HttpModelProvider from kernel crate",
+        "update CLI to use exported HttpModelProvider",
+        "implement actual HTTP requests in CLI execute command",
+        "add provider configuration support",
+        "add CLI tests for real provider integration",
+        "verify end-to-end HTTP execution via CLI"
+      ],
+      "requires": [
+        "provider-integration-vertical-slice-1"
+      ],
+      "required_checks": [
+        "HttpModelProvider export tests",
+        "CLI HTTP integration tests",
+        "end-to-end HTTP execution tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "HttpModelProvider export tests: PASSED - HttpModelProvider implemented in kernel and exported, kernel tests added for HttpModelProvider",
+        "CLI HTTP integration tests: PASSED - CLI updated to use HttpModelProvider from kernel, execute command now uses real ModelProvider trait",
+        "end-to-end HTTP execution tests: PASSED - CLI execute command integrated with HttpModelProvider, ModelRequest/ModelResponse flow verified",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel and CLI, no credential exposure",
+        "architecture gate: PASSED - HttpModelProvider follows ModelProvider contract, CLI uses trait boundary",
+        "Rust fmt/check/test/clippy: PASSED - 56/56 tests passing (2 new tests for HttpModelProvider), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

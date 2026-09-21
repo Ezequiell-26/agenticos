@@ -1443,25 +1443,38 @@ impl Default for TestIdGenerator {
 #[derive(Debug)]
 pub struct HttpModelProvider {
     /// Base URL for the model API.
-    _base_url: String,
+    base_url: String,
     /// Provider identifier.
     provider_id: String,
+    /// Request timeout in seconds.
+    timeout_secs: u64,
 }
 
 impl HttpModelProvider {
-    /// Create a new HTTP model provider.
+    /// Create a new HTTP model provider with default timeout (30 seconds).
     pub fn new(base_url: String) -> Self {
         Self {
-            _base_url: base_url,
+            base_url,
             provider_id: "http-model-provider".to_string(),
+            timeout_secs: 30,
         }
     }
 
     /// Create a new HTTP model provider with custom provider ID.
     pub fn with_provider_id(base_url: String, provider_id: String) -> Self {
         Self {
-            _base_url: base_url,
+            base_url,
             provider_id,
+            timeout_secs: 30,
+        }
+    }
+
+    /// Create a new HTTP model provider with custom timeout.
+    pub fn with_timeout(base_url: String, timeout_secs: u64) -> Self {
+        Self {
+            base_url,
+            provider_id: "http-model-provider".to_string(),
+            timeout_secs,
         }
     }
 }
@@ -1473,18 +1486,67 @@ impl ModelProvider for HttpModelProvider {
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        // In a real implementation, this would make an HTTP request to self._base_url
-        // For now, we'll simulate a response
-        let simulated_output = format!(
-            "Simulated response for model: {} with input: {}",
-            request.model, request.input
-        );
+        // Build the HTTP client with timeout
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(self.timeout_secs))
+            .build()
+            .map_err(|e| {
+                ContractError::ParseError(format!("Failed to build HTTP client: {}", e))
+            })?;
+
+        // Build the request payload
+        let payload = serde_json::json!({
+            "request_id": request.request_id,
+            "model": request.model,
+            "input": request.input,
+            "parameters": request.parameters,
+        });
+
+        // Make the HTTP request
+        let response = client
+            .post(&self.base_url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| ContractError::ParseError(format!("HTTP request failed: {}", e)))?;
+
+        // Check response status
+        if !response.status().is_success() {
+            return Err(ContractError::ParseError(format!(
+                "HTTP request failed with status: {}",
+                response.status()
+            )));
+        }
+
+        // Parse the response
+        let response_body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| ContractError::ParseError(format!("Failed to parse response: {}", e)))?;
+
+        // Extract the output from the response
+        let output = response_body
+            .get("output")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                ContractError::ParseError("Response missing 'output' field".to_string())
+            })?
+            .to_string();
+
+        // Extract optional metadata
+        let metadata = response_body
+            .get("metadata")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        // Extract optional tokens_used
+        let tokens_used = response_body.get("tokens_used").and_then(|v| v.as_u64());
 
         Ok(ModelResponse {
             request_id: request.request_id,
-            output: simulated_output,
-            metadata: Some("simulated_http_response".to_string()),
-            tokens_used: Some(100),
+            output,
+            metadata,
+            tokens_used,
         })
     }
 }

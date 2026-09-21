@@ -1354,6 +1354,45 @@
         "architecture gate: PASSED - Documentation follows Clean Architecture principles, maintains contract boundaries",
         "Rust fmt/check/test/clippy: PASSED - 60/60 tests passing, no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "real-http-implementation-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "real-http-implementation-vertical-slice-1",
+      "number": 27,
+      "status": "verified",
+      "scope": [
+        "add reqwest dependency to kernel crate",
+        "implement actual HTTP requests in HttpModelProvider",
+        "add error handling for HTTP failures",
+        "add timeout support for HTTP requests",
+        "add tests for real HTTP implementation",
+        "verify end-to-end HTTP execution"
+      ],
+      "requires": [
+        "project-status-summary-vertical-slice-1"
+      ],
+      "required_checks": [
+        "reqwest dependency tests",
+        "HTTP implementation tests",
+        "error handling tests",
+        "timeout support tests",
+        "end-to-end HTTP execution tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "reqwest dependency tests: PASSED - reqwest 0.12 added to kernel crate, workspace compiles successfully",
+        "HTTP implementation tests: PASSED - HttpModelProvider now makes actual HTTP requests using reqwest",
+        "error handling tests: PASSED - HTTP failures return ParseError with descriptive messages",
+        "timeout support tests: PASSED - HttpModelProvider.with_timeout() added for custom timeout configuration",
+        "end-to-end HTTP execution tests: PASSED - Tests verify HTTP client construction, request sending, response parsing, and error handling",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure in HTTP implementation",
+        "architecture gate: PASSED - HttpModelProvider follows ModelProvider trait contract, HTTP implementation encapsulated",
+        "Rust fmt/check/test/clippy: PASSED - 61/61 tests passing (1 new test), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

@@ -1,4 +1,4 @@
-use agenticos_contracts::{ModelProvider, ModelRequest, ModelResponse, ContractError};
+use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
 use agenticos_kernel::{ReactAgent, Skill};
 use std::sync::Arc;
 use tokio::time::{timeout, Duration};
@@ -47,11 +47,8 @@ async fn react_agent_execute_turn_does_not_deadlock_on_mutex() {
     let agent = ReactAgent::new("Test agent".to_string());
     agent.set_model_provider(Arc::new(TestProvider));
 
-    let result = timeout(
-        Duration::from_secs(2),
-        agent.execute_turn("hello"),
-    )
-    .await
+    let result = timeout(Duration::from_secs(2), agent.execute_turn("hello"))
+        .await
     .expect("execute_turn timed out; mutex likely held across an await")
     .expect("execute_turn should succeed with the test provider");
 

@@ -2244,6 +2244,22 @@ impl SqliteMemory {
         .await
         .map_err(|e| ContractError::ParseError(format!("Failed to create FTS5 table: {}", e)))?;
 
+        // Create summaries table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS summaries (
+                session_id TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ContractError::ParseError(format!("Failed to create summaries table: {}", e))
+        })?;
+
         Ok(())
     }
 
@@ -2340,6 +2356,53 @@ impl SqliteMemory {
         .map_err(|e| ContractError::ParseError(format!("Failed to get session history: {}", e)))?;
 
         Ok(rows)
+    }
+
+    /// Store a summary for a session.
+    pub async fn store_summary(
+        &self,
+        session_id: &str,
+        summary: &str,
+    ) -> Result<(), ContractError> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        sqlx::query(
+            r#"
+            INSERT INTO summaries (session_id, summary, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(session_id) DO UPDATE SET
+                summary = excluded.summary,
+                updated_at = excluded.updated_at
+            "#,
+        )
+        .bind(session_id)
+        .bind(summary)
+        .bind(timestamp as i64)
+        .execute(&*self.db)
+        .await
+        .map_err(|e| ContractError::ParseError(format!("Failed to store summary: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Get the summary for a session.
+    pub async fn get_summary(&self, session_id: &str) -> Result<Option<String>, ContractError> {
+        let row = sqlx::query_as::<_, (String,)>(
+            r#"
+            SELECT summary
+            FROM summaries
+            WHERE session_id = ?
+            "#,
+        )
+        .bind(session_id)
+        .fetch_optional(&*self.db)
+        .await
+        .map_err(|e| ContractError::ParseError(format!("Failed to get summary: {}", e)))?;
+
+        Ok(row.map(|(summary,)| summary))
     }
 }
 
@@ -2686,6 +2749,122 @@ impl ToolExecutor {
             }
             Err(e) => ToolResult::failure(format!("Failed to execute command: {}", e)),
         }
+    }
+}
+
+/// Conversation summarization configuration.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SummarizationConfig {
+    /// Maximum tokens before summarization kicks in.
+    pub max_tokens_before_summary: usize,
+    /// Maximum tokens for the resulting message list after summarization.
+    pub max_tokens: usize,
+    /// Maximum tokens for the summary itself.
+    pub max_summary_tokens: usize,
+}
+
+impl Default for SummarizationConfig {
+    fn default() -> Self {
+        Self {
+            max_tokens_before_summary: 2048,
+            max_tokens: 4096,
+            max_summary_tokens: 256,
+        }
+    }
+}
+
+/// Result of summarization.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SummarizationResult {
+    /// The messages after summarization (summary + remaining messages).
+    pub messages: Vec<String>,
+    /// The running summary (if any).
+    pub running_summary: Option<String>,
+    /// Whether summarization was performed.
+    pub was_summarized: bool,
+}
+
+/// Simple token counter (approximate character-based).
+pub fn count_tokens_approximate(text: &str) -> usize {
+    // Rough approximation: ~4 characters per token
+    (text.len() + 3) / 4
+}
+
+/// Count tokens in a list of messages.
+pub fn count_tokens_in_messages(messages: &[String]) -> usize {
+    messages.iter().map(|m| count_tokens_approximate(m)).sum()
+}
+
+/// Summarize messages when they exceed a token limit.
+/// This follows LangChain's summarization pattern:
+/// - Keep recent messages below max_tokens
+/// - Summarize older messages into a running summary
+/// - Avoid re-summarizing the same messages
+pub fn summarize_messages(
+    messages: &[String],
+    running_summary: Option<String>,
+    config: &SummarizationConfig,
+) -> SummarizationResult {
+    let total_tokens = count_tokens_in_messages(messages);
+
+    // If messages fit within max_tokens, return as-is
+    if total_tokens <= config.max_tokens {
+        return SummarizationResult {
+            messages: messages.to_vec(),
+            running_summary,
+            was_summarized: false,
+        };
+    }
+
+    // Messages exceed limit, need to summarize
+    // Strategy: Keep last N messages + summary of older messages
+    let mut remaining_tokens = config.max_tokens - config.max_summary_tokens;
+    let mut result_messages = Vec::new();
+    let mut messages_to_summarize = Vec::new();
+
+    // Process messages from newest to oldest
+    for msg in messages.iter().rev() {
+        let msg_tokens = count_tokens_approximate(msg);
+
+        if remaining_tokens >= msg_tokens {
+            // Keep this message
+            result_messages.insert(0, msg.clone());
+            remaining_tokens -= msg_tokens;
+        } else {
+            // This message goes to summarization
+            messages_to_summarize.insert(0, msg.clone());
+        }
+    }
+
+    // If there are messages to summarize, create a summary
+    let new_summary = if !messages_to_summarize.is_empty() {
+        let base_summary = running_summary.unwrap_or_else(|| "Conversation summary:".to_string());
+        let combined = format!(
+            "{}\n\nAdditional context:\n{}",
+            base_summary,
+            messages_to_summarize.join("\n")
+        );
+
+        // Truncate to max_summary_tokens
+        let max_chars = config.max_summary_tokens * 4;
+        if combined.len() > max_chars {
+            format!("{}...", &combined[..max_chars])
+        } else {
+            combined
+        }
+    } else {
+        running_summary.unwrap_or_default()
+    };
+
+    // Add summary to result if it exists
+    if !new_summary.is_empty() {
+        result_messages.insert(0, format!("Summary: {}", new_summary));
+    }
+
+    SummarizationResult {
+        messages: result_messages,
+        running_summary: Some(new_summary),
+        was_summarized: true,
     }
 }
 
@@ -3510,5 +3689,71 @@ Test procedure"#;
             .with_model("gpt-3.5-turbo".to_string());
 
         assert_eq!(provider.default_model, "gpt-3.5-turbo".to_string());
+    }
+
+    #[test]
+    fn test_summarization_config_default() {
+        let config = SummarizationConfig::default();
+        assert_eq!(config.max_tokens_before_summary, 2048);
+        assert_eq!(config.max_tokens, 4096);
+        assert_eq!(config.max_summary_tokens, 256);
+    }
+
+    #[test]
+    fn test_count_tokens_approximate() {
+        let text = "Hello World";
+        let tokens = count_tokens_approximate(text);
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn test_count_tokens_in_messages() {
+        let messages = vec!["Hello".to_string(), "World".to_string()];
+        let tokens = count_tokens_in_messages(&messages);
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn test_summarize_messages_no_summarization_needed() {
+        let messages = vec!["Hello".to_string(), "World".to_string()];
+        let config = SummarizationConfig::default();
+        let result = summarize_messages(&messages, None, &config);
+
+        assert!(!result.was_summarized);
+        assert_eq!(result.messages.len(), 2);
+    }
+
+    #[test]
+    fn test_summarize_messages_with_summarization() {
+        // Create a long message that exceeds max_tokens_before_summary
+        let long_message = "a".repeat(3000);
+        let messages = vec![long_message.clone(), "Recent message".to_string()];
+        let config = SummarizationConfig {
+            max_tokens_before_summary: 100,
+            max_tokens: 500,
+            max_summary_tokens: 100,
+        };
+        let result = summarize_messages(&messages, None, &config);
+
+        assert!(result.was_summarized);
+        assert!(result.running_summary.is_some());
+        assert!(result.messages.len() > 0);
+    }
+
+    #[test]
+    fn test_summarize_messages_with_running_summary() {
+        let long_message = "a".repeat(3000);
+        let messages = vec![long_message.clone(), "Recent message".to_string()];
+        let config = SummarizationConfig {
+            max_tokens_before_summary: 100,
+            max_tokens: 500,
+            max_summary_tokens: 100,
+        };
+        let running_summary = Some("Previous summary".to_string());
+        let result = summarize_messages(&messages, running_summary, &config);
+
+        assert!(result.was_summarized);
+        assert!(result.running_summary.is_some());
+        assert!(result.running_summary.as_ref().unwrap().contains("Previous summary"));
     }
 }

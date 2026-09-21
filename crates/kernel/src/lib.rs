@@ -3409,7 +3409,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_add_skill() {
-        let agent = ReactAgent::new("Test agent".to_string());
+        let mut agent = ReactAgent::new("Test agent".to_string());
         let skill1 = Skill {
             name: "git_operations".to_string(),
             description: "Git operations skill".to_string(),
@@ -3437,7 +3437,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_set_memory() {
-        let agent = ReactAgent::new("Test agent".to_string());
+        let mut agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
         assert_eq!(agent.memory_md, "Test memory content");

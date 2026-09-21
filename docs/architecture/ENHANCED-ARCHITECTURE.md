@@ -72,17 +72,16 @@ crates/
 
 ### Current Structure
 
+The active workspace has 26 crates. They are currently organized by functional responsibility; the layer-based structure below remains a target architecture rather than an already-migrated layout.
+
 ```
 crates/
-├── contracts/             # Shared interfaces
-├── kernel/                # Durable runtime
-├── execution/             # Agent engine
-├── providers/             # Model providers
-├── tools/                 # Tool execution
-├── memory/                # Context/memory
-├── protocols/             # MCP/A2A
-├── source-forge/          # Sandbox
-└── cli/                   # Command-line interface
+├── contracts/ kernel/ runtime/ execution/
+├── providers/ router/ gateway/ tools/ sandbox/
+├── context/ memory/ skills/ workflows/ agents/
+├── projects/ artifacts/ plugins/ security/
+├── observability/ evaluation/ source-forge/ protocols/
+├── scheduler/ cli/ desktop/ api-server/
 ```
 
 ### Issues Identified

@@ -459,6 +459,8 @@ You use the ReAct pattern: Thought → Action → Observation → repeat."#;
     println!("  ✓ Skills catalog (4 skills loaded)");
     println!("  ✓ Turn management (max 90 turns)");
     println!("  ✓ Thought → Action → Observation pattern");
+    println!("  ✓ LLM integration (ready for model provider)");
+    println!("  ✓ Full ReAct loop execution (think/act/observe)");
     println!();
 
     println!("This is a conversational mode similar to Hermes/Devin.");

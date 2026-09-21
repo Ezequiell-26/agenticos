@@ -1552,7 +1552,7 @@ impl ModelProvider for HttpModelProvider {
 }
 
 /// ReAct agent core loop implementation.
-#[derive(Debug)]
+#[allow(missing_debug_implementations)]
 pub struct ReactAgent {
     /// Agent identity (SOUL.md equivalent)
     identity: String,
@@ -1566,6 +1566,8 @@ pub struct ReactAgent {
     max_turns: usize,
     /// Current turn count
     current_turn: usize,
+    /// Model provider for LLM integration
+    model_provider: Option<Arc<dyn ModelProvider>>,
 }
 
 impl ReactAgent {
@@ -1578,6 +1580,7 @@ impl ReactAgent {
             skills_catalog: Vec::new(),
             max_turns: 90,
             current_turn: 0,
+            model_provider: None,
         }
     }
 
@@ -1590,7 +1593,13 @@ impl ReactAgent {
             skills_catalog: Vec::new(),
             max_turns,
             current_turn: 0,
+            model_provider: None,
         }
+    }
+
+    /// Set the model provider for LLM integration.
+    pub fn set_model_provider(&mut self, provider: Arc<dyn ModelProvider>) {
+        self.model_provider = Some(provider);
     }
 
     /// Add a skill to the catalog.
@@ -1614,19 +1623,19 @@ impl ReactAgent {
 
         // Slot #1: SOUL.md (identity)
         prompt.push_str(&self.identity);
-        prompt.push_str("\n\n");
+        prompt.push('\n');
 
         // Memory snapshot
         if !self.memory_md.is_empty() {
             prompt.push_str("## Memory (MEMORY.md)\n");
             prompt.push_str(&self.memory_md);
-            prompt.push_str("\n\n");
+            prompt.push('\n');
         }
 
         if !self.user_md.is_empty() {
             prompt.push_str("## User Preferences (USER.md)\n");
             prompt.push_str(&self.user_md);
-            prompt.push_str("\n\n");
+            prompt.push('\n');
         }
 
         // Skills catalog (progressive disclosure)
@@ -1643,6 +1652,62 @@ impl ReactAgent {
         prompt.push_str("Be concise and precise.\n");
 
         prompt
+    }
+
+    /// Execute thought/reasoning step using LLM.
+    pub async fn think(&self, input: &str) -> Result<String, String> {
+        if let Some(provider) = &self.model_provider {
+            let system_prompt = self.build_system_prompt();
+            let request = ModelRequest {
+                request_id: format!("think-{}", self.current_turn),
+                model: "default".to_string(),
+                input: format!("{}\n\nUser: {}", system_prompt, input),
+                parameters: None,
+            };
+
+            match provider.execute(request).await {
+                Ok(response) => Ok(response.output),
+                Err(e) => Err(format!("LLM error: {:?}", e)),
+            }
+        } else {
+            Err("No model provider configured".to_string())
+        }
+    }
+
+    /// Execute action step (tool call).
+    pub async fn act(&self, action: &str) -> Result<String, String> {
+        // For now, return a simulated action result
+        // In future, this would execute actual tools
+        Ok(format!("Executed action: {}", action))
+    }
+
+    /// Process observation step.
+    pub fn observe(&self, observation: &str) -> String {
+        format!("Observation: {}", observation)
+    }
+
+    /// Execute one full ReAct loop turn.
+    pub async fn execute_turn(&mut self, input: &str) -> Result<String, String> {
+        if self.is_finished() {
+            return Err("Maximum turns reached".to_string());
+        }
+
+        // Step 1: Thought/Reasoning
+        let thought = self.think(input).await?;
+
+        // Step 2: Action (simplified for now)
+        let action = thought.clone(); // In real implementation, would parse thought for action
+
+        // Step 3: Observation
+        let observation = self.act(&action).await?;
+
+        // Step 4: Process observation
+        let result = self.observe(&observation);
+
+        // Increment turn
+        self.increment_turn();
+
+        Ok(result)
     }
 
     /// Get current turn count.
@@ -1664,6 +1729,10 @@ impl ReactAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Runtime::new().unwrap()
+    }
 
     #[test]
     fn test_react_agent_creation() {
@@ -1729,5 +1798,59 @@ mod tests {
         agent.increment_turn();
         assert_eq!(agent.current_turn, 3);
         assert!(agent.is_finished());
+    }
+
+    #[test]
+    fn test_react_agent_without_model_provider() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let agent = ReactAgent::new("Test agent".to_string());
+            let result = agent.think("test input").await;
+            // Should fail without model provider
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_react_agent_act_step() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let agent = ReactAgent::new("Test agent".to_string());
+            let result = agent.act("test_action").await;
+            // Should succeed with simulated action
+            assert!(result.is_ok());
+            assert!(result.unwrap().contains("Executed action"));
+        });
+    }
+
+    #[test]
+    fn test_react_agent_observe_step() {
+        let agent = ReactAgent::new("Test agent".to_string());
+        let observation = agent.observe("test observation");
+        assert!(observation.contains("Observation"));
+        assert!(observation.contains("test observation"));
+    }
+
+    #[test]
+    fn test_react_agent_execute_turn_without_provider() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            let result = agent.execute_turn("test input").await;
+            // Should fail without model provider
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_react_agent_execute_turn_finished() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 1);
+            agent.increment_turn();
+            let result = agent.execute_turn("test input").await;
+            // Should fail due to max turns reached
+            assert!(result.is_err());
+        });
     }
 }

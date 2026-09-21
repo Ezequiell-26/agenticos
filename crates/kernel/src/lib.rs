@@ -2392,7 +2392,9 @@ impl ToolExecutor {
                     lines[line_number - 1] = new_content;
                     let new_content = lines.join("\n");
                     match std::fs::write(&full_path, new_content) {
-                        Ok(_) => ToolResult::success(format!("Line {} edited in {}", line_number, path)),
+                        Ok(_) => {
+                            ToolResult::success(format!("Line {} edited in {}", line_number, path))
+                        }
                         Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
                     }
                 } else {
@@ -2413,7 +2415,10 @@ impl ToolExecutor {
                     lines.insert(line_number - 1, new_content);
                     let new_content = lines.join("\n");
                     match std::fs::write(&full_path, new_content) {
-                        Ok(_) => ToolResult::success(format!("Line inserted at {} in {}", line_number, path)),
+                        Ok(_) => ToolResult::success(format!(
+                            "Line inserted at {} in {}",
+                            line_number, path
+                        )),
                         Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
                     }
                 } else {
@@ -2434,7 +2439,10 @@ impl ToolExecutor {
                     lines.remove(line_number - 1);
                     let new_content = lines.join("\n");
                     match std::fs::write(&full_path, new_content) {
-                        Ok(_) => ToolResult::success(format!("Line {} deleted from {}", line_number, path)),
+                        Ok(_) => ToolResult::success(format!(
+                            "Line {} deleted from {}",
+                            line_number, path
+                        )),
                         Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
                     }
                 } else {
@@ -2452,7 +2460,10 @@ impl ToolExecutor {
             Ok(content) => {
                 let new_content = content.replace(find, replace);
                 match std::fs::write(&full_path, new_content) {
-                    Ok(_) => ToolResult::success(format!("Replaced '{}' with '{}' in {}", find, replace, path)),
+                    Ok(_) => ToolResult::success(format!(
+                        "Replaced '{}' with '{}' in {}",
+                        find, replace, path
+                    )),
                     Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
                 }
             }

@@ -49,5 +49,16 @@
     "crates/kernel/src/lib.rs",
     "crates/kernel/Cargo.toml",
     "crates/kernel/tests/reactagent_concurrency_regression.rs"
+  ],
+  "controlled_regressions": [
+    {
+      "id": "reactagent-concurrency-regression-2026-09-22",
+      "branch": "fix/reactagent-final-hardening-2026-09-22",
+      "journal_operation_id": "reactagent-concurrency-regression-2026-09-22",
+      "paths": [
+        "crates/kernel/src/lib.rs",
+        "crates/kernel/tests/reactagent_concurrency_regression.rs"
+      ]
+    }
   ]
 }

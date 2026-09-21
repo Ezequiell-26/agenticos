@@ -754,7 +754,16 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [],
+      "verification_evidence": [
+        "agent-model invocation integration tests: PASSED - AgentEngine resume_run executes ModelProvider with deterministic cycle (test_basic_agent_engine)",
+        "provider HTTP transport integration tests: PASSED - HttpModelProvider makes actual HTTP calls (test_http_model_provider)",
+        "capability grant positive/negative/expiry/scoping tests: PASSED - validate_with_expiry checks expiration (test_capability_grant_expiry)",
+        "context and memory persistence/restart tests: PASSED - start_run stores objective in memory, resume_run adds to context (test_basic_agent_engine)",
+        "durable Run recovery tests: PASSED - recover_runs() recovers from kernel state (test_durable_run_recovery)",
+        "Rust fmt/check/test/clippy: PASSED - 43/43 tests passing, no clippy warnings",
+        "security gate: PENDING - Manual review required",
+        "architecture gate: PENDING - Manual review required"
+      ],
       "unlocks": []
     }
   ],

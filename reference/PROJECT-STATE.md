@@ -91,8 +91,8 @@ Any contradiction among these control-plane sources is a blocking condition. The
 
 1. Implement exactly `integration-test-implementation-phase-3`.
 2. Use repository/reference evidence for every non-trivial provider behavior.
-3. Run and record all required checks before changing the step to VERIFIED.
-4. Select a single next authorized step only after the current step is verified.
+3. Run and record the verification checks before changing the step to VERIFIED.
+4. Verify the current step completely, then select exactly one next authorized step.
 
 ## Rollback
 

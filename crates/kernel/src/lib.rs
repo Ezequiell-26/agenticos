@@ -7,8 +7,9 @@ pub use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
     LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
-    OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus,
-    SagaStep, SagaStepStatus, SagaStepType, SerializedEvent, SerializedSnapshot, SnapshotStore,
+    OutboxEntry, OutboxStatus, OutboxStore, ResourceUsage, RunId, RunState, Saga, SagaCoordinator,
+    SagaStatus, SagaStep, SagaStepStatus, SagaStepType, Sandbox, SandboxRequest, SandboxResponse,
+    SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -1619,6 +1620,18 @@ struct ReactAgentInner {
     session_id: String,
     /// Tool executor for real tool execution
     tool_executor: Option<ToolExecutor>,
+    /// Optional checkpoint store for state persistence
+    checkpoint_store: Option<Arc<dyn EventStore>>,
+    /// Optional planner for task decomposition
+    planner: Option<Planner>,
+    /// Current plan being executed
+    current_plan: Option<Plan>,
+    /// Optional tool registry for tool discovery
+    tool_registry: Option<ToolRegistry>,
+    /// Optional supervisor for subagent coordination
+    supervisor: Option<Supervisor>,
+    /// Optional sandbox for secure tool execution
+    sandbox: Option<Arc<dyn Sandbox>>,
 }
 
 impl ReactAgent {
@@ -1636,6 +1649,12 @@ impl ReactAgent {
                 memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
+                checkpoint_store: None,
+                planner: None,
+                current_plan: None,
+                tool_registry: None,
+                supervisor: None,
+                sandbox: None,
             }),
         }
     }
@@ -1659,6 +1678,12 @@ impl ReactAgent {
                 memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
+                checkpoint_store: None,
+                planner: None,
+                current_plan: None,
+                tool_registry: None,
+                supervisor: None,
+                sandbox: None,
             }),
         }
     }
@@ -1673,6 +1698,32 @@ impl ReactAgent {
         self.inner.lock().unwrap().memory = Some(memory);
     }
 
+    /// Get session history from memory.
+    pub async fn get_session_history(&self, session_id: &str) -> Vec<serde_json::Value> {
+        let memory = {
+            let inner = self.inner.lock().unwrap();
+            inner.memory.clone()
+        };
+
+        if let Some(memory) = memory {
+            match memory.get_session_history(session_id, 100).await {
+                Ok(messages) => messages
+                    .into_iter()
+                    .map(|msg| {
+                        serde_json::json!({
+                            "role": msg.role,
+                            "content": msg.content,
+                            "timestamp": msg.timestamp
+                        })
+                    })
+                    .collect(),
+                Err(_) => vec![],
+            }
+        } else {
+            vec![]
+        }
+    }
+
     /// Set the session ID for conversation tracking.
     pub fn set_session_id(&self, session_id: String) {
         self.inner.lock().unwrap().session_id = session_id;
@@ -1681,6 +1732,31 @@ impl ReactAgent {
     /// Set the tool executor for real tool execution.
     pub fn set_tool_executor(&self, executor: ToolExecutor) {
         self.inner.lock().unwrap().tool_executor = Some(executor);
+    }
+
+    /// Set the checkpoint store for state persistence.
+    pub fn set_checkpoint_store(&self, store: Arc<dyn EventStore>) {
+        self.inner.lock().unwrap().checkpoint_store = Some(store);
+    }
+
+    /// Set the planner for task decomposition.
+    pub fn set_planner(&self, planner: Planner) {
+        self.inner.lock().unwrap().planner = Some(planner);
+    }
+
+    /// Set the tool registry for tool discovery.
+    pub fn set_tool_registry(&self, registry: ToolRegistry) {
+        self.inner.lock().unwrap().tool_registry = Some(registry);
+    }
+
+    /// Set the supervisor for subagent coordination.
+    pub fn set_supervisor(&self, supervisor: Supervisor) {
+        self.inner.lock().unwrap().supervisor = Some(supervisor);
+    }
+
+    /// Set the sandbox for secure tool execution.
+    pub fn set_sandbox(&self, sandbox: Arc<dyn Sandbox>) {
+        self.inner.lock().unwrap().sandbox = Some(sandbox);
     }
 
     /// Add a skill to the catalog.
@@ -1767,7 +1843,11 @@ impl ReactAgent {
     }
 
     /// Inner thought method taking reference to inner state.
-    async fn think_inner(&self, inner: &ReactAgentInner, input: &str) -> Result<String, ContractError> {
+    async fn think_inner(
+        &self,
+        inner: &ReactAgentInner,
+        input: &str,
+    ) -> Result<String, ContractError> {
         if let Some(provider) = &inner.model_provider {
             let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
@@ -1793,7 +1873,11 @@ impl ReactAgent {
     }
 
     /// Inner act method taking reference to inner state.
-    async fn act_inner(&self, inner: &ReactAgentInner, action: &str) -> Result<String, ContractError> {
+    async fn act_inner(
+        &self,
+        inner: &ReactAgentInner,
+        action: &str,
+    ) -> Result<String, ContractError> {
         if let Some(executor) = &inner.tool_executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
@@ -2030,6 +2114,23 @@ impl ReactAgent {
                 .await;
         }
 
+        // Use planner to decompose complex tasks if available
+        let plan = if let Some(planner) = &inner.planner {
+            // Check if we need a new plan (no current plan or current plan is complete)
+            if inner.current_plan.is_none()
+                || inner
+                    .current_plan
+                    .as_ref()
+                    .map_or(true, |p| p.is_complete())
+            {
+                Some(planner.generate_plan(input))
+            } else {
+                inner.current_plan.clone()
+            }
+        } else {
+            None
+        };
+
         // Step 1: Thought/Reasoning
         let thought = self.think_inner(&inner, input).await?;
 
@@ -2047,8 +2148,71 @@ impl ReactAgent {
         // Step 3: Observation
         let observation = self.act_inner(&inner, &action).await?;
 
+        // Log available tools if tool registry is configured
+        if let Some(registry) = &inner.tool_registry {
+            let _ = registry.list_tools();
+        }
+
+        // Delegate to subagent if supervisor is configured
+        if let Some(supervisor) = &inner.supervisor {
+            if let Some(subagent_name) = supervisor.decide_subagent(input) {
+                // TODO: Execute subagent and aggregate results
+                let _ = subagent_name;
+            }
+        }
+
+        // Execute code in sandbox if sandbox is configured and action is code execution
+        if let Some(sandbox) = &inner.sandbox {
+            if action.starts_with("execute_code:") {
+                let code = action.strip_prefix("execute_code:").unwrap_or("");
+                let request = SandboxRequest {
+                    request_id: format!("sandbox-{}", inner.current_turn),
+                    code: code.to_string(),
+                    timeout_ms: 30000,
+                    memory_limit_bytes: 1024 * 1024 * 100,
+                    allowed_capabilities: vec!["execute".to_string()],
+                };
+                let _ = sandbox.execute(request).await;
+            }
+        }
+
         // Step 4: Process observation
         let result = self.observe(&observation);
+
+        // Create checkpoint if checkpoint store is available
+        if let Some(store) = &inner.checkpoint_store {
+            let checkpoint = Checkpoint {
+                checkpoint_id: generate_checkpoint_id(),
+                thread_id: inner.session_id.clone(),
+                state: serde_json::json!({
+                    "current_turn": inner.current_turn,
+                    "input": input,
+                    "thought": thought,
+                    "action": action,
+                    "observation": observation,
+                    "result": result,
+                    "plan": plan
+                }),
+                metadata: serde_json::json!(CheckpointMetadata {
+                    step: inner.current_turn,
+                    status: "completed".to_string(),
+                    extra: serde_json::json!({})
+                }),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64,
+            };
+            let event = SerializedEvent {
+                event_type: "checkpoint".to_string(),
+                data: serde_json::to_string(&checkpoint).unwrap(),
+                schema_version: 1,
+            };
+            let stream_id = format!("agent-{}", inner.session_id);
+            let _ = store
+                .append(&stream_id, inner.current_turn as u64, vec![event])
+                .await;
+        }
 
         // Increment turn
         drop(inner);
@@ -3087,6 +3251,19 @@ pub struct Plan {
     pub status: PlanStatus,
     /// Created timestamp
     pub created_at: i64,
+}
+
+impl Plan {
+    /// Check if the plan is complete (all steps completed or plan status is completed/failed).
+    pub fn is_complete(&self) -> bool {
+        matches!(self.status, PlanStatus::Completed | PlanStatus::Failed)
+            || self.steps.iter().all(|s| {
+                matches!(
+                    s.status,
+                    StepStatus::Completed | StepStatus::Failed | StepStatus::Skipped
+                )
+            })
+    }
 }
 
 /// Plan status.

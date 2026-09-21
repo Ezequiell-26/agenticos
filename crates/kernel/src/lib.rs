@@ -3403,7 +3403,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_add_skill() {
-        let agent = ReactAgent::new("Test agent".to_string());
+        let mut agent = ReactAgent::new("Test agent".to_string());
         let skill1 = Skill {
             name: "git_operations".to_string(),
             description: "Git operations skill".to_string(),
@@ -3426,24 +3426,23 @@ mod tests {
         };
         agent.add_skill(skill1);
         agent.add_skill(skill2);
-        // TODO: Add interior mutability for skills_catalog
-        // assert_eq!(agent.skills_catalog.len(), 2);
+        assert_eq!(agent.skills_catalog.len(), 2);
     }
 
     #[test]
     fn test_react_agent_set_memory() {
-        let agent = ReactAgent::new("Test agent".to_string());
+        let mut agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
-        // TODO: Add interior mutability for memory_md and user_md
-        // For now, just verify the methods don't panic
+        assert_eq!(agent.memory_md, "Test memory content");
+        assert_eq!(agent.user_md, "Test user preferences");
     }
 
     #[test]
     fn test_react_agent_build_system_prompt() {
         let rt = test_runtime();
         rt.block_on(async {
-            let agent = ReactAgent::new("You are a helpful assistant.".to_string());
+            let mut agent = ReactAgent::new("You are a helpful assistant.".to_string());
             agent.set_memory_md("Test memory content".to_string());
             let skill = Skill {
                 name: "git_operations".to_string(),
@@ -3459,19 +3458,17 @@ mod tests {
 
             let prompt = agent.build_system_prompt().await;
             assert!(prompt.contains("You are a helpful assistant."));
-            // TODO: Add interior mutability for memory_md
-            // assert!(prompt.contains("Memory (MEMORY.md)"));
-            // assert!(prompt.contains("Test memory content"));
-            // TODO: Add interior mutability for skills_catalog
-            // assert!(prompt.contains("Available Skills"));
-            // assert!(prompt.contains("git_operations"));
+            assert!(prompt.contains("Memory (MEMORY.md)"));
+            assert!(prompt.contains("Test memory content"));
+            assert!(prompt.contains("Available Skills"));
+            assert!(prompt.contains("git_operations"));
             assert!(prompt.contains("ReAct pattern"));
         });
     }
 
     #[test]
     fn test_react_agent_turn_management() {
-        let agent = ReactAgent::with_max_turns("Test agent".to_string(), 3);
+        let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 3);
         assert_eq!(agent.current_turn(), 0);
         assert!(!agent.is_finished());
 
@@ -3523,7 +3520,7 @@ mod tests {
     fn test_react_agent_execute_turn_without_provider() {
         let rt = test_runtime();
         rt.block_on(async {
-            let agent = ReactAgent::new("Test agent".to_string());
+            let mut agent = ReactAgent::new("Test agent".to_string());
             let result = agent.execute_turn("test input").await;
             // Should fail without model provider
             assert!(result.is_err());
@@ -3534,7 +3531,7 @@ mod tests {
     fn test_react_agent_execute_turn_finished() {
         let rt = test_runtime();
         rt.block_on(async {
-            let agent = ReactAgent::with_max_turns("Test agent".to_string(), 1);
+            let mut agent = ReactAgent::with_max_turns("Test agent".to_string(), 1);
             agent.increment_turn();
             let result = agent.execute_turn("test input").await;
             // Should fail due to max turns reached
@@ -3695,7 +3692,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let agent = ReactAgent::new("Test agent".to_string());
+            let mut agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 

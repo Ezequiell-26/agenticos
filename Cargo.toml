@@ -6,7 +6,8 @@ members = [
   "crates/sandbox", "crates/context", "crates/memory", "crates/skills",
   "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
   "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
-  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli"
+  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
+  "crates/desktop"
 ]
 
 [workspace.package]
@@ -18,6 +19,8 @@ repository = "https://github.com/Ezequiell-26/agenticos"
 
 [workspace.dependencies]
 tokio = { version = "1.0", features = ["sync", "rt"] }
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

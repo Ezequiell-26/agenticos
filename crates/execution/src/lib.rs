@@ -362,4 +362,65 @@ mod tests {
             engine2.resume_run(run_id).await.unwrap();
         });
     }
+
+    #[test]
+    fn test_capability_grant_expiry() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let _runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer.clone(),
+            ));
+
+            use agenticos_contracts::CapabilityIssuer;
+
+            // Create a grant that expires in the past
+            let past_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() - 3600; // 1 hour ago
+            let expired_grant = agenticos_contracts::CapabilityGrant {
+                capability_type: agenticos_contracts::CapabilityType::Read,
+                resource: "test-resource".to_string(),
+                permission: "read".to_string(),
+                expires_at: past_time,
+                grant_id: "expired-grant".to_string(),
+            };
+
+            let grant_id = capability_issuer.issue(expired_grant).await.unwrap();
+
+            // Validate should fail for expired grant
+            let is_valid = capability_issuer.validate_with_expiry(&grant_id).await.unwrap();
+            assert!(!is_valid, "Expired grant should be invalid");
+
+            // Create a grant that expires in the future
+            let future_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() + 3600; // 1 hour from now
+            let valid_grant = agenticos_contracts::CapabilityGrant {
+                capability_type: agenticos_contracts::CapabilityType::Read,
+                resource: "test-resource".to_string(),
+                permission: "read".to_string(),
+                expires_at: future_time,
+                grant_id: "valid-grant".to_string(),
+            };
+
+            let valid_grant_id = capability_issuer.issue(valid_grant).await.unwrap();
+
+            // Validate should succeed for valid grant
+            let is_valid = capability_issuer.validate_with_expiry(&valid_grant_id).await.unwrap();
+            assert!(is_valid, "Valid grant should be valid");
+        });
+    }
 }

@@ -1767,7 +1767,11 @@ impl ReactAgent {
     }
 
     /// Inner thought method taking reference to inner state.
-    async fn think_inner(&self, inner: &ReactAgentInner, input: &str) -> Result<String, ContractError> {
+    async fn think_inner(
+        &self,
+        inner: &ReactAgentInner,
+        input: &str,
+    ) -> Result<String, ContractError> {
         if let Some(provider) = &inner.model_provider {
             let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
@@ -1793,7 +1797,11 @@ impl ReactAgent {
     }
 
     /// Inner act method taking reference to inner state.
-    async fn act_inner(&self, inner: &ReactAgentInner, action: &str) -> Result<String, ContractError> {
+    async fn act_inner(
+        &self,
+        inner: &ReactAgentInner,
+        action: &str,
+    ) -> Result<String, ContractError> {
         if let Some(executor) = &inner.tool_executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command

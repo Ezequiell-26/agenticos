@@ -2265,6 +2265,24 @@ impl SqliteMemory {
             ContractError::ParseError(format!("Failed to create summaries table: {}", e))
         })?;
 
+        // Create checkpoints table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                checkpoint_id TEXT PRIMARY KEY,
+                thread_id TEXT NOT NULL,
+                state TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                timestamp INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ContractError::ParseError(format!("Failed to create checkpoints table: {}", e))
+        })?;
+
         Ok(())
     }
 
@@ -2408,6 +2426,97 @@ impl SqliteMemory {
         .map_err(|e| ContractError::ParseError(format!("Failed to get summary: {}", e)))?;
 
         Ok(row.map(|(summary,)| summary))
+    }
+
+    /// Store a checkpoint.
+    pub async fn store_checkpoint(&self, checkpoint: &Checkpoint) -> Result<(), ContractError> {
+        let state_json = serde_json::to_string(&checkpoint.state)
+            .map_err(|e| ContractError::ParseError(format!("Failed to serialize state: {}", e)))?;
+        let metadata_json = serde_json::to_string(&checkpoint.metadata)
+            .map_err(|e| ContractError::ParseError(format!("Failed to serialize metadata: {}", e)))?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO checkpoints (checkpoint_id, thread_id, state, metadata, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&checkpoint.checkpoint_id)
+        .bind(&checkpoint.thread_id)
+        .bind(&state_json)
+        .bind(&metadata_json)
+        .bind(checkpoint.timestamp)
+        .execute(&*self.db)
+        .await
+        .map_err(|e| ContractError::ParseError(format!("Failed to store checkpoint: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Get a checkpoint by ID.
+    pub async fn get_checkpoint(&self, checkpoint_id: &str) -> Result<Option<Checkpoint>, ContractError> {
+        let row = sqlx::query_as::<_, (String, String, String, String, i64)>(
+            r#"
+            SELECT checkpoint_id, thread_id, state, metadata, timestamp
+            FROM checkpoints
+            WHERE checkpoint_id = ?
+            "#,
+        )
+        .bind(checkpoint_id)
+        .fetch_optional(&*self.db)
+        .await
+        .map_err(|e| ContractError::ParseError(format!("Failed to get checkpoint: {}", e)))?;
+
+        if let Some((checkpoint_id, thread_id, state, metadata, timestamp)) = row {
+            let state_value = serde_json::from_str(&state)
+                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize state: {}", e)))?;
+            let metadata_value = serde_json::from_str(&metadata)
+                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize metadata: {}", e)))?;
+
+            Ok(Some(Checkpoint {
+                checkpoint_id,
+                thread_id,
+                state: state_value,
+                metadata: metadata_value,
+                timestamp,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get all checkpoints for a thread.
+    pub async fn get_thread_checkpoints(&self, thread_id: &str) -> Result<Vec<Checkpoint>, ContractError> {
+        let rows = sqlx::query_as::<_, (String, String, String, String, i64)>(
+            r#"
+            SELECT checkpoint_id, thread_id, state, metadata, timestamp
+            FROM checkpoints
+            WHERE thread_id = ?
+            ORDER BY timestamp ASC
+            "#,
+        )
+        .bind(thread_id)
+        .fetch_all(&*self.db)
+        .await
+        .map_err(|e| ContractError::ParseError(format!("Failed to get thread checkpoints: {}", e)))?;
+
+        let mut checkpoints = Vec::new();
+        for (checkpoint_id, thread_id, state, metadata, timestamp) in rows {
+            let state_value = serde_json::from_str(&state)
+                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize state: {}", e)))?;
+            let metadata_value = serde_json::from_str(&metadata)
+                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize metadata: {}", e)))?;
+
+            checkpoints.push(Checkpoint {
+                checkpoint_id,
+                thread_id,
+                state: state_value,
+                metadata: metadata_value,
+                timestamp,
+            });
+        }
+
+        Ok(checkpoints)
     }
 }
 
@@ -2871,6 +2980,52 @@ pub fn summarize_messages(
         running_summary: Some(new_summary),
         was_summarized: true,
     }
+}
+
+/// Checkpoint for agent state persistence (LangGraph pattern).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Checkpoint {
+    /// Unique checkpoint ID
+    pub checkpoint_id: String,
+    /// Thread ID for organizing checkpoints
+    pub thread_id: String,
+    /// Agent state snapshot
+    pub state: serde_json::Value,
+    /// Checkpoint metadata
+    pub metadata: serde_json::Value,
+    /// Timestamp
+    pub timestamp: i64,
+}
+
+/// Checkpoint metadata.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CheckpointMetadata {
+    /// Step number
+    pub step: usize,
+    /// Status
+    pub status: String,
+    /// Additional metadata
+    pub extra: serde_json::Value,
+}
+
+impl Default for CheckpointMetadata {
+    fn default() -> Self {
+        Self {
+            step: 0,
+            status: "active".to_string(),
+            extra: serde_json::json!({}),
+        }
+    }
+}
+
+/// Checkpoint ID generator.
+pub fn generate_checkpoint_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+/// Thread ID generator.
+pub fn generate_thread_id() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 /// LLM provider configuration with API keys.
@@ -3764,5 +3919,43 @@ Test procedure"#;
             .as_ref()
             .unwrap()
             .contains("Previous summary"));
+    }
+
+    #[test]
+    fn test_checkpoint_metadata_default() {
+        let metadata = CheckpointMetadata::default();
+        assert_eq!(metadata.step, 0);
+        assert_eq!(metadata.status, "active");
+    }
+
+    #[test]
+    fn test_generate_checkpoint_id() {
+        let id1 = generate_checkpoint_id();
+        let id2 = generate_checkpoint_id();
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn test_generate_thread_id() {
+        let id1 = generate_thread_id();
+        let id2 = generate_thread_id();
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn test_checkpoint_serialization() {
+        let checkpoint = Checkpoint {
+            checkpoint_id: "test-id".to_string(),
+            thread_id: "test-thread".to_string(),
+            state: serde_json::json!({"key": "value"}),
+            metadata: serde_json::json!({"step": 1}),
+            timestamp: 1234567890,
+        };
+
+        let json = serde_json::to_string(&checkpoint).unwrap();
+        let deserialized: Checkpoint = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.checkpoint_id, "test-id");
+        assert_eq!(deserialized.thread_id, "test-thread");
     }
 }

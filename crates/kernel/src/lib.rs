@@ -2432,8 +2432,9 @@ impl SqliteMemory {
     pub async fn store_checkpoint(&self, checkpoint: &Checkpoint) -> Result<(), ContractError> {
         let state_json = serde_json::to_string(&checkpoint.state)
             .map_err(|e| ContractError::ParseError(format!("Failed to serialize state: {}", e)))?;
-        let metadata_json = serde_json::to_string(&checkpoint.metadata)
-            .map_err(|e| ContractError::ParseError(format!("Failed to serialize metadata: {}", e)))?;
+        let metadata_json = serde_json::to_string(&checkpoint.metadata).map_err(|e| {
+            ContractError::ParseError(format!("Failed to serialize metadata: {}", e))
+        })?;
 
         sqlx::query(
             r#"
@@ -2454,7 +2455,10 @@ impl SqliteMemory {
     }
 
     /// Get a checkpoint by ID.
-    pub async fn get_checkpoint(&self, checkpoint_id: &str) -> Result<Option<Checkpoint>, ContractError> {
+    pub async fn get_checkpoint(
+        &self,
+        checkpoint_id: &str,
+    ) -> Result<Option<Checkpoint>, ContractError> {
         let row = sqlx::query_as::<_, (String, String, String, String, i64)>(
             r#"
             SELECT checkpoint_id, thread_id, state, metadata, timestamp
@@ -2468,10 +2472,12 @@ impl SqliteMemory {
         .map_err(|e| ContractError::ParseError(format!("Failed to get checkpoint: {}", e)))?;
 
         if let Some((checkpoint_id, thread_id, state, metadata, timestamp)) = row {
-            let state_value = serde_json::from_str(&state)
-                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize state: {}", e)))?;
-            let metadata_value = serde_json::from_str(&metadata)
-                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize metadata: {}", e)))?;
+            let state_value = serde_json::from_str(&state).map_err(|e| {
+                ContractError::ParseError(format!("Failed to deserialize state: {}", e))
+            })?;
+            let metadata_value = serde_json::from_str(&metadata).map_err(|e| {
+                ContractError::ParseError(format!("Failed to deserialize metadata: {}", e))
+            })?;
 
             Ok(Some(Checkpoint {
                 checkpoint_id,
@@ -2486,7 +2492,10 @@ impl SqliteMemory {
     }
 
     /// Get all checkpoints for a thread.
-    pub async fn get_thread_checkpoints(&self, thread_id: &str) -> Result<Vec<Checkpoint>, ContractError> {
+    pub async fn get_thread_checkpoints(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<Checkpoint>, ContractError> {
         let rows = sqlx::query_as::<_, (String, String, String, String, i64)>(
             r#"
             SELECT checkpoint_id, thread_id, state, metadata, timestamp
@@ -2498,14 +2507,18 @@ impl SqliteMemory {
         .bind(thread_id)
         .fetch_all(&*self.db)
         .await
-        .map_err(|e| ContractError::ParseError(format!("Failed to get thread checkpoints: {}", e)))?;
+        .map_err(|e| {
+            ContractError::ParseError(format!("Failed to get thread checkpoints: {}", e))
+        })?;
 
         let mut checkpoints = Vec::new();
         for (checkpoint_id, thread_id, state, metadata, timestamp) in rows {
-            let state_value = serde_json::from_str(&state)
-                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize state: {}", e)))?;
-            let metadata_value = serde_json::from_str(&metadata)
-                .map_err(|e| ContractError::ParseError(format!("Failed to deserialize metadata: {}", e)))?;
+            let state_value = serde_json::from_str(&state).map_err(|e| {
+                ContractError::ParseError(format!("Failed to deserialize state: {}", e))
+            })?;
+            let metadata_value = serde_json::from_str(&metadata).map_err(|e| {
+                ContractError::ParseError(format!("Failed to deserialize metadata: {}", e))
+            })?;
 
             checkpoints.push(Checkpoint {
                 checkpoint_id,

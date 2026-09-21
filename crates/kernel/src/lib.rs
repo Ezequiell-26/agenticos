@@ -3041,6 +3041,139 @@ pub fn generate_thread_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
+/// Planning system for task decomposition (LangChain Plan-and-Execute pattern).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Plan {
+    /// Plan ID
+    pub plan_id: String,
+    /// Objective/goal of the plan
+    pub objective: String,
+    /// Steps in the plan
+    pub steps: Vec<PlanStep>,
+    /// Current step index
+    pub current_step: usize,
+    /// Plan status
+    pub status: PlanStatus,
+    /// Created timestamp
+    pub created_at: i64,
+}
+
+/// Plan status.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub enum PlanStatus {
+    /// Plan is pending execution
+    Pending,
+    /// Plan is in progress
+    InProgress,
+    /// Plan is completed
+    Completed,
+    /// Plan failed
+    Failed,
+    /// Plan needs re-planning
+    NeedsReplanning,
+}
+
+/// Individual step in a plan.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PlanStep {
+    /// Step ID
+    pub step_id: String,
+    /// Step description
+    pub description: String,
+    /// Tool to use for this step
+    pub tool: Option<String>,
+    /// Tool arguments
+    pub tool_args: Option<serde_json::Value>,
+    /// Step status
+    pub status: StepStatus,
+    /// Step result
+    pub result: Option<String>,
+}
+
+/// Step status.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub enum StepStatus {
+    /// Step is pending
+    Pending,
+    /// Step is in progress
+    InProgress,
+    /// Step is completed
+    Completed,
+    /// Step failed
+    Failed,
+    /// Step skipped
+    Skipped,
+}
+
+/// Planner for generating plans.
+#[allow(missing_debug_implementations)]
+pub struct Planner {
+    /// Model provider for planning
+    _model_provider: Option<Arc<dyn ModelProvider>>,
+}
+
+impl Planner {
+    /// Create a new planner.
+    pub fn new() -> Self {
+        Self {
+            _model_provider: None,
+        }
+    }
+
+    /// Create a planner with a model provider.
+    pub fn with_model_provider(provider: Arc<dyn ModelProvider>) -> Self {
+        Self {
+            _model_provider: Some(provider),
+        }
+    }
+
+    /// Generate a plan for a given objective.
+    /// For now, returns a simple plan structure.
+    /// TODO: Integrate with LLM for intelligent plan generation.
+    pub fn generate_plan(&self, objective: &str) -> Plan {
+        let plan_id = uuid::Uuid::new_v4().to_string();
+        let created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // For now, create a simple plan with one step
+        // TODO: Use LLM to decompose objective into multiple steps
+        let step = PlanStep {
+            step_id: uuid::Uuid::new_v4().to_string(),
+            description: format!("Execute: {}", objective),
+            tool: None,
+            tool_args: None,
+            status: StepStatus::Pending,
+            result: None,
+        };
+
+        Plan {
+            plan_id,
+            objective: objective.to_string(),
+            steps: vec![step],
+            current_step: 0,
+            status: PlanStatus::Pending,
+            created_at,
+        }
+    }
+
+    /// Re-plan based on current state and results.
+    /// For now, returns the same plan.
+    /// TODO: Integrate with LLM for intelligent re-planning.
+    pub fn replan(&self, plan: &Plan, _results: &[String]) -> Plan {
+        let mut new_plan = plan.clone();
+        new_plan.status = PlanStatus::NeedsReplanning;
+        new_plan
+    }
+}
+
+impl Default for Planner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// LLM provider configuration with API keys.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
@@ -3970,5 +4103,61 @@ Test procedure"#;
 
         assert_eq!(deserialized.checkpoint_id, "test-id");
         assert_eq!(deserialized.thread_id, "test-thread");
+    }
+
+    #[test]
+    fn test_planner_generation() {
+        let planner = Planner::new();
+        let plan = planner.generate_plan("Test objective");
+
+        assert_eq!(plan.objective, "Test objective");
+        assert_eq!(plan.steps.len(), 1);
+        assert_eq!(plan.status, PlanStatus::Pending);
+    }
+
+    #[test]
+    fn test_plan_step_serialization() {
+        let step = PlanStep {
+            step_id: "test-step".to_string(),
+            description: "Test description".to_string(),
+            tool: Some("test-tool".to_string()),
+            tool_args: Some(serde_json::json!({"arg": "value"})),
+            status: StepStatus::Pending,
+            result: None,
+        };
+
+        let json = serde_json::to_string(&step).unwrap();
+        let deserialized: PlanStep = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.step_id, "test-step");
+        assert_eq!(deserialized.description, "Test description");
+    }
+
+    #[test]
+    fn test_plan_serialization() {
+        let plan = Plan {
+            plan_id: "test-plan".to_string(),
+            objective: "Test objective".to_string(),
+            steps: vec![],
+            current_step: 0,
+            status: PlanStatus::Pending,
+            created_at: 1234567890,
+        };
+
+        let json = serde_json::to_string(&plan).unwrap();
+        let deserialized: Plan = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.plan_id, "test-plan");
+        assert_eq!(deserialized.objective, "Test objective");
+    }
+
+    #[test]
+    fn test_planner_replan() {
+        let planner = Planner::new();
+        let plan = planner.generate_plan("Test objective");
+        let results = vec!["result1".to_string(), "result2".to_string()];
+
+        let new_plan = planner.replan(&plan, &results);
+        assert_eq!(new_plan.status, PlanStatus::NeedsReplanning);
     }
 }

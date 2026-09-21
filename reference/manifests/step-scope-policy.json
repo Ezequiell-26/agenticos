@@ -11,7 +11,9 @@
     "docs/adr/**",
     "package.json",
     "reference/**",
-    "scripts/verify-*.mjs"
+    "scripts/verify-*.mjs",
+    "README.md",
+    "docs/PROJECT-EXECUTIVE-SUMMARY.md"
   ],
   "steps": {
     "integration-test-implementation-phase-3": {

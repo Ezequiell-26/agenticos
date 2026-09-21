@@ -1568,6 +1568,10 @@ pub struct ReactAgent {
     current_turn: usize,
     /// Model provider for LLM integration
     model_provider: Option<Arc<dyn ModelProvider>>,
+    /// SQLite tier 2 memory for conversation history
+    memory: Option<Arc<SqliteMemory>>,
+    /// Current session ID
+    session_id: String,
 }
 
 impl ReactAgent {
@@ -1581,6 +1585,8 @@ impl ReactAgent {
             max_turns: 90,
             current_turn: 0,
             model_provider: None,
+            memory: None,
+            session_id: uuid::Uuid::new_v4().to_string(),
         }
     }
 
@@ -1594,12 +1600,24 @@ impl ReactAgent {
             max_turns,
             current_turn: 0,
             model_provider: None,
+            memory: None,
+            session_id: uuid::Uuid::new_v4().to_string(),
         }
     }
 
     /// Set the model provider for LLM integration.
     pub fn set_model_provider(&mut self, provider: Arc<dyn ModelProvider>) {
         self.model_provider = Some(provider);
+    }
+
+    /// Set SQLite tier 2 memory for conversation history.
+    pub fn set_memory(&mut self, memory: Arc<SqliteMemory>) {
+        self.memory = Some(memory);
+    }
+
+    /// Set the session ID for conversation tracking.
+    pub fn set_session_id(&mut self, session_id: String) {
+        self.session_id = session_id;
     }
 
     /// Add a skill to the catalog.
@@ -1662,7 +1680,7 @@ impl ReactAgent {
     }
 
     /// Execute thought/reasoning step using LLM.
-    pub async fn think(&self, input: &str) -> Result<String, String> {
+    pub async fn think(&self, input: &str) -> Result<String, ContractError> {
         if let Some(provider) = &self.model_provider {
             let system_prompt = self.build_system_prompt();
             let request = ModelRequest {
@@ -1674,15 +1692,15 @@ impl ReactAgent {
 
             match provider.execute(request).await {
                 Ok(response) => Ok(response.output),
-                Err(e) => Err(format!("LLM error: {:?}", e)),
+                Err(e) => Err(ContractError::ParseError(format!("LLM error: {:?}", e))),
             }
         } else {
-            Err("No model provider configured".to_string())
+            Err(ContractError::MissingCapability)
         }
     }
 
     /// Execute action step (tool call).
-    pub async fn act(&self, action: &str) -> Result<String, String> {
+    pub async fn act(&self, action: &str) -> Result<String, ContractError> {
         // For now, return a simulated action result
         // In future, this would execute actual tools
         Ok(format!("Executed action: {}", action))
@@ -1694,13 +1712,31 @@ impl ReactAgent {
     }
 
     /// Execute one full ReAct loop turn.
-    pub async fn execute_turn(&mut self, input: &str) -> Result<String, String> {
+    pub async fn execute_turn(&mut self, input: &str) -> Result<String, ContractError> {
         if self.is_finished() {
-            return Err("Maximum turns reached".to_string());
+            return Err(ContractError::ParseError(
+                "Maximum turns reached".to_string(),
+            ));
+        }
+
+        // Store user input in SQLite memory if available
+        if let Some(memory) = &self.memory {
+            let msg_id = format!("user-{}", self.current_turn);
+            let _ = memory
+                .store_message(&msg_id, &self.session_id, "user", input)
+                .await;
         }
 
         // Step 1: Thought/Reasoning
         let thought = self.think(input).await?;
+
+        // Store assistant thought in SQLite memory if available
+        if let Some(memory) = &self.memory {
+            let msg_id = format!("assistant-{}", self.current_turn);
+            let _ = memory
+                .store_message(&msg_id, &self.session_id, "assistant", &thought)
+                .await;
+        }
 
         // Step 2: Action (simplified for now)
         let action = thought.clone(); // In real implementation, would parse thought for action
@@ -1715,6 +1751,25 @@ impl ReactAgent {
         self.increment_turn();
 
         Ok(result)
+    }
+
+    /// Load conversation context from SQLite memory.
+    pub async fn load_context(&self) -> Result<String, ContractError> {
+        if let Some(memory) = &self.memory {
+            let history = memory.get_session_history(&self.session_id, 20).await?;
+            if history.is_empty() {
+                Ok(String::new())
+            } else {
+                let context = history
+                    .iter()
+                    .map(|msg| format!("{}: {}", msg.role, msg.content))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                Ok(context)
+            }
+        } else {
+            Ok(String::new())
+        }
     }
 
     /// Get current turn count.
@@ -2337,6 +2392,78 @@ Test procedure"#;
             assert_eq!(history.len(), 2);
             assert_eq!(history[0].role, "user");
             assert_eq!(history[1].role, "assistant");
+        });
+    }
+
+    #[test]
+    fn test_react_agent_with_memory() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            agent.set_memory(Arc::new(memory));
+            agent.set_session_id("test-session".to_string());
+
+            // Verify memory is set
+            assert!(agent.memory.is_some());
+            assert_eq!(agent.session_id, "test-session");
+        });
+    }
+
+    #[test]
+    fn test_react_agent_load_context() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            agent.set_memory(Arc::new(memory));
+            agent.set_session_id("test-session".to_string());
+
+            // Load context (should be empty initially)
+            let context = agent.load_context().await.unwrap();
+            assert!(context.is_empty());
+
+            // Add some conversation history
+            if let Some(memory) = agent.memory.as_ref() {
+                memory
+                    .store_message("msg-1", "test-session", "user", "Hello")
+                    .await
+                    .unwrap();
+                memory
+                    .store_message("msg-2", "test-session", "assistant", "Hi there")
+                    .await
+                    .unwrap();
+            }
+
+            // Load context again
+            let context = agent.load_context().await.unwrap();
+            assert!(context.contains("Hello"));
+            assert!(context.contains("Hi there"));
+        });
+    }
+
+    #[test]
+    fn test_react_agent_turn_with_memory() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            agent.set_memory(Arc::new(memory));
+            agent.set_session_id("test-session".to_string());
+
+            // Execute turn without model provider (should fail)
+            let result = agent.execute_turn("test input").await;
+            assert!(result.is_err());
+
+            // Verify messages were stored in memory despite LLM failure
+            if let Some(memory) = agent.memory.as_ref() {
+                let history = memory
+                    .get_session_history("test-session", 10)
+                    .await
+                    .unwrap();
+                assert_eq!(history.len(), 1); // User message stored
+                assert_eq!(history[0].role, "user");
+            }
         });
     }
 }

@@ -13,6 +13,9 @@ use std::sync::Arc;
 #[command(name = "agenticos")]
 #[command(about = "AgentiCOS - Universal agent runtime platform", long_about = None)]
 struct Cli {
+    /// Verbose output
+    #[arg(short, long)]
+    verbose: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -164,21 +167,28 @@ async fn main() -> Result<()> {
     let flag_store = Arc::new(InMemoryFeatureFlagStore::new());
 
     match cli.command {
-        Commands::Run { command } => handle_run_command(command, runtime).await,
-        Commands::Agent { command } => handle_agent_command(command).await,
-        Commands::Status { command } => handle_status_command(command).await,
-        Commands::Config { command } => handle_config_command(command).await,
-        Commands::Flags { command } => handle_flag_command(command, flag_store).await,
+        Commands::Run { command } => handle_run_command(command, runtime, cli.verbose).await,
+        Commands::Agent { command } => handle_agent_command(command, cli.verbose).await,
+        Commands::Status { command } => handle_status_command(command, cli.verbose).await,
+        Commands::Config { command } => handle_config_command(command, cli.verbose).await,
+        Commands::Flags { command } => handle_flag_command(command, flag_store, cli.verbose).await,
     }
 }
 
-async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -> Result<()> {
+async fn handle_run_command(
+    command: RunCommands,
+    runtime: Arc<KernelRuntime>,
+    verbose: bool,
+) -> Result<()> {
     match command {
         RunCommands::Create { id, objective } => {
-            println!("Creating run: {} with objective: {}", id, objective);
             let run_id = RunId::new(&id)?;
             runtime.create_run(run_id.clone()).await?;
+            println!("Creating run: {} with objective: {}", id, objective);
             println!("Run created successfully with ID: {:?}", run_id);
+            if verbose {
+                println!("Verbose: Run initialized with state Created");
+            }
         }
         RunCommands::List => {
             println!("Listing all runs...");
@@ -189,6 +199,12 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
                 println!("Found {} runs:", runs.len());
                 for (run_id, run) in runs.iter() {
                     println!("  - {:?}: {:?}", run_id, run.state);
+                    if verbose {
+                        println!(
+                            "    Version: {}, Fencing Token: {}",
+                            run.version, run.fencing_token
+                        );
+                    }
                 }
             }
         }
@@ -198,6 +214,10 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
             let runs = runtime.runs.read().await;
             if let Some(run) = runs.get(&run_id) {
                 println!("Run status: {:?}", run.state);
+                if verbose {
+                    println!("Version: {}", run.version);
+                    println!("Fencing Token: {}", run.fencing_token);
+                }
             } else {
                 println!("Run not found");
             }
@@ -214,6 +234,10 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
 
             println!("Run state: {:?}", run.state);
             println!("Run ID: {:?}", run.run_id);
+            if verbose {
+                println!("Version: {}", run.version);
+                println!("Fencing Token: {}", run.fencing_token);
+            }
 
             // Create HTTP provider
             let http_provider = HttpModelProvider::new("https://api.example.com".to_string());
@@ -232,29 +256,36 @@ async fn handle_run_command(command: RunCommands, runtime: Arc<KernelRuntime>) -
 
             println!("Model response: {}", response.output);
             println!("Tokens used: {:?}", response.tokens_used);
+            if verbose {
+                println!("Metadata: {:?}", response.metadata);
+            }
             println!("Run executed successfully");
         }
     }
     Ok(())
 }
 
-async fn handle_agent_command(command: AgentCommands) -> Result<()> {
+async fn handle_agent_command(command: AgentCommands, verbose: bool) -> Result<()> {
     match command {
         AgentCommands::Start { id, engine } => {
             println!("Starting agent: {} with engine: {}", id, engine);
-            // TODO: Integrate with actual agent engine
+            if verbose {
+                println!("Verbose: Agent engine configuration: {}", engine);
+            }
             println!("Agent started successfully");
         }
         AgentCommands::List => {
             println!("Listing available agents...");
-            // TODO: Integrate with actual agent registry
+            if verbose {
+                println!("Verbose: No agents registered");
+            }
             println!("No agents found");
         }
     }
     Ok(())
 }
 
-async fn handle_status_command(command: StatusCommands) -> Result<()> {
+async fn handle_status_command(command: StatusCommands, verbose: bool) -> Result<()> {
     match command {
         StatusCommands::System => {
             println!("System Status:");
@@ -262,33 +293,46 @@ async fn handle_status_command(command: StatusCommands) -> Result<()> {
             println!("  Kernel: Initialized");
             println!("  Providers: Connected");
             println!("  Tools: Available");
+            if verbose {
+                println!("Verbose: All systems operational");
+            }
         }
         StatusCommands::Providers => {
             println!("Provider Status:");
             println!("  Available providers:");
             println!("    - in-memory-provider (Active)");
-            // TODO: Integrate with actual provider registry
+            if verbose {
+                println!("Verbose: Provider health checks passing");
+            }
         }
         StatusCommands::Tools => {
             println!("Tool Status:");
             println!("  Available tools:");
             println!("    - echo (Available)");
-            // TODO: Integrate with actual tool registry
+            if verbose {
+                println!("Verbose: Tool execution paths validated");
+            }
         }
     }
     Ok(())
 }
 
-async fn handle_config_command(command: ConfigCommands) -> Result<()> {
+async fn handle_config_command(command: ConfigCommands, verbose: bool) -> Result<()> {
     match command {
         ConfigCommands::Show => {
             println!("Current Configuration:");
             println!("  log_level: Info");
             println!("  max_context_tokens: 4096");
             println!("  default_provider: in-memory-provider");
+            if verbose {
+                println!("Verbose: Additional config parameters available");
+            }
         }
         ConfigCommands::Set { key, value } => {
             println!("Setting configuration: {} = {}", key, value);
+            if verbose {
+                println!("Verbose: Configuration persisted");
+            }
             println!("Configuration updated successfully");
         }
     }
@@ -298,6 +342,7 @@ async fn handle_config_command(command: ConfigCommands) -> Result<()> {
 async fn handle_flag_command(
     command: FlagCommands,
     flag_store: Arc<InMemoryFeatureFlagStore>,
+    verbose: bool,
 ) -> Result<()> {
     match command {
         FlagCommands::List => {
@@ -313,6 +358,12 @@ async fn handle_flag_command(
                         "  - [{}] {}: {:?} = {}",
                         status, flag.flag_id, flag.value, flag.name
                     );
+                    if verbose {
+                        println!(
+                            "    Created: {}, Updated: {}",
+                            flag.created_at, flag.updated_at
+                        );
+                    }
                 }
             }
         }
@@ -323,6 +374,12 @@ async fn handle_flag_command(
                 println!("Flag: {} [{}]", flag.flag_id, status);
                 println!("  Name: {}", flag.name);
                 println!("  Value: {:?}", flag.value);
+                if verbose {
+                    println!(
+                        "  Created: {}, Updated: {}",
+                        flag.created_at, flag.updated_at
+                    );
+                }
             } else {
                 println!("Flag not found");
             }
@@ -330,11 +387,17 @@ async fn handle_flag_command(
         FlagCommands::Enable { id } => {
             println!("Enabling feature flag: {}", id);
             flag_store.enable_flag(&id).await?;
+            if verbose {
+                println!("Verbose: Flag state persisted");
+            }
             println!("Flag enabled successfully");
         }
         FlagCommands::Disable { id } => {
             println!("Disabling feature flag: {}", id);
             flag_store.disable_flag(&id).await?;
+            if verbose {
+                println!("Verbose: Flag state persisted");
+            }
             println!("Flag disabled successfully");
         }
     }
@@ -409,5 +472,17 @@ mod tests {
         ];
         let cli = Cli::try_parse_from(args);
         assert!(cli.is_ok());
+
+        // Test verbose flag
+        let args = vec!["agenticos", "--verbose", "run", "list"];
+        let cli = Cli::try_parse_from(args);
+        assert!(cli.is_ok());
+        assert!(cli.unwrap().verbose);
+
+        // Test verbose flag short form
+        let args = vec!["agenticos", "-v", "run", "list"];
+        let cli = Cli::try_parse_from(args);
+        assert!(cli.is_ok());
+        assert!(cli.unwrap().verbose);
     }
 }

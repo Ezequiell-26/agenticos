@@ -8,7 +8,7 @@ Based on analysis of the current AgentiCOS architecture and comparison with prof
 
 ### 1. CQRS and Event Sourcing
 
-**Current State**: AgentiCOS already has event store and snapshot foundations in the kernel, but lacks explicit CQRS separation.
+**Current State**: CQRS, event sourcing and projections now exist as verified first-slice implementations. Further production hardening and schema-evolution work remain.
 
 **Reference**: Mnesis (MIT), ddd-cqrs-es (MIT)
 
@@ -42,7 +42,7 @@ mod projection;
 
 ### 2. OpenTelemetry Observability
 
-**Current State**: Basic logging exists, but no structured telemetry.
+**Current State**: Structured observability and LLM metrics exist as verified first slices. Full distributed OpenTelemetry deployment and production telemetry operations remain.
 
 **Reference**: OpenTelemetry Rust (Apache 2.0), rust-telemetry-example (MIT)
 
@@ -76,7 +76,7 @@ mod correlation_id;
 
 ### 3. Architecture Decision Records (ADR)
 
-**Current State**: No formal ADR system exists.
+**Current State**: ADRs are now present for the implemented slices. The remaining concern is maintaining ADR coverage for future architectural decisions.
 
 **Reference**: adrs (MIT), MADR (MIT)
 
@@ -104,7 +104,7 @@ docs/adr/
 
 ### 4. Outbox Pattern
 
-**Current State**: Event store exists but no outbox for reliable event publishing.
+**Current State**: An outbox store and background publisher exist as verified first-slice implementations; durable production delivery and dead-letter operations remain.
 
 **Reference**: ddd-cqrs-es (MIT)
 
@@ -130,7 +130,7 @@ mod dead_letter_queue;
 
 ### 5. Saga Pattern
 
-**Current State**: No saga coordinator for multi-step workflows.
+**Current State**: A Saga coordinator with compensation/recovery tests exists as a first slice; distributed participant coordination and production timeouts remain.
 
 **Reference**: ddd-cqrs-es (MIT)
 
@@ -209,7 +209,7 @@ mod validator;
 
 ### 8. Feature Flags
 
-**Current State**: No feature flag system.
+**Current State**: Feature flags exist as a first-slice runtime configuration mechanism; distributed/targeted rollout remains future work.
 
 **Reference**: Distributed (MIT)
 
@@ -404,6 +404,6 @@ read crates/observability/src/tracer.rs offset=1 limit=50
 ## Status
 
 - **Phase**: Advanced architecture analysis complete
-- **Implementation**: Not started
-- **Priority Recommendations**: ADR system, OpenTelemetry, Outbox pattern
-- **Decision required**: User approval to proceed with implementation
+- **Implementation**: First-slice capabilities exist; advanced production hardening remains
+- **Priority Recommendations**: production observability, event schema evolution, durable workflow infrastructure
+- **Decision required**: explicit scope/step authorization through the implementation control plane

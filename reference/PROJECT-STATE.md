@@ -5,180 +5,97 @@
 ## Current baseline
 
 - Repository: `Ezequiell-26/agenticos`
-- Architecture mode: `sequential-verified`
-- Current implementation step: none-pending-definition
-- Total verified steps: 51
-- Total tests: 54 passing across 25 suites
-- Security: #![forbid(unsafe_code)] enforced throughout
-- Architecture: Clean Architecture principles applied
+- Architecture mode: `sequential-verified` with dependency-aware backlog control
+- Current implementation step: `integration-test-implementation-phase-3`
+- Current step status: `pending`
+- Total implementation records: 53
+- Verified implementation records: 51
+- Pending implementation records: 1
+- Superseded implementation records: 1
+- Latest recorded Rust acceptance evidence: 145/145 tests passing, no clippy warnings, formatting check passed
+- Security baseline: `#![forbid(unsafe_code)]` remains enforced in the audited Rust crates
+- Canonical runtime: Rust/Tokio
+- TypeScript: transitional/product-surface code; it is not the canonical runtime
+- Reference policy: MIT-only canonical third-party source, dynamic repository resolution, exact-provenance evidence
+- Destructive AI operations: disabled by default
 
-### Verified Steps Summary
+## Architecture truth
 
-- Step 0: Architecture Foundation - VERIFIED
-- Step 1: Rust Kernel Vertical Slice - VERIFIED
-- Step 2: Kernel Configuration & Logging - VERIFIED
-- Step 3: Architecture Hardening - VERIFIED
-- Step 4: Agent Engine Vertical Slice - VERIFIED
-- Step 5: Provider Plane - VERIFIED
-- Step 6: Tool Plane - VERIFIED
-- Step 7: Memory/Context - VERIFIED
-- Step 8: Protocol Implementation - VERIFIED
-- Step 9: Product Surfaces CLI - VERIFIED
-- Step 10: Source Forge Sandbox - VERIFIED
-- Step 11: Runtime Integration - VERIFIED
-- Step 12: CQRS Separation - VERIFIED
-- Step 13: Outbox Pattern - VERIFIED
-- Step 14: Saga Coordinator - VERIFIED
-- Step 15: Feature Flags - VERIFIED
-- Step 16: Architecture Refactoring - VERIFIED
-- Step 17: Integration Test Coverage - VERIFIED
-- Architecture foundation: VERIFIED on GitHub Actions run #354.
-- Rust durable kernel Step 1: VERIFIED.
-- Rust durable kernel Step 2: VERIFIED.
-- Architecture hardening: VERIFIED on the recorded hardening CI evidence.
-- AgentEngine vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Provider plane vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Tool plane vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Memory/context vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Protocol implementation vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Product surfaces CLI vertical slice: VERIFIED by its recorded Rust acceptance evidence.
-- Main baseline before this reconciliation: `bc9b21324b072cc5df068a47d7bf1571399f6304`.
-- Canonical runtime: Rust/Tokio.
-- TypeScript: transitional prototype/product surface boundary; it is not the canonical runtime.
-- Reference policy: MIT-only canonical third-party source, dynamic repository resolution, no-invention evidence rule.
-- Destructive AI operations: disabled by default.
+The repository contains explicit contracts and schemas for runtime lifecycle, providers, routing, tools, memory/context, workflows, multi-agent execution, MCP/A2A, persistence boundaries, checkpoints, planning, observability, API/desktop surfaces and AI change control.
 
-## What is established
+The project uses a dependency graph for implementation records. Historical verified slices may appear after a backlog item when work was previously merged out of order; that historical fact is preserved rather than rewritten. From this reconciliation onward, exactly one current step is authorized.
 
-The architecture contains explicit contracts and schemas for:
-- Runtime lifecycle (RunId, RunState, EventStore, SnapshotStore)
-- CQRS patterns (Command, Query, CommandHandler, QueryHandler, Projection)
-- Event sourcing (OutboxStore, BackgroundEventPublisher)
-- Workflows (Saga, SagaCoordinator, SagaStep)
-- Configuration (FeatureFlag, FeatureFlagStore)
-- Providers (ModelProvider, ModelRequest, ModelResponse)
-- Capabilities (CapabilityGrant, CapabilityIssuer)
+A step marked VERIFIED means its declared acceptance checks and recorded evidence passed. It does not mean the capability is production-complete.
 
-The reference system contains a verified MIT-focused seed corpus and a dynamic resolver. Non-trivial implementation must use repository evidence and preserve exact provenance.
+## Reconciled state findings
 
-The architecture-control plane is guarded against duplicate JSON object keys, stale current-step projections and multiple active steps.
+The previous state contained a missing numbered record for the Source Forge Sandbox slice, a duplicate step number, an obsolete early Tauri record, an invalid unlock reference, and a `current_step` that did not identify an existing implementation record.
 
-## Verified-slice interpretation
+These have been reconciled without rewriting Git history:
+- Source Forge Sandbox is restored as a distinct verified implementation record.
+- Step numbers are unique and contiguous for display/order purposes.
+- The obsolete early Tauri definition is retained as historical `superseded` state and points to the later Tauri slice that was actually implemented.
+- Unknown unlock references were corrected.
+- The current step is explicitly `integration-test-implementation-phase-3`.
+- Pending records are treated as backlog; only `current_step` authorizes implementation.
+- Verified steps must reference existing verified requirements.
+- A current-step scope manifest is required.
 
-A VERIFIED step means its declared acceptance checks and recorded evidence passed. It does **not** mean that the entire capability is production-complete.
+## Current authorized implementation
 
-The current codebase still contains intentional first-slice implementations such as in-memory stores, an in-memory model provider, a simulated HTTP provider adapter, and boundary-level tool policy logic. Those are now explicitly tracked rather than being treated as completed production behavior.
+`integration-test-implementation-phase-3` is the only authorized implementation slice.
 
-## Current implementation scope
+Scope:
+- provider-layer integration tests;
+- provider failover tests;
+- health-check integration tests;
+- resilience-pattern tests;
+- multi-provider orchestration tests;
+- provider integration coverage verification.
 
-No implementation slice is currently authorized. The last verified slice was `tauri-react-ui-integration-vertical-slice-1`.
+Do not begin a different product or architecture slice before this step is explicitly transitioned.
 
-All 51 foundational, advanced architecture, product surface, documentation, provider integration, provider export, integration test implementation phases 1 and 2, CLI output formatting, project status summary, real HTTP implementation, conversational CLI, ReAct architecture implementation, full ReAct loop execution, skills YAML frontmatter, SQLite tier 2 memory, ReactAgent SQLite integration, system prompt integration, real tool execution, advanced git operations, file edit operations, LLM API key management, Windows Desktop App (Tauri), Conversation Summarization, REST API Server (Actix-web), Checkpoints System, Planning System, Observability Integration, Tool Registry Server, Subagents / Multi-Agent, Sandbox Complete, LLM Metrics, Tauri React UI Integration, and Vite React Components steps have been verified:
-- Architecture Foundation, Rust Kernel, Configuration & Logging, Architecture Hardening
-- Agent Engine, Provider Plane, Tool Plane, Memory/Context, Protocol Implementation, CLI, Source Forge Sandbox
-- Runtime Integration, CQRS Separation, Outbox Pattern, Saga Coordinator, Feature Flags
-- Architecture Refactoring, Integration Test Coverage, Project Status Consolidation, CLI Enhancement, Documentation Finalization
-- Provider Integration (run execute command with kernel runtime integration)
-- HttpModelProvider Export (kernel provider implementation and CLI integration)
-- Integration Test Implementation Phase 1 (kernel runtime integration tests)
-- Integration Test Implementation Phase 2 (execution layer integration tests)
-- CLI Output Formatting (verbose output option for all commands)
-- Project Status Summary (consolidation of all 25 steps, roadmap definition)
-- Real HTTP Implementation (actual HTTP requests using reqwest)
-- Conversational CLI (chat mode similar to Hermes/Devin - initial implementation)
-- ReAct Architecture Implementation (Hermes-inspired ReAct core loop, SOUL.md, three-tier memory, skills system)
-- Full ReAct Loop Execution (LLM integration, thought/reasoning, action execution, observation processing)
-- Skills YAML Frontmatter (SKILL.md + YAML parsing, skill metadata, progressive disclosure)
-- SQLite Tier 2 Memory (SQLite + FTS5 for conversation history, full-text search, session management)
-- ReactAgent SQLite Integration (automatic conversation storage, memory retrieval, session tracking, context loading)
-- System Prompt Integration (conversation history in system prompt, async build_system_prompt, context loading in ReAct loop)
-- Real Tool Execution (ToolExecutor, file operations, git operations, command execution, safety restrictions)
-- Advanced Git Operations (git add, commit, push, diff, log, branch)
-- File Edit Operations (line-based editing, edit_line, insert_line, delete_line, find_and_replace, file_exists)
-- LLM API Key Management (LLMConfig, API key storage, validation, provider selection, HttpModelProvider integration)
-- Windows Desktop App (Tauri) (basic Tauri structure, desktop crate, IPC integration foundation)
-- Conversation Summarization (token counting, summarize_messages, running summary, SqliteMemory integration)
-- REST API Server (Actix-web) (actix-web server, health check, agent chat, agent status, conversation history endpoints)
-- Checkpoints System (checkpoint struct, thread_id, checkpoint_id, checkpoint metadata, SQLite persistence, checkpoint retrieval)
-- Planning System (Plan struct, PlanStep struct, Planner struct, plan generation, re-planning, LangChain Plan-and-Execute pattern)
-- Observability Integration (TokenMetrics, LatencyTracker, ErrorMetrics, structured logging, correlation IDs, tracing spans, LangSmith observability and Langtrace patterns)
-- Tool Registry Server (ToolRegistry struct, ToolDefinition struct, tool registration, tool discovery, API endpoints, Oaklight/ToolRegistry pattern)
-- Subagents / Multi-Agent (Subagent struct, Supervisor struct, subagent registration, agent coordination, LangChain multi-agent and LangGraph supervisor patterns)
-- Sandbox Complete (SecurityPolicy, SecurityCapability, ResourceQuotaManager, network isolation, time limits, llm-sandbox patterns)
-- LLM Metrics (LLMMetrics, ModelPricing, TokenType, cost estimation, LangChain token usage tracking and LangSmith cost tracking patterns)
-- Tauri React UI Integration (backend API integration, UserMessage with session_id, AgentResponse with session_id, ConversationEntry, get_conversation_history, get_agent_status, reqwest integration, MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template patterns)
-- Vite React Components (Vite build setup, React entry point, App.tsx, ChatInterface component, ConversationHistory component, AgentStatus component, Tailwind CSS classes, MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template patterns)
+## Known architectural limitations
 
-Comprehensive documentation available in README.md, GETTING-STARTED.md, DEVELOPMENT.md, and CONTRIBUTING.md.
+These are intentionally not reported as production-complete:
+- several storage implementations remain in-memory or are only partially connected to durable adapters;
+- some provider, workflow and feature-flag components are first-slice implementations;
+- Sandbox Complete is a verified contract/test slice, not proof of hardened OS/process isolation;
+- API and desktop surfaces still contain simplified paths and development-oriented coupling;
+- some capabilities have contracts and tests but still need broader end-to-end, fault-injection and production-environment verification.
 
-All 19 foundational, advanced architecture, and product surface steps have been verified:
-- Architecture Foundation, Rust Kernel, Configuration & Logging, Architecture Hardening
-- Agent Engine, Provider Plane, Tool Plane, Memory/Context, Protocol Implementation, CLI, Source Forge Sandbox
-- Runtime Integration, CQRS Separation, Outbox Pattern, Saga Coordinator, Feature Flags
-- Architecture Refactoring, Integration Test Coverage, Project Status Consolidation
-- CLI Enhancement (run list/status, feature flag commands, kernel integration)
+## Anti-hallucination rules
 
-Comprehensive executive summary available in docs/PROJECT-EXECUTIVE-SUMMARY.md.
-
-All 17 foundational and advanced architecture steps have been verified:
-- Architecture Foundation, Rust Kernel, Configuration & Logging, Architecture Hardening
-- Agent Engine, Provider Plane, Tool Plane, Memory/Context, Protocol Implementation, CLI, Source Forge Sandbox
-- Runtime Integration, CQRS Separation, Outbox Pattern, Saga Coordinator, Feature Flags
-- Architecture Refactoring, Integration Test Coverage, Project Status Consolidation
-
-Comprehensive executive summary available in docs/PROJECT-EXECUTIVE-SUMMARY.md.
-
-Verified slices:
-- Runtime integration vertical slice: VERIFIED (AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery)
-- CQRS separation vertical slice: VERIFIED (command/query separation, projections, event-driven synchronization, read/write isolation)
-- Outbox pattern vertical slice: VERIFIED (outbox store, background publisher, status transitions, event identity)
-- Saga coordinator vertical slice: VERIFIED (saga contracts, coordinator execution, compensating transactions, recovery)
-- Feature flags vertical slice: VERIFIED (feature flag contracts, flag store, flag evaluation, flag types)
-- Architecture refactoring vertical slice: VERIFIED (crate organization documentation, migration plan, Clean Architecture principles)
-- Integration test coverage vertical slice: VERIFIED (test coverage audit, gap documentation, integration test plan)
-
-No later product slice should be pre-implemented.
-
-Verified slices:
-- Runtime integration vertical slice: VERIFIED (AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery)
-- CQRS separation vertical slice: VERIFIED (command/query separation, projections, event-driven synchronization, read/write isolation)
-- Outbox pattern vertical slice: VERIFIED (outbox store, background publisher, status transitions, event identity)
-- Saga coordinator vertical slice: VERIFIED (saga contracts, coordinator execution, compensating transactions, recovery)
-- Feature flags vertical slice: VERIFIED (feature flag contracts, flag store, flag evaluation, flag types)
-- Architecture refactoring vertical slice: VERIFIED (crate organization documentation, migration plan, Clean Architecture principles)
-
-No later product slice should be pre-implemented.
-
-## Open runtime integration gaps
-
-The detailed machine-readable gap register is `reference/manifests/runtime-integration-gaps.json`. It records the concrete code evidence and the contract obligations that remain before these boundaries can be treated as production-complete.
+Never infer implementation status from commit messages alone.
+Never claim a test passed without recorded evidence.
+Never mark a backlog item verified because another later item was implemented.
+Never silently remove historical evidence to make the state graph look clean.
+Never treat architecture proposals as implemented architecture.
+Never promote prototype code to canonical runtime without an explicit contract and migration record.
 
 ## Verification truth
 
-Do not claim a check passed unless the command/result is recorded in the operation journal or CI evidence.
+The machine-readable implementation manifest is authoritative for step state.
+The project-state document is its human-readable projection.
+The append-only journal is the historical operation record.
+The scope manifest defines the paths authorized for the current implementation step.
 
-The pre-reconciliation main baseline `bc9b213...` includes the Step 9 implementation commits. This reconciliation is not yet considered VERIFIED until its pull-request CI passes.
+Any contradiction among these control-plane sources is a blocking condition. The correct response is to stop, reconcile from repository evidence, and record the reconciliation.
 
 ## Next authorized progression
 
-No implementation slice is currently authorized. The next step must be defined based on the master implementation plan and verified architectural patterns from MIT repositories.
+1. Implement exactly `integration-test-implementation-phase-3`.
+2. Use repository/reference evidence for every non-trivial provider behavior.
+3. Run and record all required checks before changing the step to VERIFIED.
+4. Select a single next authorized step only after the current step is verified.
 
-## Anti-regression rule
+## Rollback
 
-Do not delete, replace or rewrite project history, code, data, manifests or evidence as an optimization. Preserve first. Any exceptional destructive change requires explicit authorization, a snapshot/rollback point and a journal record describing exactly what was removed and why.
-
-## Continuity rule
-
-Every AI operation must leave: what it did; what it created; what it modified; what it deleted; what it verified; what remains unverified; risks; rollback point; and exactly one next step.
-
-The next AI must continue from this file and the append-only journal, not from model memory.
-
-## Current rollback point
-
-- Safe rollback to the pre-reconciliation main baseline: `bc9b21324b072cc5df068a47d7bf1571399f6304`.
-- No source code or historical journal entries are deleted by this reconciliation.
-- The malformed duplicate-key state is corrected in the new commit rather than rewriting prior commits.
+- Reconciliation baseline before these changes: `747a17a491c12ce3a64dc26d9d36ee2216b5a3d5`
+- No source history is rewritten.
+- No prior journal records are deleted.
+- The reconciliation is additive except for correcting current-state projections.
 
 ## Historical evidence
 
-Detailed historical verification records remain in `reference/journal/agent-operations.jsonl` and the existing architecture audit documents. Historical records remain evidence, not competing current state.
+Detailed implementation evidence remains in `reference/manifests/implementation-state.json`, `reference/journal/agent-operations.jsonl`, ADRs and architecture documentation.

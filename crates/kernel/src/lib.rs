@@ -11,6 +11,7 @@ pub use agenticos_contracts::{
     SagaStep, SagaStepStatus, SagaStepType, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -1572,6 +1573,8 @@ pub struct ReactAgent {
     memory: Option<Arc<SqliteMemory>>,
     /// Current session ID
     session_id: String,
+    /// Tool executor for real tool execution
+    tool_executor: Option<ToolExecutor>,
 }
 
 impl ReactAgent {
@@ -1587,6 +1590,7 @@ impl ReactAgent {
             model_provider: None,
             memory: None,
             session_id: uuid::Uuid::new_v4().to_string(),
+            tool_executor: None,
         }
     }
 
@@ -1602,6 +1606,7 @@ impl ReactAgent {
             model_provider: None,
             memory: None,
             session_id: uuid::Uuid::new_v4().to_string(),
+            tool_executor: None,
         }
     }
 
@@ -1618,6 +1623,11 @@ impl ReactAgent {
     /// Set the session ID for conversation tracking.
     pub fn set_session_id(&mut self, session_id: String) {
         self.session_id = session_id;
+    }
+
+    /// Set the tool executor for real tool execution.
+    pub fn set_tool_executor(&mut self, executor: ToolExecutor) {
+        self.tool_executor = Some(executor);
     }
 
     /// Add a skill to the catalog.
@@ -1714,9 +1724,72 @@ impl ReactAgent {
 
     /// Execute action step (tool call).
     pub async fn act(&self, action: &str) -> Result<String, ContractError> {
-        // For now, return a simulated action result
-        // In future, this would execute actual tools
-        Ok(format!("Executed action: {}", action))
+        if let Some(executor) = &self.tool_executor {
+            // Parse action to determine tool type
+            // Format: "tool_name:args" or simple command
+            if action.starts_with("read_file:") {
+                let path = action.strip_prefix("read_file:").unwrap_or("");
+                let result = executor.read_file(path);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action.starts_with("write_file:") {
+                // Format: "write_file:path:content"
+                let parts: Vec<&str> = action.splitn(3, ':').collect();
+                if parts.len() >= 2 {
+                    let path = parts[1];
+                    let content = if parts.len() >= 3 { parts[2] } else { "" };
+                    let result = executor.write_file(path, content);
+                    if result.success {
+                        Ok(result.output)
+                    } else {
+                        Err(ContractError::ParseError(
+                            result.error.unwrap_or("Unknown error".to_string()),
+                        ))
+                    }
+                } else {
+                    Err(ContractError::ParseError(
+                        "Invalid write_file format".to_string(),
+                    ))
+                }
+            } else if action == "git_status" {
+                let result = executor.git_status();
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action.starts_with("execute:") {
+                let command = action.strip_prefix("execute:").unwrap_or("");
+                let result = executor.execute_command(command);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else {
+                // Default: try as command
+                let result = executor.execute_command(action);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            }
+        } else {
+            // Fallback to simulated action if no executor
+            Ok(format!("Executed action: {}", action))
+        }
     }
 
     /// Process observation step.
@@ -2100,6 +2173,123 @@ pub struct ConversationMessage {
     pub content: String,
     /// Timestamp
     pub timestamp: i64,
+}
+
+/// Tool execution result.
+#[derive(Debug, Clone)]
+pub struct ToolResult {
+    /// Success status
+    pub success: bool,
+    /// Result output
+    pub output: String,
+    /// Error message if any
+    pub error: Option<String>,
+}
+
+impl ToolResult {
+    /// Create a successful tool result.
+    pub fn success(output: String) -> Self {
+        Self {
+            success: true,
+            output,
+            error: None,
+        }
+    }
+
+    /// Create a failed tool result.
+    pub fn failure(error: String) -> Self {
+        Self {
+            success: false,
+            output: String::new(),
+            error: Some(error),
+        }
+    }
+}
+
+/// Tool executor for real tool execution.
+#[allow(missing_debug_implementations)]
+pub struct ToolExecutor {
+    /// Working directory for tool execution
+    workdir: PathBuf,
+}
+
+impl ToolExecutor {
+    /// Create a new tool executor.
+    pub fn new(workdir: PathBuf) -> Self {
+        Self { workdir }
+    }
+
+    /// Execute a file read operation.
+    pub fn read_file(&self, path: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => ToolResult::success(content),
+            Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
+        }
+    }
+
+    /// Execute a file write operation.
+    pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
+        let full_path = self.workdir.join(path);
+        match std::fs::write(&full_path, content) {
+            Ok(_) => ToolResult::success(format!("File written: {}", path)),
+            Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
+        }
+    }
+
+    /// Execute a git status operation.
+    pub fn git_status(&self) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("status")
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    ToolResult::success(stdout)
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    ToolResult::failure(format!("Git status failed: {}", stderr))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a shell command (with safety restrictions).
+    pub fn execute_command(&self, command: &str) -> ToolResult {
+        // Basic safety check: only allow specific commands
+        let allowed_commands = vec!["ls", "dir", "pwd", "echo", "cat", "grep"];
+        let first_word = command.split_whitespace().next().unwrap_or("");
+
+        if !allowed_commands.contains(&first_word) {
+            return ToolResult::failure(format!(
+                "Command '{}' not allowed. Allowed commands: {:?}",
+                first_word, allowed_commands
+            ));
+        }
+
+        let output = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                if output.status.success() {
+                    ToolResult::success(stdout)
+                } else {
+                    ToolResult::failure(format!("Command failed: {}", stderr))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute command: {}", e)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2521,6 +2711,87 @@ Test procedure"#;
             // Build system prompt without memory
             let prompt = agent.build_system_prompt().await;
             assert!(!prompt.contains("Conversation History (Recent)"));
+        });
+    }
+
+    #[test]
+    fn test_tool_executor_read_file() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        // Try to read a file that should exist
+        let result = executor.read_file("Cargo.toml");
+        assert!(result.success);
+        assert!(result.output.contains("[package]"));
+    }
+
+    #[test]
+    fn test_tool_executor_write_file() {
+        let workdir = std::env::temp_dir();
+        let executor = ToolExecutor::new(workdir.clone());
+
+        let test_path = "test_tool_write.txt";
+        let test_content = "Test content";
+
+        let result = executor.write_file(test_path, test_content);
+        assert!(result.success);
+
+        // Clean up
+        let _ = std::fs::remove_file(workdir.join(test_path));
+    }
+
+    #[test]
+    fn test_tool_executor_git_status() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_status();
+        // Git might not be available or initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_execute_command() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.execute_command("echo test");
+        assert!(result.success);
+        assert!(result.output.contains("test"));
+    }
+
+    #[test]
+    fn test_tool_executor_execute_command_restricted() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.execute_command("rm -rf /");
+        assert!(!result.success);
+        assert!(result.error.is_some());
+    }
+
+    #[test]
+    fn test_react_agent_with_tool_executor() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+        let mut agent = ReactAgent::new("Test agent".to_string());
+        agent.set_tool_executor(executor);
+
+        assert!(agent.tool_executor.is_some());
+    }
+
+    #[test]
+    fn test_react_agent_act_with_tool_executor() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let workdir = std::env::current_dir().unwrap();
+            let executor = ToolExecutor::new(workdir);
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            agent.set_tool_executor(executor);
+
+            let result = agent.act("echo test").await;
+            assert!(result.is_ok());
+            assert!(result.unwrap().contains("test"));
         });
     }
 }

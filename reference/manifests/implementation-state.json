@@ -1693,6 +1693,45 @@
         "architecture gate: PASSED - ReactAgent SQLite integration follows Hermes specification (tier 2 memory)",
         "Rust fmt/check/test/clippy: PASSED - 85/85 tests passing (3 new tests), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "system-prompt-integration-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "system-prompt-integration-vertical-slice-1",
+      "number": 35,
+      "status": "verified",
+      "scope": [
+        "integrate load_context() into build_system_prompt()",
+        "add Conversation History section to system prompt",
+        "limit conversation history to N recent messages",
+        "load tier 2 memory context from SQLite",
+        "verify system prompt integration with context",
+        "verify context loading in ReAct loop"
+      ],
+      "requires": [
+        "reactagent-sqlite-integration-vertical-slice-1"
+      ],
+      "required_checks": [
+        "system prompt integration tests",
+        "conversation history section tests",
+        "context loading tests",
+        "ReAct loop context tests",
+        "system prompt integration verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "system prompt integration tests: PASSED - build_system_prompt() now async and loads context from SQLite",
+        "conversation history section tests: PASSED - Conversation History (Recent) section added to system prompt",
+        "context loading tests: PASSED - Context loaded from SQLite with 10 recent messages limit",
+        "ReAct loop context tests: PASSED - think() method awaits build_system_prompt() for context",
+        "system prompt integration verification: PASSED - System prompt integration functional and tested",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
+        "architecture gate: PASSED - System prompt integration follows Hermes specification (tier 2 memory in context)",
+        "Rust fmt/check/test/clippy: PASSED - 87/87 tests passing (2 new tests), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

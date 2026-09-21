@@ -7,7 +7,7 @@
 - Repository: `Ezequiell-26/agenticos`
 - Architecture mode: `sequential-verified`
 - Current implementation step: none-pending-definition
-- Total verified steps: 34
+- Total verified steps: 35
 - Total tests: 54 passing across 25 suites
 - Security: #![forbid(unsafe_code)] enforced throughout
 - Architecture: Clean Architecture principles applied
@@ -71,9 +71,9 @@ The current codebase still contains intentional first-slice implementations such
 
 ## Current implementation scope
 
-No implementation slice is currently authorized. The last verified slice was `reactagent-sqlite-integration-vertical-slice-1`.
+No implementation slice is currently authorized. The last verified slice was `system-prompt-integration-vertical-slice-1`.
 
-All 34 foundational, advanced architecture, product surface, documentation, provider integration, provider export, integration test implementation phases 1 and 2, CLI output formatting, project status summary, real HTTP implementation, conversational CLI, ReAct architecture implementation, full ReAct loop execution, skills YAML frontmatter, SQLite tier 2 memory, and ReactAgent SQLite integration steps have been verified:
+All 35 foundational, advanced architecture, product surface, documentation, provider integration, provider export, integration test implementation phases 1 and 2, CLI output formatting, project status summary, real HTTP implementation, conversational CLI, ReAct architecture implementation, full ReAct loop execution, skills YAML frontmatter, SQLite tier 2 memory, ReactAgent SQLite integration, and system prompt integration steps have been verified:
 - Architecture Foundation, Rust Kernel, Configuration & Logging, Architecture Hardening
 - Agent Engine, Provider Plane, Tool Plane, Memory/Context, Protocol Implementation, CLI, Source Forge Sandbox
 - Runtime Integration, CQRS Separation, Outbox Pattern, Saga Coordinator, Feature Flags
@@ -91,6 +91,7 @@ All 34 foundational, advanced architecture, product surface, documentation, prov
 - Skills YAML Frontmatter (SKILL.md + YAML parsing, skill metadata, progressive disclosure)
 - SQLite Tier 2 Memory (SQLite + FTS5 for conversation history, full-text search, session management)
 - ReactAgent SQLite Integration (automatic conversation storage, memory retrieval, session tracking, context loading)
+- System Prompt Integration (conversation history in system prompt, async build_system_prompt, context loading in ReAct loop)
 
 Comprehensive documentation available in README.md, GETTING-STARTED.md, DEVELOPMENT.md, and CONTRIBUTING.md.
 

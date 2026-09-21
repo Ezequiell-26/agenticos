@@ -1643,7 +1643,7 @@ impl ReactAgent {
     }
 
     /// Build system prompt from SOUL, memory snapshot, and skills catalog.
-    pub fn build_system_prompt(&self) -> String {
+    pub async fn build_system_prompt(&self) -> String {
         let mut prompt = String::new();
 
         // Slot #1: SOUL.md (identity)
@@ -1661,6 +1661,19 @@ impl ReactAgent {
             prompt.push_str("## User Preferences (USER.md)\n");
             prompt.push_str(&self.user_md);
             prompt.push('\n');
+        }
+
+        // Tier 2 memory: Conversation History from SQLite
+        if let Some(memory) = &self.memory {
+            if let Ok(context) = memory.get_session_history(&self.session_id, 10).await {
+                if !context.is_empty() {
+                    prompt.push_str("## Conversation History (Recent)\n");
+                    for msg in context.iter().take(10) {
+                        prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+                    }
+                    prompt.push('\n');
+                }
+            }
         }
 
         // Skills catalog (progressive disclosure)
@@ -1682,7 +1695,7 @@ impl ReactAgent {
     /// Execute thought/reasoning step using LLM.
     pub async fn think(&self, input: &str) -> Result<String, ContractError> {
         if let Some(provider) = &self.model_provider {
-            let system_prompt = self.build_system_prompt();
+            let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
                 request_id: format!("think-{}", self.current_turn),
                 model: "default".to_string(),
@@ -2151,27 +2164,30 @@ mod tests {
 
     #[test]
     fn test_react_agent_build_system_prompt() {
-        let mut agent = ReactAgent::new("You are a helpful assistant.".to_string());
-        agent.set_memory_md("Test memory content".to_string());
-        let skill = Skill {
-            name: "git_operations".to_string(),
-            description: "Git operations skill".to_string(),
-            version: "1.0.0".to_string(),
-            author: "test".to_string(),
-            platforms: vec!["linux".to_string()],
-            procedure: "Test procedure".to_string(),
-            pitfalls: vec![],
-            verification: vec![],
-        };
-        agent.add_skill(skill);
+        let rt = test_runtime();
+        rt.block_on(async {
+            let mut agent = ReactAgent::new("You are a helpful assistant.".to_string());
+            agent.set_memory_md("Test memory content".to_string());
+            let skill = Skill {
+                name: "git_operations".to_string(),
+                description: "Git operations skill".to_string(),
+                version: "1.0.0".to_string(),
+                author: "test".to_string(),
+                platforms: vec!["linux".to_string()],
+                procedure: "Test procedure".to_string(),
+                pitfalls: vec![],
+                verification: vec![],
+            };
+            agent.add_skill(skill);
 
-        let prompt = agent.build_system_prompt();
-        assert!(prompt.contains("You are a helpful assistant."));
-        assert!(prompt.contains("Memory (MEMORY.md)"));
-        assert!(prompt.contains("Test memory content"));
-        assert!(prompt.contains("Available Skills"));
-        assert!(prompt.contains("git_operations"));
-        assert!(prompt.contains("ReAct pattern"));
+            let prompt = agent.build_system_prompt().await;
+            assert!(prompt.contains("You are a helpful assistant."));
+            assert!(prompt.contains("Memory (MEMORY.md)"));
+            assert!(prompt.contains("Test memory content"));
+            assert!(prompt.contains("Available Skills"));
+            assert!(prompt.contains("git_operations"));
+            assert!(prompt.contains("ReAct pattern"));
+        });
     }
 
     #[test]
@@ -2464,6 +2480,47 @@ Test procedure"#;
                 assert_eq!(history.len(), 1); // User message stored
                 assert_eq!(history[0].role, "user");
             }
+        });
+    }
+
+    #[test]
+    fn test_react_agent_system_prompt_with_context() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
+            let mut agent = ReactAgent::new("Test agent".to_string());
+            agent.set_memory(Arc::new(memory));
+            agent.set_session_id("test-session".to_string());
+
+            // Add some conversation history
+            if let Some(memory) = agent.memory.as_ref() {
+                memory
+                    .store_message("msg-1", "test-session", "user", "Hello")
+                    .await
+                    .unwrap();
+                memory
+                    .store_message("msg-2", "test-session", "assistant", "Hi there")
+                    .await
+                    .unwrap();
+            }
+
+            // Build system prompt with context
+            let prompt = agent.build_system_prompt().await;
+            assert!(prompt.contains("Conversation History (Recent)"));
+            assert!(prompt.contains("Hello"));
+            assert!(prompt.contains("Hi there"));
+        });
+    }
+
+    #[test]
+    fn test_react_agent_system_prompt_without_memory() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let agent = ReactAgent::new("Test agent".to_string());
+
+            // Build system prompt without memory
+            let prompt = agent.build_system_prompt().await;
+            assert!(!prompt.contains("Conversation History (Recent)"));
         });
     }
 }

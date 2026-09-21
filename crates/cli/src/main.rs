@@ -486,7 +486,7 @@ Debugging operations for troubleshooting.
     // Show system prompt (simulated)
     println!("System Prompt Preview:");
     println!("---");
-    let system_prompt = agent.build_system_prompt();
+    let system_prompt = agent.build_system_prompt().await;
     let preview = if system_prompt.len() > 500 {
         format!("{}...", &system_prompt[..500])
     } else {
@@ -505,6 +505,9 @@ Debugging operations for troubleshooting.
     println!("  ✓ LLM integration (ready for model provider)");
     println!("  ✓ Full ReAct loop execution (think/act/observe)");
     println!("  ✓ Skills YAML frontmatter parsing (name, description, version, author, platforms)");
+    println!("  ✓ SQLite tier 2 memory (conversation history with FTS5)");
+    println!("  ✓ ReactAgent SQLite integration (automatic conversation storage)");
+    println!("  ✓ System prompt integration (conversation history in context)");
     println!();
 
     println!("This is a conversational mode similar to Hermes/Devin.");

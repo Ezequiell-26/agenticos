@@ -1632,6 +1632,11 @@ impl ReactAgent {
         }
     }
 
+    /// Get the agent's identity/name.
+    pub fn name(&self) -> &str {
+        &self.identity
+    }
+
     /// Create a new ReAct agent with custom max turns.
     pub fn with_max_turns(identity: String, max_turns: usize) -> Self {
         Self {

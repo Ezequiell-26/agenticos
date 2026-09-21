@@ -235,32 +235,29 @@ mod flag_evaluator;
 
 ## Recommended Implementation Order
 
-### Phase 1: Observability Foundation (Low Risk)
-1. Add OpenTelemetry tracing
-2. Structured logging with correlation IDs
-3. Basic metrics collection
-4. ADR system initialization
+### Phase 1: Observability Foundation — HARDENING
+1. Expand trace context propagation across provider/tool/run boundaries
+2. Normalize structured metrics and correlation identifiers
+3. Add fault-injection and recovery telemetry tests
+4. Keep ADR coverage synchronized with implementation decisions
 
-**Estimated effort**: 2-3 days
-**Risk**: Low - additive changes
+**Status**: First-slice observability exists; this phase is production hardening.
 
-### Phase 2: CQRS Enhancement (Medium Risk)
-1. Separate command/query handlers
-2. Add projections
-3. Implement outbox pattern
-4. Event upcasters
+### Phase 2: CQRS / Event Hardening
+1. Strengthen projection consistency and replay verification
+2. Harden outbox delivery and dead-letter handling
+3. Introduce event versioning/upcasters
+4. Verify read/write recovery under failures
 
-**Estimated effort**: 5-7 days
-**Risk**: Medium - requires careful integration
+**Status**: CQRS and outbox first slices are already implemented.
 
-### Phase 3: Advanced Patterns (High Risk)
-1. Saga coordinator
-2. Zero-copy event decoding
-3. Feature flags
-4. Schema evolution
+### Phase 3: Advanced Runtime Hardening
+1. Durable Saga participant coordination and timeouts
+2. Evaluate zero-copy event codecs only after benchmarks justify them
+3. Add durable/targeted feature-flag rollout infrastructure
+4. Complete schema evolution and compatibility tooling
 
-**Estimated effort**: 10-14 days
-**Risk**: High - architectural changes
+**Status**: Saga and feature flags have first-slice implementations.
 
 ## Current Architecture Strengths
 
@@ -299,48 +296,38 @@ Based on comparison with professional MIT repositories, AgentiCOS already has:
 
 ## Concrete Recommendations
 
-### Immediate (Next 1-2 weeks)
+### Immediate priorities
 
-1. **Initialize ADR System**
-   ```bash
-   # Install adrs CLI
-   cargo install adrs
+1. **Harden existing observability**
+   - trace propagation
+   - run/tool/provider correlation
+   - fault-injection coverage
 
-   # Initialize in project
-   cd D:\AGENTICOS\agenticos
-   rtk adrs init
-   ```
+2. **Harden event delivery**
+   - outbox recovery
+   - dead-letter handling
+   - event ordering/duplication verification
 
-2. **Add OpenTelemetry Tracing**
-   ```toml
-   # Cargo.toml additions
-   [dependencies]
-   opentelemetry = "0.21"
-   opentelemetry-jaeger = "0.20"
-   tracing-opentelemetry = "0.22"
-   ```
+3. **Formalize schema evolution**
+   - event versions
+   - upcasters
+   - compatibility tests
 
-3. **Document Existing Decisions as ADRs**
-   - ADR-0001: Use Rust as canonical runtime
-   - ADR-0002: Adopt vertical slice protocol
-   - ADR-0003: Event sourcing for kernel state
+### Short-term priorities
 
-### Short-term (Next 1-2 months)
+4. **Provider resilience integration**
+   - failover integration tests
+   - health-driven routing
+   - cooldown/circuit-breaker behavior
 
-4. **Implement Outbox Pattern**
-   - Add outbox table to SQLite
-   - Background event publisher
-   - Dead letter queue
+5. **Security boundary hardening**
+   - tool capability scope validation
+   - filesystem confinement
+   - process/sandbox isolation
 
-5. **Add Structured Metrics**
-   - Run duration metrics
-   - Token usage metrics
-   - Error rate metrics
-
-6. **CQRS Separation**
-   - Separate command handlers
-   - Add query handlers
-   - Implement projections
+6. **Durability**
+   - replace remaining in-memory production paths
+   - restart/recovery tests across API, desktop and worker boundaries
 
 ### Long-term (Next 3-6 months)
 

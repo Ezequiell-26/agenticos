@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "none-pending-definition",
+  "current_step": "file-edit-operations-vertical-slice-1",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -1819,6 +1819,50 @@
         "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, git operations respect git configuration",
         "architecture gate: PASSED - Advanced git operations follow Hermes specification (git tools in ReAct loop)",
         "Rust fmt/check/test/clippy: PASSED - 100/100 tests passing (6 new tests), no clippy warnings, formatting check passed"
+      ],
+      "unlocks": [
+        "file-edit-operations-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "file-edit-operations-vertical-slice-1",
+      "number": 38,
+      "status": "verified",
+      "scope": [
+        "implement line-based file editing",
+        "add edit_line operation (replace specific line)",
+        "add insert_line operation (insert at specific line)",
+        "add delete_line operation (delete specific line)",
+        "add find_and_replace operation (find and replace text)",
+        "add file validation (check if file exists)",
+        "verify file edit operations"
+      ],
+      "requires": [
+        "real-tool-execution-vertical-slice-1"
+      ],
+      "required_checks": [
+        "line-based file editing tests",
+        "edit_line tests",
+        "insert_line tests",
+        "delete_line tests",
+        "find_and_replace tests",
+        "file validation tests",
+        "file edit operations verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "line-based file editing tests: PASSED - Line-based file editing implemented",
+        "edit_line tests: PASSED - edit_line() functional for replacing specific lines",
+        "insert_line tests: PASSED - insert_line() functional for inserting at specific positions",
+        "delete_line tests: PASSED - delete_line() functional for deleting specific lines",
+        "find_and_replace tests: PASSED - find_and_replace() functional for text replacement",
+        "file validation tests: PASSED - file_exists() functional for checking file existence",
+        "file edit operations verification: PASSED - All file edit operations integrated in act() method",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, file operations respect working directory",
+        "architecture gate: PASSED - File edit operations follow Hermes specification (file tools in ReAct loop)",
+        "Rust fmt/check/test/clippy: PASSED - 105/105 tests passing (5 new tests), no clippy warnings, formatting check passed"
       ],
       "unlocks": []
     }

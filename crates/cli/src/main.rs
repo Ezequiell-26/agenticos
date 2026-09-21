@@ -420,11 +420,54 @@ You use the ReAct pattern: Thought → Action → Observation → repeat."#;
 
     let mut agent = ReactAgent::new(identity.to_string());
 
-    // Add skills to catalog
-    agent.add_skill("git_operations".to_string());
-    agent.add_skill("file_editing".to_string());
-    agent.add_skill("code_search".to_string());
-    agent.add_skill("debugging".to_string());
+    // Add skills to catalog with YAML frontmatter
+    let git_skill_md = r#"---
+name: git_operations
+description: Git operations for version control
+version: 1.0.0
+author: system
+platforms: [linux, macos, windows]
+---
+## Procedure
+Standard git operations for version control.
+"#;
+    let _ = agent.add_skill_from_markdown(git_skill_md);
+
+    let file_skill_md = r#"---
+name: file_editing
+description: File editing operations
+version: 1.0.0
+author: system
+platforms: [linux, macos, windows]
+---
+## Procedure
+File editing operations for code modifications.
+"#;
+    let _ = agent.add_skill_from_markdown(file_skill_md);
+
+    let search_skill_md = r#"---
+name: code_search
+description: Code search operations
+version: 1.0.0
+author: system
+platforms: [linux, macos, windows]
+---
+## Procedure
+Code search operations for finding patterns.
+"#;
+    let _ = agent.add_skill_from_markdown(search_skill_md);
+
+    let debug_skill_md = r#"---
+name: debugging
+description: Debugging operations
+version: 1.0.0
+author: system
+platforms: [linux, macos, windows]
+---
+## Procedure
+Debugging operations for troubleshooting.
+"#;
+    let _ = agent.add_skill_from_markdown(debug_skill_md);
 
     // Set memory
     agent.set_memory_md(
@@ -456,11 +499,12 @@ You use the ReAct pattern: Thought → Action → Observation → repeat."#;
     println!("ReAct Loop Features:");
     println!("  ✓ SOUL.md identity system");
     println!("  ✓ Three-tier memory (MEMORY.md, USER.md)");
-    println!("  ✓ Skills catalog (4 skills loaded)");
+    println!("  ✓ Skills catalog (4 skills loaded with YAML frontmatter)");
     println!("  ✓ Turn management (max 90 turns)");
     println!("  ✓ Thought → Action → Observation pattern");
     println!("  ✓ LLM integration (ready for model provider)");
     println!("  ✓ Full ReAct loop execution (think/act/observe)");
+    println!("  ✓ Skills YAML frontmatter parsing (name, description, version, author, platforms)");
     println!();
 
     println!("This is a conversational mode similar to Hermes/Devin.");

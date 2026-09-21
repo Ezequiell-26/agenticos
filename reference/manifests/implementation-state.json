@@ -1564,6 +1564,50 @@
         "architecture gate: PASSED - ReAct loop follows Hermes specification (thought → action → observation)",
         "Rust fmt/check/test/clippy: PASSED - 72/72 tests passing (5 new tests), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "skills-yaml-frontmatter-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "skills-yaml-frontmatter-vertical-slice-1",
+      "number": 32,
+      "status": "verified",
+      "scope": [
+        "add serde_yaml dependency to kernel crate",
+        "implement Skill struct with YAML frontmatter parsing",
+        "add skill metadata (name, description, version, author, platforms)",
+        "implement skill file parsing (SKILL.md + YAML frontmatter)",
+        "add skill catalog with full skill metadata",
+        "add progressive disclosure for skills (description only → full skill)",
+        "verify YAML frontmatter parsing"
+      ],
+      "requires": [
+        "react-architecture-implementation-vertical-slice-1"
+      ],
+      "required_checks": [
+        "serde_yaml dependency tests",
+        "Skill struct tests",
+        "YAML frontmatter parsing tests",
+        "skill metadata tests",
+        "skill catalog tests",
+        "progressive disclosure tests",
+        "YAML frontmatter parsing verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "serde_yaml dependency tests: PASSED - serde_yaml 0.9 added to kernel crate, workspace compiles successfully",
+        "Skill struct tests: PASSED - Skill struct implemented with YAML frontmatter parsing",
+        "YAML frontmatter parsing tests: PASSED - Skill.from_markdown() parses YAML frontmatter and markdown content",
+        "skill metadata tests: PASSED - Skill metadata includes name, description, version, author, platforms",
+        "skill catalog tests: PASSED - ReactAgent skills_catalog updated to use Skill struct with full metadata",
+        "progressive disclosure tests: PASSED - Skill.summary() provides concise description for progressive disclosure",
+        "YAML frontmatter parsing verification: PASSED - CLI chat mode shows skills with YAML frontmatter metadata",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure in YAML parsing",
+        "architecture gate: PASSED - Skills YAML frontmatter follows Hermes specification (SKILL.md + YAML)",
+        "Rust fmt/check/test/clippy: PASSED - 78/78 tests passing (6 new tests), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

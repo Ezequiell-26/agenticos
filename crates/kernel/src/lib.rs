@@ -1560,8 +1560,8 @@ pub struct ReactAgent {
     memory_md: String,
     /// Memory tier 1: USER.md
     user_md: String,
-    /// Skills catalog
-    skills_catalog: Vec<String>,
+    /// Skills catalog with full skill metadata
+    skills_catalog: Vec<Skill>,
     /// Maximum turns per session
     max_turns: usize,
     /// Current turn count
@@ -1603,8 +1603,15 @@ impl ReactAgent {
     }
 
     /// Add a skill to the catalog.
-    pub fn add_skill(&mut self, skill: String) {
+    pub fn add_skill(&mut self, skill: Skill) {
         self.skills_catalog.push(skill);
+    }
+
+    /// Add a skill from markdown content.
+    pub fn add_skill_from_markdown(&mut self, markdown: &str) -> Result<(), String> {
+        let skill = Skill::from_markdown(markdown)?;
+        self.skills_catalog.push(skill);
+        Ok(())
     }
 
     /// Set MEMORY.md content.
@@ -1642,7 +1649,7 @@ impl ReactAgent {
         if !self.skills_catalog.is_empty() {
             prompt.push_str("## Available Skills\n");
             for skill in &self.skills_catalog {
-                prompt.push_str(&format!("- {}\n", skill));
+                prompt.push_str(&format!("- {}\n", skill.summary()));
             }
             prompt.push('\n');
         }
@@ -1726,6 +1733,138 @@ impl ReactAgent {
     }
 }
 
+/// Skill with YAML frontmatter for procedural memory.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Skill {
+    /// Skill name
+    pub name: String,
+    /// Skill description
+    pub description: String,
+    /// Skill version
+    pub version: String,
+    /// Skill author
+    pub author: String,
+    /// Supported platforms
+    pub platforms: Vec<String>,
+    /// Skill procedure content
+    pub procedure: String,
+    /// Skill pitfalls
+    pub pitfalls: Vec<String>,
+    /// Skill verification steps
+    pub verification: Vec<String>,
+}
+
+impl Skill {
+    /// Parse a skill from SKILL.md file with YAML frontmatter.
+    pub fn from_markdown(content: &str) -> Result<Self, String> {
+        // Check for YAML frontmatter (starts with ---)
+        if !content.starts_with("---") {
+            return Err("Missing YAML frontmatter".to_string());
+        }
+
+        // Split frontmatter and content
+        let parts: Vec<&str> = content.splitn(3, "---").collect();
+        if parts.len() < 3 {
+            return Err("Invalid YAML frontmatter format".to_string());
+        }
+
+        let yaml_frontmatter = parts[1];
+        let markdown_content = parts[2];
+
+        // Parse YAML frontmatter
+        let metadata: serde_yaml::Value =
+            serde_yaml::from_str(yaml_frontmatter).map_err(|e| e.to_string())?;
+
+        // Extract metadata fields
+        let name = metadata
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or("Missing 'name' in frontmatter")?
+            .to_string();
+
+        let description = metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .ok_or("Missing 'description' in frontmatter")?
+            .to_string();
+
+        let version = metadata
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1.0.0")
+            .to_string();
+
+        let author = metadata
+            .get("author")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let platforms = metadata
+            .get("platforms")
+            .and_then(|v| v.as_sequence())
+            .map(|seq| {
+                seq.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Parse markdown content sections
+        let procedure = Self::extract_section(markdown_content, "Procedure");
+        let pitfalls = Self::extract_list_section(markdown_content, "Pitfalls");
+        let verification = Self::extract_list_section(markdown_content, "Verification");
+
+        Ok(Skill {
+            name,
+            description,
+            version,
+            author,
+            platforms,
+            procedure,
+            pitfalls,
+            verification,
+        })
+    }
+
+    /// Extract a section from markdown content.
+    fn extract_section(content: &str, section_name: &str) -> String {
+        let section_header = format!("## {}", section_name);
+        if let Some(start) = content.find(&section_header) {
+            let start = start + section_header.len();
+            let end = content[start..]
+                .find("\n## ")
+                .map(|pos| start + pos)
+                .unwrap_or(content.len());
+            content[start..end].trim().to_string()
+        } else {
+            String::new()
+        }
+    }
+
+    /// Extract a list section from markdown content.
+    fn extract_list_section(content: &str, section_name: &str) -> Vec<String> {
+        let section = Self::extract_section(content, section_name);
+        section
+            .lines()
+            .filter(|line| line.trim().starts_with('-'))
+            .map(|line| {
+                line.trim()
+                    .strip_prefix('-')
+                    .unwrap_or(line)
+                    .trim()
+                    .to_string()
+            })
+            .collect()
+    }
+
+    /// Get a concise description for progressive disclosure.
+    pub fn summary(&self) -> String {
+        format!("{} (v{}): {}", self.name, self.version, self.description)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1752,8 +1891,28 @@ mod tests {
     #[test]
     fn test_react_agent_add_skill() {
         let mut agent = ReactAgent::new("Test agent".to_string());
-        agent.add_skill("git_operations".to_string());
-        agent.add_skill("file_editing".to_string());
+        let skill1 = Skill {
+            name: "git_operations".to_string(),
+            description: "Git operations skill".to_string(),
+            version: "1.0.0".to_string(),
+            author: "test".to_string(),
+            platforms: vec!["linux".to_string()],
+            procedure: "Test procedure".to_string(),
+            pitfalls: vec![],
+            verification: vec![],
+        };
+        let skill2 = Skill {
+            name: "file_editing".to_string(),
+            description: "File editing skill".to_string(),
+            version: "1.0.0".to_string(),
+            author: "test".to_string(),
+            platforms: vec!["linux".to_string()],
+            procedure: "Test procedure".to_string(),
+            pitfalls: vec![],
+            verification: vec![],
+        };
+        agent.add_skill(skill1);
+        agent.add_skill(skill2);
         assert_eq!(agent.skills_catalog.len(), 2);
     }
 
@@ -1770,7 +1929,17 @@ mod tests {
     fn test_react_agent_build_system_prompt() {
         let mut agent = ReactAgent::new("You are a helpful assistant.".to_string());
         agent.set_memory_md("Test memory content".to_string());
-        agent.add_skill("git_operations".to_string());
+        let skill = Skill {
+            name: "git_operations".to_string(),
+            description: "Git operations skill".to_string(),
+            version: "1.0.0".to_string(),
+            author: "test".to_string(),
+            platforms: vec!["linux".to_string()],
+            procedure: "Test procedure".to_string(),
+            pitfalls: vec![],
+            verification: vec![],
+        };
+        agent.add_skill(skill);
 
         let prompt = agent.build_system_prompt();
         assert!(prompt.contains("You are a helpful assistant."));
@@ -1852,5 +2021,91 @@ mod tests {
             // Should fail due to max turns reached
             assert!(result.is_err());
         });
+    }
+
+    #[test]
+    fn test_skill_from_markdown() {
+        let markdown = r#"---
+name: k8s-pod-debug
+description: >
+  Activate for crashing pods, CrashLoopBackOff,
+  "why is my pod restarting", container failures.
+version: 1.2.0
+author: agent
+platforms: [linux, macos]
+---
+
+## Procedure
+1. Get pod status → check events → pull logs
+2. Look for OOMKilled, ImagePullBackOff, config errors
+
+## Pitfalls
+- Forgetting --previous flag on restarted containers
+
+## Verification
+- Pod stays Running with 0 restarts for 5+ minutes"#;
+
+        let skill = Skill::from_markdown(markdown).unwrap();
+        assert_eq!(skill.name, "k8s-pod-debug");
+        assert_eq!(skill.version, "1.2.0");
+        assert_eq!(skill.author, "agent");
+        assert_eq!(skill.platforms, vec!["linux", "macos"]);
+        assert!(skill.procedure.contains("Get pod status"));
+        assert_eq!(skill.pitfalls.len(), 1);
+        assert_eq!(skill.verification.len(), 1);
+    }
+
+    #[test]
+    fn test_skill_from_markdown_missing_frontmatter() {
+        let markdown = "No frontmatter here";
+        let result = Skill::from_markdown(markdown);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_skill_from_markdown_missing_name() {
+        let markdown = r#"---
+description: Test skill
+version: 1.0.0
+---
+## Procedure
+Test procedure"#;
+        let result = Skill::from_markdown(markdown);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_skill_summary() {
+        let markdown = r#"---
+name: test-skill
+description: Test description
+version: 1.0.0
+author: test
+platforms: [linux]
+---
+## Procedure
+Test procedure"#;
+
+        let skill = Skill::from_markdown(markdown).unwrap();
+        let summary = skill.summary();
+        assert!(summary.contains("test-skill"));
+        assert!(summary.contains("v1.0.0"));
+        assert!(summary.contains("Test description"));
+    }
+
+    #[test]
+    fn test_skill_extract_section() {
+        let content = "## Procedure\nTest content\n## Pitfalls\nTest pitfalls";
+        let section = Skill::extract_section(content, "Procedure");
+        assert_eq!(section, "Test content");
+    }
+
+    #[test]
+    fn test_skill_extract_list_section() {
+        let content = "## Pitfalls\n- Item 1\n- Item 2\n## Verification\n- Check 1";
+        let list = Skill::extract_list_section(content, "Pitfalls");
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&"Item 1".to_string()));
+        assert!(list.contains(&"Item 2".to_string()));
     }
 }

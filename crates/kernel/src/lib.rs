@@ -5,10 +5,10 @@
 
 pub use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
-    EventStore, IdempotencyRecord, IdempotencyStatus, LeaseRecord, LogEntry, LogLevel, Logger,
-    ModelProvider, ModelRequest, ModelResponse, OutboxEntry, OutboxStatus, OutboxStore, RunId,
-    RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
-    SerializedEvent, SerializedSnapshot, SnapshotStore,
+    EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
+    LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
+    OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus,
+    SagaStep, SagaStepStatus, SagaStepType, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1309,6 +1309,87 @@ impl SagaCoordinator for InMemorySagaCoordinator {
 }
 
 impl Default for InMemorySagaCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// In-memory feature flag store for runtime configuration.
+pub struct InMemoryFeatureFlagStore {
+    flags: Arc<RwLock<HashMap<String, FeatureFlag>>>,
+}
+
+impl InMemoryFeatureFlagStore {
+    /// Create a new in-memory feature flag store.
+    pub fn new() -> Self {
+        Self {
+            flags: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+impl std::fmt::Debug for InMemoryFeatureFlagStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemoryFeatureFlagStore")
+            .field("flags", &"<Arc<RwLock<HashMap>>>")
+            .finish()
+    }
+}
+
+#[async_trait::async_trait]
+impl FeatureFlagStore for InMemoryFeatureFlagStore {
+    async fn set_flag(&self, flag: FeatureFlag) -> Result<(), ContractError> {
+        let mut flags = self.flags.write().await;
+        flags.insert(flag.flag_id.clone(), flag);
+        Ok(())
+    }
+
+    async fn get_flag(&self, flag_id: &str) -> Result<Option<FeatureFlag>, ContractError> {
+        let flags = self.flags.read().await;
+        Ok(flags.get(flag_id).cloned())
+    }
+
+    async fn is_enabled(&self, flag_id: &str) -> Result<bool, ContractError> {
+        let flags = self.flags.read().await;
+        Ok(flags.get(flag_id).map(|f| f.enabled).unwrap_or(false))
+    }
+
+    async fn get_value(&self, flag_id: &str) -> Result<Option<FlagValue>, ContractError> {
+        let flags = self.flags.read().await;
+        Ok(flags.get(flag_id).map(|f| f.value.clone()))
+    }
+
+    async fn enable_flag(&self, flag_id: &str) -> Result<(), ContractError> {
+        let mut flags = self.flags.write().await;
+        if let Some(flag) = flags.get_mut(flag_id) {
+            flag.enabled = true;
+            flag.updated_at = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+        Ok(())
+    }
+
+    async fn disable_flag(&self, flag_id: &str) -> Result<(), ContractError> {
+        let mut flags = self.flags.write().await;
+        if let Some(flag) = flags.get_mut(flag_id) {
+            flag.enabled = false;
+            flag.updated_at = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+        Ok(())
+    }
+
+    async fn list_flags(&self) -> Result<Vec<FeatureFlag>, ContractError> {
+        let flags = self.flags.read().await;
+        Ok(flags.values().cloned().collect())
+    }
+}
+
+impl Default for InMemoryFeatureFlagStore {
     fn default() -> Self {
         Self::new()
     }

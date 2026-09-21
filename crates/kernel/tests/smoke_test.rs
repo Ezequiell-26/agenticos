@@ -4,14 +4,15 @@
 //! Smoke tests for the AgentiCOS kernel durable runtime.
 
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, LogEntry, LogLevel, Logger,
-    OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus,
-    SagaStepType,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, FeatureFlag, FeatureFlagStore,
+    FlagValue, LogEntry, LogLevel, Logger, OutboxStore, RunId, RunState, Saga, SagaCoordinator,
+    SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
 };
 use agenticos_kernel::{
     BackgroundEventPublisher, InMemoryCapabilityIssuer, InMemoryConfig, InMemoryEventStore,
-    InMemoryLogger, InMemoryOutboxStore, InMemorySagaCoordinator, InMemorySnapshotStore,
-    KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock, TestIdGenerator,
+    InMemoryFeatureFlagStore, InMemoryLogger, InMemoryOutboxStore, InMemorySagaCoordinator,
+    InMemorySnapshotStore, KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock,
+    TestIdGenerator,
 };
 use std::sync::Arc;
 
@@ -590,6 +591,148 @@ fn test_saga_compensation() {
         assert!(after_compensate.is_some());
         let saga_state = after_compensate.unwrap();
         assert_eq!(saga_state.status, SagaStatus::Compensated);
+    });
+}
+
+#[test]
+fn test_feature_flag_store() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let store = InMemoryFeatureFlagStore::new();
+
+        let flag = FeatureFlag {
+            flag_id: "test-flag-1".to_string(),
+            name: "Test Flag".to_string(),
+            value: FlagValue::Boolean(true),
+            enabled: true,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            updated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        store.set_flag(flag).await.unwrap();
+
+        let retrieved = store.get_flag("test-flag-1").await.unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().flag_id, "test-flag-1");
+
+        let is_enabled = store.is_enabled("test-flag-1").await.unwrap();
+        assert!(is_enabled);
+    });
+}
+
+#[test]
+fn test_feature_flag_enable_disable() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let store = InMemoryFeatureFlagStore::new();
+
+        let flag = FeatureFlag {
+            flag_id: "test-flag-2".to_string(),
+            name: "Test Flag 2".to_string(),
+            value: FlagValue::String("value".to_string()),
+            enabled: false,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            updated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        store.set_flag(flag).await.unwrap();
+
+        let is_enabled = store.is_enabled("test-flag-2").await.unwrap();
+        assert!(!is_enabled);
+
+        store.enable_flag("test-flag-2").await.unwrap();
+
+        let is_enabled_after = store.is_enabled("test-flag-2").await.unwrap();
+        assert!(is_enabled_after);
+
+        store.disable_flag("test-flag-2").await.unwrap();
+
+        let is_disabled = store.is_enabled("test-flag-2").await.unwrap();
+        assert!(!is_disabled);
+    });
+}
+
+#[test]
+fn test_feature_flag_types() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let store = InMemoryFeatureFlagStore::new();
+
+        let bool_flag = FeatureFlag {
+            flag_id: "bool-flag".to_string(),
+            name: "Boolean Flag".to_string(),
+            value: FlagValue::Boolean(true),
+            enabled: true,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            updated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        let string_flag = FeatureFlag {
+            flag_id: "string-flag".to_string(),
+            name: "String Flag".to_string(),
+            value: FlagValue::String("test".to_string()),
+            enabled: true,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            updated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        let numeric_flag = FeatureFlag {
+            flag_id: "numeric-flag".to_string(),
+            name: "Numeric Flag".to_string(),
+            value: FlagValue::Numeric(42.0),
+            enabled: true,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            updated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        store.set_flag(bool_flag).await.unwrap();
+        store.set_flag(string_flag).await.unwrap();
+        store.set_flag(numeric_flag).await.unwrap();
+
+        let flags = store.list_flags().await.unwrap();
+        assert_eq!(flags.len(), 3);
+
+        let bool_value = store.get_value("bool-flag").await.unwrap();
+        assert!(bool_value.is_some());
+        matches!(bool_value.unwrap(), FlagValue::Boolean(true));
+
+        let string_value = store.get_value("string-flag").await.unwrap();
+        assert!(string_value.is_some());
+        matches!(string_value.unwrap(), FlagValue::String(_));
+
+        let numeric_value = store.get_value("numeric-flag").await.unwrap();
+        assert!(numeric_value.is_some());
+        matches!(numeric_value.unwrap(), FlagValue::Numeric(_));
     });
 }
 

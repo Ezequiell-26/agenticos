@@ -1014,3 +1014,56 @@ impl Default for CancellationToken {
         Self::new()
     }
 }
+
+/// Feature flag value type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FlagValue {
+    /// Boolean flag.
+    Boolean(bool),
+    /// String flag.
+    String(String),
+    /// Numeric flag (f64 for flexibility).
+    Numeric(f64),
+}
+
+/// Feature flag entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeatureFlag {
+    /// Unique flag identifier.
+    pub flag_id: String,
+    /// Flag name/description.
+    pub name: String,
+    /// Flag value.
+    pub value: FlagValue,
+    /// Whether the flag is enabled.
+    pub enabled: bool,
+    /// Timestamp when flag was created.
+    pub created_at: u64,
+    /// Timestamp when flag was last updated.
+    pub updated_at: u64,
+}
+
+/// Feature flag store for runtime configuration.
+#[async_trait::async_trait]
+pub trait FeatureFlagStore: Send + Sync {
+    /// Add or update a feature flag.
+    async fn set_flag(&self, flag: FeatureFlag) -> Result<(), ContractError>;
+
+    /// Get a feature flag by ID.
+    async fn get_flag(&self, flag_id: &str) -> Result<Option<FeatureFlag>, ContractError>;
+
+    /// Check if a flag is enabled.
+    async fn is_enabled(&self, flag_id: &str) -> Result<bool, ContractError>;
+
+    /// Get flag value.
+    async fn get_value(&self, flag_id: &str) -> Result<Option<FlagValue>, ContractError>;
+
+    /// Enable a flag.
+    async fn enable_flag(&self, flag_id: &str) -> Result<(), ContractError>;
+
+    /// Disable a flag.
+    async fn disable_flag(&self, flag_id: &str) -> Result<(), ContractError>;
+
+    /// List all flags.
+    async fn list_flags(&self) -> Result<Vec<FeatureFlag>, ContractError>;
+}

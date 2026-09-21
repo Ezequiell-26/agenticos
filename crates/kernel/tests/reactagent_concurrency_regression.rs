@@ -49,8 +49,8 @@ async fn react_agent_execute_turn_does_not_deadlock_on_mutex() {
 
     let result = timeout(Duration::from_secs(2), agent.execute_turn("hello"))
         .await
-    .expect("execute_turn timed out; mutex likely held across an await")
-    .expect("execute_turn should succeed with the test provider");
+        .expect("execute_turn timed out; mutex likely held across an await")
+        .expect("execute_turn should succeed with the test provider");
 
     assert!(result.contains("Observation:"));
 }

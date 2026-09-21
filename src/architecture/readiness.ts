@@ -6,6 +6,10 @@ interface ImplementationStep {
   readonly id: string;
   readonly number: number;
   readonly status: "pending" | "locked" | "in_progress" | "verifying" | "correcting" | "verified" | "blocked" | "superseded";
+  readonly verification_evidence: readonly string[];
+  readonly requires?: readonly string[];
+  readonly unlocks: readonly string[];
+  readonly superseded_by?: string;
 }
 
 interface ImplementationState {
@@ -70,7 +74,7 @@ const REQUIRED_CRATE_NAMES = [
   "kernel", "contracts", "runtime", "execution", "scheduler", "providers",
   "router", "tools", "sandbox", "context", "memory", "skills", "workflows",
   "agents", "projects", "artifacts", "plugins", "gateway", "security",
-  "observability", "evaluation", "source-forge",
+  "observability", "evaluation", "source-forge", "protocols",
 ] as const;
 
 export async function assertArchitectureReadiness(root = process.cwd()): Promise<void> {

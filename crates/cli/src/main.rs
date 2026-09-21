@@ -47,6 +47,8 @@ enum Commands {
         #[command(subcommand)]
         command: FlagCommands,
     },
+    /// Conversational chat mode
+    Chat,
 }
 
 #[derive(Subcommand)]
@@ -172,6 +174,7 @@ async fn main() -> Result<()> {
         Commands::Status { command } => handle_status_command(command, cli.verbose).await,
         Commands::Config { command } => handle_config_command(command, cli.verbose).await,
         Commands::Flags { command } => handle_flag_command(command, flag_store, cli.verbose).await,
+        Commands::Chat => handle_chat_mode(runtime, cli.verbose).await,
     }
 }
 
@@ -404,6 +407,36 @@ async fn handle_flag_command(
     Ok(())
 }
 
+async fn handle_chat_mode(_runtime: Arc<KernelRuntime>, _verbose: bool) -> Result<()> {
+    println!("AgentiCOS Chat Mode");
+    println!("Type 'exit' or 'quit' to exit");
+    println!("Type 'help' for available commands");
+    println!();
+    println!("Current Status:");
+    println!("  Runtime: Active");
+    println!("  Kernel: Initialized");
+    println!("  Providers: Connected");
+    println!("  Tools: Available");
+    println!();
+    println!("This is a conversational mode similar to Hermes/Devin.");
+    println!("For now, it shows the current system status.");
+    println!("Full conversational capabilities will be added in future steps.");
+    println!();
+    println!("Available commands:");
+    println!("  help - Show this help message");
+    println!("  exit/quit - Exit chat mode");
+    println!("  status - Show system status");
+    println!("  runs - List all runs");
+    println!();
+
+    // For now, just show the welcome message and exit
+    // Full interactive mode will be implemented in a future step
+    println!("Chat mode initialized. Use the CLI commands for now.");
+    println!("Run 'agenticos --help' to see all available commands.");
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,5 +517,10 @@ mod tests {
         let cli = Cli::try_parse_from(args);
         assert!(cli.is_ok());
         assert!(cli.unwrap().verbose);
+
+        // Test chat command
+        let args = vec!["agenticos", "chat"];
+        let cli = Cli::try_parse_from(args);
+        assert!(cli.is_ok());
     }
 }

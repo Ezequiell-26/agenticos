@@ -1767,7 +1767,11 @@ impl ReactAgent {
     }
 
     /// Inner thought method taking reference to inner state.
-    async fn think_inner(&self, inner: &ReactAgentInner, input: &str) -> Result<String, ContractError> {
+    async fn think_inner(
+        &self,
+        inner: &ReactAgentInner,
+        input: &str,
+    ) -> Result<String, ContractError> {
         if let Some(provider) = &inner.model_provider {
             let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
@@ -1793,7 +1797,11 @@ impl ReactAgent {
     }
 
     /// Inner act method taking reference to inner state.
-    async fn act_inner(&self, inner: &ReactAgentInner, action: &str) -> Result<String, ContractError> {
+    async fn act_inner(
+        &self,
+        inner: &ReactAgentInner,
+        action: &str,
+    ) -> Result<String, ContractError> {
         if let Some(executor) = &inner.tool_executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
@@ -2059,9 +2067,12 @@ impl ReactAgent {
 
     /// Load conversation context from SQLite memory.
     pub async fn load_context(&self) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        if let Some(memory) = &inner.memory {
-            let history = memory.get_session_history(&inner.session_id, 20).await?;
+        let (memory, session_id) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone())
+        };
+        if let Some(memory) = memory {
+            let history = memory.get_session_history(&session_id, 20).await?;
             if history.is_empty() {
                 Ok(String::new())
             } else {
@@ -2611,7 +2622,7 @@ impl ToolResult {
 }
 
 /// Tool executor for real tool execution.
-#[allow(missing_debug_implementations)]
+#[derive(Debug, Clone)]
 pub struct ToolExecutor {
     /// Working directory for tool execution
     workdir: PathBuf,

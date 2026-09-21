@@ -2,17 +2,21 @@
 
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use agenticos_kernel::ReactAgent;
+use agenticos_kernel::{ReactAgent, ToolRegistry};
 use std::sync::Arc;
 
-/// API server state containing the agent.
+/// API server state containing the agent and tool registry.
 pub struct ApiServerState {
     agent: Arc<ReactAgent>,
+    _tool_registry: Arc<ToolRegistry>,
 }
 
 impl ApiServerState {
     pub fn new(agent: Arc<ReactAgent>) -> Self {
-        Self { agent }
+        Self {
+            agent,
+            _tool_registry: Arc::new(ToolRegistry::new()),
+        }
     }
 }
 
@@ -64,6 +68,30 @@ async fn conversation_history(
     }))
 }
 
+/// List all tools endpoint.
+async fn list_tools(state: web::Data<ApiServerState>) -> impl Responder {
+    let tools = state._tool_registry.list_tools();
+    HttpResponse::Ok().json(serde_json::json!({
+        "tools": tools,
+        "count": tools.len()
+    }))
+}
+
+/// Get tool by name endpoint.
+async fn get_tool(
+    tool_name: web::Path<String>,
+    state: web::Data<ApiServerState>,
+) -> impl Responder {
+    let tool = state._tool_registry.get_tool(&tool_name);
+
+    match tool {
+        Some(tool) => HttpResponse::Ok().json(tool),
+        None => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Tool not found"
+        })),
+    }
+}
+
 /// Configure and run the API server.
 pub async fn run_server(agent: Arc<ReactAgent>) -> std::io::Result<()> {
     let state = web::Data::new(ApiServerState::new(agent));
@@ -79,6 +107,8 @@ pub async fn run_server(agent: Arc<ReactAgent>) -> std::io::Result<()> {
                 "/api/conversations/{session_id}/history",
                 web::get().to(conversation_history),
             )
+            .route("/api/tools", web::get().to(list_tools))
+            .route("/api/tools/{tool_name}", web::get().to(get_tool))
     })
     .bind(("127.0.0.1", 8080))?
     .run()

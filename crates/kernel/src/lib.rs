@@ -4219,7 +4219,7 @@ Test procedure"#;
     #[test]
     fn test_tool_registry() {
         let mut registry = ToolRegistry::new();
-        
+
         let tool = ToolDefinition {
             name: "test_tool".to_string(),
             description: "Test tool".to_string(),
@@ -4228,7 +4228,7 @@ Test procedure"#;
         };
 
         registry.register_tool(tool.clone());
-        
+
         assert_eq!(registry.list_tools().len(), 1);
         assert_eq!(registry.get_tool("test_tool").unwrap().name, "test_tool");
     }

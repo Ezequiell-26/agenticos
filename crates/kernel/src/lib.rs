@@ -3713,7 +3713,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let agent = ReactAgent::new("Test agent".to_string());
+            let mut agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 
@@ -3745,7 +3745,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let agent = ReactAgent::new("Test agent".to_string());
+            let mut agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 

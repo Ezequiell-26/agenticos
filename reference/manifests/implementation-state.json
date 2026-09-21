@@ -1864,6 +1864,50 @@
         "architecture gate: PASSED - File edit operations follow Hermes specification (file tools in ReAct loop)",
         "Rust fmt/check/test/clippy: PASSED - 105/105 tests passing (5 new tests), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "llm-api-key-management-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "llm-api-key-management-vertical-slice-1",
+      "number": 39,
+      "status": "verified",
+      "scope": [
+        "implement LLM API key configuration",
+        "add API key storage (environment variables, config file)",
+        "add API key validation",
+        "add model provider selection (OpenAI, Anthropic, etc.)",
+        "add default model configuration",
+        "integrate API keys with HttpModelProvider",
+        "verify LLM API key management"
+      ],
+      "requires": [
+        "real-http-implementation-vertical-slice-1"
+      ],
+      "required_checks": [
+        "API key configuration tests",
+        "API key storage tests",
+        "API key validation tests",
+        "model provider selection tests",
+        "default model configuration tests",
+        "HttpModelProvider integration tests",
+        "LLM API key management verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "API key configuration tests: PASSED - LLMConfig implemented with API key storage from environment variables",
+        "API key storage tests: PASSED - dotenv integration for .env file loading",
+        "API key validation tests: PASSED - LLMConfig.validate() validates API keys for providers",
+        "model provider selection tests: PASSED - Provider selection (openai, anthropic) with API key resolution",
+        "default model configuration tests: PASSED - Default model configuration (gpt-4, gpt-3.5-turbo, etc.)",
+        "HttpModelProvider integration tests: PASSED - HttpModelProvider.with_config() and with_api_key() implemented",
+        "LLM API key management verification: PASSED - Complete LLM API key management system functional",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, API keys not exposed in logs",
+        "architecture gate: PASSED - LLM API key management follows LangChain/AutoGPT patterns (environment variables, config)",
+        "Rust fmt/check/test/clippy: PASSED - 112/112 tests passing (7 new tests), no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

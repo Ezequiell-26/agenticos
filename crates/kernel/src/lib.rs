@@ -1449,6 +1449,10 @@ pub struct HttpModelProvider {
     provider_id: String,
     /// Request timeout in seconds.
     timeout_secs: u64,
+    /// API key for authentication.
+    api_key: Option<String>,
+    /// Default model name.
+    default_model: String,
 }
 
 impl HttpModelProvider {
@@ -1458,6 +1462,19 @@ impl HttpModelProvider {
             base_url,
             provider_id: "http-model-provider".to_string(),
             timeout_secs: 30,
+            api_key: None,
+            default_model: "gpt-4".to_string(),
+        }
+    }
+
+    /// Create a new HTTP model provider with LLM config.
+    pub fn with_config(base_url: String, config: &LLMConfig) -> Self {
+        Self {
+            base_url,
+            provider_id: "http-model-provider".to_string(),
+            timeout_secs: 30,
+            api_key: config.get_api_key(),
+            default_model: config.default_model.clone(),
         }
     }
 
@@ -1467,6 +1484,8 @@ impl HttpModelProvider {
             base_url,
             provider_id,
             timeout_secs: 30,
+            api_key: None,
+            default_model: "gpt-4".to_string(),
         }
     }
 
@@ -1476,7 +1495,21 @@ impl HttpModelProvider {
             base_url,
             provider_id: "http-model-provider".to_string(),
             timeout_secs,
+            api_key: None,
+            default_model: "gpt-4".to_string(),
         }
+    }
+
+    /// Set the API key.
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key = Some(api_key);
+        self
+    }
+
+    /// Set the default model.
+    pub fn with_model(mut self, model: String) -> Self {
+        self.default_model = model;
+        self
     }
 }
 
@@ -1504,9 +1537,14 @@ impl ModelProvider for HttpModelProvider {
         });
 
         // Make the HTTP request
-        let response = client
-            .post(&self.base_url)
-            .json(&payload)
+        let mut http_request = client.post(&self.base_url).json(&payload);
+
+        // Add API key header if available
+        if let Some(api_key) = &self.api_key {
+            http_request = http_request.header("Authorization", format!("Bearer {}", api_key));
+        }
+
+        let response = http_request
             .send()
             .await
             .map_err(|e| ContractError::ParseError(format!("HTTP request failed: {}", e)))?;
@@ -2651,6 +2689,74 @@ impl ToolExecutor {
     }
 }
 
+/// LLM provider configuration with API keys.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LLMConfig {
+    /// OpenAI API key
+    pub openai_api_key: Option<String>,
+    /// Anthropic API key
+    pub anthropic_api_key: Option<String>,
+    /// Default model provider
+    pub default_provider: String,
+    /// Default model
+    pub default_model: String,
+    /// API base URL (for custom endpoints)
+    pub api_base_url: Option<String>,
+}
+
+impl LLMConfig {
+    /// Load configuration from environment variables.
+    pub fn from_env() -> Self {
+        dotenv::dotenv().ok();
+
+        Self {
+            openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
+            anthropic_api_key: std::env::var("ANTHROPIC_API_KEY").ok(),
+            default_provider: std::env::var("LLM_PROVIDER")
+                .unwrap_or_else(|_| "openai".to_string()),
+            default_model: std::env::var("LLM_MODEL").unwrap_or_else(|_| "gpt-4".to_string()),
+            api_base_url: std::env::var("LLM_API_BASE_URL").ok(),
+        }
+    }
+
+    /// Validate configuration.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.default_provider == "openai" && self.openai_api_key.is_none() {
+            return Err("OpenAI API key required when using OpenAI provider".to_string());
+        }
+        if self.default_provider == "anthropic" && self.anthropic_api_key.is_none() {
+            return Err("Anthropic API key required when using Anthropic provider".to_string());
+        }
+        Ok(())
+    }
+
+    /// Get API key for the default provider.
+    pub fn get_api_key(&self) -> Option<String> {
+        match self.default_provider.as_str() {
+            "openai" => self.openai_api_key.clone(),
+            "anthropic" => self.anthropic_api_key.clone(),
+            _ => None,
+        }
+    }
+
+    /// Get API base URL for the default provider.
+    pub fn get_api_base_url(&self) -> String {
+        self.api_base_url
+            .clone()
+            .unwrap_or_else(|| match self.default_provider.as_str() {
+                "openai" => "https://api.openai.com/v1".to_string(),
+                "anthropic" => "https://api.anthropic.com/v1".to_string(),
+                _ => "https://api.openai.com/v1".to_string(),
+            })
+    }
+}
+
+impl Default for LLMConfig {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3323,5 +3429,86 @@ Test procedure"#;
         // Test non-existing file
         let result = executor.file_exists("non_existent_file.txt");
         assert!(!result.success);
+    }
+
+    #[test]
+    fn test_llm_config_from_env() {
+        let config = LLMConfig::from_env();
+        assert!(config.default_provider == "openai" || config.default_provider == "anthropic");
+        assert!(!config.default_model.is_empty());
+    }
+
+    #[test]
+    fn test_llm_config_validation() {
+        let config = LLMConfig {
+            openai_api_key: None,
+            anthropic_api_key: None,
+            default_provider: "openai".to_string(),
+            default_model: "gpt-4".to_string(),
+            api_base_url: None,
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_llm_config_validation_with_key() {
+        let config = LLMConfig {
+            openai_api_key: Some("test-key".to_string()),
+            anthropic_api_key: None,
+            default_provider: "openai".to_string(),
+            default_model: "gpt-4".to_string(),
+            api_base_url: None,
+        };
+
+        let result = config.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_llm_config_get_api_key() {
+        let config = LLMConfig {
+            openai_api_key: Some("test-key".to_string()),
+            anthropic_api_key: None,
+            default_provider: "openai".to_string(),
+            default_model: "gpt-4".to_string(),
+            api_base_url: None,
+        };
+
+        let api_key = config.get_api_key();
+        assert_eq!(api_key, Some("test-key".to_string()));
+    }
+
+    #[test]
+    fn test_http_model_provider_with_config() {
+        let config = LLMConfig {
+            openai_api_key: Some("test-key".to_string()),
+            anthropic_api_key: None,
+            default_provider: "openai".to_string(),
+            default_model: "gpt-4".to_string(),
+            api_base_url: Some("https://api.openai.com/v1".to_string()),
+        };
+
+        let provider =
+            HttpModelProvider::with_config("https://api.openai.com/v1".to_string(), &config);
+        assert_eq!(provider.api_key, Some("test-key".to_string()));
+        assert_eq!(provider.default_model, "gpt-4".to_string());
+    }
+
+    #[test]
+    fn test_http_model_provider_with_api_key() {
+        let provider = HttpModelProvider::new("https://api.openai.com/v1".to_string())
+            .with_api_key("test-key".to_string());
+
+        assert_eq!(provider.api_key, Some("test-key".to_string()));
+    }
+
+    #[test]
+    fn test_http_model_provider_with_model() {
+        let provider = HttpModelProvider::new("https://api.openai.com/v1".to_string())
+            .with_model("gpt-3.5-turbo".to_string());
+
+        assert_eq!(provider.default_model, "gpt-3.5-turbo".to_string());
     }
 }

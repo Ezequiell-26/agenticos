@@ -3409,7 +3409,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_add_skill() {
-        let mut agent = ReactAgent::new("Test agent".to_string());
+        let agent = ReactAgent::new("Test agent".to_string());
         let skill1 = Skill {
             name: "git_operations".to_string(),
             description: "Git operations skill".to_string(),
@@ -3437,7 +3437,7 @@ mod tests {
 
     #[test]
     fn test_react_agent_set_memory() {
-        let mut agent = ReactAgent::new("Test agent".to_string());
+        let agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
         assert_eq!(agent.memory_md, "Test memory content");
@@ -3698,7 +3698,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let mut agent = ReactAgent::new("Test agent".to_string());
+            let agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 
@@ -3713,7 +3713,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let mut agent = ReactAgent::new("Test agent".to_string());
+            let agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 
@@ -3746,7 +3746,7 @@ Test procedure"#;
         let rt = test_runtime();
         rt.block_on(async {
             let memory = SqliteMemory::new("sqlite::memory:").await.unwrap();
-            let mut agent = ReactAgent::new("Test agent".to_string());
+            let agent = ReactAgent::new("Test agent".to_string());
             agent.set_memory(Arc::new(memory));
             agent.set_session_id("test-session".to_string());
 

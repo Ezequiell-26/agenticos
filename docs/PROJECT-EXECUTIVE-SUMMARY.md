@@ -1,261 +1,120 @@
 # AgentiCOS Executive Summary
 
-## Project Overview
+## Current state
 
-AgentiCOS is a universal, model-agnostic agent runtime and application platform built with Rust as the canonical runtime. The project follows a sequential, architecture-first development protocol with verified vertical slices.
+AgentiCOS is a Rust-first, model-agnostic agent runtime and application platform under active development.
 
-## Current Status
+Current repository control-plane state:
+- **Implementation records:** 53
+- **Verified records:** 51
+- **Pending authorized record:** 1
+- **Superseded historical record:** 1
+- **Current authorized step:** `integration-test-implementation-phase-3`
+- **Latest recorded Rust acceptance evidence:** 145/145 tests passing, no clippy warnings, formatting check passed
+- **Canonical runtime:** Rust/Tokio
+- **TypeScript:** product/transitional surfaces, not the canonical runtime
+- **Third-party source policy:** MIT-only for canonical copied/vendored/adapted source, with exact provenance evidence
 
-**Development Phase**: Advanced Architecture & Integration Test Implementation (Complete)  
-**Verified Steps**: 25 out of 25 (All planned steps completed)  
-**Current Step**: project-status-summary-vertical-slice-1  
-**Total Tests**: 60 passing across 25 suites  
-**Security**: #![forbid(unsafe_code)] enforced throughout  
-**Architecture**: Clean Architecture principles applied
+## Architecture
 
-## Architecture Foundation
+The workspace currently contains 26 Rust crates organized primarily by functional boundaries rather than the proposed final Clean Architecture layers.
 
-### Canonical Stack
-- **Runtime**: Rust/Tokio (canonical)
-- **Product Surface**: TypeScript (transitional)
-- **Integration**: Python (SDK/ecoystem)
-- **Portable Plugins**: WASM
+The architecture defines:
+- durable run lifecycle;
+- contracts and protocol schemas;
+- model/provider abstraction and routing;
+- tools and capability policy;
+- context and memory;
+- ReAct agent execution;
+- skills and progressive disclosure;
+- checkpoints and planning;
+- CQRS, projections and outbox;
+- saga workflows;
+- feature flags;
+- observability and LLM metrics;
+- MCP/A2A boundaries;
+- subagents/multi-agent coordination;
+- Source Forge and sandbox boundaries;
+- REST API and Tauri/React product surfaces;
+- AI continuity and change-control gates.
 
-### Workspace Structure
-- **24 Crates**: Organized by functional domain
-- **Layers**: Contracts, Kernel, Execution, Providers, Memory, Observability, etc.
-- **Dependencies**: Point inward (Contracts = zero external dependencies)
+## Verified implementation coverage
 
-## Verified Vertical Slices
+The verified records now cover the foundation, runtime, providers, tools, memory, protocols, CLI, Source Forge sandbox foundations, runtime integration, CQRS, outbox, Saga, feature flags, architecture documentation, integration testing phases 1–2, HTTP transport, conversational CLI, ReAct loop, skills, SQLite/FTS5 memory, conversation summarization, real tool execution, Git/file editing, API key management, REST API, checkpoints, planning, observability, tool registry server, subagents, sandbox hardening slice, LLM metrics and Tauri/React/Vite UI slices.
 
-### Foundation (Steps 0-3)
-1. **Architecture Foundation** - Workspace, contracts, schema registry, architecture gates
-2. **Rust Kernel Vertical Slice** - Durable Run lifecycle, event store, snapshot/replay, cancellation, idempotency, lease/fencing
-3. **Kernel Configuration & Logging** - Configuration layers, structured logging, deterministic test clocks
-4. **Architecture Hardening** - State synchronization, CI enforcement, canonical invariants
+Verification means the declared acceptance checks for that slice have recorded evidence. It does not mean that all behavior is production-grade.
 
-### Core Capabilities (Steps 4-10)
-5. **Agent Engine Vertical Slice** - AgentEngine boundary, model/provider integration, deterministic run cycle
-6. **Provider Plane** - Model catalog, capability discovery, credential isolation, quota/health/retry/fallback
-7. **Tool Plane** - Tool registry, execution boundary, policy primitives, sandbox foundations
-8. **Memory/Context** - Context window management, message history, memory persistence
-9. **Protocol Implementation** - MCP (Model Context Protocol) boundary
-10. **Product Surfaces CLI** - Command-line interface
+## Current authorized work
 
-### Integration (Step 11)
-11. **Runtime Integration** - AgentEngine-ModelProvider connection, HTTP transport, capability validation, context/memory persistence, durable run identity, end-to-end recovery
+The only newly authorized implementation slice is:
 
-### Advanced Architecture (Steps 12-15)
-12. **CQRS Separation** - Command/query separation, projections, event-driven synchronization, read/write isolation
-13. **Outbox Pattern** - Reliable event publication, background publisher, status transitions, event identity
-14. **Saga Coordinator** - Multi-step workflow orchestration, compensating transactions, recovery
-15. **Feature Flags** - Runtime configuration, boolean/string/numeric flags, activation/deactivation
+`integration-test-implementation-phase-3`
 
-### Documentation & Consolidation (Steps 16-18)
-16. **Architecture Refactoring** - Crate organization documentation, Clean Architecture migration plan
-17. **Integration Test Coverage** - Test coverage audit, gap documentation, integration test plan
-18. **Project Status Consolidation** - Executive summary and documentation consolidation
+It covers:
+- provider integration tests;
+- provider failover;
+- health-check integration;
+- resilience behavior;
+- multi-provider orchestration;
+- provider integration coverage verification.
 
-### Product Surface Enhancement (Steps 19-20)
-19. **CLI Enhancement** - Run execute command with kernel runtime integration
-20. **HttpModelProvider Export** - Kernel provider implementation and CLI integration
+No other product or architecture feature is authorized until the current step is verified or explicitly superseded by a recorded architectural decision.
 
-### Integration Test Implementation (Steps 21-23)
-21. **Integration Test Implementation Phase 1** - Kernel runtime integration tests (multi-run orchestration, event store recovery)
-22. **CLI Output Formatting** - Verbose output option for all CLI commands
-23. **Integration Test Implementation Phase 2** - Execution layer integration tests (end-to-end command execution, query performance)
+## Known limitations
 
-## Current Capabilities
+The repository still contains intentional first-slice or development-oriented boundaries.
 
-### Runtime
-- ✅ Durable run lifecycle with state transitions
-- ✅ Event sourcing with event store
-- ✅ Snapshot and replay
-- ✅ Cancellation and idempotency
-- ✅ Lease and fencing
-- ✅ Structured logging with tracing
-- ✅ Deterministic test clocks
+### Storage and recovery
+Some infrastructure uses in-memory implementations or has SQLite support without complete production wiring across every domain.
 
-### Providers
-- ✅ Model catalog and capability discovery
-- ✅ Credential isolation
-- ✅ Quota tracking
-- ✅ Health checking
-- ✅ Retry manager
-- ✅ Fallback manager
-- ✅ HttpModelProvider (simulated execution)
+### Sandbox
+The Sandbox Complete slice establishes contracts, policy objects and resource-control foundations. It is not evidence of hardened OS/container/process isolation suitable for hostile arbitrary code.
 
-### Tools
-- ✅ Tool registry
-- ✅ Tool execution boundary
-- ✅ Policy engine
-- ✅ Echo tool implementation
+### Provider and model plane
+The provider abstraction is real and the HTTP adapter performs actual HTTP requests, but broader production concerns still require deeper failover, circuit breaking, cooldown, quota-account pooling, streaming normalization and integration testing.
 
-### Memory & Context
-- ✅ Context window management
-- ✅ Message history tracking
-- ✅ Context compression/summarization
-- ✅ Memory persistence
-- ✅ Context budget enforcement
+### Tools and security
+Real tool execution exists, but policy enforcement remains uneven across boundaries and needs further security hardening, especially around filesystem confinement and command execution semantics.
 
-### Protocols
-- ✅ MCP boundary contracts
+### API/Desktop
+REST and Tauri/React surfaces exist, but some paths remain simplified development implementations and require end-to-end production wiring, authentication/authorization policy, packaging and operational hardening.
 
-### CLI
-- ✅ Run management (create, list, status, execute)
-- ✅ Agent interaction (start, list)
-- ✅ System status (system, providers, tools)
-- ✅ Configuration (show, set)
-- ✅ Feature flags (list, get, enable, disable)
-- ✅ Verbose output mode
-- ✅ Kernel runtime integration
-- ✅ HttpModelProvider integration
+### Architecture migration
+The Clean Architecture and Tower documents describe the target structure. The existing workspace has not yet completed the full crate migration into that target layout.
 
-### Integration Tests
-- ✅ Kernel runtime integration tests (multi-run orchestration, event store recovery)
-- ✅ Execution layer integration tests (end-to-end command execution, query performance)
+## Control-plane safeguards
 
-### Observability
-- ✅ Structured tracing
-- ✅ Correlation IDs
-- ✅ Simple counters and histograms
+The repository now enforces:
+- one explicit authorized current step;
+- dependency-aware verification;
+- preservation of superseded history;
+- duplicate JSON-key detection;
+- project-state synchronization;
+- continuity journal validation;
+- machine-readable current-step scope;
+- fail-closed behavior when state is contradictory.
 
-### CQRS
-- ✅ Command/query separation
-- ✅ Command handlers
-- ✅ Query handlers
-- ✅ Projections
-- ✅ Event-driven synchronization
+The governing chain is:
 
-### Event Sourcing
-- ✅ Outbox pattern
-- ✅ Background event publisher
-- ✅ Status tracking
+`repository evidence → dependency graph → current step → scope → implementation → verification → next step`
 
-### Workflows
-- ✅ Saga coordinator
-- ✅ Multi-step orchestration
-- ✅ Compensating transactions
+## Reference policy
 
-### Configuration
-- ✅ Feature flags
-- ✅ Boolean/string/numeric types
-- ✅ Runtime evaluation
+Registered MIT repositories are treated as implementation references only after repository-level evidence, licensing/provenance review and exact source identification.
 
-## Known Limitations
+Comparative non-MIT references may inform architecture analysis, but their source cannot be copied into canonical AgentiCOS implementation without an explicit architectural/licensing decision.
 
-### Storage
-- In-memory stores used for testing (not production-ready)
-- SQLite adapters exist but not fully integrated
-- No distributed storage layer
+## Production-readiness statement
 
-### Event Processing
-- Background publisher is in-memory
-- Dead letter queue exists but not fully utilized
-- No event ordering guarantees
+AgentiCOS is **not yet production-complete**.
 
-### Workflows
-- Saga coordinator is in-memory
-- No saga participant coordination
-- No timeout handling
-- No saga recovery from failures
+The project has progressed from architectural foundations to a broad set of verified vertical slices. The remaining work is primarily integration depth, security hardening, durability across every domain, operational resilience, production UI/API wiring, packaging/distribution and comprehensive failure/recovery testing.
 
-### Feature Flags
-- In-memory store (not production-ready)
-- No targeting/rollout strategies
-- No A/B testing framework
+## Canonical sources
 
-### Architecture
-- Crates organized by function, not layers
-- Clean Architecture migration planned but not executed
-- No Tower Service/Layer pattern implementation
-
-### Integration
-- Limited integration test coverage in some areas
-- Gaps identified in provider layer, CQRS, outbox, saga
-- 7-phase plan for improvement documented
-
-### Provider Layer
-- HttpModelProvider execution is simulated (no actual HTTP requests)
-- No provider failover implemented
-- No multi-provider orchestration
-- No resilience patterns (circuit breaker, cooldown)
-
-## Documentation
-
-### Architecture Documents
-- ENHANCED-ARCHITECTURE.md - Clean Architecture, Tower patterns, workspace organization
-- TOKEN-OPTIMIZATION.md - Token consumption optimization strategies
-- ADVANCED-ARCHITECTURE.md - CQRS, Event Sourcing, Outbox, Saga, OpenTelemetry
-- CRATE-ORGANIZATION-ANALYSIS.md - Current 24-crate organization and migration plan
-
-### Testing
-- INTEGRATION-TEST-COVERAGE.md - Test coverage audit and 7-phase improvement plan
-
-### ADRs (22 total)
-- 0001: Record architecture decisions
-- 0002: Use Rust as canonical runtime
-- 0003: Adopt vertical slice protocol
-- 0004: Event sourcing for kernel state
-- 0005: Structured logging with tracing
-- 0006: Simple metrics collection
-- 0007: Runtime integration implementation
-- 0008: CQRS separation implementation
-- 0009: Outbox pattern implementation
-- 0010: Outbox pattern vertical slice verification
-- 0011: Saga coordinator vertical slice verification
-- 0012: Feature flags vertical slice verification
-- 0013: Architecture refactoring vertical slice verification
-- 0014: Integration test coverage vertical slice verification
-- 0015: Project status consolidation vertical slice verification
-- 0016: CLI enhancement vertical slice verification
-- 0017: Documentation finalization vertical slice verification
-- 0018: Provider integration vertical slice verification
-- 0019: HttpModelProvider export vertical slice verification
-- 0020: Integration test implementation phase 1 verification
-- 0021: CLI output formatting vertical slice verification
-- 0022: Integration test implementation phase 2 verification
-
-## Future Roadmap
-
-### Near Term (Realistic Next Steps)
-- Phase 3: Provider layer integration tests (requires provider infrastructure)
-- Clean Architecture migration Phase 1 (structural reorganization)
-- Real HTTP implementation for HttpModelProvider (requires reqwest dependency)
-
-### Medium Term (Planned but Not Authorized)
-- Integration test implementation phases 3-7
-- Zero-copy events (rkyv/flatbuffers)
-- Distributed storage layer
-
-### Long Term (Identified but Not Planned)
-- Advanced saga coordination
-- Production feature flag system
-- REST API gateway
-- Full OpenTelemetry integration
-
-## Metrics
-
-### Code Quality
-- **Tests**: 60 passing, 25 suites
-- **Clippy**: 0 warnings
-- **Format**: rustfmt compliant
-- **Unsafe Code**: Forbidden (enforced)
-
-### Development Velocity
-- **Vertical Slices**: 25 verified
-- **ADRs**: 22 decisions documented
-- **Architecture Docs**: 4 comprehensive documents
-- **Test Docs**: 1 coverage analysis
-
-### Token Optimization
-- **RTK Usage**: Applied for all commands
-- **Targeted Builds**: Used `-p` flag when applicable
-- **File Reads**: Range-based when possible
-- **Documentation**: Concise and focused
-
-## Conclusion
-
-AgentiCOS has successfully completed the foundational and advanced architecture phases with 25 verified vertical slices covering runtime, providers, tools, memory, protocols, observability, CQRS, event sourcing, workflows, configuration, CLI enhancements, provider integration, and integration testing. The project follows best practices from MIT repositories (Tokio, Tower, Bulletproof Rust Web, ddd-cqres-es, Mnesis) and maintains strict security and architecture gates.
-
-The project is now positioned for the next development phase, which should focus on either infrastructure improvements (provider layer, HTTP implementation) or structural improvements (Clean Architecture migration) based on practical priorities.
+- `reference/PROJECT-STATE.md` — current project projection
+- `reference/manifests/implementation-state.json` — machine-readable step state
+- `reference/manifests/step-scope-policy.json` — current-step implementation scope
+- `reference/journal/agent-operations.jsonl` — append-only operation history
+- `ARCHITECTURE.md` — product architecture source of truth
+- `docs/architecture/ARCHITECTURE-RECONCILIATION-2026-09-22.md` — latest architecture reconciliation

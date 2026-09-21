@@ -746,4 +746,96 @@ mod tests {
             assert!(result.is_ok());
         });
     }
+
+    #[test]
+    fn test_end_to_end_command_execution() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let command_handler = BasicCommandHandler::new(runtime.clone());
+
+            // Create a command to start a run
+            let command = Command {
+                correlation_id: "cmd-1".to_string(),
+                command_type: "start_run".to_string(),
+                payload: serde_json::json!({
+                    "run_id": "e2e-run",
+                    "objective": "End-to-end test"
+                }),
+            };
+
+            // Execute the command
+            let result = command_handler.handle(command).await.unwrap();
+
+            // Verify the command result
+            assert!(result.success);
+            assert!(!result.message.is_empty());
+
+            // Verify the run was created in the runtime
+            let runs = runtime.runs.read().await;
+            let run = runs.get(&RunId::new("e2e-run").unwrap());
+            assert!(run.is_some());
+            assert_eq!(run.unwrap().state, RunState::Admitted);
+        });
+    }
+
+    #[test]
+    fn test_query_performance() {
+        let rt = test_runtime();
+        rt.block_on(async {
+            let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+            let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+            let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+            let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+            let capability_issuer =
+                std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+
+            let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+                event_store,
+                snapshot_store,
+                logger,
+                config,
+                capability_issuer,
+            ));
+
+            let query_handler = BasicQueryHandler::new(runtime.clone());
+
+            // Create a run first
+            let run_id = RunId::new("query-perf-run").unwrap();
+            runtime.create_run(run_id.clone()).await.unwrap();
+
+            // Execute a query to get the run state
+            let query = Query {
+                query_type: "get_run_state".to_string(),
+                parameters: serde_json::json!({"run_id": "query-perf-run"}),
+            };
+
+            let start = std::time::Instant::now();
+            let result = query_handler.handle(query).await.unwrap();
+            let duration = start.elapsed();
+
+            // Verify the query result
+            assert!(!result.data.is_null());
+            assert!(duration.as_millis() < 100); // Query should be fast
+
+            // Verify the returned data
+            let data = result.data;
+            assert!(data.get("run_id").is_some());
+            assert!(data.get("state").is_some());
+        });
+    }
 }

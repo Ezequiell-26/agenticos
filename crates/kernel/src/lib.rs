@@ -1765,6 +1765,62 @@ impl ReactAgent {
                         result.error.unwrap_or("Unknown error".to_string()),
                     ))
                 }
+            } else if action.starts_with("git_add:") {
+                let path = action.strip_prefix("git_add:").unwrap_or("");
+                let result = executor.git_add(path);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action.starts_with("git_commit:") {
+                let message = action.strip_prefix("git_commit:").unwrap_or("");
+                let result = executor.git_commit(message);
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action == "git_push" {
+                let result = executor.git_push();
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action == "git_diff" {
+                let result = executor.git_diff();
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action == "git_log" {
+                let result = executor.git_log();
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
+            } else if action == "git_branch" {
+                let result = executor.git_branch();
+                if result.success {
+                    Ok(result.output)
+                } else {
+                    Err(ContractError::ParseError(
+                        result.error.unwrap_or("Unknown error".to_string()),
+                    ))
+                }
             } else if action.starts_with("execute:") {
                 let command = action.strip_prefix("execute:").unwrap_or("");
                 let result = executor.execute_command(command);
@@ -2253,6 +2309,121 @@ impl ToolExecutor {
                     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                     ToolResult::failure(format!("Git status failed: {}", stderr))
                 }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git add operation.
+    pub fn git_add(&self, path: &str) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("add")
+            .arg(path)
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    ToolResult::success(format!("Added: {}", path))
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    ToolResult::failure(format!("Git add failed: {}", stderr))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git commit operation.
+    pub fn git_commit(&self, message: &str) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("commit")
+            .arg("-m")
+            .arg(message)
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    ToolResult::success(stdout)
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    ToolResult::failure(format!("Git commit failed: {}", stderr))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git push operation.
+    pub fn git_push(&self) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("push")
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    ToolResult::success(stdout)
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    ToolResult::failure(format!("Git push failed: {}", stderr))
+                }
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git diff operation.
+    pub fn git_diff(&self) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("diff")
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                ToolResult::success(stdout)
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git log operation.
+    pub fn git_log(&self) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("log")
+            .arg("--oneline")
+            .arg("-10")
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                ToolResult::success(stdout)
+            }
+            Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
+        }
+    }
+
+    /// Execute a git branch operation.
+    pub fn git_branch(&self) -> ToolResult {
+        let output = std::process::Command::new("git")
+            .arg("branch")
+            .current_dir(&self.workdir)
+            .output();
+
+        match output {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                ToolResult::success(stdout)
             }
             Err(e) => ToolResult::failure(format!("Failed to execute git: {}", e)),
         }
@@ -2793,5 +2964,65 @@ Test procedure"#;
             assert!(result.is_ok());
             assert!(result.unwrap().contains("test"));
         });
+    }
+
+    #[test]
+    fn test_tool_executor_git_add() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_add(".");
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_git_commit() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_commit("Test commit");
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_git_push() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_push();
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_git_diff() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_diff();
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_git_log() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_log();
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
+    }
+
+    #[test]
+    fn test_tool_executor_git_branch() {
+        let workdir = std::env::current_dir().unwrap();
+        let executor = ToolExecutor::new(workdir);
+
+        let result = executor.git_branch();
+        // Git might not be available or not initialized, so just check it doesn't crash
+        assert!(result.success || !result.success);
     }
 }

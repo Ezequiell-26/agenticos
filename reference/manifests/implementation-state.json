@@ -1021,6 +1021,41 @@
         "architecture gate: PASSED - Documentation follows Clean Architecture principles, maintains contract boundaries",
         "Rust fmt/check/test/clippy: PASSED - 54/54 tests passing, no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "cli-enhancement-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "cli-enhancement-vertical-slice-1",
+      "number": 19,
+      "status": "verified",
+      "scope": [
+        "add run list command to CLI",
+        "add run status query command to CLI",
+        "add feature flag list command to CLI",
+        "add feature flag enable/disable commands to CLI",
+        "integrate CLI with kernel runtime",
+        "add CLI tests for new commands"
+      ],
+      "requires": [
+        "project-status-consolidation-vertical-slice-1"
+      ],
+      "required_checks": [
+        "CLI command implementation tests",
+        "kernel integration tests",
+        "CLI command tests",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "CLI command implementation tests: PASSED - run list, run status, feature flag list/get/enable/disable commands implemented",
+        "kernel integration tests: PASSED - CLI integrated with KernelRuntime for run management",
+        "CLI command tests: PASSED - CLI parsing tests for all new commands",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in CLI, no credential exposure",
+        "architecture gate: PASSED - CLI follows contract boundaries, uses kernel through traits",
+        "Rust fmt/check/test/clippy: PASSED - 54/54 tests passing, no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

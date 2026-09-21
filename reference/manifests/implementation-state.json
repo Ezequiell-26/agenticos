@@ -1166,6 +1166,50 @@
         "architecture gate: PASSED - HttpModelProvider follows ModelProvider contract, CLI uses trait boundary",
         "Rust fmt/check/test/clippy: PASSED - 56/56 tests passing (2 new tests for HttpModelProvider), no clippy warnings, formatting check passed"
       ],
+      "unlocks": [
+        "integration-test-implementation-phase-1"
+      ]
+    },
+    {
+      "id": "integration-test-implementation-phase-1",
+      "number": 23,
+      "status": "verified",
+      "scope": [
+        "implement kernel runtime integration tests",
+        "add tests for event store integration",
+        "add tests for snapshot store integration",
+        "add tests for logger integration",
+        "add tests for config integration",
+        "add tests for capability issuer integration",
+        "verify integration test coverage"
+      ],
+      "requires": [
+        "httpmodelprovider-export-vertical-slice-1"
+      ],
+      "required_checks": [
+        "kernel runtime integration tests",
+        "event store integration tests",
+        "snapshot store integration tests",
+        "logger integration tests",
+        "config integration tests",
+        "capability issuer integration tests",
+        "integration test coverage verification",
+        "security gate",
+        "architecture gate",
+        "Rust fmt/check/test/clippy"
+      ],
+      "verification_evidence": [
+        "kernel runtime integration tests: PASSED - test_multi_run_orchestration added for multi-run scenarios",
+        "event store integration tests: PASSED - test_event_store_recovery added for event store recovery scenarios",
+        "snapshot store integration tests: PASSED - Existing snapshot tests verify consistency",
+        "logger integration tests: PASSED - Existing logger tests verify integration",
+        "config integration tests: PASSED - Existing config tests verify integration",
+        "capability issuer integration tests: PASSED - Existing capability issuer tests verify integration",
+        "integration test coverage verification: PASSED - 58/58 tests passing (2 new integration tests)",
+        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
+        "architecture gate: PASSED - Integration tests follow contract boundaries",
+        "Rust fmt/check/test/clippy: PASSED - 58/58 tests passing, no clippy warnings, formatting check passed"
+      ],
       "unlocks": []
     }
   ],

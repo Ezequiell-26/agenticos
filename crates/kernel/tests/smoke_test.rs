@@ -4,9 +4,10 @@
 //! Smoke tests for the AgentiCOS kernel durable runtime.
 
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, FeatureFlag, FeatureFlagStore,
-    FlagValue, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, OutboxStore, RunId,
-    RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus, SagaStepType,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, EventStore, FeatureFlag,
+    FeatureFlagStore, FlagValue, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest,
+    OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStep, SagaStepStatus,
+    SagaStepType,
 };
 use agenticos_kernel::{
     BackgroundEventPublisher, HttpModelProvider, InMemoryCapabilityIssuer, InMemoryConfig,
@@ -783,6 +784,108 @@ fn test_http_model_provider_with_custom_id() {
 
         assert_eq!(response.request_id, "test-request-2");
         assert!(response.output.contains("gpt-3.5"));
+    });
+}
+
+#[test]
+fn test_multi_run_orchestration() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let runtime = KernelRuntime::new(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+        );
+
+        // Create multiple runs
+        let run_id_1 = RunId::new("multi-run-1").unwrap();
+        let run_id_2 = RunId::new("multi-run-2").unwrap();
+        let run_id_3 = RunId::new("multi-run-3").unwrap();
+
+        runtime.create_run(run_id_1.clone()).await.unwrap();
+        runtime.create_run(run_id_2.clone()).await.unwrap();
+        runtime.create_run(run_id_3.clone()).await.unwrap();
+
+        // Transition runs to different states (using correct version numbers)
+        runtime
+            .transition_run(&run_id_1, RunState::Admitted, 1)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id_2, RunState::Admitted, 1)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id_2, RunState::Running, 2)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id_3, RunState::Admitted, 1)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id_3, RunState::Running, 2)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id_3, RunState::Completed, 3)
+            .await
+            .unwrap();
+
+        // Verify all runs are in correct states
+        let runs = runtime.runs.read().await;
+        assert_eq!(runs.len(), 3);
+        assert_eq!(runs.get(&run_id_1).unwrap().state, RunState::Admitted);
+        assert_eq!(runs.get(&run_id_2).unwrap().state, RunState::Running);
+        assert_eq!(runs.get(&run_id_3).unwrap().state, RunState::Completed);
+    });
+}
+
+#[test]
+fn test_event_store_recovery() {
+    let rt = test_runtime();
+    rt.block_on(async {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let runtime = KernelRuntime::new(
+            event_store.clone(),
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+        );
+
+        let run_id = RunId::new("recovery-run").unwrap();
+        runtime.create_run(run_id.clone()).await.unwrap();
+        runtime
+            .transition_run(&run_id, RunState::Admitted, 1)
+            .await
+            .unwrap();
+        runtime
+            .transition_run(&run_id, RunState::Running, 2)
+            .await
+            .unwrap();
+
+        // Recover the run
+        let recovered_run = runtime.recover_run(&run_id).await.unwrap();
+
+        // Verify recovered state
+        assert_eq!(recovered_run.state, RunState::Running);
+
+        // Verify events were stored
+        let stream_id = format!("run:{}", run_id.as_str());
+        let events = event_store.read_after(&stream_id, 0).await.unwrap();
+        assert!(events.len() >= 2); // At least Created and Admitted/Running
     });
 }
 

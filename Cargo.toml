@@ -9,7 +9,8 @@ members = [
   "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
   "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto",
   "crates/math", "crates/time-utils", "crates/http-client", "crates/async-utils",
-  "crates/logging", "crates/metrics", "crates/cache", "crates/compression"
+  "crates/logging", "crates/metrics", "crates/cache", "crates/compression",
+  "crates/rate-limiting"
 ]
 
 [workspace.package]

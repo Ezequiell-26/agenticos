@@ -3220,6 +3220,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "time-utils"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

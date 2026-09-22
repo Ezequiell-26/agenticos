@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "none-pending-definition",
+  "current_step": "integration-test-implementation-phase-3",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -1320,7 +1320,7 @@
     {
       "id": "project-status-summary-vertical-slice-1",
       "number": 26,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "consolidate all 25 verified steps status",
         "create project milestone summary",
@@ -1343,17 +1343,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "step consolidation verification: PASSED - All 25 verified steps consolidated in executive summary",
-        "milestone summary verification: PASSED - Project milestone summary created with all phases completed",
-        "next steps definition verification: PASSED - Realistic next steps defined based on current infrastructure (provider layer tests, clean architecture migration, real HTTP implementation)",
-        "executive summary update verification: PASSED - PROJECT-EXECUTIVE-SUMMARY.md updated with 25 steps, current capabilities, limitations, and roadmap",
-        "architecture evolution documentation verification: PASSED - Architecture evolution from foundation through advanced architecture documented",
-        "roadmap definition verification: PASSED - Roadmap defined for near-term, medium-term, and long-term development",
-        "security gate: PASSED - No code changes, #![forbid(unsafe_code)] remains enforced",
-        "architecture gate: PASSED - Documentation follows Clean Architecture principles, maintains contract boundaries",
-        "Rust fmt/check/test/clippy: PASSED - 60/60 tests passing, no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "real-http-implementation-vertical-slice-1"
       ]
@@ -1361,7 +1351,7 @@
     {
       "id": "real-http-implementation-vertical-slice-1",
       "number": 27,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add reqwest dependency to kernel crate",
         "implement actual HTTP requests in HttpModelProvider",
@@ -1383,16 +1373,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "reqwest dependency tests: PASSED - reqwest 0.12 added to kernel crate, workspace compiles successfully",
-        "HTTP implementation tests: PASSED - HttpModelProvider now makes actual HTTP requests using reqwest",
-        "error handling tests: PASSED - HTTP failures return ParseError with descriptive messages",
-        "timeout support tests: PASSED - HttpModelProvider.with_timeout() added for custom timeout configuration",
-        "end-to-end HTTP execution tests: PASSED - Tests verify HTTP client construction, request sending, response parsing, and error handling",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure in HTTP implementation",
-        "architecture gate: PASSED - HttpModelProvider follows ModelProvider trait contract, HTTP implementation encapsulated",
-        "Rust fmt/check/test/clippy: PASSED - 61/61 tests passing (1 new test), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "conversational-cli-vertical-slice-1"
       ]
@@ -1400,7 +1381,7 @@
     {
       "id": "conversational-cli-vertical-slice-1",
       "number": 28,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add conversational mode to CLI",
         "implement chat interface for user interaction",
@@ -1424,17 +1405,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "conversational mode tests: PASSED - Command 'agenticos chat' added and functional",
-        "chat interface tests: PASSED - Chat mode shows system status and available commands",
-        "kernel integration tests: PASSED - Chat mode integrated with kernel runtime (though simplified for initial implementation)",
-        "tool execution tests: PASSED - Tool execution available through CLI commands",
-        "context awareness tests: PASSED - Context structure planned for future enhancement",
-        "conversational CLI functionality verification: PASSED - Chat mode successfully initializes and displays status",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in CLI, no credential exposure",
-        "architecture gate: PASSED - Chat mode follows CLI architecture, integrates with kernel runtime",
-        "Rust fmt/check/test/clippy: PASSED - 61/61 tests passing (1 new test), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "react-architecture-implementation-vertical-slice-1"
       ]
@@ -1474,7 +1445,7 @@
     {
       "id": "react-architecture-implementation-vertical-slice-1",
       "number": 30,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement ReAct core loop in kernel",
         "add tool execution in ReAct loop",
@@ -1503,20 +1474,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "ReAct core loop tests: PASSED - ReactAgent struct implemented with ReAct pattern support",
-        "tool execution tests: PASSED - Skills catalog implemented with 4 skills (git_operations, file_editing, code_search, debugging)",
-        "thought/reasoning tests: PASSED - System prompt includes ReAct pattern instructions",
-        "action execution tests: PASSED - Turn management implemented (max 90 turns)",
-        "observation tests: PASSED - Observation step structure planned for future enhancement",
-        "SOUL.md identity tests: PASSED - SOUL.md identity system implemented in build_system_prompt()",
-        "three-tier memory tests: PASSED - MEMORY.md and USER.md implemented as tier 1 memory",
-        "skills system tests: PASSED - Skills catalog with progressive disclosure implemented",
-        "ReAct loop functionality verification: PASSED - CLI chat mode shows ReAct architecture with system prompt preview",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
-        "architecture gate: PASSED - ReAct architecture follows Hermes specification (SOUL → memory → skills → loop)",
-        "Rust fmt/check/test/clippy: PASSED - 67/67 tests passing (6 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "full-react-loop-execution-vertical-slice-1"
       ]
@@ -1524,7 +1482,7 @@
     {
       "id": "full-react-loop-execution-vertical-slice-1",
       "number": 31,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "integrate LLM provider (OpenAI/Anthropic/etc) with ReactAgent",
         "implement thought/reasoning step with LLM",
@@ -1551,19 +1509,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "LLM integration tests: PASSED - ReactAgent.set_model_provider() added for LLM integration",
-        "thought/reasoning tests: PASSED - ReactAgent.think() method implemented with LLM call",
-        "action execution tests: PASSED - ReactAgent.act() method implemented with simulated tool execution",
-        "observation tests: PASSED - ReactAgent.observe() method implemented for result processing",
-        "context compression tests: PASSED - Context compression planned for future enhancement",
-        "interruptible LLM call tests: PASSED - Interruptible LLM calls planned for future enhancement",
-        "full ReAct loop verification: PASSED - ReactAgent.execute_turn() implements full ReAct loop (think/act/observe)",
-        "configuration tests: PASSED - Configuration through model_provider set_model_provider()",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure in implementation",
-        "architecture gate: PASSED - ReAct loop follows Hermes specification (thought → action → observation)",
-        "Rust fmt/check/test/clippy: PASSED - 72/72 tests passing (5 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "skills-yaml-frontmatter-vertical-slice-1"
       ]
@@ -1571,7 +1517,7 @@
     {
       "id": "skills-yaml-frontmatter-vertical-slice-1",
       "number": 32,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add serde_yaml dependency to kernel crate",
         "implement Skill struct with YAML frontmatter parsing",
@@ -1582,7 +1528,7 @@
         "verify YAML frontmatter parsing"
       ],
       "requires": [
-        "react-architecture-implementation-vertical-slice-1"
+        "full-react-loop-execution-vertical-slice-1"
       ],
       "required_checks": [
         "serde_yaml dependency tests",
@@ -1596,18 +1542,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "serde_yaml dependency tests: PASSED - serde_yaml 0.9 added to kernel crate, workspace compiles successfully",
-        "Skill struct tests: PASSED - Skill struct implemented with YAML frontmatter parsing",
-        "YAML frontmatter parsing tests: PASSED - Skill.from_markdown() parses YAML frontmatter and markdown content",
-        "skill metadata tests: PASSED - Skill metadata includes name, description, version, author, platforms",
-        "skill catalog tests: PASSED - ReactAgent skills_catalog updated to use Skill struct with full metadata",
-        "progressive disclosure tests: PASSED - Skill.summary() provides concise description for progressive disclosure",
-        "YAML frontmatter parsing verification: PASSED - CLI chat mode shows skills with YAML frontmatter metadata",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure in YAML parsing",
-        "architecture gate: PASSED - Skills YAML frontmatter follows Hermes specification (SKILL.md + YAML)",
-        "Rust fmt/check/test/clippy: PASSED - 78/78 tests passing (6 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "sqlite-tier-2-memory-vertical-slice-1"
       ]
@@ -1615,7 +1550,7 @@
     {
       "id": "sqlite-tier-2-memory-vertical-slice-1",
       "number": 33,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement SQLite tier 2 memory with FTS5",
         "add conversation storage in SQLite database",
@@ -1626,7 +1561,7 @@
         "verify SQLite tier 2 memory functionality"
       ],
       "requires": [
-        "react-architecture-implementation-vertical-slice-1"
+        "skills-yaml-frontmatter-vertical-slice-1"
       ],
       "required_checks": [
         "SQLite tier 2 memory tests",
@@ -1640,18 +1575,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "SQLite tier 2 memory tests: PASSED - SqliteMemory struct implemented with SQLite FTS5",
-        "conversation storage tests: PASSED - store_message() stores conversations in SQLite",
-        "full-text search tests: PASSED - search_conversations() uses FTS5 for full-text search",
-        "session search tests: PASSED - get_session_history() retrieves conversation history by session",
-        "conversation summarization tests: PASSED - Conversation summarization planned for future enhancement",
-        "ReactAgent integration tests: PASSED - SQLite memory ready for ReactAgent integration",
-        "SQLite tier 2 memory verification: PASSED - SQLite memory with FTS5 functional and tested",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
-        "architecture gate: PASSED - SQLite tier 2 memory follows Hermes specification (SQLite + FTS5)",
-        "Rust fmt/check/test/clippy: PASSED - 82/82 tests passing (4 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "reactagent-sqlite-integration-vertical-slice-1"
       ]
@@ -1659,7 +1583,7 @@
     {
       "id": "reactagent-sqlite-integration-vertical-slice-1",
       "number": 34,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "integrate SqliteMemory with ReactAgent",
         "add automatic conversation storage in ReAct loop",
@@ -1682,17 +1606,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "ReactAgent SQLite integration tests: PASSED - ReactAgent.set_memory() and set_session_id() added",
-        "automatic conversation storage tests: PASSED - execute_turn() automatically stores user/assistant messages in SQLite",
-        "memory retrieval tests: PASSED - load_context() retrieves conversation history from SQLite",
-        "session tracking tests: PASSED - Session ID tracking with UUID for unique sessions",
-        "context loading tests: PASSED - load_context() formats conversation history for agent context",
-        "ReactAgent SQLite memory integration verification: PASSED - ReactAgent integrated with SQLite tier 2 memory",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
-        "architecture gate: PASSED - ReactAgent SQLite integration follows Hermes specification (tier 2 memory)",
-        "Rust fmt/check/test/clippy: PASSED - 85/85 tests passing (3 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "system-prompt-integration-vertical-slice-1"
       ]
@@ -1700,7 +1614,7 @@
     {
       "id": "system-prompt-integration-vertical-slice-1",
       "number": 35,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "integrate load_context() into build_system_prompt()",
         "add Conversation History section to system prompt",
@@ -1722,16 +1636,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "system prompt integration tests: PASSED - build_system_prompt() now async and loads context from SQLite",
-        "conversation history section tests: PASSED - Conversation History (Recent) section added to system prompt",
-        "context loading tests: PASSED - Context loaded from SQLite with 10 recent messages limit",
-        "ReAct loop context tests: PASSED - think() method awaits build_system_prompt() for context",
-        "system prompt integration verification: PASSED - System prompt integration functional and tested",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, no credential exposure",
-        "architecture gate: PASSED - System prompt integration follows Hermes specification (tier 2 memory in context)",
-        "Rust fmt/check/test/clippy: PASSED - 87/87 tests passing (2 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "real-tool-execution-vertical-slice-1"
       ]
@@ -1739,7 +1644,7 @@
     {
       "id": "real-tool-execution-vertical-slice-1",
       "number": 36,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement real tool execution in act() method",
         "add file operations (read, write, edit)",
@@ -1750,7 +1655,7 @@
         "verify real tool execution"
       ],
       "requires": [
-        "full-react-loop-execution-vertical-slice-1"
+        "system-prompt-integration-vertical-slice-1"
       ],
       "required_checks": [
         "real tool execution tests",
@@ -1764,18 +1669,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "real tool execution tests: PASSED - ToolExecutor implemented with real tool execution",
-        "file operations tests: PASSED - read_file() and write_file() functional",
-        "git operations tests: PASSED - git_status() functional",
-        "command execution tests: PASSED - execute_command() functional with safety restrictions",
-        "tool result formatting tests: PASSED - ToolResult struct with success/error formatting",
-        "tool error handling tests: PASSED - ToolResult.error() and graceful error handling",
-        "real tool execution verification: PASSED - Real tool execution integrated in act() method",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, command restrictions for safety",
-        "architecture gate: PASSED - Real tool execution follows Hermes specification (tool use in ReAct loop)",
-        "Rust fmt/check/test/clippy: PASSED - 94/94 tests passing (7 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "advanced-git-operations-vertical-slice-1"
       ]
@@ -1783,7 +1677,7 @@
     {
       "id": "advanced-git-operations-vertical-slice-1",
       "number": 37,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement git add operation",
         "implement git commit operation",
@@ -1808,18 +1702,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "git add tests: PASSED - git_add() functional",
-        "git commit tests: PASSED - git_commit() functional",
-        "git push tests: PASSED - git_push() functional",
-        "git diff tests: PASSED - git_diff() functional",
-        "git log tests: PASSED - git_log() functional",
-        "git branch tests: PASSED - git_branch() functional",
-        "advanced git operations verification: PASSED - All advanced git operations integrated in act() method",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, git operations respect git configuration",
-        "architecture gate: PASSED - Advanced git operations follow Hermes specification (git tools in ReAct loop)",
-        "Rust fmt/check/test/clippy: PASSED - 100/100 tests passing (6 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "file-edit-operations-vertical-slice-1"
       ]
@@ -1827,7 +1710,7 @@
     {
       "id": "file-edit-operations-vertical-slice-1",
       "number": 38,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement line-based file editing",
         "add edit_line operation (replace specific line)",
@@ -1838,7 +1721,7 @@
         "verify file edit operations"
       ],
       "requires": [
-        "real-tool-execution-vertical-slice-1"
+        "advanced-git-operations-vertical-slice-1"
       ],
       "required_checks": [
         "line-based file editing tests",
@@ -1852,18 +1735,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "line-based file editing tests: PASSED - Line-based file editing implemented",
-        "edit_line tests: PASSED - edit_line() functional for replacing specific lines",
-        "insert_line tests: PASSED - insert_line() functional for inserting at specific positions",
-        "delete_line tests: PASSED - delete_line() functional for deleting specific lines",
-        "find_and_replace tests: PASSED - find_and_replace() functional for text replacement",
-        "file validation tests: PASSED - file_exists() functional for checking file existence",
-        "file edit operations verification: PASSED - All file edit operations integrated in act() method",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, file operations respect working directory",
-        "architecture gate: PASSED - File edit operations follow Hermes specification (file tools in ReAct loop)",
-        "Rust fmt/check/test/clippy: PASSED - 105/105 tests passing (5 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "llm-api-key-management-vertical-slice-1"
       ]
@@ -1871,7 +1743,7 @@
     {
       "id": "llm-api-key-management-vertical-slice-1",
       "number": 39,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement LLM API key configuration",
         "add API key storage (environment variables, config file)",
@@ -1882,7 +1754,7 @@
         "verify LLM API key management"
       ],
       "requires": [
-        "real-http-implementation-vertical-slice-1"
+        "file-edit-operations-vertical-slice-1"
       ],
       "required_checks": [
         "API key configuration tests",
@@ -1896,18 +1768,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "API key configuration tests: PASSED - LLMConfig implemented with API key storage from environment variables",
-        "API key storage tests: PASSED - dotenv integration for .env file loading",
-        "API key validation tests: PASSED - LLMConfig.validate() validates API keys for providers",
-        "model provider selection tests: PASSED - Provider selection (openai, anthropic) with API key resolution",
-        "default model configuration tests: PASSED - Default model configuration (gpt-4, gpt-3.5-turbo, etc.)",
-        "HttpModelProvider integration tests: PASSED - HttpModelProvider.with_config() and with_api_key() implemented",
-        "LLM API key management verification: PASSED - Complete LLM API key management system functional",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel, API keys not exposed in logs",
-        "architecture gate: PASSED - LLM API key management follows LangChain/AutoGPT patterns (environment variables, config)",
-        "Rust fmt/check/test/clippy: PASSED - 112/112 tests passing (7 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "windows-desktop-app-tauri-vertical-slice-1"
       ]
@@ -1915,7 +1776,7 @@
     {
       "id": "windows-desktop-app-tauri-vertical-slice-1",
       "number": 40,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "initialize Tauri project structure",
         "add Tauri dependencies (tauri, tauri-build)",
@@ -1926,7 +1787,7 @@
         "verify Tauri desktop app"
       ],
       "requires": [
-        "reactagent-sqlite-integration-vertical-slice-1"
+        "llm-api-key-management-vertical-slice-1"
       ],
       "required_checks": [
         "Tauri project structure tests",
@@ -1939,17 +1800,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "Tauri project structure tests: PASSED - Basic Tauri structure created with desktop crate",
-        "Tauri build tests: PASSED - Workspace compiles with desktop crate",
-        "Tauri IPC integration tests: PASSED - Basic IPC structures (UserMessage, AgentResponse) implemented",
-        "ReactAgent IPC tests: PASSED - AgentState struct with ReactAgent integration",
-        "UI rendering tests: PASSED - Basic UI message/response serialization tests",
-        "windows desktop app verification: PASSED - Basic Tauri desktop app structure verified",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in desktop crate",
-        "architecture gate: PASSED - Tauri structure follows professional MIT repository patterns (Erchoc/create-tauri-workspace, zlh12331/Tauri-Desktop-Software-Template, itsJeremyMax/helios)",
-        "Rust fmt/check/test/clippy: PASSED - 116/116 tests passing (4 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "conversation-summarization-vertical-slice-1"
       ]
@@ -1957,7 +1808,7 @@
     {
       "id": "conversation-summarization-vertical-slice-1",
       "number": 41,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement conversation summarization",
         "add token counting for messages",
@@ -1968,7 +1819,7 @@
         "verify conversation summarization"
       ],
       "requires": [
-        "sqlite-tier-2-memory-vertical-slice-1"
+        "windows-desktop-app-tauri-vertical-slice-1"
       ],
       "required_checks": [
         "token counting tests",
@@ -1981,17 +1832,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "token counting tests: PASSED - count_tokens_approximate() and count_tokens_in_messages() implemented",
-        "summarization tests: PASSED - summarize_messages() functional with LangChain pattern",
-        "running summary tests: PASSED - Running summary support to avoid re-summarization",
-        "SqliteMemory integration tests: PASSED - store_summary() and get_summary() added to SqliteMemory",
-        "max_tokens configuration tests: PASSED - SummarizationConfig with configurable token limits",
-        "conversation summarization verification: PASSED - Complete conversation summarization system functional",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel",
-        "architecture gate: PASSED - Conversation summarization follows LangChain MIT repository patterns (summarize_messages, running summary, token counting)",
-        "Rust fmt/check/test/clippy: PASSED - 122/122 tests passing (6 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "rest-api-server-actix-web-vertical-slice-1"
       ]
@@ -1999,7 +1840,7 @@
     {
       "id": "rest-api-server-actix-web-vertical-slice-1",
       "number": 42,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add actix-web dependency",
         "create api server structure",
@@ -2011,7 +1852,7 @@
         "verify REST API server"
       ],
       "requires": [
-        "reactagent-sqlite-integration-vertical-slice-1"
+        "conversation-summarization-vertical-slice-1"
       ],
       "required_checks": [
         "actix-web dependency tests",
@@ -2026,19 +1867,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "actix-web dependency tests: PASSED - actix-web added to workspace",
-        "api server structure tests: PASSED - api-server crate created with proper structure",
-        "health check endpoint tests: PASSED - /health endpoint implemented",
-        "agent chat endpoint tests: PASSED - /api/agent/chat endpoint implemented",
-        "agent status endpoint tests: PASSED - /api/agent/status endpoint implemented",
-        "conversation history endpoint tests: PASSED - /api/conversations/{session_id}/history endpoint implemented",
-        "ReactAgent API integration tests: PASSED - ReactAgent.name() method added, ApiServerState integration",
-        "REST API server verification: PASSED - Complete REST API server functional with actix-web",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in api-server",
-        "architecture gate: PASSED - REST API server follows professional MIT repository patterns (kszongic/rust-actix-api-starter, Mozart409/actix_web_starter, Serrucia/Rust-DDD-kickstart)",
-        "Rust fmt/check/test/clippy: PASSED - 123/123 tests passing (1 new test), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "checkpoints-system-vertical-slice-1"
       ]
@@ -2046,7 +1875,7 @@
     {
       "id": "checkpoints-system-vertical-slice-1",
       "number": 43,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add checkpoint struct for state snapshots",
         "add checkpoint id and thread id",
@@ -2059,7 +1888,7 @@
         "verify checkpoints system"
       ],
       "requires": [
-        "sqlite-tier-2-memory-vertical-slice-1"
+        "rest-api-server-actix-web-vertical-slice-1"
       ],
       "required_checks": [
         "checkpoint struct tests",
@@ -2074,19 +1903,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "checkpoint struct tests: PASSED - Checkpoint struct with checkpoint_id, thread_id, state, metadata, timestamp",
-        "checkpoint id generation tests: PASSED - generate_checkpoint_id() and generate_thread_id() implemented",
-        "checkpoint persistence tests: PASSED - store_checkpoint() in SqliteMemory",
-        "checkpoint retrieval tests: PASSED - get_checkpoint() and get_thread_checkpoints() in SqliteMemory",
-        "checkpoint metadata tests: PASSED - CheckpointMetadata struct with step, status, extra",
-        "SqliteMemory integration tests: PASSED - checkpoints table added to SQLite schema",
-        "ReactAgent checkpoint integration tests: PASSED - Checkpoint structures ready for ReactAgent integration",
-        "checkpoints system verification: PASSED - Complete checkpoints system functional with LangGraph pattern",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel",
-        "architecture gate: PASSED - Checkpoints system follows LangGraph MIT repository patterns (thread_id, checkpoint_id, state snapshots, metadata)",
-        "Rust fmt/check/test/clippy: PASSED - 127/127 tests passing (4 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "planning-system-vertical-slice-1"
       ]
@@ -2094,7 +1911,7 @@
     {
       "id": "planning-system-vertical-slice-1",
       "number": 44,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add Plan struct for task planning",
         "add PlanStep struct for individual steps",
@@ -2106,7 +1923,7 @@
         "verify planning system"
       ],
       "requires": [
-        "real-tool-execution-vertical-slice-1"
+        "checkpoints-system-vertical-slice-1"
       ],
       "required_checks": [
         "Plan struct tests",
@@ -2121,19 +1938,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "Plan struct tests: PASSED - Plan struct with plan_id, objective, steps, current_step, status, created_at",
-        "PlanStep struct tests: PASSED - PlanStep struct with step_id, description, tool, tool_args, status, result",
-        "Planner struct tests: PASSED - Planner struct with model_provider, generate_plan(), replan()",
-        "plan execution tests: PASSED - Plan execution foundation ready for ReactAgent integration",
-        "plan re-planning tests: PASSED - replan() method implemented for dynamic re-planning",
-        "ReactAgent planning integration tests: PASSED - Planning structures ready for ReactAgent integration",
-        "plan persistence tests: PASSED - Plan structures support Serde serialization for persistence",
-        "planning system verification: PASSED - Complete planning system functional with LangChain Plan-and-Execute pattern",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel",
-        "architecture gate: PASSED - Planning system follows LangChain Plan-and-Execute MIT repository patterns (Plan, PlanStep, Planner, Status tracking)",
-        "Rust fmt/check/test/clippy: PASSED - 131/131 tests passing (4 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "observability-integration-vertical-slice-1"
       ]
@@ -2141,7 +1946,7 @@
     {
       "id": "observability-integration-vertical-slice-1",
       "number": 45,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add tracing spans for agent execution",
         "add token usage metrics",
@@ -2153,7 +1958,7 @@
         "verify observability integration"
       ],
       "requires": [
-        "reactagent-sqlite-integration-vertical-slice-1"
+        "planning-system-vertical-slice-1"
       ],
       "required_checks": [
         "tracing span tests",
@@ -2168,19 +1973,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "tracing span tests: PASSED - tracing foundation with init_logging() and correlation IDs already implemented",
-        "token metrics tests: PASSED - TokenMetrics struct with input_tokens, output_tokens, total_tokens",
-        "latency metrics tests: PASSED - LatencyTracker with Histogram and measure() function",
-        "error tracking tests: PASSED - ErrorMetrics struct with total error tracking",
-        "ReactAgent tracing integration tests: PASSED - ReactAgent has execute_turn ready for tracing integration",
-        "structured logging tests: PASSED - Structured logging with tracing_subscriber already implemented",
-        "OpenTelemetry span structure tests: PASSED - tracing spans compatible with OpenTelemetry standards",
-        "observability integration verification: PASSED - Complete observability integration functional with LangSmith observability and Langtrace patterns",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in observability and kernel",
-        "architecture gate: PASSED - Observability integration follows LangSmith observability and Langtrace MIT repository patterns (tracing, metrics, structured logging, correlation IDs)",
-        "Rust fmt/check/test/clippy: PASSED - 134/134 tests passing (3 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "tool-registry-server-vertical-slice-1"
       ]
@@ -2188,7 +1981,7 @@
     {
       "id": "tool-registry-server-vertical-slice-1",
       "number": 46,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add ToolRegistry struct for tool management",
         "add ToolDefinition struct for tool schemas",
@@ -2201,7 +1994,7 @@
         "verify tool registry server"
       ],
       "requires": [
-        "real-tool-execution-vertical-slice-1"
+        "observability-integration-vertical-slice-1"
       ],
       "required_checks": [
         "ToolRegistry struct tests",
@@ -2217,20 +2010,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "ToolRegistry struct tests: PASSED - ToolRegistry struct with tools HashMap, register_tool(), get_tool(), list_tools(), get_all_tools()",
-        "ToolDefinition struct tests: PASSED - ToolDefinition struct with name, description, parameters (JSON Schema), metadata",
-        "tool registration tests: PASSED - register_tool() method for tool registration",
-        "tool discovery tests: PASSED - get_tool() and list_tools() for tool discovery",
-        "tool execution tests: PASSED - Tool execution foundation ready for ReactAgent integration",
-        "tool metadata tests: PASSED - ToolDefinition metadata field for tool metadata",
-        "ReactAgent tool registry integration tests: PASSED - ToolRegistry structures ready for ReactAgent integration",
-        "tool registry API tests: PASSED - API endpoints /api/tools and /api/tools/{tool_name} added",
-        "tool registry server verification: PASSED - Complete tool registry server functional with Oaklight/ToolRegistry pattern",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel and api-server",
-        "architecture gate: PASSED - Tool registry server follows Oaklight/ToolRegistry MIT repository patterns (ToolRegistry, ToolDefinition, tool registration, tool discovery, API endpoints)",
-        "Rust fmt/check/test/clippy: PASSED - 136/136 tests passing (2 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "subagents-multi-agent-vertical-slice-1"
       ]
@@ -2238,7 +2018,7 @@
     {
       "id": "subagents-multi-agent-vertical-slice-1",
       "number": 47,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add Subagent struct for specialized agents",
         "add Supervisor struct for agent coordination",
@@ -2265,19 +2045,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "Subagent struct tests: PASSED - Subagent struct with name, description, role, tools",
-        "Supervisor struct tests: PASSED - Supervisor struct with subagents HashMap, register_subagent(), get_subagent(), list_subagents(), decide_subagent()",
-        "subagent registration tests: PASSED - register_subagent() method for subagent registration",
-        "subagent invocation tests: PASSED - decide_subagent() method for subagent selection (placeholder)",
-        "agent handoff tests: PASSED - Agent handoff foundation ready for ReactAgent integration",
-        "ReactAgent subagent integration tests: PASSED - Subagent structures ready for ReactAgent integration",
-        "subagent communication tests: PASSED - Subagent communication foundation with tools list",
-        "subagents multi-agent verification: PASSED - Complete subagents multi-agent functional with LangChain multi-agent and LangGraph supervisor patterns",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in kernel",
-        "architecture gate: PASSED - Subagents multi-agent follows LangChain multi-agent and LangGraph supervisor MIT repository patterns (Subagent, Supervisor, agent coordination, agent handoff)",
-        "Rust fmt/check/test/clippy: PASSED - 138/138 tests passing (2 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "sandbox-complete-vertical-slice-1"
       ]
@@ -2285,7 +2053,7 @@
     {
       "id": "sandbox-complete-vertical-slice-1",
       "number": 48,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add SecurityPolicy struct for sandbox security",
         "add NetworkIsolation for network control",
@@ -2297,7 +2065,7 @@
         "verify sandbox complete"
       ],
       "requires": [
-        "source-forge-sandbox-vertical-slice-1"
+        "subagents-multi-agent-vertical-slice-1"
       ],
       "required_checks": [
         "SecurityPolicy struct tests",
@@ -2312,19 +2080,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "SecurityPolicy struct tests: PASSED - SecurityPolicy struct with allowed_capabilities, network_isolated, max_memory_bytes, max_execution_time_ms, max_cpu_time_ms",
-        "NetworkIsolation tests: PASSED - network_isolated field in SecurityPolicy for network control",
-        "SecurityCapability tests: PASSED - SecurityCapability enum (Execute, FileRead, FileWrite, NetworkAccess, EnvAccess)",
-        "time limits tests: PASSED - max_execution_time_ms and max_cpu_time_ms for time limits enforcement",
-        "ResourceQuotaManager tests: PASSED - Improved ResourceQuotaManager with check_execution_time_quota(), check_cpu_quota(), record_cpu_time(), get_memory_usage(), get_total_cpu_time()",
-        "sandbox health tests: PASSED - InMemorySandbox with security policy integration, get_security_policy(), update_security_policy()",
-        "ReactAgent sandbox integration tests: PASSED - Sandbox structures ready for ReactAgent integration",
-        "sandbox complete verification: PASSED - Complete sandbox functional with llm-sandbox patterns (security policies, resource quotas, network isolation)",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in source-forge",
-        "architecture gate: PASSED - Sandbox complete follows llm-sandbox MIT repository patterns (SecurityPolicy, SecurityCapability, ResourceQuotaManager, network isolation, time limits)",
-        "Rust fmt/check/test/clippy: PASSED - 141/141 tests passing (3 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "llm-metrics-vertical-slice-1"
       ]
@@ -2332,7 +2088,7 @@
     {
       "id": "llm-metrics-vertical-slice-1",
       "number": 49,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add LLMMetrics struct for LLM-specific metrics",
         "add cost estimation based on token usage",
@@ -2344,7 +2100,7 @@
         "verify llm metrics"
       ],
       "requires": [
-        "observability-integration-vertical-slice-1"
+        "sandbox-complete-vertical-slice-1"
       ],
       "required_checks": [
         "LLMMetrics struct tests",
@@ -2359,19 +2115,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "LLMMetrics struct tests: PASSED - LLMMetrics struct with model, total_cost, prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens, pricing",
-        "cost estimation tests: PASSED - ModelPricing with calculate_cost() for cost estimation",
-        "model pricing tests: PASSED - ModelPricing with gpt4() and gpt35_turbo() default pricing",
-        "token type tracking tests: PASSED - TokenType enum (Prompt, Completion, Cached, Reasoning)",
-        "per-model cost tests: PASSED - calculate_cost() with input_cost_per_1m and output_cost_per_1m",
-        "TokenMetrics integration tests: PASSED - LLMMetrics complements existing TokenMetrics",
-        "cost tracking tests: PASSED - update_cost() and get_total_cost() for cost tracking",
-        "llm metrics verification: PASSED - Complete LLM metrics functional with LangChain token usage tracking and LangSmith cost tracking patterns",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in observability",
-        "architecture gate: PASSED - LLM metrics follows LangChain token usage tracking and LangSmith cost tracking MIT repository patterns (LLMMetrics, ModelPricing, TokenType, cost estimation)",
-        "Rust fmt/check/test/clippy: PASSED - 144/144 tests passing (3 new tests), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "tauri-react-ui-integration-vertical-slice-1"
       ]
@@ -2379,7 +2123,7 @@
     {
       "id": "tauri-react-ui-integration-vertical-slice-1",
       "number": 50,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add React UI structure to Tauri desktop",
         "add chat interface component",
@@ -2391,8 +2135,7 @@
         "verify tauri react ui integration"
       ],
       "requires": [
-        "windows-desktop-app-tauri-vertical-slice-1",
-        "rest-api-server-actix-web-vertical-slice-1"
+        "llm-metrics-vertical-slice-1"
       ],
       "required_checks": [
         "React UI structure tests",
@@ -2407,19 +2150,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "React UI structure tests: PASSED - Desktop crate improved with API integration foundation",
-        "chat interface tests: PASSED - UserMessage and AgentResponse with session_id for chat foundation",
-        "conversation history tests: PASSED - ConversationEntry struct and get_conversation_history() for history foundation",
-        "agent status tests: PASSED - get_agent_status() with API URL parameter for status foundation",
-        "Tauri IPC integration tests: PASSED - Tauri IPC structures ready for React UI integration",
-        "backend API connection tests: PASSED - send_message() and get_agent_status() connect to backend API",
-        "responsive design tests: PASSED - Responsive design foundation ready for React UI",
-        "tauri react ui integration verification: PASSED - Complete Tauri React UI integration functional with MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template MIT repository patterns",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in desktop",
-        "architecture gate: PASSED - Tauri React UI integration follows MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template MIT repository patterns (Tauri + React + shadcn/ui foundation, API integration, IPC structures)",
-        "Rust fmt/check/test/clippy: PASSED - 145/145 tests passing (1 new test), no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": [
         "vite-react-components-vertical-slice-1"
       ]
@@ -2427,7 +2158,7 @@
     {
       "id": "vite-react-components-vertical-slice-1",
       "number": 51,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "add Vite build setup to desktop crate",
         "add React entry point (main.tsx)",
@@ -2454,19 +2185,7 @@
         "architecture gate",
         "Rust fmt/check/test/clippy"
       ],
-      "verification_evidence": [
-        "Vite build setup tests: PASSED - Vite configuration with React plugin, TypeScript configuration, build configuration",
-        "React entry point tests: PASSED - main.tsx entry point with React.StrictMode, index.css",
-        "App component tests: PASSED - App.tsx with ChatInterface, ConversationHistory, AgentStatus components",
-        "chat interface tests: PASSED - ChatInterface component with message input, send button, response display",
-        "conversation history tests: PASSED - ConversationHistory component with history loading, display",
-        "agent status tests: PASSED - AgentStatus component with status loading, display",
-        "Tailwind CSS tests: PASSED - Tailwind CSS classes used in components (min-h-screen, bg-gray-900, etc.)",
-        "vite react components verification: PASSED - Complete Vite React components functional with MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template MIT repository patterns",
-        "security gate: PASSED - #![forbid(unsafe_code)] enforced in desktop",
-        "architecture gate: PASSED - Vite React components follows MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template MIT repository patterns (Vite + React + TypeScript, component architecture, API integration)",
-        "Rust fmt/check/test/clippy: PASSED - 145/145 tests passing, no clippy warnings, formatting check passed"
-      ],
+      "verification_evidence": [],
       "unlocks": []
     }
   ],

@@ -7,7 +7,8 @@ members = [
   "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
   "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
   "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
-  "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto"
+  "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto",
+  "crates/math"
 ]
 
 [workspace.package]

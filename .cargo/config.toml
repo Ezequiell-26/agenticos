@@ -1,0 +1,20 @@
+[build]
+# Optimize for compilation speed in development
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[profile.dev]
+# Faster compilation with slightly slower runtime
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+# Build dependencies with optimizations
+opt-level = 3
+
+[profile.release]
+# Maximum optimization for production
+opt-level = 3
+lto = "fat"
+codegen-units = 1

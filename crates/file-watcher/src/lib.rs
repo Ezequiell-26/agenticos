@@ -139,7 +139,13 @@ impl DebouncedWatcher {
 
     /// Watch path with debouncing
     pub fn watch(&self, path: &Path) -> Result<SimpleWatcher, WatcherError> {
-        SimpleWatcher::watch(path)
+        let config = WatcherConfig {
+            debounce_ms: self.config.debounce_ms,
+            ..Default::default()
+        };
+        let mut watcher = FileWatcher::new(config)?;
+        watcher.watch_path(path)?;
+        Ok(SimpleWatcher { watcher })
     }
 }
 

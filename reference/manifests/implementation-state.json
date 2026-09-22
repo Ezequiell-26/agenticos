@@ -768,7 +768,7 @@
     },
     {
       "id": "cqrs-separation-vertical-slice-1",
-      "number": 12,
+      "number": 11,
       "status": "verified",
       "scope": [
         "separate command handlers from query handlers in execution layer",
@@ -804,7 +804,7 @@
     },
     {
       "id": "outbox-pattern-vertical-slice-1",
-      "number": 13,
+      "number": 12,
       "status": "verified",
       "scope": [
         "persist domain events into an outbox before publication",
@@ -843,7 +843,7 @@
     },
     {
       "id": "saga-coordinator-vertical-slice-1",
-      "number": 14,
+      "number": 13,
       "status": "verified",
       "scope": [
         "define saga contract for multi-step workflow orchestration",
@@ -879,7 +879,7 @@
     },
     {
       "id": "feature-flags-vertical-slice-1",
-      "number": 15,
+      "number": 14,
       "status": "verified",
       "scope": [
         "define feature flag contract for runtime configuration",
@@ -916,7 +916,7 @@
     },
     {
       "id": "architecture-refactoring-vertical-slice-1",
-      "number": 16,
+      "number": 15,
       "status": "verified",
       "scope": [
         "document current crate organization",
@@ -953,7 +953,7 @@
     },
     {
       "id": "integration-test-coverage-vertical-slice-1",
-      "number": 17,
+      "number": 16,
       "status": "verified",
       "scope": [
         "audit current test coverage across all crates",
@@ -988,7 +988,7 @@
     },
     {
       "id": "project-status-consolidation-vertical-slice-1",
-      "number": 18,
+      "number": 17,
       "status": "verified",
       "scope": [
         "create executive summary of all 17 verified steps",
@@ -1027,7 +1027,7 @@
     },
     {
       "id": "cli-enhancement-vertical-slice-1",
-      "number": 19,
+      "number": 18,
       "status": "verified",
       "scope": [
         "add run list command to CLI",
@@ -1062,7 +1062,7 @@
     },
     {
       "id": "documentation-finalization-vertical-slice-1",
-      "number": 20,
+      "number": 19,
       "status": "verified",
       "scope": [
         "create comprehensive README.md",
@@ -1103,7 +1103,7 @@
     },
     {
       "id": "provider-integration-vertical-slice-1",
-      "number": 21,
+      "number": 20,
       "status": "verified",
       "scope": [
         "integrate CLI with kernel runtime for run execution",
@@ -1137,7 +1137,7 @@
     },
     {
       "id": "httpmodelprovider-export-vertical-slice-1",
-      "number": 22,
+      "number": 21,
       "status": "verified",
       "scope": [
         "export HttpModelProvider from kernel crate",
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "integration-test-implementation-phase-1",
-      "number": 23,
+      "number": 22,
       "status": "verified",
       "scope": [
         "implement kernel runtime integration tests",
@@ -1216,7 +1216,7 @@
     },
     {
       "id": "cli-output-formatting-vertical-slice-1",
-      "number": 24,
+      "number": 23,
       "status": "verified",
       "scope": [
         "add verbose output option to CLI",
@@ -1249,7 +1249,7 @@
     },
     {
       "id": "integration-test-implementation-phase-2",
-      "number": 25,
+      "number": 24,
       "status": "verified",
       "scope": [
         "implement execution layer integration tests",
@@ -1290,7 +1290,7 @@
     },
     {
       "id": "integration-test-implementation-phase-3",
-      "number": 26,
+      "number": 25,
       "status": "pending",
       "scope": [
         "implement provider layer integration tests",
@@ -1319,7 +1319,7 @@
     },
     {
       "id": "project-status-summary-vertical-slice-1",
-      "number": 27,
+      "number": 26,
       "status": "verified",
       "scope": [
         "consolidate all 25 verified steps status",
@@ -1330,7 +1330,7 @@
         "create roadmap for next development phase"
       ],
       "requires": [
-        "integration-test-implementation-phase-2"
+        "integration-test-implementation-phase-3"
       ],
       "required_checks": [
         "step consolidation verification",

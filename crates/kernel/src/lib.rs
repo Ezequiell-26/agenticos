@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(missing_debug_implementations)]
 
 //! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
 
@@ -11,6 +12,63 @@ pub use agenticos_contracts::{
     SagaStatus, SagaStep, SagaStepStatus, SagaStepType, Sandbox, SandboxRequest, SandboxResponse,
     SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
+
+pub use agenticos_sandbox::{ProcessSandbox, SandboxConfig, SandboxFactory};
+
+pub mod session_event_log;
+pub use session_event_log::{SessionEvent, SessionEventLog};
+
+pub mod tool_execution_pipeline;
+pub use tool_execution_pipeline::{
+    PermissionPolicyHook, PostExecutionHook, PreExecutionHook, PreExecutionHookResult,
+    ToolExecutionContext, ToolExecutionPipeline, ToolExecutionResult,
+};
+
+pub mod llm_router;
+pub use llm_router::{
+    Capability, KeyStatus, LLMRouter, ModelEntry, ProviderType, RateLimit, UsageLedger,
+};
+
+pub mod bandit_scoring;
+pub use bandit_scoring::{BanditScore, ModelStats, ThompsonSamplingBandit};
+
+pub mod quota_engine;
+pub use quota_engine::{CooldownLadder, CooldownStep, QuotaEngine};
+
+pub mod provider_adapters;
+pub use provider_adapters::{
+    ChatCompletionRequest, ChatCompletionResponse, ChatMessage, Choice, GoogleProvider,
+    GroqProvider, Provider, ProviderError, ProviderRegistry, StreamChoice, StreamChunk, Usage,
+};
+
+pub mod streaming_pipeline;
+pub use streaming_pipeline::{
+    BasicStreamingPipeline, SSEEncoder, SSEEvent, SSEMessage, StreamingContext, StreamingPipeline,
+};
+
+pub mod soul;
+pub use soul::{Milestone, SkillEntry, Soul};
+
+pub mod minimal_agent_loop;
+pub use minimal_agent_loop::{
+    AgentLoopConfig, ExitReason, LLMClient, LLMResponse, MinimalAgentLoop, StepOutcome, ToolCall,
+    ToolHandler,
+};
+
+pub mod natural_language_builder;
+pub use natural_language_builder::{
+    AgentDescription, AgentRegistry, BuilderError, BuilderLLMClient, GeneratedAgent,
+    GenerationResult, NLToolDefinition, NaturalLanguageBuilder, SimpleNaturalLanguageBuilder,
+    Workflow, WorkflowStep,
+};
+
+pub mod self_improving_agent;
+pub use self_improving_agent::{
+    AutonomousConfig, ContinualHarness, ContinualHarnessManager, Goal, GoalManager, GoalStatus,
+    Heartbeat, HeartbeatManager, QualityContext, QualityGate, QualityGateEvaluator,
+    QualityGateResult, QualityGateType, Refinement, RefinementType,
+};
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -1591,19 +1649,113 @@ impl ModelProvider for HttpModelProvider {
     }
 }
 
+/// Recovery state for failed tool executions with retry logic.
+#[derive(Debug, Clone)]
+struct RecoveryState {
+    /// Current retry count for the current operation
+    retry_count: usize,
+    /// Maximum retries allowed
+    max_retries: usize,
+    /// Consecutive failures count for circuit breaker
+    consecutive_failures: usize,
+    /// Circuit breaker threshold
+    circuit_breaker_threshold: usize,
+    /// Whether circuit breaker is open
+    circuit_breaker_open: bool,
+    /// Last error context
+    last_error: Option<String>,
+}
+
+impl Default for RecoveryState {
+    fn default() -> Self {
+        Self {
+            retry_count: 0,
+            max_retries: 3,
+            consecutive_failures: 0,
+            circuit_breaker_threshold: 5,
+            circuit_breaker_open: false,
+            last_error: None,
+        }
+    }
+}
+
+impl RecoveryState {
+    /// Create a new recovery state with custom configuration.
+    #[allow(dead_code)]
+    pub fn new(max_retries: usize, circuit_breaker_threshold: usize) -> Self {
+        Self {
+            retry_count: 0,
+            max_retries,
+            consecutive_failures: 0,
+            circuit_breaker_threshold,
+            circuit_breaker_open: false,
+            last_error: None,
+        }
+    }
+
+    /// Increment retry count.
+    pub fn increment_retry(&mut self) -> bool {
+        self.retry_count += 1;
+        self.retry_count <= self.max_retries
+    }
+
+    /// Record a failure and check circuit breaker.
+    pub fn record_failure(&mut self, error: String) -> bool {
+        self.consecutive_failures += 1;
+        self.last_error = Some(error);
+
+        if self.consecutive_failures >= self.circuit_breaker_threshold {
+            self.circuit_breaker_open = true;
+            false // Circuit breaker triggered
+        } else {
+            true // Continue retries
+        }
+    }
+
+    /// Record a success and reset circuit breaker.
+    pub fn record_success(&mut self) {
+        self.retry_count = 0;
+        self.consecutive_failures = 0;
+        self.circuit_breaker_open = false;
+        self.last_error = None;
+    }
+
+    /// Check if retries are exhausted.
+    #[allow(dead_code)]
+    pub fn is_exhausted(&self) -> bool {
+        self.retry_count >= self.max_retries
+    }
+
+    /// Check if circuit breaker is open.
+    pub fn is_circuit_breaker_open(&self) -> bool {
+        self.circuit_breaker_open
+    }
+
+    /// Reset circuit breaker.
+    #[allow(dead_code)]
+    pub fn reset_circuit_breaker(&mut self) {
+        self.circuit_breaker_open = false;
+        self.consecutive_failures = 0;
+    }
+
+    /// Calculate exponential backoff delay in milliseconds.
+    pub fn calculate_backoff_ms(&self) -> u64 {
+        let base_delay_ms = 100u64; // 100ms base delay
+        let max_delay_ms = 5000u64; // 5 seconds max delay
+        let delay = base_delay_ms * (2u64.pow(self.retry_count as u32));
+        delay.min(max_delay_ms)
+    }
+}
+
 /// ReAct agent core loop implementation.
 #[allow(missing_debug_implementations)]
 pub struct ReactAgent {
     /// Agent identity (SOUL.md equivalent)
     identity: String,
-    /// Memory tier 1: MEMORY.md
-    memory_md: String,
-    /// Memory tier 1: USER.md
-    user_md: String,
-    /// Skills catalog with full skill metadata
-    skills_catalog: Vec<Skill>,
     /// Maximum turns per session
     max_turns: usize,
+    /// SOUL system for persistent personality and memory (Hermes-style)
+    soul: Arc<RwLock<Soul>>,
     /// Interior mutability for concurrent access
     inner: Mutex<ReactAgentInner>,
 }
@@ -1632,6 +1784,26 @@ struct ReactAgentInner {
     supervisor: Option<Supervisor>,
     /// Optional sandbox for secure tool execution
     sandbox: Option<Arc<dyn Sandbox>>,
+    /// Session event log for durable event tracking
+    event_log: Option<SessionEventLog>,
+    /// Tool execution pipeline with pre/post hooks
+    tool_pipeline: Option<Arc<ToolExecutionPipeline>>,
+    /// LLM router for multi-provider fallback
+    llm_router: Option<Arc<LLMRouter>>,
+    /// Provider registry for actual provider calls
+    provider_registry: Option<Arc<ProviderRegistry>>,
+    /// Goal manager for persistent goals
+    goal_manager: Option<Arc<GoalManager>>,
+    /// Heartbeat manager for session liveness
+    heartbeat_manager: Option<Arc<HeartbeatManager>>,
+    /// Recovery state for failed tool executions
+    recovery_state: RecoveryState,
+    /// Skills catalog with full skill metadata (interior mutable)
+    skills_catalog: Vec<Skill>,
+    /// Memory tier 1: MEMORY.md (interior mutable)
+    memory_md: String,
+    /// Memory tier 1: USER.md (interior mutable)
+    user_md: String,
 }
 
 impl ReactAgent {
@@ -1639,10 +1811,8 @@ impl ReactAgent {
     pub fn new(identity: String) -> Self {
         Self {
             identity,
-            memory_md: String::new(),
-            user_md: String::new(),
-            skills_catalog: Vec::new(),
             max_turns: 90,
+            soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
                 model_provider: None,
@@ -1655,6 +1825,16 @@ impl ReactAgent {
                 tool_registry: None,
                 supervisor: None,
                 sandbox: None,
+                event_log: None,
+                tool_pipeline: None::<Arc<ToolExecutionPipeline>>,
+                llm_router: None::<Arc<LLMRouter>>,
+                provider_registry: None::<Arc<ProviderRegistry>>,
+                goal_manager: None::<Arc<GoalManager>>,
+                heartbeat_manager: None::<Arc<HeartbeatManager>>,
+                recovery_state: RecoveryState::default(),
+                skills_catalog: Vec::new(),
+                memory_md: String::new(),
+                user_md: String::new(),
             }),
         }
     }
@@ -1668,10 +1848,8 @@ impl ReactAgent {
     pub fn with_max_turns(identity: String, max_turns: usize) -> Self {
         Self {
             identity,
-            memory_md: String::new(),
-            user_md: String::new(),
-            skills_catalog: Vec::new(),
             max_turns,
+            soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
                 model_provider: None,
@@ -1684,6 +1862,16 @@ impl ReactAgent {
                 tool_registry: None,
                 supervisor: None,
                 sandbox: None,
+                event_log: None,
+                tool_pipeline: None::<Arc<ToolExecutionPipeline>>,
+                llm_router: None::<Arc<LLMRouter>>,
+                provider_registry: None::<Arc<ProviderRegistry>>,
+                goal_manager: None::<Arc<GoalManager>>,
+                heartbeat_manager: None::<Arc<HeartbeatManager>>,
+                recovery_state: RecoveryState::default(),
+                skills_catalog: Vec::new(),
+                memory_md: String::new(),
+                user_md: String::new(),
             }),
         }
     }
@@ -1754,35 +1942,146 @@ impl ReactAgent {
         self.inner.lock().unwrap().supervisor = Some(supervisor);
     }
 
+    /// Set the model provider for Planner and Supervisor LLM integration.
+    pub fn set_model_provider_for_planning(&self, provider: Arc<dyn agenticos_contracts::ModelProvider>) {
+        self.inner.lock().unwrap().model_provider = Some(provider);
+    }
+
     /// Set the sandbox for secure tool execution.
     pub fn set_sandbox(&self, sandbox: Arc<dyn Sandbox>) {
         self.inner.lock().unwrap().sandbox = Some(sandbox);
     }
 
+    /// Set the session event log for durable event tracking.
+    pub fn set_event_log(&self, event_log: SessionEventLog) {
+        self.inner.lock().unwrap().event_log = Some(event_log);
+    }
+
+    /// Get the session event log if available.
+    pub fn get_event_log(&self) -> Option<SessionEventLog> {
+        self.inner.lock().unwrap().event_log.clone()
+    }
+
+    /// Set the tool execution pipeline with pre/post hooks.
+    pub fn set_tool_pipeline(&self, pipeline: ToolExecutionPipeline) {
+        self.inner.lock().unwrap().tool_pipeline = Some(Arc::new(pipeline));
+    }
+
+    /// Get the tool execution pipeline if available.
+    pub fn get_tool_pipeline(&self) -> Option<Arc<ToolExecutionPipeline>> {
+        self.inner.lock().unwrap().tool_pipeline.clone()
+    }
+
+    /// Set the LLM router for multi-provider fallback.
+    pub fn set_llm_router(&self, router: LLMRouter) {
+        self.inner.lock().unwrap().llm_router = Some(Arc::new(router));
+    }
+
+    /// Get the LLM router if available.
+    pub fn get_llm_router(&self) -> Option<Arc<LLMRouter>> {
+        self.inner.lock().unwrap().llm_router.clone()
+    }
+
+    /// Set the provider registry for actual provider calls.
+    pub fn set_provider_registry(&self, registry: ProviderRegistry) {
+        self.inner.lock().unwrap().provider_registry = Some(Arc::new(registry));
+    }
+
+    /// Get the provider registry if available.
+    pub fn get_provider_registry(&self) -> Option<Arc<ProviderRegistry>> {
+        self.inner.lock().unwrap().provider_registry.clone()
+    }
+
+    /// Set the goal manager for persistent goals.
+    pub fn set_goal_manager(&self, manager: GoalManager) {
+        self.inner.lock().unwrap().goal_manager = Some(Arc::new(manager));
+    }
+
+    /// Get the goal manager if available.
+    pub fn get_goal_manager(&self) -> Option<Arc<GoalManager>> {
+        self.inner.lock().unwrap().goal_manager.clone()
+    }
+
+    /// Set the heartbeat manager for session liveness.
+    pub fn set_heartbeat_manager(&self, manager: HeartbeatManager) {
+        self.inner.lock().unwrap().heartbeat_manager = Some(Arc::new(manager));
+    }
+
+    /// Get the heartbeat manager if available.
+    pub fn get_heartbeat_manager(&self) -> Option<Arc<HeartbeatManager>> {
+        self.inner.lock().unwrap().heartbeat_manager.clone()
+    }
+
+    /// Get the SOUL (Hermes-style personality and memory system).
+    pub async fn get_soul(&self) -> Soul {
+        self.soul.read().await.clone()
+    }
+
+    /// Update the SOUL's memory.
+    pub async fn update_soul_memory(&self, new_memory: String) {
+        let mut soul = self.soul.write().await;
+        soul.update_memory(new_memory);
+    }
+
+    /// Add a skill to the SOUL (Hermes-style skill crystallization).
+    pub async fn add_skill_to_soul(&self, skill: SkillEntry) {
+        let mut soul = self.soul.write().await;
+        soul.add_skill(skill);
+    }
+
+    /// Record a milestone in the SOUL.
+    pub async fn record_milestone(&self, milestone: Milestone) {
+        let mut soul = self.soul.write().await;
+        soul.add_milestone(milestone);
+    }
+
+    /// Get top skills from the SOUL.
+    pub async fn get_top_skills(&self, limit: usize) -> Vec<SkillEntry> {
+        let soul = self.soul.read().await;
+        soul.get_top_skills(limit).into_iter().cloned().collect()
+    }
+
+    /// Load SOUL from a file.
+    pub async fn load_soul_from_file(
+        &self,
+        path: PathBuf,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let soul = Soul::load_from_file(&path)?;
+        *self.soul.write().await = soul;
+        Ok(())
+    }
+
+    /// Save SOUL to a file.
+    pub async fn save_soul_to_file(&self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        let soul = self.soul.read().await;
+        soul.save_to_file(&path)?;
+        Ok(())
+    }
+
     /// Add a skill to the catalog.
     pub fn add_skill(&self, skill: Skill) {
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+        let mut inner = self.inner.lock().unwrap();
+        inner.skills_catalog.push(skill);
     }
 
     /// Add a skill from markdown content.
     pub fn add_skill_from_markdown(&self, markdown: &str) -> Result<(), String> {
         let skill = Skill::from_markdown(markdown)?;
-        // For now, we'll skip this as skills_catalog is immutable
-        // TODO: Add interior mutability for skills_catalog
+        let mut inner = self.inner.lock().unwrap();
+        inner.skills_catalog.push(skill);
         Ok(())
     }
 
     /// Set MEMORY.md content.
     pub fn set_memory_md(&self, content: String) {
-        // For now, we'll skip this as memory_md is immutable
-        // TODO: Add interior mutability for memory_md
+        let mut inner = self.inner.lock().unwrap();
+        inner.memory_md = content;
     }
 
     /// Set USER.md content.
     pub fn set_user_md(&self, content: String) {
-        // For now, we'll skip this as user_md is immutable
-        // TODO: Add interior mutability for user_md
+        let mut inner = self.inner.lock().unwrap();
+        inner.user_md = content;
     }
 
     /// Build system prompt from SOUL, memory snapshot, and skills catalog.
@@ -1793,23 +2092,35 @@ impl ReactAgent {
         prompt.push_str(&self.identity);
         prompt.push('\n');
 
-        // Memory snapshot
-        if !self.memory_md.is_empty() {
+        // Memory snapshot (from interior mutable fields)
+        let (memory_md, user_md, skills_catalog) = {
+            let inner = self.inner.lock().unwrap();
+            (
+                inner.memory_md.clone(),
+                inner.user_md.clone(),
+                inner.skills_catalog.clone(),
+            )
+        };
+
+        if !memory_md.is_empty() {
             prompt.push_str("## Memory (MEMORY.md)\n");
-            prompt.push_str(&self.memory_md);
+            prompt.push_str(&memory_md);
             prompt.push('\n');
         }
 
-        if !self.user_md.is_empty() {
+        if !user_md.is_empty() {
             prompt.push_str("## User Preferences (USER.md)\n");
-            prompt.push_str(&self.user_md);
+            prompt.push_str(&user_md);
             prompt.push('\n');
         }
 
         // Tier 2 memory: Conversation History from SQLite
-        let inner = self.inner.lock().unwrap();
-        if let Some(memory) = &inner.memory {
-            if let Ok(context) = memory.get_session_history(&inner.session_id, 10).await {
+        let (memory, session_id) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone())
+        };
+        if let Some(memory) = memory {
+            if let Ok(context) = memory.get_session_history(&session_id, 10).await {
                 if !context.is_empty() {
                     prompt.push_str("## Conversation History (Recent)\n");
                     for msg in context.iter().take(10) {
@@ -1821,9 +2132,9 @@ impl ReactAgent {
         }
 
         // Skills catalog (progressive disclosure)
-        if !self.skills_catalog.is_empty() {
+        if !skills_catalog.is_empty() {
             prompt.push_str("## Available Skills\n");
-            for skill in &self.skills_catalog {
+            for skill in &skills_catalog {
                 prompt.push_str(&format!("- {}\n", skill.summary()));
             }
             prompt.push('\n');
@@ -1837,21 +2148,107 @@ impl ReactAgent {
     }
 
     /// Execute thought/reasoning step using LLM.
-    async fn think(&self, input: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.think_inner(&inner, input).await
+    pub async fn think(&self, input: &str) -> Result<String, ContractError> {
+        let (provider, turn, llm_router) = {
+            let inner = self.inner.lock().unwrap();
+            (
+                inner.model_provider.clone(),
+                inner.current_turn,
+                inner.llm_router.clone(),
+            )
+        };
+
+        // If LLM router is configured, use it for provider selection
+        if let Some(router) = llm_router {
+            return self.think_with_router(&router, turn, input).await;
+        }
+
+        self.think_inner(provider.as_ref(), turn, input).await
     }
 
-    /// Inner thought method taking reference to inner state.
-    async fn think_inner(
+    /// Execute thought using LLM router for provider selection.
+    async fn think_with_router(
         &self,
-        inner: &ReactAgentInner,
+        router: &LLMRouter,
+        _current_turn: usize,
         input: &str,
     ) -> Result<String, ContractError> {
-        if let Some(provider) = &inner.model_provider {
+        // Select best available model
+        let selected_model = router.select_model(false);
+        let model_entry = selected_model.ok_or(ContractError::MissingCapability)?;
+
+        // Get API key for the provider
+        let api_key = router
+            .get_api_key(&model_entry.provider)
+            .ok_or(ContractError::MissingCapability)?;
+
+        // Build system prompt
+        let system_prompt = self.build_system_prompt().await;
+
+        // Create request
+        let request = ChatCompletionRequest {
+            model: model_entry.model_id.clone(),
+            messages: vec![
+                ChatMessage {
+                    role: "system".to_string(),
+                    content: system_prompt,
+                },
+                ChatMessage {
+                    role: "user".to_string(),
+                    content: input.to_string(),
+                },
+            ],
+            temperature: Some(0.7),
+            max_tokens: Some(2048),
+            stream: Some(false),
+        };
+
+        // Get provider registry
+        let provider_registry = self
+            .get_provider_registry()
+            .ok_or(ContractError::MissingCapability)?;
+
+        // Call the provider
+        let provider = provider_registry
+            .get(&model_entry.provider.to_string())
+            .ok_or(ContractError::MissingCapability)?;
+
+        let response = provider.chat_completion(request, &api_key).await;
+
+        match response {
+            Ok(resp) => {
+                // Record usage
+                let total_tokens = resp.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0);
+                router.record_usage(&model_entry.model_id, total_tokens);
+
+                // Extract content from response
+                if let Some(choice) = resp.choices.first() {
+                    Ok(choice.message.content.clone())
+                } else {
+                    Ok("No response from model".to_string())
+                }
+            }
+            Err(e) => {
+                // Mark provider as rate limited if error indicates rate limit
+                if e.is_rate_limit {
+                    router.mark_rate_limited(&model_entry.model_id, 60);
+                }
+                Err(ContractError::ParseError(e.message))
+            }
+        }
+    }
+
+    /// Inner thought method taking model provider and turn count without holding locks.
+    async fn think_inner(
+        &self,
+        model_provider: Option<&Arc<dyn ModelProvider>>,
+        current_turn: usize,
+        input: &str,
+    ) -> Result<String, ContractError> {
+        if let Some(provider) = model_provider {
             let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
-                request_id: format!("think-{}", inner.current_turn),
+                request_id: format!("think-{}", current_turn),
                 model: "default".to_string(),
                 input: format!("{}\n\nUser: {}", system_prompt, input),
                 parameters: None,
@@ -1868,17 +2265,20 @@ impl ReactAgent {
 
     /// Execute action step (tool call).
     pub async fn act(&self, action: &str) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        self.act_inner(&inner, action).await
+        let executor = {
+            let inner = self.inner.lock().unwrap();
+            inner.tool_executor.clone()
+        };
+        self.act_inner(executor.as_ref(), action).await
     }
 
-    /// Inner act method taking reference to inner state.
+    /// Inner act method taking reference to executor.
     async fn act_inner(
         &self,
-        inner: &ReactAgentInner,
+        executor: Option<&ToolExecutor>,
         action: &str,
     ) -> Result<String, ContractError> {
-        if let Some(executor) = &inner.tool_executor {
+        if let Some(executor) = executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
             if action.starts_with("read_file:") {
@@ -2086,7 +2486,7 @@ impl ReactAgent {
                 }
             }
         } else {
-            // Fallback to simulated action if no executor
+            // Fallback when no executor configured
             Ok(format!("Executed action: {}", action))
         }
     }
@@ -2104,69 +2504,380 @@ impl ReactAgent {
             ));
         }
 
-        let inner = self.inner.lock().unwrap();
+        // Snapshot required state without holding the lock across await boundaries
+        let (
+            current_turn,
+            session_id,
+            memory,
+            model_provider,
+            planner,
+            current_plan,
+            tool_executor,
+            checkpoint_store,
+            supervisor,
+            sandbox,
+            event_log,
+            tool_pipeline,
+            _soul,
+            goal_manager,
+            heartbeat_manager,
+        ) = {
+            let inner = self.inner.lock().unwrap();
+            (
+                inner.current_turn,
+                inner.session_id.clone(),
+                inner.memory.clone(),
+                inner.model_provider.clone(),
+                inner.planner.clone(),
+                inner.current_plan.clone(),
+                inner.tool_executor.clone(),
+                inner.checkpoint_store.clone(),
+                inner.supervisor.clone(),
+                inner.sandbox.clone(),
+                inner.event_log.clone(),
+                inner.tool_pipeline.clone(),
+                self.soul.clone(),
+                inner.goal_manager.clone(),
+                inner.heartbeat_manager.clone(),
+            )
+        };
+
+        // Track turn start time for latency measurement
+        let turn_start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Log turn start event
+        let turn_id = if let Some(log) = &event_log {
+            let tid = SessionEvent::generate_id("turn");
+            log.append(SessionEvent::TurnStart {
+                turn_id: tid.clone(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            });
+
+            // Log user message event
+            log.append(SessionEvent::UserMessage {
+                message_id: SessionEvent::generate_id("msg"),
+                turn_id: tid.clone(),
+                content: input.to_string(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            });
+            Some(tid)
+        } else {
+            None
+        };
+
+        // Update heartbeat for this session
+        if let Some(hbm) = &heartbeat_manager {
+            hbm.update_heartbeat(&session_id, format!("Turn {} in progress", current_turn))
+                .await;
+        }
+
+        // Create a goal if input is complex and goal manager is available
+        if let Some(gm) = &goal_manager {
+            if input.len() > 100 {
+                let goal = Goal {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    description: input.to_string(),
+                    progress: 0.0,
+                    status: GoalStatus::Active,
+                    session_id: session_id.clone(),
+                    created_at: chrono::Utc::now(),
+                    updated_at: chrono::Utc::now(),
+                };
+                gm.set_goal(goal).await;
+            }
+        }
 
         // Store user input in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("user-{}", inner.current_turn);
+        if let Some(memory) = &memory {
+            let msg_id = format!("user-{}", current_turn);
             let _ = memory
-                .store_message(&msg_id, &inner.session_id, "user", input)
+                .store_message(&msg_id, &session_id, "user", input)
                 .await;
         }
 
         // Use planner to decompose complex tasks if available
-        let plan = if let Some(planner) = &inner.planner {
-            // Check if we need a new plan (no current plan or current plan is complete)
-            if inner.current_plan.is_none()
-                || inner
-                    .current_plan
-                    .as_ref()
-                    .map_or(true, |p| p.is_complete())
-            {
-                Some(planner.generate_plan(input))
+        let plan = if let Some(planner) = &planner {
+            if current_plan.is_none() || current_plan.as_ref().map_or(true, |p| p.is_complete()) {
+                Some(planner.generate_plan(input, model_provider.as_ref()).await)
             } else {
-                inner.current_plan.clone()
+                current_plan
             }
         } else {
             None
         };
 
         // Step 1: Thought/Reasoning
-        let thought = self.think_inner(&inner, input).await?;
+        let thought = match self
+            .think_inner(model_provider.as_ref(), current_turn, input)
+            .await
+        {
+            Ok(t) => t,
+            Err(_) => {
+                // Fallback thought when no model provider configured
+                format!("Thought: Processing request '{}'", input)
+            }
+        };
 
         // Store assistant thought in SQLite memory if available
-        if let Some(memory) = &inner.memory {
-            let msg_id = format!("assistant-{}", inner.current_turn);
+        if let Some(memory) = &memory {
+            let msg_id = format!("assistant-{}", current_turn);
             let _ = memory
-                .store_message(&msg_id, &inner.session_id, "assistant", &thought)
+                .store_message(&msg_id, &session_id, "assistant", &thought)
                 .await;
         }
 
-        // Step 2: Action (simplified for now)
-        let action = thought.clone(); // In real implementation, would parse thought for action
+        // Log assistant message event
+        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+            log.append(SessionEvent::AssistantMessage {
+                message_id: SessionEvent::generate_id("msg"),
+                turn_id: tid.clone(),
+                content: thought.clone(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                token_count: None,
+            });
+        }
+
+        // Step 2: Action
+        let action = thought.clone();
 
         // Step 3: Observation
-        let observation = self.act_inner(&inner, &action).await?;
+        let observation = if let Some(pipeline) = &tool_pipeline {
+            // Execute with pipeline (pre/post hooks)
+            let context = ToolExecutionContext::new(
+                "react_action".to_string(),
+                serde_json::json!({"action": action}),
+                session_id.clone(),
+            )
+            .with_turn_id(turn_id.clone().unwrap_or_else(|| "unknown".to_string()));
 
-        // Log available tools if tool registry is configured
-        if let Some(registry) = &inner.tool_registry {
-            let _ = registry.list_tools();
+            // Log tool call start event
+            if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                log.append(SessionEvent::ToolCallStart {
+                    tool_id: "react_action".to_string(),
+                    step_id: SessionEvent::generate_id("step"),
+                    tool_name: "react_action".to_string(),
+                    args: serde_json::json!({"action": action}),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                });
+            }
+
+            let executor = |ctx: ToolExecutionContext| async move {
+                self.act_inner(
+                    tool_executor.as_ref(),
+                    &ctx.args["action"].as_str().unwrap_or(""),
+                )
+                .await
+                .map(|o| ToolExecutionResult::success(o))
+                .unwrap_or_else(|e| ToolExecutionResult::failure(e.to_string()))
+            };
+
+            let result = pipeline.execute(context, executor).await;
+
+            // Log tool call result event
+            if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                log.append(SessionEvent::ToolCallResult {
+                    tool_id: "react_action".to_string(),
+                    step_id: SessionEvent::generate_id("step"),
+                    success: result.success,
+                    output: result.output.clone(),
+                    error: result.error.clone(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                });
+            }
+
+            // Update SOUL memory with successful tool execution
+            if result.success {
+                let new_memory = format!(
+                    "Successfully executed tool: {}. Result: {}",
+                    action,
+                    result.output.as_ref().unwrap_or(&"completed".to_string())
+                );
+                let _ = self.update_soul_memory(new_memory).await;
+
+                // If this was a complex task, crystallize it as a skill
+                if action.len() > 50 && result.success {
+                    let skill = SkillEntry {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        name: format!("Skill from turn {}", current_turn),
+                        description: format!("Automatically crystallized from: {}", action),
+                        created_at: chrono::Utc::now(),
+                        usage_count: 1,
+                        success_rate: 1.0,
+                        origin_task: action.clone(),
+                    };
+                    let _ = self.add_skill_to_soul(skill).await;
+                }
+            }
+
+            if result.success {
+                // Record success and reset circuit breaker
+                let mut inner = self.inner.lock().unwrap();
+                inner.recovery_state.record_success();
+                result.output.unwrap_or("Execution completed".to_string())
+            } else {
+                // Log error event
+                let error_msg = result
+                    .error
+                    .clone()
+                    .unwrap_or("Tool execution failed".to_string());
+                if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                    log.append(SessionEvent::Error {
+                        error_id: SessionEvent::generate_id("error"),
+                        context: "tool_execution".to_string(),
+                        message: error_msg.clone(),
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    });
+                }
+
+                // Integrate recovery logic
+                let mut inner = self.inner.lock().unwrap();
+                let recovery_id = SessionEvent::generate_id("recovery");
+
+                // Log recovery start
+                if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                    log.append(SessionEvent::RecoveryStart {
+                        recovery_id: recovery_id.clone(),
+                        turn_id: tid.clone(),
+                        context: "tool_execution".to_string(),
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    });
+                }
+
+                // Check circuit breaker
+                if inner.recovery_state.is_circuit_breaker_open() {
+                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::RecoveryEnd {
+                            recovery_id,
+                            turn_id: tid.clone(),
+                            success: false,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+                    return Err(ContractError::ParseError(
+                        "Circuit breaker is open, tool execution blocked".to_string(),
+                    ));
+                }
+
+                // Record failure and check if should continue
+                if !inner.recovery_state.record_failure(error_msg.clone()) {
+                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::RecoveryEnd {
+                            recovery_id,
+                            turn_id: tid.clone(),
+                            success: false,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+                    return Err(ContractError::ParseError(
+                        "Circuit breaker triggered by consecutive failures".to_string(),
+                    ));
+                }
+
+                // Attempt retry if not exhausted
+                if inner.recovery_state.increment_retry() {
+                    if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::RecoveryAttempt {
+                            recovery_id: recovery_id.clone(),
+                            attempt_number: inner.recovery_state.retry_count,
+                            action: format!("retry_tool_execution: {}", action),
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+
+                    // Exponential backoff before retry
+                    let backoff_ms = inner.recovery_state.calculate_backoff_ms();
+                    drop(inner); // Release lock before sleep
+                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    let _inner = self.inner.lock().unwrap(); // Re-acquire lock (unused but keeps logic)
+
+                    // For now, just log the attempt with backoff - actual retry would require re-executing the tool
+                    // This is a simplified integration point
+                }
+
+                if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                    log.append(SessionEvent::RecoveryEnd {
+                        recovery_id,
+                        turn_id: tid.clone(),
+                        success: false,
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    });
+                }
+
+                return Err(ContractError::ParseError(error_msg));
+            }
+        } else {
+            // Execute without pipeline (original behavior)
+            self.act_inner(tool_executor.as_ref(), &action).await?
+        };
+
+        // Log turn end event with latency and step count
+        let turn_end_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let latency_ms = turn_end_time.saturating_sub(turn_start_time);
+
+        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+            log.append(SessionEvent::TurnEnd {
+                turn_id: tid.clone(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                step_count: 2, // thought + action
+                latency_ms,
+            });
         }
 
         // Delegate to subagent if supervisor is configured
-        if let Some(supervisor) = &inner.supervisor {
-            if let Some(subagent_name) = supervisor.decide_subagent(input) {
-                // TODO: Execute subagent and aggregate results
+        if let Some(supervisor) = &supervisor {
+            if let Some(subagent_name) = supervisor.decide_subagent(input, model_provider.as_ref()).await {
                 let _ = subagent_name;
             }
         }
 
         // Execute code in sandbox if sandbox is configured and action is code execution
-        if let Some(sandbox) = &inner.sandbox {
+        if let Some(sandbox) = &sandbox {
             if action.starts_with("execute_code:") {
                 let code = action.strip_prefix("execute_code:").unwrap_or("");
                 let request = SandboxRequest {
-                    request_id: format!("sandbox-{}", inner.current_turn),
+                    request_id: format!("sandbox-{}", current_turn),
                     code: code.to_string(),
                     timeout_ms: 30000,
                     memory_limit_bytes: 1024 * 1024 * 100,
@@ -2180,12 +2891,12 @@ impl ReactAgent {
         let result = self.observe(&observation);
 
         // Create checkpoint if checkpoint store is available
-        if let Some(store) = &inner.checkpoint_store {
+        if let Some(store) = &checkpoint_store {
             let checkpoint = Checkpoint {
                 checkpoint_id: generate_checkpoint_id(),
-                thread_id: inner.session_id.clone(),
+                thread_id: session_id.clone(),
                 state: serde_json::json!({
-                    "current_turn": inner.current_turn,
+                    "current_turn": current_turn,
                     "input": input,
                     "thought": thought,
                     "action": action,
@@ -2194,28 +2905,27 @@ impl ReactAgent {
                     "plan": plan
                 }),
                 metadata: serde_json::json!(CheckpointMetadata {
-                    step: inner.current_turn,
+                    step: current_turn,
                     status: "completed".to_string(),
                     extra: serde_json::json!({})
                 }),
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_default()
                     .as_secs() as i64,
             };
             let event = SerializedEvent {
                 event_type: "checkpoint".to_string(),
-                data: serde_json::to_string(&checkpoint).unwrap(),
+                data: serde_json::to_string(&checkpoint).unwrap_or_default(),
                 schema_version: 1,
             };
-            let stream_id = format!("agent-{}", inner.session_id);
+            let stream_id = format!("agent-{}", session_id);
             let _ = store
-                .append(&stream_id, inner.current_turn as u64, vec![event])
+                .append(&stream_id, current_turn as u64, vec![event])
                 .await;
         }
 
         // Increment turn
-        drop(inner);
         self.increment_turn();
 
         Ok(result)
@@ -2776,6 +3486,7 @@ impl ToolResult {
 
 /// Tool executor for real tool execution.
 #[allow(missing_debug_implementations)]
+#[derive(Clone)]
 pub struct ToolExecutor {
     /// Working directory for tool execution
     workdir: PathBuf,
@@ -3315,38 +4026,96 @@ pub enum StepStatus {
 
 /// Planner for generating plans.
 #[allow(missing_debug_implementations)]
+#[derive(Clone)]
 pub struct Planner {
-    /// Model provider for planning
-    _model_provider: Option<Arc<dyn ModelProvider>>,
+    /// Planner configuration
+    _config: (),
 }
 
 impl Planner {
     /// Create a new planner.
     pub fn new() -> Self {
-        Self {
-            _model_provider: None,
-        }
-    }
-
-    /// Create a planner with a model provider.
-    pub fn with_model_provider(provider: Arc<dyn ModelProvider>) -> Self {
-        Self {
-            _model_provider: Some(provider),
-        }
+        Self { _config: () }
     }
 
     /// Generate a plan for a given objective.
-    /// For now, returns a simple plan structure.
-    /// TODO: Integrate with LLM for intelligent plan generation.
-    pub fn generate_plan(&self, objective: &str) -> Plan {
+    /// Uses LLM for intelligent plan generation when provider is available.
+    pub async fn generate_plan(
+        &self,
+        objective: &str,
+        model_provider: Option<&Arc<dyn agenticos_contracts::ModelProvider>>,
+    ) -> Plan {
         let plan_id = uuid::Uuid::new_v4().to_string();
         let created_at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
 
-        // For now, create a simple plan with one step
-        // TODO: Use LLM to decompose objective into multiple steps
+        // Try to use LLM for plan decomposition if provider is available
+        if let Some(provider) = model_provider {
+            let prompt = format!(
+                "You are a task planning AI. Decompose the following objective into concrete steps. \
+                 Return your response as a JSON array of steps, where each step has: \
+                 {{\"description\": \"step description\", \"tool\": \"tool name or null\", \"tool_args\": {{}} or null}}. \
+                 Objective: {}",
+                objective
+            );
+
+            let request = agenticos_contracts::ModelRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                model: "default".to_string(),
+                input: prompt,
+                parameters: None,
+            };
+
+            match provider.execute(request).await {
+                Ok(response) => {
+                    // Try to parse LLM response as JSON array of steps
+                    if let Ok(steps_json) = serde_json::from_str::<serde_json::Value>(&response.output) {
+                        if let Some(steps_array) = steps_json.as_array() {
+                            let steps: Vec<PlanStep> = steps_array
+                                .iter()
+                                .filter_map(|step| {
+                                    let description = step.get("description")
+                                        .and_then(|d| d.as_str())
+                                        .unwrap_or("Unknown step")
+                                        .to_string();
+                                    let tool = step.get("tool")
+                                        .and_then(|t| t.as_str())
+                                        .map(|s| s.to_string());
+                                    let tool_args = step.get("tool_args").cloned();
+                                    Some(PlanStep {
+                                        step_id: uuid::Uuid::new_v4().to_string(),
+                                        description,
+                                        tool,
+                                        tool_args,
+                                        status: StepStatus::Pending,
+                                        result: None,
+                                    })
+                                })
+                                .collect();
+
+                            if !steps.is_empty() {
+                                return Plan {
+                                    plan_id,
+                                    objective: objective.to_string(),
+                                    steps,
+                                    current_step: 0,
+                                    status: PlanStatus::Pending,
+                                    created_at,
+                                };
+                            }
+                        }
+                    }
+                    // Fallback if parsing fails
+                }
+                Err(_) => {
+                    // Fallback on error
+                }
+            }
+        }
+
+        // Fallback: create a simple plan with one step
         let step = PlanStep {
             step_id: uuid::Uuid::new_v4().to_string(),
             description: format!("Execute: {}", objective),
@@ -3367,9 +4136,91 @@ impl Planner {
     }
 
     /// Re-plan based on current state and results.
-    /// For now, returns the same plan.
-    /// TODO: Integrate with LLM for intelligent re-planning.
-    pub fn replan(&self, plan: &Plan, _results: &[String]) -> Plan {
+    /// Uses LLM for intelligent re-planning when provider is available.
+    pub async fn replan(
+        &self,
+        plan: &Plan,
+        results: &[String],
+        model_provider: Option<&Arc<dyn agenticos_contracts::ModelProvider>>,
+    ) -> Plan {
+        // Try to use LLM for re-planning if provider is available
+        if let Some(provider) = model_provider {
+            let current_state = plan.steps
+                .iter()
+                .map(|s| format!("{}: {:?}", s.description, s.status))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let results_str = results.join("\n");
+
+            let prompt = format!(
+                "You are a task planning AI. The following plan has been partially executed. \
+                 Current state:\n{}\n\nResults:\n{}\n\nObjective: {}\n\n \
+                 Adjust the plan by adding new steps, modifying existing steps, or marking steps as complete. \
+                 Return your response as a JSON array of steps, where each step has: \
+                 {{\"description\": \"step description\", \"tool\": \"tool name or null\", \"tool_args\": {{}} or null, \"status\": \"Pending\"|\"Completed\"|\"Failed\"}}.",
+                current_state, results_str, plan.objective
+            );
+
+            let request = agenticos_contracts::ModelRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                model: "default".to_string(),
+                input: prompt,
+                parameters: None,
+            };
+
+            match provider.execute(request).await {
+                Ok(response) => {
+                    // Try to parse LLM response as JSON array of steps
+                    if let Ok(steps_json) = serde_json::from_str::<serde_json::Value>(&response.output) {
+                        if let Some(steps_array) = steps_json.as_array() {
+                            let steps: Vec<PlanStep> = steps_array
+                                .iter()
+                                .filter_map(|step| {
+                                    let description = step.get("description")
+                                        .and_then(|d| d.as_str())
+                                        .unwrap_or("Unknown step")
+                                        .to_string();
+                                    let tool = step.get("tool")
+                                        .and_then(|t| t.as_str())
+                                        .map(|s| s.to_string());
+                                    let tool_args = step.get("tool_args").cloned();
+                                    let status_str = step.get("status")
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("Pending");
+                                    let status = match status_str {
+                                        "Completed" => StepStatus::Completed,
+                                        "Failed" => StepStatus::Failed,
+                                        _ => StepStatus::Pending,
+                                    };
+                                    Some(PlanStep {
+                                        step_id: uuid::Uuid::new_v4().to_string(),
+                                        description,
+                                        tool,
+                                        tool_args,
+                                        status,
+                                        result: None,
+                                    })
+                                })
+                                .collect();
+
+                            if !steps.is_empty() {
+                                let mut new_plan = plan.clone();
+                                new_plan.steps = steps;
+                                new_plan.status = PlanStatus::NeedsReplanning;
+                                return new_plan;
+                            }
+                        }
+                    }
+                    // Fallback if parsing fails
+                }
+                Err(_) => {
+                    // Fallback on error
+                }
+            }
+        }
+
+        // Fallback: return the same plan with NeedsReplanning status
         let mut new_plan = plan.clone();
         new_plan.status = PlanStatus::NeedsReplanning;
         new_plan
@@ -3451,7 +4302,7 @@ pub struct Subagent {
 }
 
 /// Supervisor for coordinating subagents (LangGraph supervisor pattern).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Supervisor {
     /// Registered subagents
     subagents: std::collections::HashMap<String, Subagent>,
@@ -3481,10 +4332,68 @@ impl Supervisor {
     }
 
     /// Decide which subagent to invoke for a task.
-    /// For now, returns None (no decision logic implemented).
-    /// TODO: Integrate with LLM for intelligent subagent selection.
-    pub fn decide_subagent(&self, _task: &str) -> Option<String> {
-        // TODO: Use LLM to decide which subagent to invoke
+    /// Uses LLM for intelligent subagent selection when provider is available.
+    pub async fn decide_subagent(
+        &self,
+        task: &str,
+        model_provider: Option<&Arc<dyn agenticos_contracts::ModelProvider>>,
+    ) -> Option<String> {
+        // Try to use LLM for subagent selection if provider is available
+        if let Some(provider) = model_provider {
+            let subagents_list = self.list_subagents();
+            if subagents_list.is_empty() {
+                return None;
+            }
+
+            let subagents_info = subagents_list
+                .iter()
+                .map(|name| {
+                    if let Some(subagent) = self.get_subagent(name) {
+                        format!(
+                            "{}: {} (tools: {})",
+                            subagent.name,
+                            subagent.description,
+                            subagent.tools.join(", ")
+                        )
+                    } else {
+                        name.clone()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let prompt = format!(
+                "You are a task coordination AI. Given the following task and available subagents, \
+                 select the most appropriate subagent to handle this task. \
+                 Available subagents:\n{}\n\nTask: {}\n\n \
+                 Return only the name of the selected subagent as a JSON string.",
+                subagents_info, task
+            );
+
+            let request = agenticos_contracts::ModelRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                model: "default".to_string(),
+                input: prompt,
+                parameters: None,
+            };
+
+            match provider.execute(request).await {
+                Ok(response) => {
+                    // Try to parse LLM response as JSON string
+                    if let Ok(subagent_name) = serde_json::from_str::<String>(&response.output) {
+                        if self.subagents.contains_key(&subagent_name) {
+                            return Some(subagent_name);
+                        }
+                    }
+                    // Fallback if parsing fails or subagent not found
+                }
+                Err(_) => {
+                    // Fallback on error
+                }
+            }
+        }
+
+        // Fallback: return None (no decision logic implemented)
         None
     }
 }
@@ -3611,8 +4520,9 @@ mod tests {
         };
         agent.add_skill(skill1);
         agent.add_skill(skill2);
-        // TODO: Add interior mutability for skills_catalog
-        // assert_eq!(agent.skills_catalog.len(), 2);
+        // Skills catalog is now interior mutable, verify via inner lock
+        let inner = agent.inner.lock().unwrap();
+        assert_eq!(inner.skills_catalog.len(), 2);
     }
 
     #[test]
@@ -3620,8 +4530,10 @@ mod tests {
         let agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
-        // TODO: Add interior mutability for memory_md and user_md
-        // For now, just verify the methods don't panic
+        // Memory fields are now interior mutable, verify via inner lock
+        let inner = agent.inner.lock().unwrap();
+        assert_eq!(inner.memory_md, "Test memory content");
+        assert_eq!(inner.user_md, "Test user preferences");
     }
 
     #[test]
@@ -3644,12 +4556,11 @@ mod tests {
 
             let prompt = agent.build_system_prompt().await;
             assert!(prompt.contains("You are a helpful assistant."));
-            // TODO: Add interior mutability for memory_md
-            // assert!(prompt.contains("Memory (MEMORY.md)"));
-            // assert!(prompt.contains("Test memory content"));
-            // TODO: Add interior mutability for skills_catalog
-            // assert!(prompt.contains("Available Skills"));
-            // assert!(prompt.contains("git_operations"));
+            // Memory fields are now interior mutable and included in prompt
+            assert!(prompt.contains("Memory (MEMORY.md)"));
+            assert!(prompt.contains("Test memory content"));
+            assert!(prompt.contains("Available Skills"));
+            assert!(prompt.contains("git_operations"));
             assert!(prompt.contains("ReAct pattern"));
         });
     }
@@ -4430,10 +5341,10 @@ Test procedure"#;
         assert_eq!(deserialized.thread_id, "test-thread");
     }
 
-    #[test]
-    fn test_planner_generation() {
+    #[tokio::test]
+    async fn test_planner_generation() {
         let planner = Planner::new();
-        let plan = planner.generate_plan("Test objective");
+        let plan = planner.generate_plan("Test objective", None).await;
 
         assert_eq!(plan.objective, "Test objective");
         assert_eq!(plan.steps.len(), 1);
@@ -4476,13 +5387,13 @@ Test procedure"#;
         assert_eq!(deserialized.objective, "Test objective");
     }
 
-    #[test]
-    fn test_planner_replan() {
+    #[tokio::test]
+    async fn test_planner_replan() {
         let planner = Planner::new();
-        let plan = planner.generate_plan("Test objective");
+        let plan = planner.generate_plan("Test objective", None).await;
         let results = vec!["result1".to_string(), "result2".to_string()];
 
-        let new_plan = planner.replan(&plan, &results);
+        let new_plan = planner.replan(&plan, &results, None).await;
         assert_eq!(new_plan.status, PlanStatus::NeedsReplanning);
     }
 

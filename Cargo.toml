@@ -11,7 +11,7 @@ members = [
   "crates/math", "crates/time-utils", "crates/http-client", "crates/async-utils",
   "crates/logging", "crates/metrics", "crates/cache", "crates/compression",
   "crates/rate-limiting", "crates/vector-database", "crates/websockets", "crates/file-watcher",
-  "crates/task-scheduler"
+  "crates/task-scheduler", "crates/authentication"
 ]
 
 [workspace.package]

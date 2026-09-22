@@ -91,6 +91,12 @@ impl MemoryTracker {
     }
 }
 
+impl Default for MemoryTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Stress test configuration
 pub struct StressTestConfig {
     pub num_agents: usize,
@@ -129,7 +135,7 @@ pub async fn run_stress_test(config: StressTestConfig) -> Result<StressTestResul
     
     let mut handles = Vec::new();
     
-    for agent_id in 0..config.num_agents {
+    for _agent_id in 0..config.num_agents {
         let bus = Arc::clone(&event_bus);
         let mem = Arc::clone(&memory_tracker);
         let events = config.events_per_agent;
@@ -138,7 +144,7 @@ pub async fn run_stress_test(config: StressTestConfig) -> Result<StressTestResul
             for _ in 0..events {
                 mem.allocate(1024).await;
                 
-                if let Err(_) = bus.publish().await {
+                if bus.publish().await.is_err() {
                     // Simulate error
                 }
                 

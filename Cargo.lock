@@ -584,6 +584,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-utils"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,9 @@
+[package]
+name = "async-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }

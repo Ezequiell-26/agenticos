@@ -9,7 +9,7 @@ members = [
   "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
   "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto",
   "crates/math", "crates/time-utils", "crates/http-client", "crates/async-utils",
-  "crates/logging"
+  "crates/logging", "crates/metrics"
 ]
 
 [workspace.package]

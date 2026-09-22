@@ -1,0 +1,10 @@
+[package]
+name = "concurrency-stress"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

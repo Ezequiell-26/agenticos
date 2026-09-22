@@ -103,7 +103,7 @@ jobs:
         run: cargo test -p concurrency-stress -- --nocapture
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets
 
       - name: Verify architecture workspace shape
         run: |

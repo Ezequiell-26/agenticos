@@ -1,0 +1,11 @@
+[package]
+name = "state-management"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }

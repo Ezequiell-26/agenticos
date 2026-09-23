@@ -945,3 +945,12 @@ Verification status:
 - Added a live structural inventory driven by the navigation registry.
 - Explicitly identifies App-shell, legacy StudioSurface and PlatformSurface ownership so no route appears missing just because it is not a dedicated conditional inside PlatformSurface.
 - Adds search, owner filters, per-surface runtime-boundary metadata and completion-contract inspection.
+
+
+## Navigation Taxonomy + Workspace Navigator — 2026-09-24
+
+- Added a shared navigation taxonomy with seven sections: Workspace, Build, Run, Intelligence, Governance, Integrations and System.
+- Reorganized the All Features launcher to use that taxonomy instead of the previous flat Build/Operate/Configure/Integrate grouping.
+- Added Workspace Navigator with search, section filters, favorites and recent surfaces stored locally.
+- Propagated navigation callbacks through WorkspaceOverview → PlatformSurface so the Navigator can switch surfaces directly.
+- Updated Command Palette results to expose the same taxonomy context.

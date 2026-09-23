@@ -90,7 +90,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
   const [voiceMode, setVoiceMode] = useState(true)
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
-  const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
   const [selectedSession, setSelectedSession] = useState(sessions[0][0])
   const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))

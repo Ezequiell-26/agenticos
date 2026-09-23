@@ -1,4 +1,5 @@
 export type RailMode =
+  | 'overview'
   | 'chat'
   | 'files'
   | 'terminal'
@@ -83,6 +84,7 @@ export interface NavigationItem {
 }
 
 export const navigationItems: NavigationItem[] = [
+  { id: 'overview', label: 'Workspace Overview', detail: 'Project health, active work, approvals and recent agent activity', icon: 'home', group: 'build' },
   { id: 'chat', label: 'Command Center', detail: 'Agent chat, context, commands and session control', icon: 'home', group: 'build' },
   { id: 'files', label: 'Files & Editor', detail: 'Explorer, editor, tabs, diff and inspector', icon: 'file-code', group: 'build' },
   { id: 'terminal', label: 'Terminal', detail: 'Shell sessions and command execution', icon: 'terminal', group: 'build' },
@@ -153,16 +155,16 @@ export const navigationItems: NavigationItem[] = [
 ]
 
 export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
-  'chat', 'files', 'terminal',
+  'overview', 'chat', 'files', 'terminal',
   'runs', 'tasks', 'agents', 'approvals', 'workflows',
   'providers', 'tools', 'memory',
   'browser', 'mcp', 'security', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit'>
+export type PlatformMode = Extract<RailMode, 'overview' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
-  'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
+  'overview', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
   'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'playground', 'routing', 'token-observatory', 'versions', 'audit',
 ])
 

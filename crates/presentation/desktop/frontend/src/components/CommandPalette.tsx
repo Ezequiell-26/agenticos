@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
+import type { RailMode } from './ActivityRail'
 import Icon, { type IconName } from './Icon'
 
 interface CommandPaletteProps {
@@ -8,7 +9,7 @@ interface CommandPaletteProps {
   onClose: () => void
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
-  onSelectMode: (mode: 'chat' | 'files' | 'runs' | 'providers' | 'settings') => void
+  onSelectMode: (mode: RailMode) => void
 }
 
 interface Command {
@@ -16,8 +17,23 @@ interface Command {
   label: string
   detail: string
   icon: IconName
+  shortcut?: string
   action: () => void
 }
+
+const navigation: Array<{ id: RailMode; label: string; detail: string; icon: IconName }> = [
+  { id: 'chat', label: 'Command Center', detail: 'AI workspace and agent chat', icon: 'message' },
+  { id: 'files', label: 'Files & Editor', detail: 'Explorer, tabs, code, diff and inspector', icon: 'folder' },
+  { id: 'terminal', label: 'Terminal', detail: 'Integrated shell and command history', icon: 'terminal' },
+  { id: 'runs', label: 'Runs', detail: 'Execution, approvals, verification and recovery', icon: 'activity' },
+  { id: 'workflows', label: 'Workflows', detail: 'Reusable agent automations and schedules', icon: 'clock' },
+  { id: 'artifacts', label: 'Artifacts', detail: 'Outputs, previews and generated files', icon: 'archive' },
+  { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog and quotas', icon: 'bot' },
+  { id: 'skills', label: 'Skills', detail: 'Installable agent capabilities', icon: 'spark' },
+  { id: 'tools', label: 'Tools', detail: 'Tool registry and permissions', icon: 'tool' },
+  { id: 'memory', label: 'Memory', detail: 'Workspace, project and agent memory', icon: 'history' },
+  { id: 'settings', label: 'Settings', detail: 'Appearance, behavior and safety controls', icon: 'settings' },
+]
 
 export default function CommandPalette({
   open,
@@ -32,6 +48,31 @@ export default function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
+  const commands = useMemo<Command[]>(() => [
+    { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
+    ...navigation.map((item) => ({
+      id: item.id,
+      label: item.label,
+      detail: item.detail,
+      icon: item.icon,
+      action: () => onSelectMode(item.id),
+    })),
+    ...conversations.slice(0, 8).map((conversation) => ({
+      id: `conversation-${conversation.id}`,
+      label: conversation.title,
+      detail: conversation.preview,
+      icon: conversation.pinned ? 'archive' as IconName : 'history' as IconName,
+      action: () => onSelectConversation(conversation.id),
+    })),
+  ], [conversations, onCreateConversation, onSelectConversation, onSelectMode])
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return normalized
+      ? commands.filter((command) => `${command.label} ${command.detail}`.toLowerCase().includes(normalized))
+      : commands
+  }, [commands, query])
+
   useEffect(() => {
     if (!open) return
     setQuery('')
@@ -41,41 +82,6 @@ export default function CommandPalette({
   }, [open])
 
   useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
-
-  const commands = useMemo<Command[]>(() => {
-    const navigation: Command[] = [
-      { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', action: onCreateConversation },
-      { id: 'chat', label: 'Open Command Center', detail: 'Return to the primary agent workspace', icon: 'message', action: () => onSelectMode('chat') },
-      { id: 'files', label: 'Open workspace explorer', detail: 'Files and project context', icon: 'folder', action: () => onSelectMode('files') },
-      { id: 'runs', label: 'Open agent runs', detail: 'Execution and verification timeline', icon: 'activity', action: () => onSelectMode('runs') },
-      { id: 'providers', label: 'Open providers', detail: 'Models, quotas and runtime health', icon: 'bot', action: () => onSelectMode('providers') },
-      { id: 'settings', label: 'Open settings', detail: 'Runtime and workspace controls', icon: 'settings', action: () => onSelectMode('settings') },
-    ]
-
-    const conversationCommands: Command[] = conversations.slice(0, 5).map((conversation) => ({
-      id: `conversation-${conversation.id}`,
-      label: conversation.title,
-      detail: conversation.preview,
-      icon: conversation.pinned ? 'archive' : 'history',
-      action: () => onSelectConversation(conversation.id),
-    }))
-
-    return [...navigation, ...conversationCommands]
-  }, [conversations, onCreateConversation, onSelectConversation, onSelectMode])
-
-  const filtered = commands.filter((command) => {
-    const value = `${command.label} ${command.detail}`.toLowerCase()
-    return value.includes(query.toLowerCase())
-  })
-
-  useEffect(() => {
     setSelectedIndex(0)
   }, [query])
 
@@ -83,6 +89,7 @@ export default function CommandPalette({
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         onClose()
         return
       }
@@ -92,9 +99,41 @@ export default function CommandPalette({
         setSelectedIndex((index) => (index + 1) % filtered.length)
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
-        setSelectedIndex((index) => (index - 1        <div className="palette-list" role="listbox" aria-label="Commands and conversations">
+        setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
+      } else if (event.key === 'Enter') {
+        event.preventDefault()
+        filtered[selectedIndex]?.action()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [filtered, onClose, open, selectedIndex])
+
+  useEffect(() => {
+    itemRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex])
+
+  if (!open) return null
+
+  return (
+    <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="palette-search">
+          <Icon name="search" size={18} />
+          <input
+            ref={inputRef}
+            aria-label="Search commands"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search commands, views and conversations…"
+            value={query}
+          />
+          <button aria-label="Close command palette" className="icon-button" onClick={onClose} type="button"><Icon name="x" size={16} /></button>
+        </div>
+
+        <div className="palette-list" role="listbox" aria-label="Commands and conversations">
           {filtered.length === 0 ? (
-            <div className="palette-empty">No commands or conversations match “{query}”.</div>
+            <div className="palette-empty">No command matches “{query}”.</div>
           ) : filtered.map((command, index) => (
             <button
               aria-selected={index === selectedIndex}
@@ -107,27 +146,16 @@ export default function CommandPalette({
             >
               <span className="palette-item__icon"><Icon name={command.icon} size={16} /></span>
               <span className="palette-item__copy"><strong>{command.label}</strong><small>{command.detail}</small></span>
-              <Icon name="chevron-right" size={14} />
-            </button>
-          ))}
-        </div>\n"dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="palette-search">
-          <Icon name="search" size={18} />
-          <input ref={inputRef} aria-label="Search commands" onChange={(event) => setQuery(event.target.value)} placeholder="Search commands and conversations…" value={query} />
-          <button aria-label="Close command palette" className="icon-button" onClick={onClose} type="button"><Icon name="x" size={16} /></button>
-        </div>
-        <div className="palette-list">
-          {filtered.length === 0 ? (
-            <div className="palette-empty">No commands or conversations match “{query}”.</div>
-          ) : filtered.map((command) => (
-            <button className="palette-item" key={command.id} onClick={() => { command.action(); onClose() }} type="button">
-              <span className="palette-item__icon"><Icon name={command.icon} size={16} /></span>
-              <span className="palette-item__copy"><strong>{command.label}</strong><small>{command.detail}</small></span>
-              <Icon name="chevron-right" size={14} />
+              {command.shortcut ? <kbd>{command.shortcut}</kbd> : <Icon name="chevron-right" size={14} />}
             </button>
           ))}
         </div>
-        <div className="palette-footer"><span>Press</span><kbd>ESC</kbd><span>to close</span></div>
+
+        <div className="palette-footer">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+          <span><kbd>Enter</kbd> Open</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
       </section>
     </div>
   )

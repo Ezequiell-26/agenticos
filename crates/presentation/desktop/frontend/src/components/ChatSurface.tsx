@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
 import ChatEnhancementDock from './ChatEnhancementDock'
@@ -156,7 +156,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     messagesEndRef.current?.scrollIntoView({ behavior: running ? 'smooth' : 'auto', block: 'end' })
   }, [messages, running])
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (slashOpen && slashMatches.length > 0) {
       if (event.key === 'ArrowDown') {
         event.preventDefault()

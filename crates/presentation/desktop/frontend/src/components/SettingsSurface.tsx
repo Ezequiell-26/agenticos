@@ -1,3 +1,3 @@
-import SettingsStudio from '../features/settings/SettingsStudio'
+import SettingsControlCenter from '../features/settings/SettingsControlCenter'
 
-export default SettingsStudio
+export default SettingsControlCenter

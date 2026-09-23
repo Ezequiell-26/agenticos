@@ -97,6 +97,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   const [autonomy, setAutonomy] = useState<'suggest' | 'supervised' | 'autonomous'>('supervised')
   const [sandbox, setSandbox] = useState<'local' | 'worktree' | 'cloud'>('worktree')
   const [approvalGate, setApprovalGate] = useState(true)
+  const [safeEditsOnly, setSafeEditsOnly] = useState(true)
 
   const filtered = useMemo(() => files.filter((file) => file[0].toLowerCase().includes(query.toLowerCase())), [query])
   const lane = lanes.find((item) => item[0] === selectedLane) ?? lanes[0]
@@ -133,7 +134,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
         <div className="platform-header__actions developer-workspace-pro__actions">
           <label className="developer-compact-control"><span>Autonomy</span><select value={autonomy} onChange={(event) => setAutonomy(event.target.value as typeof autonomy)}><option value="suggest">Suggest</option><option value="supervised">Supervised</option><option value="autonomous">Autonomous</option></select></label>
           <label className="developer-compact-control"><span>Sandbox</span><select value={sandbox} onChange={(event) => setSandbox(event.target.value as typeof sandbox)}><option value="local">Local</option><option value="worktree">Worktree</option><option value="cloud">Cloud</option></select></label>
-          <button className={approvalGate ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setApprovalGate((value) => !value)}><Icon name="shield" size={13} /> {approvalGate ? 'Approval gate on' : 'Approval gate off'}</button>
+          <button className={approvalGate ? 'studio-button studio-button--active' : 'studio-button'} type="button" aria-pressed={approvalGate} onClick={() => setApprovalGate((value) => !value)}><Icon name="shield" size={13} /> {approvalGate ? 'Approval gate on' : 'Approval gate off'}</button><button className={safeEditsOnly ? 'studio-button studio-button--active' : 'studio-button'} type="button" aria-pressed={safeEditsOnly} onClick={() => setSafeEditsOnly((value) => !value)}><Icon name="lock" size={13} /> {safeEditsOnly ? 'Safe edits only' : 'Broad edits'}</button>
           <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Start engineering mission staged in preview')}><Icon name="play" size={14} /> Start mission</button>
         </div>
       </header>
@@ -347,6 +348,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
         <span>Sandbox: {sandbox}</span>
         <span>Autonomy: {autonomy}</span>
         <span>Approval gate: {approvalGate ? 'enabled' : 'disabled'}</span>
+        <span>Edit policy: {safeEditsOnly ? 'safe-only' : 'broad'}</span>
         <span>Runtime execution: service boundary</span>
         <span>UI mode: presentation-ready</span>
       </div>

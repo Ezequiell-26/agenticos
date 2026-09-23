@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import Icon from '../../components/Icon'
 import BrowserWorkspace from '../browser/BrowserWorkspace'
+import SecurityCenter from '../security/SecurityCenter'
 import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -61,6 +62,14 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'security') return (
+    <Shell>
+      {renderHeader('Control plane', 'Security Center', 'Inspect workspace protection, permissions, secrets boundaries, audit state and recovery controls.', <button className="studio-button" type="button" onClick={() => notify('Security policies refreshed in preview')}><Icon name="history" size={14} /> Refresh</button>)}
+      <SecurityCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'evaluations') return (
     <Shell>

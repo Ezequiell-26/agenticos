@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import { auditNavigationRegistry } from '../../navigation-audit'
 import { Panel, MetricCard, Tag } from './PlatformPrimitives'
 import './FrontendQAHarness.css'
 
 type CheckState = 'pass' | 'warning' | 'pending'
 type Check = { id:string; area:string; title:string; detail:string; state:CheckState }
 
+const navigationAudit = auditNavigationRegistry()
+
 const checks: Check[] = [
-  {id:'routes',area:'Navigation',title:'Route coverage',detail:'Every registered platform mode must resolve to a deliberate surface or a documented fallback.',state:'pass'},
+  {id:'routes',area:'Navigation',title:'Route coverage',detail:`Navigation registry: ${navigationAudit.navigationCount} items / ${navigationAudit.platformCount} platform modes. ${navigationAudit.ok ? 'No structural registry drift detected.' : `${navigationAudit.issues.length} structural issue(s) detected.`}`,state:navigationAudit.ok ? 'pass' : 'warning'},
   {id:'lazy',area:'Performance',title:'Lazy loading',detail:'Heavy platform surfaces are loaded on demand instead of inflating the initial bundle.',state:'pass'},
   {id:'states',area:'UX states',title:'Loading / empty / error / offline',detail:'Critical surfaces expose a predictable state model before runtime services are connected.',state:'warning'},
   {id:'a11y',area:'Accessibility',title:'Keyboard and semantics',detail:'Interactive controls require labels, focus visibility, tab semantics and sensible keyboard order.',state:'warning'},

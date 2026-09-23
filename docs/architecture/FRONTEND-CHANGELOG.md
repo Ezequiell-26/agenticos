@@ -848,3 +848,21 @@ Verification status:
 - Unverified checks: fresh TypeScript/Vite build, GitHub Actions result, browser/Tauri verification and accessibility audit.
 - Rollback point: `58c5dd58e72024d2afaf890839c6fec5895bf0ea`.
 - Next step: run the isolated frontend verification workflow after merging this registry correction.
+
+
+## Frontend architecture registry hardening — 2026-09-24
+
+- Scope: frontend architecture organization and navigation-registry hardening; backend/runtime integration remains deferred.
+- Commit/PR: feature branch `feature/frontend-architecture-registry-2026-09-24`; PR to be opened after static inspection.
+- Created:
+  - `docs/architecture/FRONTEND-ARCHITECTURE-MAP.md`;
+  - `crates/presentation/desktop/frontend/src/navigation-audit.ts`.
+- Modified:
+  - `crates/presentation/desktop/frontend/src/features/platform/FrontendQAHarness.tsx`.
+- User-visible effect: QA now reports navigation-registry structure from the same source used by the frontend instead of treating route coverage as a purely manual status.
+- Architecture decision: navigation metadata remains centralized in `navigation.ts`; the audit is a pure TypeScript utility with no React/runtime dependency and can later be reused by automated tests.
+- Preserved: all existing feature surfaces, runtime boundaries, historical commits and presentation-only behavior.
+- Verification evidence: source-level inspection and static registry integration only.
+- Unverified checks: fresh Vite production build, browser/Tauri verification, accessibility audit, and GitHub workflow result for this branch.
+- Rollback point: `05bad5894fbc8a14bf6a2c8cb9292c64c0480a80`.
+- Next step: open the architecture hardening PR and inspect its changed-file set before merge.

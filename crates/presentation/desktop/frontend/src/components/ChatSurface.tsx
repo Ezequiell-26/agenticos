@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
+import ChatEnhancementDock from './ChatEnhancementDock'
 
 interface ChatSurfaceProps {
   sessionId: string

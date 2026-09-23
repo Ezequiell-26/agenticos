@@ -611,3 +611,18 @@ Verification status:
 - Added Universal Search (Ctrl/Cmd+Shift+F) alongside Command Palette (Ctrl/Cmd+K) so navigation and search remain separate interaction systems.
 - Converted platform feature modules to independent lazy chunks; the current dispatcher lazy-loads 11 heavy feature modules.
 - Kept all new functionality presentation-only and preserved runtime/service boundaries.
+
+
+### 2026-09-24 — Complete visual Agent Builder
+
+Added `features/agents/AgentBuilder.tsx` and routed Agent Profiles through it from `components/StudioSurface.tsx`.
+
+The frontend now presents a complete agent-profile editing flow across Identity, Model, Instructions, Capabilities, Policies, and Test & Release. It includes search, local draft state, create/duplicate/save/test actions, model fallback controls, context and memory budgets, explicit capability toggles, policy segmentation, evaluation/release state, and compatibility/readiness views.
+
+The component is presentation-only: no backend route, credential, network transport, authorization enforcement or runtime persistence was invented. `AgentStudio.tsx` is preserved as a compatibility surface.
+
+Verification for this slice:
+- source-level structure and imports inspected;
+- shared icon names restricted to the repository-owned icon registry;
+- responsive and reduced-motion styling added;
+- fresh TypeScript/Vite CI, browser/Tauri verification and accessibility audit remain pending.

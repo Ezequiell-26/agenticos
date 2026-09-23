@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
 import SettingsStudio from './SettingsStudio'
+import {
+  type SettingsScope,
+  type SettingsStore,
+  createSettingsStore,
+  exportSettingsStore,
+  readSettingsStore,
+  resolveSettingsScope,
+  saveSettingsStore,
+} from './settings-engine'
 
 type Scope = 'global' | 'project' | 'session' | 'agent'
 type SectionId = 'overview' | 'ai' | 'context' | 'execution' | 'browser' | 'customizations' | 'cloud' | 'developer' | 'interface' | 'data'
@@ -237,34 +246,53 @@ interface SettingsControlCenterProps {
   notify: (message: string) => void
 }
 
-function readStoredState(): ControlState {
+type PersistedControlState = Omit<ControlState, 'scope'>
+const { scope: _defaultScope, ...persistedDefaults } = defaults
+const CONTROL_CENTER_STORAGE_KEY = 'agenticos.settings.control-center-v2'
+
+function readControlStore(): SettingsStore<PersistedControlState> {
+  const stored = readSettingsStore(CONTROL_CENTER_STORAGE_KEY, persistedDefaults)
+  if (stored.history.length > 0 || stored.activeScope !== 'project' || window.localStorage.getItem(CONTROL_CENTER_STORAGE_KEY)) {
+    return stored
+  }
+
   try {
-    const raw = window.localStorage.getItem('agenticos.ui.control-center-v1')
-    if (!raw) return defaults
-    return { ...defaults, ...(JSON.parse(raw) as Partial<ControlState>) }
+    const legacyRaw = window.localStorage.getItem('agenticos.ui.control-center-v1')
+    if (!legacyRaw) return stored
+    const legacy = JSON.parse(legacyRaw) as Partial<ControlState>
+    const { scope: legacyScope = 'project', ...legacySettings } = legacy
+    return {
+      ...createSettingsStore(persistedDefaults),
+      activeScope: legacyScope as SettingsScope,
+      scopes: {
+        ...createSettingsStore(persistedDefaults).scopes,
+        [legacyScope]: { ...persistedDefaults, ...legacySettings },
+      },
+    }
   } catch {
-    return defaults
+    return stored
   }
 }
 
 export default function SettingsControlCenter({ notify }: SettingsControlCenterProps) {
-  const [state, setState] = useState<ControlState>(() => readStoredState())
+  const [store, setStore] = useState<SettingsStore<PersistedControlState>>(() => readControlStore())
   const [section, setSection] = useState<SectionId>('overview')
   const [query, setQuery] = useState('')
   const [deepConfig, setDeepConfig] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [savedStore, setSavedStore] = useState(() => readControlStore())
+
+  const state = useMemo<ControlState>(() => ({
+    ...resolveSettingsScope(store, store.activeScope),
+    scope: store.activeScope,
+  }), [store])
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem('agenticos.ui.control-center-v1', JSON.stringify(state))
-    } catch {
-      // Local persistence is optional.
-    }
     const root = document.documentElement
     root.dataset.agenticosTheme = state.theme.toLowerCase().replace(/\\s+/g, '-')
     root.dataset.agenticosDensity = state.density.toLowerCase()
     root.dataset.agenticosReducedMotion = state.reducedMotion ? 'true' : 'false'
-  }, [state])
+  }, [state.theme, state.density, state.reducedMotion])
 
   const visibleSections = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -273,26 +301,67 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
   }, [query])
 
   const update = <K extends keyof ControlState>(key: K, value: ControlState[K]) => {
-    setState((current) => ({ ...current, [key]: value }))
+    if (key === 'scope') {
+      const nextScope = value as SettingsScope
+      setStore((current) => ({ ...current, activeScope: nextScope }))
+      setDirty(false)
+      return
+    }
+
+    setStore((current) => ({
+      ...current,
+      scopes: {
+        ...current.scopes,
+        [current.activeScope]: {
+          ...current.scopes[current.activeScope],
+          [key]: value,
+        },
+      },
+    }))
     setDirty(true)
   }
 
-  function reset() {
-    if (!window.confirm('Reset the Control Center preferences to safe defaults?')) return
-    setState(defaults)
+  function save() {
+    setStore((current) => {
+      const next = saveSettingsStore(CONTROL_CENTER_STORAGE_KEY, current, `Saved ${current.activeScope} configuration`)
+      setSavedStore(next)
+      return next
+    })
     setDirty(false)
-    notify('Control Center reset to defaults')
+    notify(`Saved ${state.scope} configuration`)
+  }
+
+  function discard() {
+    setStore(savedStore)
+    setDirty(false)
+    notify('Discarded local Control Center changes')
+  }
+
+  function reset() {
+    if (!window.confirm(`Reset the ${state.scope} Control Center scope to safe defaults?`)) return
+    setStore((current) => {
+      const next = {
+        ...current,
+        scopes: {
+          ...current.scopes,
+          [current.activeScope]: { ...persistedDefaults },
+        },
+      }
+      return next
+    })
+    setDirty(true)
   }
 
   function exportConfig() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
+    const serialized = exportSettingsStore(store)
+    const blob = new Blob([serialized], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'agenticos-control-center.json'
+    link.download = 'agenticos-settings-store.json'
     link.click()
     URL.revokeObjectURL(url)
-    notify('Control Center exported')
+    notify('Scoped settings store exported')
   }
 
   if (deepConfig) {
@@ -326,8 +395,10 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search settings, agents, permissions, models…" />
             <kbd>⌘K</kbd>
           </label>
+          <button type="button" className={dirty ? 'studio-button studio-button--active' : 'studio-button'} onClick={save} disabled={!dirty}><Icon name="check" size={14} /> Save</button>
+          <button type="button" className="studio-button" onClick={discard} disabled={!dirty}><Icon name="refresh" size={14} /> Discard</button>
           <button type="button" className="studio-button" onClick={exportConfig}><Icon name="download" size={14} /> Export</button>
-          <button type="button" className="studio-button" onClick={reset}><Icon name="refresh" size={14} /> Reset</button>
+          <button type="button" className="studio-button" onClick={reset}><Icon name="refresh" size={14} /> Reset scope</button>
         </div>
       </header>
 

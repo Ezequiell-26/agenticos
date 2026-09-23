@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import Icon, { type IconName } from './Icon'
 
 type SectionId =
@@ -393,7 +393,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
     notify('Portable configuration exported')
   }
 
-  function importConfig(event: React.ChangeEvent<HTMLInputElement>) {
+  function importConfig(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
@@ -657,8 +657,8 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <SelectField label="Theme" value={settings.theme} onChange={(v) => update('theme', v as Theme)} options={['Monochrome', 'Graphite', 'Paper', 'High contrast']} />
                 <SelectField label="Accent" value={settings.accent} onChange={(v) => update('accent', v as Accent)} options={['White', 'Silver', 'Blue', 'Violet', 'Green']} />
                 <SelectField label="Density" value={settings.density} onChange={(v) => update('density', v as Density)} options={['Compact', 'Comfortable', 'Spacious']} />
-                <RangeField label="UI scale" value={settings.uiScale} onChange={(v) => update('uiScale', v)} description="Applies to the document root." />
-                <RangeField label="Font size" value={settings.fontSize} onChange={(v) => update('fontSize', v)} description="Base interface font size." />
+                <RangeField label="UI scale" value={settings.uiScale} min={80} max={140} onChange={(v) => update('uiScale', v)} description="Applies to the document root." />
+                <RangeField label="Font size" value={settings.fontSize} min={11} max={18} onChange={(v) => update('fontSize', v)} description="Base interface font size." />
               </SettingSection>
               <SettingSection title="Output">
                 <SelectField label="Tool progress" value={settings.toolProgress} onChange={(v) => update('toolProgress', v as ToolProgress)} options={previewModes} />
@@ -942,9 +942,9 @@ function NumberField({ label, value, onChange, suffix, min, max }: { label: stri
   return <label className="settings-field"><span>{label}</span><div className="settings-number"><input type="number" value={value} min={min} max={max} onChange={(event) => onChange(Math.max(min, Math.min(max, Number(event.target.value))))} /><small>{suffix}</small></div></label>
 }
 
-function RangeField({ label, value, onChange, description }: { label: string; value: number; onChange: (value: number) => void; description: string }) {
-  const bounded = Math.max(0, Math.min(100, value))
-  return <div className="settings-range"><div><strong>{label}</strong><span>{description}</span></div><div className="settings-range__control"><input type="range" min="0" max="100" value={bounded} onChange={(event) => onChange(Number(event.target.value))} /><output>{bounded}</output></div></div>
+function RangeField({ label, value, onChange, description, min = 0, max = 100 }: { label: string; value: number; onChange: (value: number) => void; description: string; min?: number; max?: number }) {
+  const bounded = Math.max(min, Math.min(max, value))
+  return <div className="settings-range"><div><strong>{label}</strong><span>{description}</span></div><div className="settings-range__control"><input type="range" min={min} max={max} value={bounded} onChange={(event) => onChange(Number(event.target.value))} /><output>{bounded}</output></div></div>
 }
 
 function StatusCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: IconName }) {

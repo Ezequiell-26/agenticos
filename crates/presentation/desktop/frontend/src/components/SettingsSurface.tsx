@@ -1,400 +1,789 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import Icon from './Icon'
+import Icon, { type IconName } from './Icon'
 
-type SettingKey =
-  | 'autosave'
-  | 'notifications'
-  | 'sound'
-  | 'compact'
-  | 'motion'
-  | 'reduceTransparency'
-  | 'showLineNumbers'
-  | 'wordWrap'
-  | 'formatOnSave'
-  | 'minimap'
-  | 'safeMode'
-  | 'confirmDestructive'
-  | 'showToolCalls'
-  | 'showReasoning'
-  | 'streamResponses'
-  | 'persistDrafts'
-  | 'webByDefault'
-  | 'rememberModel'
-  | 'telemetry'
-  | 'crashReports'
-  | 'breadcrumbs'
-  | 'stickyScroll'
-  | 'tabPreview'
-  | 'autoCloseBrackets'
-  | 'sendOnEnter'
-  | 'showTimestamps'
-  | 'showCitations'
-  | 'showTokenMeter'
-  | 'autoRetry'
-  | 'showPlan'
-  | 'autoApproveRead'
-  | 'networkGuard'
-  | 'shellConfirmation'
-  | 'gitForceGuard'
-  | 'autoCompact'
-  | 'excludeGenerated'
-  | 'groupNotifications'
-  | 'approvalNotifications'
-  | 'backgroundNotifications'
-  | 'clearOnExit'
+type SectionId =
+  | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
+  | 'compression' | 'display' | 'voice' | 'gateway' | 'mcp' | 'automation'
+  | 'security' | 'advanced'
+
+type Theme = 'Monochrome' | 'Graphite' | 'Paper' | 'High contrast'
+type Accent = 'White' | 'Silver' | 'Blue' | 'Violet' | 'Green'
+type Density = 'Compact' | 'Comfortable' | 'Spacious'
+type ToolProgress = 'off' | 'new' | 'all' | 'verbose'
+type TerminalBackend = 'local' | 'docker' | 'ssh' | 'modal' | 'daytona' | 'singularity'
+
+interface Profile {
+  id: string
+  name: string
+  description: string
+  model: string
+  provider: string
+  agent: string
+  active: boolean
+}
+
+interface SettingsState {
+  theme: Theme
+  accent: Accent
+  density: Density
+  uiScale: number
+  fontSize: number
+  language: string
+  workspaceName: string
+  startupView: string
+  defaultModel: string
+  defaultProvider: string
+  defaultAgent: string
+  persistModel: boolean
+  reasoningEffort: string
+  toolUseEnforcement: string
+  maxTurns: number
+  autonomy: number
+  toolBudget: number
+  maxParallelAgents: number
+  autoRetry: boolean
+  showPlan: boolean
+  toolProgress: ToolProgress
+  compactOutput: boolean
+  showReasoning: boolean
+  showCost: boolean
+  streaming: boolean
+  resumeDisplay: string
+  bellOnComplete: boolean
+  toolPreviewLength: number
+  toolProgressCommand: boolean
+  memoryEnabled: boolean
+  userProfileEnabled: boolean
+  memoryCharLimit: number
+  userCharLimit: number
+  sessionRecall: boolean
+  contextBudget: number
+  maxContextFiles: number
+  autoCompact: boolean
+  compactionThreshold: number
+  compressionEnabled: boolean
+  compressionThreshold: number
+  compressionTargetRatio: number
+  protectLastN: number
+  summaryProvider: string
+  summaryModel: string
+  summaryBaseUrl: string
+  terminalBackend: TerminalBackend
+  terminalCwd: string
+  terminalTimeout: number
+  terminalPersistent: boolean
+  terminalCpu: number
+  terminalMemory: number
+  terminalDisk: number
+  dockerImage: string
+  sshHost: string
+  sshUser: string
+  sshPort: number
+  sandboxMountCwd: boolean
+  envPassthrough: string
+  ttsProvider: string
+  ttsVoice: string
+  ttsModel: string
+  sttProvider: string
+  visionProvider: string
+  visionModel: string
+  visionTimeout: number
+  webBackend: string
+  browserCloudProvider: string
+  imageProvider: string
+  apiServerEnabled: boolean
+  apiServerHost: string
+  apiServerPort: number
+  apiServerMaxRuns: number
+  gatewayStreaming: boolean
+  gatewayEditInterval: number
+  telegramEnabled: boolean
+  discordEnabled: boolean
+  slackEnabled: boolean
+  whatsappEnabled: boolean
+  signalEnabled: boolean
+  homeAssistantEnabled: boolean
+  redactPii: boolean
+  telemetry: boolean
+  crashReports: boolean
+  secretsRedaction: boolean
+  networkGuard: boolean
+  shellConfirmation: boolean
+  gitForceGuard: boolean
+  safeMode: boolean
+  checkpointsEnabled: boolean
+  maxSnapshots: number
+  mcpAutoDiscover: boolean
+  mcpTimeout: number
+  mcpServers: string[]
+  cronEnabled: boolean
+  wakeEnabled: boolean
+  clearOnExit: boolean
+  debugMode: boolean
+  experimentalFeatures: boolean
+}
 
 interface SettingsSurfaceProps {
   notify: (message: string) => void
 }
 
-const storageKey = 'agenticos.ui.preferences'
+const storageKey = 'agenticos.ui.hermes-settings-v2'
 
-const defaults: Record<SettingKey, boolean> = {
-  autosave: true,
-  notifications: true,
-  sound: false,
-  compact: false,
-  motion: true,
-  reduceTransparency: false,
-  showLineNumbers: true,
-  wordWrap: true,
-  formatOnSave: true,
-  minimap: false,
-  safeMode: true,
-  confirmDestructive: true,
-  showToolCalls: true,
-  showReasoning: true,
-  streamResponses: true,
-  persistDrafts: true,
-  webByDefault: false,
-  rememberModel: true,
-  telemetry: false,
-  crashReports: false,
-  breadcrumbs: true,
-  stickyScroll: false,
-  tabPreview: true,
-  autoCloseBrackets: true,
-  sendOnEnter: true,
-  showTimestamps: true,
-  showCitations: true,
-  showTokenMeter: true,
+const defaults: SettingsState = {
+  theme: 'Monochrome',
+  accent: 'White',
+  density: 'Comfortable',
+  uiScale: 100,
+  fontSize: 13,
+  language: 'English',
+  workspaceName: 'Personal workspace',
+  startupView: 'Command Center',
+  defaultModel: 'Auto route',
+  defaultProvider: 'Automatic',
+  defaultAgent: 'Builder',
+  persistModel: true,
+  reasoningEffort: 'medium',
+  toolUseEnforcement: 'auto',
+  maxTurns: 90,
+  autonomy: 58,
+  toolBudget: 72,
+  maxParallelAgents: 4,
   autoRetry: true,
   showPlan: true,
-  autoApproveRead: true,
+  toolProgress: 'all',
+  compactOutput: false,
+  showReasoning: true,
+  showCost: false,
+  streaming: true,
+  resumeDisplay: 'full',
+  bellOnComplete: false,
+  toolPreviewLength: 160,
+  toolProgressCommand: true,
+  memoryEnabled: true,
+  userProfileEnabled: true,
+  memoryCharLimit: 2200,
+  userCharLimit: 1375,
+  sessionRecall: true,
+  contextBudget: 72,
+  maxContextFiles: 24,
+  autoCompact: true,
+  compactionThreshold: 78,
+  compressionEnabled: true,
+  compressionThreshold: 50,
+  compressionTargetRatio: 20,
+  protectLastN: 20,
+  summaryProvider: 'auto',
+  summaryModel: 'Auto summary model',
+  summaryBaseUrl: '',
+  terminalBackend: 'local',
+  terminalCwd: '.',
+  terminalTimeout: 180,
+  terminalPersistent: true,
+  terminalCpu: 1,
+  terminalMemory: 5120,
+  terminalDisk: 51200,
+  dockerImage: 'python-nodejs:20',
+  sshHost: '',
+  sshUser: '',
+  sshPort: 22,
+  sandboxMountCwd: false,
+  envPassthrough: '',
+  ttsProvider: 'edge',
+  ttsVoice: 'en-US-AriaNeural',
+  ttsModel: 'default',
+  sttProvider: 'local',
+  visionProvider: 'auto',
+  visionModel: 'Auto vision model',
+  visionTimeout: 30,
+  webBackend: 'auto',
+  browserCloudProvider: 'none',
+  imageProvider: 'auto',
+  apiServerEnabled: false,
+  apiServerHost: '127.0.0.1',
+  apiServerPort: 8642,
+  apiServerMaxRuns: 10,
+  gatewayStreaming: true,
+  gatewayEditInterval: 0.3,
+  telegramEnabled: false,
+  discordEnabled: false,
+  slackEnabled: false,
+  whatsappEnabled: false,
+  signalEnabled: false,
+  homeAssistantEnabled: false,
+  redactPii: true,
+  telemetry: false,
+  crashReports: false,
+  secretsRedaction: true,
   networkGuard: true,
   shellConfirmation: true,
   gitForceGuard: true,
-  autoCompact: true,
-  excludeGenerated: true,
-  groupNotifications: true,
-  approvalNotifications: true,
-  backgroundNotifications: true,
+  safeMode: true,
+  checkpointsEnabled: true,
+  maxSnapshots: 50,
+  mcpAutoDiscover: true,
+  mcpTimeout: 120,
+  mcpServers: ['filesystem', 'github', 'browser'],
+  cronEnabled: true,
+  wakeEnabled: false,
   clearOnExit: false,
+  debugMode: false,
+  experimentalFeatures: false,
 }
 
-const sections = [
-  ['General', 'General'],
-  ['Appearance', 'Appearance'],
-  ['Editor', 'Editor'],
-  ['Chat', 'Chat'],
-  ['Agent', 'Agent'],
-  ['Tools', 'Tools'],
-  ['Safety', 'Safety'],
-  ['Context', 'Context'],
-  ['Notifications', 'Notifications'],
-  ['Privacy', 'Privacy'],
-  ['Keyboard', 'Keyboard'],
-  ['Advanced', 'Advanced'],
-] as const
+const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName; group: string }> = [
+  { id: 'overview', label: 'Overview', detail: 'Profile, precedence and quick state', icon: 'home', group: 'Core' },
+  { id: 'profiles', label: 'Profiles', detail: 'Independent agent configurations', icon: 'users', group: 'Core' },
+  { id: 'models', label: 'Models & Providers', detail: 'Default model, provider and aliases', icon: 'network', group: 'AI' },
+  { id: 'agent', label: 'Agent', detail: 'Reasoning, turns and delegation', icon: 'bot', group: 'AI' },
+  { id: 'tools', label: 'Tools & Toolsets', detail: 'Tool visibility and platform sets', icon: 'tool', group: 'AI' },
+  { id: 'terminal', label: 'Terminal & Sandbox', detail: 'Execution backend and resources', icon: 'terminal', group: 'Execution' },
+  { id: 'context', label: 'Context & Memory', detail: 'Memory, recall and working context', icon: 'database', group: 'Context' },
+  { id: 'compression', label: 'Compression & Cache', detail: 'Compaction and context preservation', icon: 'archive', group: 'Context' },
+  { id: 'display', label: 'Display & Theme', detail: 'Skin, density, motion and output', icon: 'spark', group: 'Interface' },
+  { id: 'voice', label: 'Voice & Media', detail: 'TTS, STT, vision and web', icon: 'mic', group: 'Interface' },
+  { id: 'gateway', label: 'Gateway & Channels', detail: 'API server, streaming and messaging', icon: 'globe', group: 'Integrations' },
+  { id: 'mcp', label: 'MCP', detail: 'Servers, discovery and timeouts', icon: 'network', group: 'Integrations' },
+  { id: 'automation', label: 'Automation', detail: 'Cron, wake word and background runs', icon: 'calendar', group: 'Operations' },
+  { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
+  { id: 'advanced', label: 'Advanced / Raw Config', detail: 'Portable snapshot and expert controls', icon: 'sliders', group: 'Advanced' },
+]
+
+const models = ['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Claude', 'Gemini', 'Codex', 'Local model', 'Custom endpoint']
+const providers = ['Automatic', 'OpenRouter', 'Nous', 'Anthropic', 'OpenAI', 'Copilot', 'Z.ai', 'Kimi', 'MiniMax', 'Custom']
+const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner', 'Debugger', 'Custom']
+const toolsetPresets = ['all', 'coding', 'research', 'minimal', 'messaging', 'hermes-cli', 'hermes-telegram', 'custom']
+const channels = ['telegram', 'discord', 'slack', 'whatsapp', 'signal', 'homeassistant']
+const previewModes: ToolProgress[] = ['off', 'new', 'all', 'verbose']
+
+function readSaved(): { settings: SettingsState; profiles: Profile[]; activeProfileId: string } | null {
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<{ settings: SettingsState; profiles: Profile[]; activeProfileId: string }>
+    if (!parsed.settings) return null
+    return { settings: { ...defaults, ...parsed.settings }, profiles: parsed.profiles ?? defaultProfiles, activeProfileId: parsed.activeProfileId ?? 'default' }
+  } catch {
+    return null
+  }
+}
+
+const defaultProfiles: Profile[] = [
+  { id: 'default', name: 'Default', description: 'General purpose assistant', model: 'Auto route', provider: 'Automatic', agent: 'Builder', active: true },
+  { id: 'coder', name: 'Coder', description: 'Deep code work and terminal tasks', model: 'Qwen3 Coder', provider: 'OpenRouter', agent: 'Builder', active: false },
+  { id: 'research', name: 'Research', description: 'Web research, recall and evidence', model: 'Gemini', provider: 'Automatic', agent: 'Researcher', active: false },
+]
 
 export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
-  const [section, setSection] = useState<string>('General')
-  const [values, setValues] = useState(defaults)
-  const [defaultModel, setDefaultModel] = useState('Auto route')
-  const [defaultAgent, setDefaultAgent] = useState('Builder')
-  const [defaultMode, setDefaultMode] = useState('Agent')
-  const [theme, setTheme] = useState('Monochrome')
-  const [density, setDensity] = useState('Comfortable')
-  const [fontSize, setFontSize] = useState('13')
-  const [contextMode, setContextMode] = useState('Balanced')
-  const [language, setLanguage] = useState('English')
-  const [keymap, setKeymap] = useState('Default')
-  const [workspaceName, setWorkspaceName] = useState('Personal workspace')
-  const [startupView, setStartupView] = useState('Command Center')
-  const [uiScale, setUiScale] = useState('100%')
-  const [terminalShell, setTerminalShell] = useState('PowerShell')
-  const [compactionThreshold, setCompactionThreshold] = useState('78%')
-  const [saved, setSaved] = useState(false)
+  const saved = useMemo(readSaved, [])
+  const [section, setSection] = useState<SectionId>('overview')
+  const [settings, setSettings] = useState<SettingsState>(saved?.settings ?? defaults)
+  const [profiles, setProfiles] = useState<Profile[]>(saved?.profiles ?? defaultProfiles)
+  const [activeProfileId, setActiveProfileId] = useState(saved?.activeProfileId ?? 'default')
+  const [query, setQuery] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const [advancedJson, setAdvancedJson] = useState('')
+  const [newProfile, setNewProfile] = useState('')
+  const [newMcpServer, setNewMcpServer] = useState('')
+
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0]
+  const enabledCount = useMemo(() => Object.entries(settings).filter(([key, value]) => typeof value === 'boolean' && value && key !== 'debugMode').length, [settings])
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(storageKey)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as Partial<{
-        values: Record<SettingKey, boolean>
-        defaultModel: string
-        defaultAgent: string
-        theme: string
-        density: string
-        fontSize: string
-        contextMode: string
-        language: string
-        defaultMode: string
-        keymap: string
-        workspaceName: string
-        startupView: string
-        uiScale: string
-        terminalShell: string
-        compactionThreshold: string
-      }>
-      if (parsed.values) setValues((current) => ({ ...current, ...parsed.values }))
-      if (parsed.defaultModel) setDefaultModel(parsed.defaultModel)
-      if (parsed.defaultAgent) setDefaultAgent(parsed.defaultAgent)
-      if (parsed.defaultMode) setDefaultMode(parsed.defaultMode)
-      if (parsed.theme) setTheme(parsed.theme)
-      if (parsed.density) setDensity(parsed.density)
-      if (parsed.fontSize) setFontSize(parsed.fontSize)
-      if (parsed.contextMode) setContextMode(parsed.contextMode)
-      if (parsed.language) setLanguage(parsed.language)
-      if (parsed.keymap) setKeymap(parsed.keymap)
-      if (parsed.workspaceName) setWorkspaceName(parsed.workspaceName)
-      if (parsed.startupView) setStartupView(parsed.startupView)
-      if (parsed.uiScale) setUiScale(parsed.uiScale)
-      if (parsed.terminalShell) setTerminalShell(parsed.terminalShell)
-      if (parsed.compactionThreshold) setCompactionThreshold(parsed.compactionThreshold)
-    } catch {
-      // Preferences are optional presentation state.
+    document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
+    document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
+    document.documentElement.dataset.agenticosDensity = settings.density.toLowerCase()
+    document.documentElement.style.setProperty('--agenticos-ui-scale', String(settings.uiScale / 100))
+    document.documentElement.style.setProperty('--agenticos-font-size', settings.fontSize + 'px')
+    return () => {
+      delete document.documentElement.dataset.agenticosTheme
+      delete document.documentElement.dataset.agenticosAccent
+      delete document.documentElement.dataset.agenticosDensity
+      document.documentElement.style.removeProperty('--agenticos-ui-scale')
+      document.documentElement.style.removeProperty('--agenticos-font-size')
     }
-  }, [])
+  }, [settings.theme, settings.accent, settings.density, settings.uiScale, settings.fontSize])
 
-  const enabledCount = useMemo(() => Object.values(values).filter(Boolean).length, [values])
+  useEffect(() => {
+    setAdvancedJson(JSON.stringify(toPortableConfig(settings, profiles, activeProfileId), null, 2))
+  }, [settings, profiles, activeProfileId])
 
-  function toggle(key: SettingKey) {
-    setValues((current) => ({ ...current, [key]: !current[key] }))
-    setSaved(false)
+  useEffect(() => {
+    if (!query.trim()) return
+    const normalized = query.toLowerCase()
+    const match = sections.find((item) => (item.label + ' ' + item.detail).toLowerCase().includes(normalized))
+    if (match) setSection(match.id)
+  }, [query])
+
+  function update<K extends keyof SettingsState>(key: K, value: SettingsState[K]) {
+    setSettings((current) => ({ ...current, [key]: value }))
+    setDirty(true)
+  }
+
+  function updateProfile(id: string, patch: Partial<Profile>) {
+    setProfiles((current) => current.map((profile) => profile.id === id ? { ...profile, ...patch } : profile))
+    setDirty(true)
+  }
+
+  function selectProfile(id: string) {
+    setActiveProfileId(id)
+    setProfiles((current) => current.map((profile) => ({ ...profile, active: profile.id === id })))
+    const next = profiles.find((profile) => profile.id === id)
+    if (next) {
+      update('defaultModel', next.model)
+      update('defaultProvider', next.provider)
+      update('defaultAgent', next.agent)
+    }
+  }
+
+  function createProfile() {
+    const name = newProfile.trim()
+    if (!name) return
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile'
+    if (profiles.some((profile) => profile.id === id)) {
+      notify('A profile with that name already exists')
+      return
+    }
+    const profile: Profile = { id, name, description: 'New isolated agent profile', model: settings.defaultModel, provider: settings.defaultProvider, agent: settings.defaultAgent, active: false }
+    setProfiles((current) => [...current, profile])
+    setNewProfile('')
+    setDirty(true)
+    notify('Profile created locally')
+  }
+
+  function removeProfile(id: string) {
+    if (profiles.length <= 1 || id === 'default') {
+      notify('The default profile cannot be removed')
+      return
+    }
+    if (!window.confirm('Delete this local preview profile?')) return
+    const remaining = profiles.filter((profile) => profile.id !== id)
+    setProfiles(remaining)
+    if (activeProfileId === id) setActiveProfileId(remaining[0].id)
+    setDirty(true)
   }
 
   function save() {
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify({
-        values,
-        defaultModel,
-        defaultAgent,
-        defaultMode,
-        theme,
-        density,
-        fontSize,
-        contextMode,
-        language,
-        keymap,
-        workspaceName,
-        startupView,
-        uiScale,
-        terminalShell,
-        compactionThreshold,
-      }))
+      window.localStorage.setItem(storageKey, JSON.stringify({ settings, profiles, activeProfileId }))
+      setDirty(false)
+      notify('Configuration saved locally')
     } catch {
-      // Browser storage can be unavailable in restricted desktop contexts.
+      notify('Local storage is unavailable in this desktop context')
     }
-    setSaved(true)
-    notify('Settings saved locally')
   }
 
   function reset() {
-    setValues(defaults)
-    setDefaultModel('Auto route')
-    setDefaultAgent('Builder')
-    setDefaultMode('Agent')
-    setTheme('Monochrome')
-    setDensity('Comfortable')
-    setFontSize('13')
-    setContextMode('Balanced')
-    setLanguage('English')
-    setKeymap('Default')
-    setWorkspaceName('Personal workspace')
-    setStartupView('Command Center')
-    setUiScale('100%')
-    setTerminalShell('PowerShell')
-    setCompactionThreshold('78%')
-    try {
-      window.localStorage.removeItem(storageKey)
-    } catch {
-      // Optional presentation state.
-    }
-    setSaved(false)
-    notify('Settings restored to defaults')
+    if (!window.confirm('Restore AgentiCOS UI configuration to defaults?')) return
+    setSettings(defaults)
+    setProfiles(defaultProfiles)
+    setActiveProfileId('default')
+    setDirty(false)
+    try { window.localStorage.removeItem(storageKey) } catch { /* optional */ }
+    notify('Configuration restored to defaults')
   }
 
+  function exportConfig() {
+    const blob = new Blob([JSON.stringify(toPortableConfig(settings, profiles, activeProfileId), null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'agenticos-config.json'
+    link.click()
+    URL.revokeObjectURL(url)
+    notify('Portable configuration exported')
+  }
+
+  function importConfig(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as Partial<{ settings: SettingsState; profiles: Profile[]; activeProfileId: string }>
+        if (!parsed.settings || typeof parsed.settings !== 'object') throw new Error('Invalid configuration')
+        setSettings({ ...defaults, ...parsed.settings })
+        setProfiles(parsed.profiles?.length ? parsed.profiles : defaultProfiles)
+        setActiveProfileId(parsed.activeProfileId ?? 'default')
+        setDirty(true)
+        notify('Configuration imported into preview')
+      } catch {
+        notify('Invalid configuration snapshot')
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
+
+  function applyRawConfig() {
+    try {
+      const parsed = JSON.parse(advancedJson) as Partial<{ settings: SettingsState; profiles: Profile[]; activeProfileId: string }>
+      if (!parsed.settings || typeof parsed.settings !== 'object') throw new Error('Missing settings object')
+      setSettings({ ...defaults, ...parsed.settings })
+      setProfiles(parsed.profiles?.length ? parsed.profiles : defaultProfiles)
+      setActiveProfileId(parsed.activeProfileId ?? 'default')
+      setDirty(true)
+      notify('Raw configuration applied to preview')
+    } catch {
+      notify('Raw configuration must be valid JSON')
+    }
+  }
+
+  const visibleSections = sections.filter((item) => {
+    const value = (item.label + ' ' + item.detail + ' ' + item.group).toLowerCase()
+    return !query.trim() || value.includes(query.trim().toLowerCase())
+  })
+
   return (
-    <section className="settings-surface">
-      <header className="settings-hero">
-        <div>
-          <span className="eyebrow">Control plane</span>
+    <section className="settings-surface settings-surface--hermes">
+      <header className="settings-hero settings-hero--hermes">
+        <div className="settings-hero__copy">
+          <div className="settings-kicker"><span className="status-dot status-dot--live" /> Control Center</div>
           <h1>Settings</h1>
-          <p>Configure the complete AgentiCOS desktop experience. These controls are presentation-local until a matching runtime contract exists.</p>
+          <p>Deep configuration for models, agent behavior, toolsets, sandboxes, memory, compression, display, voice, gateway, MCP, automation and security.</p>
+          <div className="settings-profile-strip">
+            <button type="button" className="settings-profile-switcher" onClick={() => setSection('profiles')}>
+              <span className="workspace-avatar">{activeProfile?.name.slice(0, 1).toUpperCase() ?? 'A'}</span>
+              <span><strong>{activeProfile?.name ?? 'Default'}</strong><small>{activeProfile?.description ?? 'General purpose assistant'}</small></span>
+              <Icon name="chevron-right" size={14} />
+            </button>
+            <span className={dirty ? 'settings-state settings-state--dirty' : 'settings-state'}>{dirty ? 'Unsaved changes' : 'Saved'}</span>
+          </div>
         </div>
         <div className="settings-hero__actions">
-          <span className="settings-count"><strong>{enabledCount}</strong> enabled preferences</span>
-          <button className="studio-button" type="button" onClick={reset}><Icon name="history" size={14} /> Reset</button>
-          <button className={`studio-button ${saved ? 'studio-button--active' : ''}`} type="button" onClick={save}><Icon name="check" size={14} /> {saved ? 'Saved' : 'Save changes'}</button>
+          <label className="settings-import-button">
+            <Icon name="upload" size={14} /> Import
+            <input type="file" accept="application/json,.json" onChange={importConfig} />
+          </label>
+          <button className="studio-button" type="button" onClick={exportConfig}><Icon name="download" size={14} /> Export</button>
+          <button className="studio-button" type="button" onClick={reset}><Icon name="refresh" size={14} /> Reset</button>
+          <button className={dirty ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={save}><Icon name="check" size={14} /> {dirty ? 'Save changes' : 'Saved'}</button>
         </div>
       </header>
 
-      <div className="settings-workbench">
-        <aside className="settings-nav settings-nav--full" aria-label="Settings sections">
-          {sections.map(([id, label]) => (
-            <button type="button" className={section === id ? 'settings-nav__active' : ''} onClick={() => setSection(id)} key={id}>
-              <span>{label}</span>
-              {id === 'Safety' && <span className="nav-badge">SAFE</span>}
+      <div className="settings-topbar">
+        <div className="settings-search"><Icon name="search" size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search every setting, section or capability…" /><kbd>⌘K</kbd></div>
+        <div className="settings-topbar__meta"><span>{sections.length} configuration domains</span><span>{enabledCount} enabled controls</span><span>Profile: {activeProfile?.name ?? 'Default'}</span></div>
+      </div>
+
+      <div className="settings-workbench settings-workbench--hermes">
+        <aside className="settings-nav settings-nav--hermes" aria-label="Settings sections">
+          {visibleSections.map((item) => (
+            <button type="button" className={section === item.id ? 'settings-nav__item settings-nav__item--active' : 'settings-nav__item'} onClick={() => setSection(item.id)} key={item.id}>
+              <span className="settings-nav__icon"><Icon name={item.icon} size={14} /></span>
+              <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+              {section === item.id && <span className="settings-nav__indicator" />}
             </button>
           ))}
         </aside>
 
-        <main className="settings-panel">
-          {section === 'General' && (
-            <SettingsGroup title="Workspace" description="Core workspace identity and startup behavior.">
-              <TextField label="Workspace name" value={workspaceName} onChange={setWorkspaceName} />
-              <SelectField label="Default language" value={language} onChange={setLanguage} options={['English', 'Spanish', 'Portuguese', 'Auto']} />
-              <SelectField label="Default agent" value={defaultAgent} onChange={setDefaultAgent} options={['Builder', 'Reviewer', 'Researcher', 'Custom']} />
-              <ToggleRow label="Autosave" detail="Persist drafts and local interface state automatically." enabled={values.autosave} onChange={() => toggle('autosave')} />
-              <ToggleRow label="Remember model" detail="Keep the last selected model for new conversations." enabled={values.rememberModel} onChange={() => toggle('rememberModel')} />
-              <SelectField label="Startup view" value={startupView} onChange={setStartupView} options={['Command Center', 'Last opened view', 'Tasks', 'Runs']} />
-              <TextField label="Workspace path" value="Local workspace (runtime-owned)" onChange={() => undefined} />
-            </SettingsGroup>
+        <main className="settings-panel settings-panel--hermes">
+          {section === 'overview' && (
+            <SettingsPage title="Overview" description="See how the configuration is organized before changing individual domains.">
+              <div className="settings-status-grid">
+                <StatusCard label="Active profile" value={activeProfile?.name ?? 'Default'} detail={activeProfile?.description ?? 'General purpose'} icon="users" />
+                <StatusCard label="Default model" value={settings.defaultModel} detail={settings.defaultProvider} icon="network" />
+                <StatusCard label="Agent mode" value={settings.defaultAgent} detail={settings.reasoningEffort + ' reasoning'} icon="bot" />
+                <StatusCard label="Terminal" value={settings.terminalBackend} detail={settings.terminalTimeout + 's timeout'} icon="terminal" />
+              </div>
+              <InfoBanner icon="layers" title="Configuration precedence" text="CLI/session overrides are conceptually highest, followed by profile/runtime configuration, then environment secrets, then built-in defaults. AgentiCOS keeps this presentation separate from the Rust runtime until the service contract is connected." />
+              <div className="settings-card-grid">
+                {[
+                  ['Models', 'Provider, model, fallback and aliases', 'models'],
+                  ['Agent', 'Reasoning, tool enforcement, budgets and delegation', 'agent'],
+                  ['Execution', 'Terminal backend, resources and sandbox options', 'terminal'],
+                  ['Context', 'Memory, recall and compaction controls', 'context'],
+                  ['Display', 'Skin, progress, density and UI personalization', 'display'],
+                  ['Integrations', 'Gateway, channels and MCP servers', 'gateway'],
+                ].map(([title, detail, id]) => (
+                  <button type="button" className="settings-domain-card" key={id} onClick={() => setSection(id as SectionId)}>
+                    <span className="settings-domain-card__index">{String(sections.findIndex((item) => item.id === id) + 1).padStart(2, '0')}</span>
+                    <span><strong>{title}</strong><small>{detail}</small></span><Icon name="chevron-right" size={14} />
+                  </button>
+                ))}
+              </div>
+            </SettingsPage>
           )}
 
-          {section === 'Appearance' && (
-            <SettingsGroup title="Interface" description="Control density, motion and the visual character of the desktop shell.">
-              <SelectField label="Theme" value={theme} onChange={setTheme} options={['Monochrome', 'Midnight', 'High contrast', 'System']} />
-              <SelectField label="Density" value={density} onChange={setDensity} options={['Compact', 'Comfortable', 'Spacious']} />
-              <SelectField label="UI font size" value={fontSize} onChange={setFontSize} options={['11', '12', '13', '14', '15', '16']} suffix="px" />
-              <SelectField label="UI scale" value={uiScale} onChange={setUiScale} options={['90%', '100%', '110%', '120%']} />
-              <ToggleRow label="Motion" detail="Use subtle transitions throughout the interface." enabled={values.motion} onChange={() => toggle('motion')} />
-              <ToggleRow label="Reduce transparency" detail="Use solid surfaces instead of translucent layers." enabled={values.reduceTransparency} onChange={() => toggle('reduceTransparency')} />
-              <div className="preview-strip"><span className="preview-dot" /><div><strong>Live preview</strong><small>Interface preview follows the selected density and theme.</small></div></div>
-            </SettingsGroup>
+          {section === 'profiles' && (
+            <SettingsPage title="Profiles" description="Each profile is an independent configuration boundary. This UI models Hermes-style profile isolation while remaining local/preview.">
+              <div className="profile-create-row">
+                <input value={newProfile} onChange={(event) => setNewProfile(event.target.value)} className="settings-input" placeholder="Create profile: coder, research, personal…" />
+                <button className="studio-button studio-button--active" type="button" onClick={createProfile}><Icon name="plus" size={14} /> Create profile</button>
+              </div>
+              <div className="profile-grid">
+                {profiles.map((profile) => (
+                  <article key={profile.id} className={profile.id === activeProfileId ? 'profile-card profile-card--active' : 'profile-card'}>
+                    <button type="button" className="profile-card__main" onClick={() => selectProfile(profile.id)}>
+                      <div className="profile-card__top"><span className="profile-avatar">{profile.name.slice(0, 1).toUpperCase()}</span><span className="profile-card__status">{profile.id === activeProfileId ? 'ACTIVE' : 'READY'}</span></div>
+                      <strong>{profile.name}</strong><small>{profile.description}</small>
+                      <div className="profile-card__meta"><span>{profile.model}</span><span>{profile.provider}</span><span>{profile.agent}</span></div>
+                    </button>
+                    {profile.id !== 'default' && <button type="button" className="icon-button" title="Delete local profile" aria-label={'Delete ' + profile.name} onClick={() => removeProfile(profile.id)}><Icon name="x" size={13} /></button>}
+                  </article>
+                ))}
+              </div>
+              <InfoBanner icon="users" title="Isolated state model" text="Profile-specific config, memory, sessions, skills, cron jobs and gateway state are represented as separate domains. Runtime persistence remains owned by the backend." />
+            </SettingsPage>
           )}
 
-          {section === 'Editor' && (
-            <SettingsGroup title="Editor" description="Code editing, navigation and visual assistance preferences.">
-              <ToggleRow label="Show line numbers" detail="Display line numbers beside source code." enabled={values.showLineNumbers} onChange={() => toggle('showLineNumbers')} />
-              <ToggleRow label="Word wrap" detail="Wrap long code and markdown lines to the editor width." enabled={values.wordWrap} onChange={() => toggle('wordWrap')} />
-              <ToggleRow label="Format on save" detail="Run formatting whenever a local draft is saved." enabled={values.formatOnSave} onChange={() => toggle('formatOnSave')} />
-              <ToggleRow label="Minimap" detail="Keep a compact source overview on the editor edge." enabled={values.minimap} onChange={() => toggle('minimap')} />
-              <ToggleRow label="Breadcrumbs" detail="Show file and symbol ancestry above the editor." enabled={values.breadcrumbs} onChange={() => toggle('breadcrumbs')} />
-              <ToggleRow label="Sticky scroll" detail="Keep the active scope heading visible while scrolling." enabled={values.stickyScroll} onChange={() => toggle('stickyScroll')} />
-              <ToggleRow label="Tab preview" detail="Open temporary tabs before pinning them." enabled={values.tabPreview} onChange={() => toggle('tabPreview')} />
-              <ToggleRow label="Auto-close brackets" detail="Close paired brackets when editing code." enabled={values.autoCloseBrackets} onChange={() => toggle('autoCloseBrackets')} />
-            </SettingsGroup>
+          {section === 'models' && (
+            <SettingsPage title="Models & Providers" description="Configure primary model routing, provider selection and fallback behavior.">
+              <SettingSection title="Primary route">
+                <SelectField label="Default model" value={settings.defaultModel} onChange={(v) => update('defaultModel', v)} options={models} />
+                <SelectField label="Default provider" value={settings.defaultProvider} onChange={(v) => update('defaultProvider', v)} options={providers} />
+                <ToggleRow label="Persist model switches" detail="Keep model/provider choices as profile defaults." enabled={settings.persistModel} onChange={() => update('persistModel', !settings.persistModel)} />
+              </SettingSection>
+              <SettingSection title="Aliases & fallback">
+                <TextField label="Model alias" value="fast → qwen3-coder" onChange={() => undefined} />
+                <TextField label="Fallback chain" value="Auto → OpenRouter → Nous → local" onChange={() => undefined} />
+                <TextField label="Custom endpoint" value="https://localhost:1234/v1" onChange={() => undefined} />
+                <InfoBanner icon="network" title="Credential boundary" text="API keys, OAuth tokens and passwords are never rendered as editable secret text in this surface." />
+              </SettingSection>
+              <SettingSection title="Auxiliary models">
+                <SelectField label="Vision provider" value={settings.visionProvider} onChange={(v) => update('visionProvider', v)} options={['auto', 'openrouter', 'nous', 'codex', 'main', 'custom']} />
+                <SelectField label="Vision model" value={settings.visionModel} onChange={(v) => update('visionModel', v)} options={['Auto vision model', 'Gemini Flash', 'GPT-4o', 'Local vision model', 'Custom']} />
+                <SelectField label="Compression summary provider" value={settings.summaryProvider} onChange={(v) => update('summaryProvider', v)} options={['auto', 'openrouter', 'nous', 'codex', 'main', 'custom']} />
+                <SelectField label="Compression summary model" value={settings.summaryModel} onChange={(v) => update('summaryModel', v)} options={['Auto summary model', 'Gemini Flash', 'Qwen', 'DeepSeek', 'Local model']} />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Chat' && (
-            <SettingsGroup title="Chat defaults" description="Define how new conversations open and how the composer behaves.">
-              <SelectField label="Default model" value={defaultModel} onChange={setDefaultModel} options={['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']} />
-              <SelectField label="Context strategy" value={contextMode} onChange={setContextMode} options={['Balanced', 'Maximum context', 'Focused', 'Minimal']} />
-              <ToggleRow label="Stream responses" detail="Render assistant output progressively when supported." enabled={values.streamResponses} onChange={() => toggle('streamResponses')} />
-              <ToggleRow label="Web access by default" detail="Enable the web-access control for new conversations." enabled={values.webByDefault} onChange={() => toggle('webByDefault')} />
-              <ToggleRow label="Persist drafts" detail="Keep unsent composer text when switching workspaces." enabled={values.persistDrafts} onChange={() => toggle('persistDrafts')} />
-              <SelectField label="Response format" value="Markdown" onChange={() => undefined} options={['Markdown', 'Plain text', 'Structured', 'Code first']} />
-              <ToggleRow label="Send on Enter" detail="Submit the composer with Enter and use Shift+Enter for new lines." enabled={values.sendOnEnter} onChange={() => toggle('sendOnEnter')} />
-              <ToggleRow label="Show timestamps" detail="Display message timestamps in the conversation." enabled={values.showTimestamps} onChange={() => toggle('showTimestamps')} />
-              <ToggleRow label="Show citations" detail="Reserve space for source references when available." enabled={values.showCitations} onChange={() => toggle('showCitations')} />
-              <ToggleRow label="Token meter" detail="Keep the estimated context budget visible beside the composer." enabled={values.showTokenMeter} onChange={() => toggle('showTokenMeter')} />
-            </SettingsGroup>
+          {section === 'agent' && (
+            <SettingsPage title="Agent" description="Expose the operational controls that shape Hermes-style agent behavior.">
+              <SettingSection title="Reasoning & execution">
+                <SelectField label="Reasoning effort" value={settings.reasoningEffort} onChange={(v) => update('reasoningEffort', v)} options={['none', 'minimal', 'low', 'medium', 'high', 'xhigh']} />
+                <SelectField label="Tool-use enforcement" value={settings.toolUseEnforcement} onChange={(v) => update('toolUseEnforcement', v)} options={['auto', 'true', 'false', 'model-substrings']} />
+                <NumberField label="Max turns" value={settings.maxTurns} onChange={(v) => update('maxTurns', v)} suffix="turns" min={1} max={500} />
+                <NumberField label="Max parallel agents" value={settings.maxParallelAgents} onChange={(v) => update('maxParallelAgents', v)} suffix="agents" min={1} max={32} />
+                <ToggleRow label="Bounded automatic retry" detail="Retry only recoverable failures and keep the attempt budget visible." enabled={settings.autoRetry} onChange={() => update('autoRetry', !settings.autoRetry)} />
+                <ToggleRow label="Show plan stage" detail="Expose planning before execution in the workspace." enabled={settings.showPlan} onChange={() => update('showPlan', !settings.showPlan)} />
+              </SettingSection>
+              <SettingSection title="Delegation">
+                <SelectField label="Delegation model" value="Inherit parent" onChange={() => undefined} options={['Inherit parent', 'Fast model', 'Qwen3 Coder', 'Gemini Flash', 'Custom']} />
+                <SelectField label="Delegation provider" value="Inherit parent" onChange={() => undefined} options={['Inherit parent', 'OpenRouter', 'Nous', 'Custom']} />
+                <TextField label="Delegation endpoint" value="" onChange={() => undefined} />
+                <RangeField label="Autonomy" value={settings.autonomy} onChange={(v) => update('autonomy', v)} description="Presentation-only autonomy indicator." />
+                <RangeField label="Tool budget" value={settings.toolBudget} onChange={(v) => update('toolBudget', v)} description="Presentation-only tool activity budget." />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Agent' && (
-            <SettingsGroup title="Agent behavior" description="Default behavior controls for the agent workspace.">
-              <SelectField label="Operating profile" value={defaultAgent} onChange={setDefaultAgent} options={['Builder', 'Reviewer', 'Researcher', 'Custom']} />
-              <RangeRow label="Creativity" description="How exploratory generated responses should be." value={35} />
-              <RangeRow label="Autonomy" description="How much initiative the agent may present in preview." value={58} />
-              <RangeRow label="Tool budget" description="Maximum tool activity shown in the UI simulation." value={72} />
-              <SelectField label="Default agent mode" value={defaultMode} onChange={setDefaultMode} options={['Agent', 'Plan', 'Ask', 'Debug', 'Bot']} />
-              <RangeRow label="Creativity" description="How exploratory generated responses should be." value={35} />
-              <RangeRow label="Autonomy" description="How much initiative the agent may present in preview." value={58} />
-              <RangeRow label="Tool budget" description="Maximum tool activity shown in the UI simulation." value={72} />
-              <SelectField label="Max parallel agents" value="4" onChange={() => undefined} options={['1', '2', '4', '6', '8']} />
-              <SelectField label="Stop timeout" value="120s" onChange={() => undefined} options={['30s', '60s', '120s', '300s']} />
-              <ToggleRow label="Auto retry" detail="Show bounded retry behavior for recoverable preview failures." enabled={values.autoRetry} onChange={() => toggle('autoRetry')} />
-              <ToggleRow label="Show plan" detail="Keep the plan stage visible before tool execution." enabled={values.showPlan} onChange={() => toggle('showPlan')} />
-            </SettingsGroup>
+          {section === 'tools' && (
+            <SettingsPage title="Tools & Toolsets" description="Build custom tool access per platform instead of treating every tool as globally enabled.">
+              <SettingSection title="Tool behavior">
+                <ToggleRow label="Show tool calls" detail="Display tool lifecycle activity in chat and run views." enabled={true} onChange={() => undefined} />
+                <ToggleRow label="Auto-approve read-only tools" detail="Keep safe reads frictionless while preserving write confirmation." enabled={settings.safeMode} onChange={() => update('safeMode', !settings.safeMode)} />
+                <SelectField label="CLI toolset preset" value="hermes-cli" onChange={() => undefined} options={toolsetPresets} />
+                <SelectField label="Messaging toolset preset" value="hermes-telegram" onChange={() => undefined} options={toolsetPresets} />
+              </SettingSection>
+              <SettingSection title="Per-platform toolsets">
+                <div className="settings-chip-grid">
+                  {channels.map((channel) => <button type="button" className="settings-chip settings-chip--active" key={channel} onClick={() => notify(channel + ' toolset opened in preview')}><Icon name="tool" size={12} /> {channel}<span>custom</span></button>)}
+                </div>
+              </SettingSection>
+              <SettingSection title="Tool inventory">
+                <div className="settings-tool-grid">
+                  {['web', 'terminal', 'file', 'browser', 'vision', 'image', 'tts', 'skills', 'todo', 'cronjob', 'mcp', 'delegate'].map((tool) => <div className="settings-tool-card" key={tool}><span className="settings-tool-card__icon"><Icon name={tool === 'terminal' ? 'terminal' : tool === 'file' ? 'file' : tool === 'browser' ? 'globe' : tool === 'mcp' ? 'network' : 'tool'} size={13} /></span><strong>{tool}</strong><small>Available in catalog</small></div>)}
+                </div>
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Tools' && (
-            <SettingsGroup title="Tool experience" description="Visibility and local control preferences for the tool layer.">
-              <ToggleRow label="Show tool calls" detail="Keep tool activity visible inside run and chat surfaces." enabled={values.showToolCalls} onChange={() => toggle('showToolCalls')} />
-              <ToggleRow label="Confirmation before high-risk tools" detail="Require a visual confirmation step for risky actions." enabled={values.confirmDestructive} onChange={() => toggle('confirmDestructive')} />
-              <ToggleRow label="Auto-approve read-only tools" detail="Allow filesystem/search-style reads to remain unobstructed in the UI." enabled={values.autoApproveRead} onChange={() => toggle('autoApproveRead')} />
-              <SelectField label="Terminal shell" value={terminalShell} onChange={setTerminalShell} options={['PowerShell', 'Command Prompt', 'Bash', 'Zsh']} />
-              <ToggleRow label="Shell confirmation" detail="Always ask before showing destructive shell actions as allowed." enabled={values.shellConfirmation} onChange={() => toggle('shellConfirmation')} />
-              <SelectField label="Default keymap" value={keymap} onChange={setKeymap} options={['Default', 'VS Code', 'Vim', 'Emacs']} />
-              <div className="tool-permission-grid"><PermissionCard name="Filesystem" risk="High" /><PermissionCard name="Terminal" risk="Critical" /><PermissionCard name="Browser" risk="High" /><PermissionCard name="Git" risk="High" /></div>
-            </SettingsGroup>
+          {section === 'terminal' && (
+            <SettingsPage title="Terminal & Sandbox" description="Select where commands run and tune the runtime envelope without hiding the security tradeoff.">
+              <SettingSection title="Backend">
+                <SelectField label="Terminal backend" value={settings.terminalBackend} onChange={(v) => update('terminalBackend', v as TerminalBackend)} options={['local', 'docker', 'ssh', 'modal', 'daytona', 'singularity']} />
+                <TextField label="Working directory" value={settings.terminalCwd} onChange={(v) => update('terminalCwd', v)} />
+                <NumberField label="Command timeout" value={settings.terminalTimeout} onChange={(v) => update('terminalTimeout', v)} suffix="seconds" min={1} max={3600} />
+                <ToggleRow label="Persistent terminal state" detail="Preserve shell state where the backend supports it." enabled={settings.terminalPersistent} onChange={() => update('terminalPersistent', !settings.terminalPersistent)} />
+              </SettingSection>
+              <SettingSection title="Resources">
+                <NumberField label="CPU limit" value={settings.terminalCpu} onChange={(v) => update('terminalCpu', v)} suffix="cores" min={0} max={64} />
+                <NumberField label="Memory limit" value={settings.terminalMemory} onChange={(v) => update('terminalMemory', v)} suffix="MB" min={0} max={262144} />
+                <NumberField label="Disk limit" value={settings.terminalDisk} onChange={(v) => update('terminalDisk', v)} suffix="MB" min={0} max={1048576} />
+              </SettingSection>
+              <SettingSection title={settings.terminalBackend === 'docker' ? 'Docker' : settings.terminalBackend === 'ssh' ? 'SSH' : 'Backend-specific'}>
+                {settings.terminalBackend === 'docker' ? <>
+                  <TextField label="Docker image" value={settings.dockerImage} onChange={(v) => update('dockerImage', v)} />
+                  <ToggleRow label="Mount current directory" detail="Explicitly opt into sharing the launch directory with the sandbox." enabled={settings.sandboxMountCwd} onChange={() => update('sandboxMountCwd', !settings.sandboxMountCwd)} />
+                </> : settings.terminalBackend === 'ssh' ? <>
+                  <TextField label="SSH host" value={settings.sshHost} onChange={(v) => update('sshHost', v)} />
+                  <TextField label="SSH user" value={settings.sshUser} onChange={(v) => update('sshUser', v)} />
+                  <NumberField label="SSH port" value={settings.sshPort} onChange={(v) => update('sshPort', v)} suffix="port" min={1} max={65535} />
+                </> : <InfoBanner icon="terminal" title="Backend-specific options" text="Additional options appear when a matching backend is selected. Credentials remain runtime-owned." />}
+                <TextField label="Environment passthrough" value={settings.envPassthrough} onChange={(v) => update('envPassthrough', v)} />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Safety' && (
-            <SettingsGroup title="Safety & permissions" description="Visual safety policy controls for the workspace.">
-              <ToggleRow label="Fail-closed mode" detail="Block destructive UI actions when no explicit permission state exists." enabled={values.safeMode} onChange={() => toggle('safeMode')} />
-              <ToggleRow label="Confirm destructive actions" detail="Require an explicit confirmation step before destructive workflows." enabled={values.confirmDestructive} onChange={() => toggle('confirmDestructive')} />
-              <ToggleRow label="Network guard" detail="Keep outbound network access behind an explicit policy state." enabled={values.networkGuard} onChange={() => toggle('networkGuard')} />
-              <ToggleRow label="Git force guard" detail="Surface force push/reset operations as blocked until reviewed." enabled={values.gitForceGuard} onChange={() => toggle('gitForceGuard')} />
-              <div className="safety-banner"><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation controls do not grant runtime permissions. Real authorization remains outside this UI layer.</small></div><span>ACTIVE</span></div>
-              <div className="safety-checks"><span><Icon name="check" size={12} /> Destructive-by-default disabled</span><span><Icon name="check" size={12} /> Secrets stay out of UI state</span><span><Icon name="check" size={12} /> Review states remain visible</span></div>
-            </SettingsGroup>
+          {section === 'context' && (
+            <SettingsPage title="Context & Memory" description="Control persistent memory, user profile, session recall and context capacity.">
+              <SettingSection title="Memory">
+                <ToggleRow label="Persistent memory" detail="Maintain cross-session memory records." enabled={settings.memoryEnabled} onChange={() => update('memoryEnabled', !settings.memoryEnabled)} />
+                <ToggleRow label="User profile memory" detail="Keep a dedicated user profile alongside general memories." enabled={settings.userProfileEnabled} onChange={() => update('userProfileEnabled', !settings.userProfileEnabled)} />
+                <NumberField label="Memory character limit" value={settings.memoryCharLimit} onChange={(v) => update('memoryCharLimit', v)} suffix="chars" min={100} max={20000} />
+                <NumberField label="User profile character limit" value={settings.userCharLimit} onChange={(v) => update('userCharLimit', v)} suffix="chars" min={100} max={20000} />
+                <ToggleRow label="Session recall" detail="Allow previous session search to feed relevant context." enabled={settings.sessionRecall} onChange={() => update('sessionRecall', !settings.sessionRecall)} />
+              </SettingSection>
+              <SettingSection title="Context budget">
+                <RangeField label="Context budget" value={settings.contextBudget} onChange={(v) => update('contextBudget', v)} description="Visual budget used by the desktop composer." />
+                <NumberField label="Maximum context files" value={settings.maxContextFiles} onChange={(v) => update('maxContextFiles', v)} suffix="files" min={1} max={500} />
+                <RangeField label="Auto-compaction trigger" value={settings.compactionThreshold} onChange={(v) => update('compactionThreshold', v)} description="Percentage of context capacity at which compaction is staged." />
+                <ToggleRow label="Automatic compaction" detail="Compact long conversations before the context limit is reached." enabled={settings.autoCompact} onChange={() => update('autoCompact', !settings.autoCompact)} />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Context' && (
-            <SettingsGroup title="Context & memory" description="Tune what context the workspace presents to an agent.">
-              <SelectField label="Context strategy" value={contextMode} onChange={setContextMode} options={['Balanced', 'Maximum context', 'Focused', 'Minimal']} />
-              <RangeRow label="Context budget" description="Preview budget meter used by the chat composer." value={72} />
-              <RangeRow label="Memory priority" description="How strongly pinned memory appears in previews." value={84} />
-              <ToggleRow label="Persist drafts" detail="Keep local unsent text available across sessions." enabled={values.persistDrafts} onChange={() => toggle('persistDrafts')} />
-              <SelectField label="Auto-compaction threshold" value={compactionThreshold} onChange={setCompactionThreshold} options={['65%', '72%', '78%', '85%', '90%']} />
-              <ToggleRow label="Auto compact" detail="Show context compaction as a deliberate preview stage before limits are reached." enabled={values.autoCompact} onChange={() => toggle('autoCompact')} />
-              <ToggleRow label="Exclude generated files" detail="Prefer source files over generated output when building context." enabled={values.excludeGenerated} onChange={() => toggle('excludeGenerated')} />
-            </SettingsGroup>
+          {section === 'compression' && (
+            <SettingsPage title="Compression & Cache" description="Expose the knobs that preserve useful recent context while compressing older turns.">
+              <SettingSection title="Compression">
+                <ToggleRow label="Compression enabled" detail="Automatically summarize long conversations." enabled={settings.compressionEnabled} onChange={() => update('compressionEnabled', !settings.compressionEnabled)} />
+                <RangeField label="Compression threshold" value={settings.compressionThreshold} onChange={(v) => update('compressionThreshold', v)} description="Percent of context capacity that triggers compression." />
+                <RangeField label="Target ratio" value={settings.compressionTargetRatio} onChange={(v) => update('compressionTargetRatio', v)} description="Target percentage of the threshold retained for recent context." />
+                <NumberField label="Protect last N messages" value={settings.protectLastN} onChange={(v) => update('protectLastN', v)} suffix="messages" min={0} max={200} />
+              </SettingSection>
+              <SettingSection title="Summary model">
+                <SelectField label="Summary provider" value={settings.summaryProvider} onChange={(v) => update('summaryProvider', v)} options={['auto', 'openrouter', 'nous', 'codex', 'main', 'custom']} />
+                <SelectField label="Summary model" value={settings.summaryModel} onChange={(v) => update('summaryModel', v)} options={['Auto summary model', 'Gemini Flash', 'Qwen', 'DeepSeek', 'Local model']} />
+                <TextField label="Summary base URL" value={settings.summaryBaseUrl} onChange={(v) => update('summaryBaseUrl', v)} />
+              </SettingSection>
+              <InfoBanner icon="archive" title="Fail-safe principle" text="A failed transform should fall back to original content rather than silently corrupting model context." />
+            </SettingsPage>
           )}
 
-          {section === 'Notifications' && (
-            <SettingsGroup title="Notifications" description="Control how the desktop communicates background activity.">
-              <ToggleRow label="Notifications" detail="Show completion and workspace event toasts." enabled={values.notifications} onChange={() => toggle('notifications')} />
-              <ToggleRow label="Sound" detail="Play a subtle sound for completion and approval events." enabled={values.sound} onChange={() => toggle('sound')} />
-              <ToggleRow label="Crash reports" detail="Allow anonymous crash-report UI state in the preview." enabled={values.crashReports} onChange={() => toggle('crashReports')} />
-              <ToggleRow label="Group notifications" detail="Combine related workspace alerts into one inbox group." enabled={values.groupNotifications} onChange={() => toggle('groupNotifications')} />
-              <ToggleRow label="Approval notifications" detail="Always surface permission requests in the notification center." enabled={values.approvalNotifications} onChange={() => toggle('approvalNotifications')} />
-              <ToggleRow label="Background notifications" detail="Surface background-agent completion and failure events." enabled={values.backgroundNotifications} onChange={() => toggle('backgroundNotifications')} />
-            </SettingsGroup>
+          {section === 'display' && (
+            <SettingsPage title="Display & Theme" description="Personalize the desktop shell, output detail and tool-progress visibility.">
+              <SettingSection title="Visual identity">
+                <SelectField label="Theme" value={settings.theme} onChange={(v) => update('theme', v as Theme)} options={['Monochrome', 'Graphite', 'Paper', 'High contrast']} />
+                <SelectField label="Accent" value={settings.accent} onChange={(v) => update('accent', v as Accent)} options={['White', 'Silver', 'Blue', 'Violet', 'Green']} />
+                <SelectField label="Density" value={settings.density} onChange={(v) => update('density', v as Density)} options={['Compact', 'Comfortable', 'Spacious']} />
+                <RangeField label="UI scale" value={settings.uiScale} onChange={(v) => update('uiScale', v)} description="Applies to the document root." />
+                <RangeField label="Font size" value={settings.fontSize} onChange={(v) => update('fontSize', v)} description="Base interface font size." />
+              </SettingSection>
+              <SettingSection title="Output">
+                <SelectField label="Tool progress" value={settings.toolProgress} onChange={(v) => update('toolProgress', v as ToolProgress)} options={previewModes} />
+                <ToggleRow label="Tool progress command" detail="Expose the /verbose-style control for gateway surfaces." enabled={settings.toolProgressCommand} onChange={() => update('toolProgressCommand', !settings.toolProgressCommand)} />
+                <ToggleRow label="Show reasoning" detail="Show reasoning UI when the runtime exposes it." enabled={settings.showReasoning} onChange={() => update('showReasoning', !settings.showReasoning)} />
+                <ToggleRow label="Show cost" detail="Expose estimated cost telemetry when available." enabled={settings.showCost} onChange={() => update('showCost', !settings.showCost)} />
+                <ToggleRow label="Streaming" detail="Render streaming output where supported." enabled={settings.streaming} onChange={() => update('streaming', !settings.streaming)} />
+                <SelectField label="Resume display" value={settings.resumeDisplay} onChange={(v) => update('resumeDisplay', v)} options={['full', 'minimal']} />
+                <ToggleRow label="Bell on complete" detail="Optional local completion signal for long-running tasks." enabled={settings.bellOnComplete} onChange={() => update('bellOnComplete', !settings.bellOnComplete)} />
+                <NumberField label="Tool preview length" value={settings.toolPreviewLength} onChange={(v) => update('toolPreviewLength', v)} suffix="chars" min={0} max={2000} />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Privacy' && (
-            <SettingsGroup title="Privacy" description="Presentation-level privacy preferences.">
-              <ToggleRow label="Telemetry" detail="Allow local telemetry controls to be shown as enabled." enabled={values.telemetry} onChange={() => toggle('telemetry')} />
-              <ToggleRow label="Crash reports" detail="Show crash-report preference as enabled." enabled={values.crashReports} onChange={() => toggle('crashReports')} />
-              <ToggleRow label="Clear local state on exit" detail="Remove presentation-only session data when the app exits." enabled={values.clearOnExit} onChange={() => toggle('clearOnExit')} />
-              <button className="studio-button" type="button" onClick={() => notify('Local presentation data clear staged in preview')}><Icon name="history" size={13} /> Clear local presentation data</button>
-              <div className="privacy-note"><Icon name="shield" size={15} /><span>Secrets, API keys and credentials are never stored by this settings component.</span></div>
-            </SettingsGroup>
+          {section === 'voice' && (
+            <SettingsPage title="Voice & Media" description="Configure speech, TTS, vision, image and web backends behind explicit provider boundaries.">
+              <SettingSection title="Text to speech">
+                <SelectField label="TTS provider" value={settings.ttsProvider} onChange={(v) => update('ttsProvider', v)} options={['edge', 'elevenlabs', 'openai', 'neutts']} />
+                <TextField label="Voice" value={settings.ttsVoice} onChange={(v) => update('ttsVoice', v)} />
+                <TextField label="TTS model" value={settings.ttsModel} onChange={(v) => update('ttsModel', v)} />
+              </SettingSection>
+              <SettingSection title="Speech to text">
+                <SelectField label="STT provider" value={settings.sttProvider} onChange={(v) => update('sttProvider', v)} options={['local', 'groq', 'openai']} />
+                <SelectField label="Local STT model" value="base" onChange={() => undefined} options={['tiny', 'base', 'small', 'medium', 'large-v3']} />
+              </SettingSection>
+              <SettingSection title="Vision & web">
+                <SelectField label="Vision provider" value={settings.visionProvider} onChange={(v) => update('visionProvider', v)} options={['auto', 'openrouter', 'nous', 'codex', 'main', 'custom']} />
+                <TextField label="Vision model" value={settings.visionModel} onChange={(v) => update('visionModel', v)} />
+                <NumberField label="Vision timeout" value={settings.visionTimeout} onChange={(v) => update('visionTimeout', v)} suffix="seconds" min={1} max={3600} />
+                <SelectField label="Web backend" value={settings.webBackend} onChange={(v) => update('webBackend', v)} options={['auto', 'firecrawl', 'parallel', 'tavily', 'exa']} />
+                <SelectField label="Browser cloud provider" value={settings.browserCloudProvider} onChange={(v) => update('browserCloudProvider', v)} options={['none', 'Nous', 'Browserbase', 'Custom']} />
+                <SelectField label="Image provider" value={settings.imageProvider} onChange={(v) => update('imageProvider', v)} options={['auto', 'Nous', 'OpenAI', 'Fal', 'Local']} />
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Keyboard' && (
-            <SettingsGroup title="Keyboard shortcuts" description="Command palette and editor shortcut references.">
-              <ShortcutRow keys="⌘K" label="Command palette" detail="Search commands, views and conversations" />
-              <ShortcutRow keys="⌘N" label="New conversation" detail="Open a clean agent session" />
-              <ShortcutRow keys="Enter" label="Send message" detail="Submit the composer when focus is in chat" />
-              <ShortcutRow keys="Shift Enter" label="New line" detail="Insert a newline without sending" />
-              <ShortcutRow keys="↑ ↓" label="Palette navigation" detail="Move through command results" />
-              <ShortcutRow keys="Esc" label="Close overlay" detail="Close the palette or current overlay" />
-            </SettingsGroup>
+          {section === 'gateway' && (
+            <SettingsPage title="Gateway & Channels" description="Model the messaging gateway, API server and per-platform output behavior.">
+              <SettingSection title="API server">
+                <ToggleRow label="API server enabled" detail="Presentation-local server setting; runtime wiring remains outside this UI." enabled={settings.apiServerEnabled} onChange={() => update('apiServerEnabled', !settings.apiServerEnabled)} />
+                <TextField label="Host" value={settings.apiServerHost} onChange={(v) => update('apiServerHost', v)} />
+                <NumberField label="Port" value={settings.apiServerPort} onChange={(v) => update('apiServerPort', v)} suffix="port" min={1} max={65535} />
+                <NumberField label="Max concurrent runs" value={settings.apiServerMaxRuns} onChange={(v) => update('apiServerMaxRuns', v)} suffix="runs" min={0} max={100} />
+              </SettingSection>
+              <SettingSection title="Gateway streaming">
+                <ToggleRow label="Progressive streaming" detail="Edit outgoing messages as model output grows." enabled={settings.gatewayStreaming} onChange={() => update('gatewayStreaming', !settings.gatewayStreaming)} />
+                <RangeField label="Edit interval" value={Math.round(settings.gatewayEditInterval * 10)} onChange={(v) => update('gatewayEditInterval', Math.max(.1, v / 10))} description={settings.gatewayEditInterval.toFixed(1) + ' seconds between edits.'} />
+              </SettingSection>
+              <SettingSection title="Messaging platforms">
+                {channels.map((channel) => {
+                  const key = channel === 'telegram' ? 'telegramEnabled' : channel === 'discord' ? 'discordEnabled' : channel === 'slack' ? 'slackEnabled' : channel === 'whatsapp' ? 'whatsappEnabled' : channel === 'signal' ? 'signalEnabled' : 'homeAssistantEnabled'
+                  return <ToggleRow key={channel} label={channel} detail="Platform connector remains runtime-owned." enabled={settings[key as keyof SettingsState] as boolean} onChange={() => update(key as keyof SettingsState, !(settings[key as keyof SettingsState] as boolean) as never)} />
+                })}
+              </SettingSection>
+            </SettingsPage>
           )}
 
-          {section === 'Advanced' && (
-            <SettingsGroup title="Advanced" description="Developer-oriented preferences for the desktop shell.">
-              <SelectField label="UI language" value={language} onChange={setLanguage} options={['English', 'Spanish', 'Portuguese', 'Auto']} />
-              <SelectField label="Keyboard map" value={keymap} onChange={setKeymap} options={['Default', 'VS Code', 'Vim', 'Emacs']} />
-              <ToggleRow label="Compact mode" detail="Reduce panel spacing and chrome throughout the workspace." enabled={values.compact} onChange={() => toggle('compact')} />
-              <ToggleRow label="Motion" detail="Use subtle transitions and activity feedback." enabled={values.motion} onChange={() => toggle('motion')} />
-              <div className="advanced-grid"><div><span>Frontend build</span><strong>React + TypeScript + Vite</strong></div><div><span>UI state</span><strong>Local / preview</strong></div><div><span>Runtime bridge</span><strong>Typed service boundary</strong></div><div><span>Safety</span><strong>Fail-closed</strong></div></div>
-            </SettingsGroup>
+          {section === 'mcp' && (
+            <SettingsPage title="MCP" description="Manage server discovery and the local presentation registry for Model Context Protocol connections.">
+              <SettingSection title="MCP runtime behavior">
+                <ToggleRow label="Automatic discovery" detail="Discover server capabilities when a connection is initialized." enabled={settings.mcpAutoDiscover} onChange={() => update('mcpAutoDiscover', !settings.mcpAutoDiscover)} />
+                <NumberField label="Server timeout" value={settings.mcpTimeout} onChange={(v) => update('mcpTimeout', v)} suffix="seconds" min={1} max={3600} />
+              </SettingSection>
+              <SettingSection title="Server registry">
+                <div className="mcp-add-row"><input className="settings-input" value={newMcpServer} onChange={(event) => setNewMcpServer(event.target.value)} placeholder="server name or URL" /><button className="studio-button studio-button--active" type="button" onClick={() => { const value = newMcpServer.trim(); if (!value) return; setSettings((current) => ({ ...current, mcpServers: [...current.mcpServers, value] })); setNewMcpServer(''); setDirty(true) }}><Icon name="plus" size={13} /> Add</button></div>
+                <div className="mcp-server-list">
+                  {settings.mcpServers.map((server) => <div className="mcp-server-row" key={server}><span className="settings-tool-card__icon"><Icon name="network" size={13} /></span><div><strong>{server}</strong><small>Ready in preview</small></div><button className="icon-button" type="button" aria-label={'Remove ' + server} title="Remove server" onClick={() => update('mcpServers', settings.mcpServers.filter((item) => item !== server))}><Icon name="x" size={13} /></button></div>)}
+                </div>
+              </SettingSection>
+              <InfoBanner icon="network" title="Credential isolation" text="OAuth headers, tokens and provider secrets are represented only as secure runtime metadata in the future service boundary." />
+            </SettingsPage>
+          )}
+
+          {section === 'automation' && (
+            <SettingsPage title="Automation" description="Configure recurring tasks, wake behavior and background-agent preferences.">
+              <SettingSection title="Schedules">
+                <ToggleRow label="Cron jobs" detail="Enable the presentation control for recurring scheduled runs." enabled={settings.cronEnabled} onChange={() => update('cronEnabled', !settings.cronEnabled)} />
+                <ToggleRow label="Wake word / presence" detail="Expose hands-free activation controls." enabled={settings.wakeEnabled} onChange={() => update('wakeEnabled', !settings.wakeEnabled)} />
+                <ToggleRow label="Background agents" detail="Allow long-running runs to remain visible after leaving the current view." enabled={true} onChange={() => undefined} />
+              </SettingSection>
+              <SettingSection title="Automation defaults">
+                <SelectField label="Default schedule policy" value="bounded" onChange={() => undefined} options={['bounded', 'manual approval', 'always confirm', 'autonomous safe']} />
+                <NumberField label="Max scheduled concurrency" value={4} onChange={() => undefined} suffix="runs" min={1} max={32} />
+                <ToggleRow label="Notify on completion" detail="Send a notification when a background run finishes." enabled={true} onChange={() => undefined} />
+              </SettingSection>
+            </SettingsPage>
+          )}
+
+          {section === 'security' && (
+            <SettingsPage title="Security & Privacy" description="Make the safety boundary explicit. Presentation controls never grant runtime privileges.">
+              <SettingSection title="Safety">
+                <ToggleRow label="Fail-closed mode" detail="Block privileged UI actions when an authorization state is missing." enabled={settings.safeMode} onChange={() => update('safeMode', !settings.safeMode)} />
+                <ToggleRow label="Network guard" detail="Keep outbound network capabilities behind explicit policy." enabled={settings.networkGuard} onChange={() => update('networkGuard', !settings.networkGuard)} />
+                <ToggleRow label="Shell confirmation" detail="Require confirmation before presenting high-risk shell execution as permitted." enabled={settings.shellConfirmation} onChange={() => update('shellConfirmation', !settings.shellConfirmation)} />
+                <ToggleRow label="Git force guard" detail="Surface force push/reset workflows as blocked until reviewed." enabled={settings.gitForceGuard} onChange={() => update('gitForceGuard', !settings.gitForceGuard)} />
+                <ToggleRow label="Automatic checkpoints" detail="Keep a snapshot before destructive file operations." enabled={settings.checkpointsEnabled} onChange={() => update('checkpointsEnabled', !settings.checkpointsEnabled)} />
+                <NumberField label="Maximum snapshots" value={settings.maxSnapshots} onChange={(v) => update('maxSnapshots', v)} suffix="snapshots" min={1} max={500} />
+              </SettingSection>
+              <SettingSection title="Privacy">
+                <ToggleRow label="PII redaction" detail="Prepare context redaction for supported gateway platforms." enabled={settings.redactPii} onChange={() => update('redactPii', !settings.redactPii)} />
+                <ToggleRow label="Secrets redaction" detail="Mask credential-shaped values in configuration previews." enabled={settings.secretsRedaction} onChange={() => update('secretsRedaction', !settings.secretsRedaction)} />
+                <ToggleRow label="Telemetry" detail="Allow telemetry state to be represented in this local UI." enabled={settings.telemetry} onChange={() => update('telemetry', !settings.telemetry)} />
+                <ToggleRow label="Crash reports" detail="Allow crash-report preference to be represented in this local UI." enabled={settings.crashReports} onChange={() => update('crashReports', !settings.crashReports)} />
+                <ToggleRow label="Clear local state on exit" detail="Remove presentation-only preferences on application exit." enabled={settings.clearOnExit} onChange={() => update('clearOnExit', !settings.clearOnExit)} />
+              </SettingSection>
+              <InfoBanner icon="lock" title="Protected workspace" text="API keys, OAuth credentials, passwords and tokens are intentionally absent from this React state model." />
+            </SettingsPage>
+          )}
+
+          {section === 'advanced' && (
+            <SettingsPage title="Advanced / Raw Config" description="Expert mode for portable configuration snapshots, environment placeholders and diagnostics.">
+              <SettingSection title="Portable configuration">
+                <div className="raw-config-toolbar"><button className="studio-button" type="button" onClick={() => setAdvancedJson(JSON.stringify(toPortableConfig(settings, profiles, activeProfileId), null, 2))}><Icon name="refresh" size={13} /> Refresh snapshot</button><button className="studio-button studio-button--active" type="button" onClick={applyRawConfig}><Icon name="check" size={13} /> Apply JSON</button></div>
+                <textarea className="raw-config-editor" value={advancedJson} onChange={(event) => setAdvancedJson(event.target.value)} spellCheck={false} aria-label="Portable raw configuration JSON" />
+              </SettingSection>
+              <SettingSection title="Environment placeholders">
+                <div className="env-placeholder-box"><code>${'OPENROUTER_API_KEY'}</code><code>${'CUSTOM_VISION_URL'}</code><code>${'DELEGATION_KEY'}</code><code>${'TERMINAL_CWD'}</code></div>
+                <InfoBanner icon="lock" title="Secrets stay outside config UI state" text="Use environment or runtime-managed secret storage for API keys, bot tokens, OAuth and passwords. The UI only exposes non-secret configuration shape." />
+              </SettingSection>
+              <SettingSection title="Diagnostics">
+                <ToggleRow label="Debug mode" detail="Expose additional UI diagnostics and structured state metadata." enabled={settings.debugMode} onChange={() => update('debugMode', !settings.debugMode)} />
+                <ToggleRow label="Experimental features" detail="Show experimental frontend surfaces before backend contracts are connected." enabled={settings.experimentalFeatures} onChange={() => update('experimentalFeatures', !settings.experimentalFeatures)} />
+                <div className="advanced-grid"><div><span>Config schema</span><strong>Hermes-inspired v2</strong></div><div><span>Persistence</span><strong>Local preview</strong></div><div><span>Secret store</span><strong>Runtime-owned</strong></div><div><span>Runtime bridge</span><strong>Typed service boundary</strong></div></div>
+              </SettingSection>
+            </SettingsPage>
           )}
         </main>
       </div>
@@ -402,32 +791,166 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   )
 }
 
-function SettingsGroup({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-  return <section className="settings-group"><div className="settings-group__header"><div><span>{title}</span><small>{description}</small></div><Icon name="settings" size={15} /></div>{children}</section>
+function toPortableConfig(settings: SettingsState, profiles: Profile[], activeProfileId: string) {
+  return {
+    version: 2,
+    active_profile: activeProfileId,
+    profile: profiles.find((profile) => profile.id === activeProfileId)?.name ?? 'Default',
+    model: {
+      provider: settings.defaultProvider,
+      default: settings.defaultModel,
+      persist_switch: settings.persistModel,
+    },
+    agent: {
+      reasoning_effort: settings.reasoningEffort,
+      tool_use_enforcement: settings.toolUseEnforcement,
+      max_turns: settings.maxTurns,
+      autonomy: settings.autonomy,
+      tool_budget: settings.toolBudget,
+      max_parallel_agents: settings.maxParallelAgents,
+    },
+    tools: {
+      progress: settings.toolProgress,
+      presets: toolsetPresets,
+    },
+    terminal: {
+      backend: settings.terminalBackend,
+      cwd: settings.terminalCwd,
+      timeout: settings.terminalTimeout,
+      persistent: settings.terminalPersistent,
+      cpu: settings.terminalCpu,
+      memory: settings.terminalMemory,
+      disk: settings.terminalDisk,
+      docker_image: settings.dockerImage,
+      ssh_host: settings.sshHost || null,
+      ssh_user: settings.sshUser || null,
+      ssh_port: settings.sshPort,
+    },
+    memory: {
+      memory_enabled: settings.memoryEnabled,
+      user_profile_enabled: settings.userProfileEnabled,
+      memory_char_limit: settings.memoryCharLimit,
+      user_char_limit: settings.userCharLimit,
+      session_recall: settings.sessionRecall,
+    },
+    compression: {
+      enabled: settings.compressionEnabled,
+      threshold: settings.compressionThreshold / 100,
+      target_ratio: settings.compressionTargetRatio / 100,
+      protect_last_n: settings.protectLastN,
+      summary_provider: settings.summaryProvider,
+      summary_model: settings.summaryModel,
+      summary_base_url: settings.summaryBaseUrl,
+    },
+    display: {
+      tool_progress: settings.toolProgress,
+      tool_progress_command: settings.toolProgressCommand,
+      show_reasoning: settings.showReasoning,
+      streaming: settings.streaming,
+      show_cost: settings.showCost,
+      compact: settings.compactOutput,
+      resume_display: settings.resumeDisplay,
+      bell_on_complete: settings.bellOnComplete,
+      tool_preview_length: settings.toolPreviewLength,
+      skin: settings.theme,
+    },
+    voice: {
+      tts: { provider: settings.ttsProvider, voice: settings.ttsVoice, model: settings.ttsModel },
+      stt: { provider: settings.sttProvider },
+      vision: { provider: settings.visionProvider, model: settings.visionModel, timeout: settings.visionTimeout },
+    },
+    web: {
+      backend: settings.webBackend,
+      browser_cloud_provider: settings.browserCloudProvider,
+      image_provider: settings.imageProvider,
+    },
+    gateway: {
+      api_server: {
+        enabled: settings.apiServerEnabled,
+        host: settings.apiServerHost,
+        port: settings.apiServerPort,
+        max_concurrent_runs: settings.apiServerMaxRuns,
+      },
+      streaming: {
+        enabled: settings.gatewayStreaming,
+        edit_interval: settings.gatewayEditInterval,
+      },
+      channels: {
+        telegram: settings.telegramEnabled,
+        discord: settings.discordEnabled,
+        slack: settings.slackEnabled,
+        whatsapp: settings.whatsappEnabled,
+        signal: settings.signalEnabled,
+        homeassistant: settings.homeAssistantEnabled,
+      },
+    },
+    mcp: {
+      auto_discover: settings.mcpAutoDiscover,
+      timeout: settings.mcpTimeout,
+      servers: settings.mcpServers,
+    },
+    automation: {
+      cron_enabled: settings.cronEnabled,
+      wake_enabled: settings.wakeEnabled,
+    },
+    security: {
+      safe_mode: settings.safeMode,
+      redact_pii: settings.redactPii,
+      network_guard: settings.networkGuard,
+      shell_confirmation: settings.shellConfirmation,
+      git_force_guard: settings.gitForceGuard,
+      checkpoints_enabled: settings.checkpointsEnabled,
+      max_snapshots: settings.maxSnapshots,
+      clear_on_exit: settings.clearOnExit,
+    },
+    ui: {
+      theme: settings.theme,
+      accent: settings.accent,
+      density: settings.density,
+      ui_scale: settings.uiScale,
+      font_size: settings.fontSize,
+      language: settings.language,
+      workspace_name: settings.workspaceName,
+      startup_view: settings.startupView,
+    },
+    profiles,
+    note: 'Presentation-local configuration snapshot. Secrets are intentionally excluded.',
+  }
+}
+
+function SettingsPage({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return <div className="settings-page"><header className="settings-page__header"><div><span className="eyebrow">Configuration domain</span><h2>{title}</h2><p>{description}</p></div><span className="settings-page__mark"><Icon name="settings" size={17} /></span></header>{children}</div>
+}
+
+function SettingSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="settings-section-card"><div className="settings-section-card__heading"><div><span>{title}</span><small>Editable preference</small></div><Icon name="sliders" size={14} /></div>{children}</section>
 }
 
 function ToggleRow({ label, detail, enabled, onChange }: { label: string; detail: string; enabled: boolean; onChange: () => void }) {
-  return <div className="settings-toggle-row"><div><strong>{label}</strong><span>{detail}</span></div><button className={`switch ${enabled ? 'switch--on' : ''}`} role="switch" aria-checked={enabled} onClick={onChange} type="button"><span /></button></div>
+  return <div className="settings-control-row"><div><strong>{label}</strong><span>{detail}</span></div><button className={enabled ? 'switch switch--on' : 'switch'} role="switch" aria-checked={enabled} onClick={onChange} type="button"><span /></button></div>
 }
 
-function SelectField({ label, value, onChange, options, suffix }: { label: string; value: string; onChange: (value: string) => void; options: string[]; suffix?: string }) {
-  return <label className="select-field"><span>{label}</span><div><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select>{suffix && <small>{suffix}</small>}</div></label>
+function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
+  return <label className="settings-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>
 }
 
 function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="select-field"><span>{label}</span><input className="settings-input" value={value} onChange={(event) => onChange(event.target.value)} /></label>
+  return <label className="settings-field"><span>{label}</span><input className="settings-input" value={value} onChange={(event) => onChange(event.target.value)} /></label>
 }
 
-function RangeRow({ label, description, value }: { label: string; description: string; value: number }) {
-  const [current, setCurrent] = useState(value)
-  return <div className="range-row"><div><strong>{label}</strong><span>{description}</span></div><div className="range-control"><input type="range" min="0" max="100" value={current} onChange={(event) => setCurrent(Number(event.target.value))} /><output>{current}</output></div></div>
+function NumberField({ label, value, onChange, suffix, min, max }: { label: string; value: number; onChange: (value: number) => void; suffix: string; min: number; max: number }) {
+  return <label className="settings-field"><span>{label}</span><div className="settings-number"><input type="number" value={value} min={min} max={max} onChange={(event) => onChange(Math.max(min, Math.min(max, Number(event.target.value))))} /><small>{suffix}</small></div></label>
 }
 
-function PermissionCard({ name, risk }: { name: string; risk: string }) {
-  return <div className="permission-card"><div><Icon name="tool" size={14} /><strong>{name}</strong></div><span>{risk}</span></div>
+function RangeField({ label, value, onChange, description }: { label: string; value: number; onChange: (value: number) => void; description: string }) {
+  const bounded = Math.max(0, Math.min(100, value))
+  return <div className="settings-range"><div><strong>{label}</strong><span>{description}</span></div><div className="settings-range__control"><input type="range" min="0" max="100" value={bounded} onChange={(event) => onChange(Number(event.target.value))} /><output>{bounded}</output></div></div>
 }
 
-function ShortcutRow({ keys, label, detail }: { keys: string; label: string; detail: string }) {
-  return <div className="shortcut-row"><kbd>{keys}</kbd><div><strong>{label}</strong><span>{detail}</span></div></div>
+function StatusCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: IconName }) {
+  return <div className="settings-status-card"><span className="settings-status-card__icon"><Icon name={icon} size={15} /></span><span><small>{label}</small><strong>{value}</strong><em>{detail}</em></span></div>
 }
 
+function InfoBanner({ icon, title, text }: { icon: IconName; title: string; text: string }) {
+  return <div className="settings-info-banner"><span><Icon name={icon} size={15} /></span><div><strong>{title}</strong><small>{text}</small></div></div>
+}

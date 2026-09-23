@@ -200,3 +200,18 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: final global CI conclusion for `ac892d48b8f520a6918eb104b8808d16ddfb6c5e`, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
 - Next step: complete the final CI gate and then proceed to browser-level visual regression coverage.
+
+
+## Frontend product completion pass — 2026-09-24
+
+- Scope: frontend-only product completion and usability pass.
+- Commits included: adaptive panel layout, product administration surfaces, evaluation/notification/presence views, platform data/primitives refactor, feature launcher and task planning.
+- User-visible effect: the desktop product now exposes a searchable catalog of 49 visual surfaces across build, operate, configure and integrate planes, with chat execution tracing, session actions, panel focus controls, task tracking and grouped navigation.
+- Added visual domains: Sessions, Logs & Traces, Analytics, Webhooks & Events, Credentials metadata, Toolsets, Imports & Migrations, Media Studio, Evaluations, Notifications, Wake Word & Presence and Tasks.
+- Architecture decision: the navigation registry is centralized; platform data is separated from rendering; shared platform primitives are reusable; chat-specific execution UI is isolated under `features/chat`.
+- UX decision: the primary rail remains compact while the AgentiCOS logo opens a searchable all-features launcher grouped by workflow plane.
+- Runtime boundary: all newly introduced controls remain presentation-local/preview until corresponding Rust service contracts are deliberately added.
+- Verification evidence: previous CI run `#690` passed the TypeScript/Vite build after the earlier platform hardening; subsequent CI runs are being re-triggered as the frontend grows. Current main verification is tracked separately and must not be inferred from the presence of committed UI code.
+- Unverified: current final CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit and live backend integration.
+- Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
+- Next step: after the current CI gate, run browser-level visual verification against the desktop frontend before adding live runtime contracts.

@@ -130,3 +130,29 @@ The composer also exposes slash-style entry points for `/ask`, `/debug`, `/goal`
 - **Learning Loop** models reviewable skill/memory/prompt candidates rather than silently mutating agent behavior.
 
 These domains are frontend product surfaces, not claims of live availability.
+
+
+## Product completion surface map
+
+The current frontend registry contains 49 user-facing modes. This is intentionally broader than the minimal chat/editor baseline so the UI can absorb future runtime capabilities without a second information-architecture redesign.
+
+The user-facing organization is:
+
+- Build: Command Center, Files & Editor, Terminal, Prompt Lab, Projects, Codebase Index, Context, Rules & Instructions.
+- Operate: Runs, Tasks, Background Agents, Reviews & Bugbot, Checkpoints, Approvals, Observability, Agent Profiles, Bots & Teams, Workflows, Automations, Artifacts, Research, Evaluations, Notifications, Sessions, Logs & Traces, Analytics, Batch Processing and Learning Loop.
+- Configure: Providers & Models, Skills, Tools, Memory, Settings, Toolsets, Plugins, Hooks & Policies, Execution Lab, Credentials.
+- Integrate: Channels & Gateway, Browser, Voice & Media, MCP Servers, Environments, Webhooks & Events, Imports & Migrations, Media Studio, Wake Word & Presence, Source Integrations and Security Center.
+
+This surface map is visual product structure only. It does not imply that any listed runtime integration is connected.
+
+The default interaction model is:
+
+```
+discover capability
+  -> choose task surface
+  -> configure context / agent / tools
+  -> inspect plan and trace
+  -> review changes / approvals
+  -> inspect artifacts / evidence
+  -> return to session or fork
+```

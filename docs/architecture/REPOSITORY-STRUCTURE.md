@@ -1,133 +1,124 @@
 # AgentiCOS Repository Structure
 
-The repository is organized around architectural boundaries rather than individual upstream projects.
+This document is the canonical map of the repository tree. It describes the implemented structure on the current `main` branch; historical layouts are archived separately.
 
-## Canonical implementation layout
+## 1. Canonical Rust workspace
 
-```
-agenticos/
-├── Cargo.toml
-├── Cargo.lock
-│
-├── crates/
-│   ├── kernel/
-│   ├── contracts/
-│   ├── runtime/
-│   ├── execution/
-│   ├── scheduler/
-│   ├── providers/
-│   ├── router/
-│   ├── tools/
-│   ├── sandbox/
-│   ├── context/
-│   ├── memory/
-│   ├── skills/
-│   ├── workflows/
-│   ├── agents/
-│   ├── projects/
-│   ├── artifacts/
-│   ├── plugins/
-│   ├── gateway/
-│   ├── security/
-│   ├── observability/
-│   ├── evaluation/
-│   └── source-forge/
-│
-├── apps/
-│   ├── cli/
-│   ├── tui/
-│   ├── web/
-│   ├── desktop/
-│   └── ide/
-│
-├── sdk/
-│   ├── python/
-│   └── typescript/
-│
-├── engines/
-│   ├── adapters/
-│   │   ├── hermes/
-│   │   ├── deepseek-harness/
-│   │   ├── codex/
-│   │   └── other/
-│   └── manifests/
-│
-├── protocols/
-│   ├── application/
-│   ├── engine/
-│   ├── plugin/
-│   └── schemas/
-│
-├── vendor/
-│   └── sources/
-│
-├── docs/
-│   ├── architecture/
-│   ├── adr/
-│   └── reference/
-│
-├── reference/
-│   ├── evidence/
-│   ├── manifests/
-│   └── fixtures/
-│
-├── tests/
-│   ├── contract/
-│   ├── integration/
-│   ├── engine/
-│   ├── sandbox/
-│   ├── e2e/
-│   ├── replay/
-│   ├── conformance/
-│   ├── persistence/
-│   ├── security/
-│   └── fixtures/
-│
-├── third-party/
-│   ├── licenses/
-│   ├── notices/
-│   ├── sbom/
-│   └── provenance/
-│
-└── prototypes/
-    └── typescript/
-```
+All Rust crates use exactly this manifest shape:
 
-## Language ownership
+    crates/<layer>/<crate>/Cargo.toml
 
-- **Rust:** canonical kernel, runtime, execution, scheduling, security boundaries, provider normalization, persistence adapters, APIs, CLI and TUI.
-- **TypeScript:** Web UI and frontend-specific tooling/SDKs.
-- **Python:** optional AI/ML and ecosystem integrations exposed through protocols/SDKs.
-- **WASM:** selected portable sandboxed plugins.
+There are 40 registered workspace crates plus the repository-root workspace manifest.
 
-Token optimization itself remains Rust-owned; other languages consume its versioned protocol rather than recreating its algorithms.
+### Domain
+- `crates/domain/contracts`
+- `crates/domain/brain`
 
-## Dependency rule
+### Application
+- `crates/application/agents`
+- `crates/application/execution`
+- `crates/application/scheduler`
+- `crates/application/workflows`
 
-```
-apps / SDKs
-      ↓
-application protocol
-      ↓
-runtime
-      ↓
-domain contracts
-      ↓
-infrastructure adapters
-```
+### Infrastructure
+- `crates/infrastructure/adapters`
+- `crates/infrastructure/evaluation`
+- `crates/infrastructure/kernel`
+- `crates/infrastructure/memory`
+- `crates/infrastructure/observability`
+- `crates/infrastructure/protocols`
+- `crates/infrastructure/providers`
+- `crates/infrastructure/runtime`
+- `crates/infrastructure/sandbox`
+- `crates/infrastructure/security`
+- `crates/infrastructure/source-forge`
+- `crates/infrastructure/tools`
 
-Domain contracts must not depend on applications. Applications must not contain their own agent loops.
+### Presentation
+- `crates/presentation/api-server`
+- `crates/presentation/cli`
+- `crates/presentation/desktop`
+- `crates/presentation/gateway`
 
-## Vendor boundary
+### Utilities
+- `crates/utilities/async-utils`
+- `crates/utilities/cache`
+- `crates/utilities/compression`
+- `crates/utilities/concurrency-stress`
+- `crates/utilities/configuration`
+- `crates/utilities/crypto`
+- `crates/utilities/event-bus`
+- `crates/utilities/file-watcher`
+- `crates/utilities/http-client`
+- `crates/utilities/math`
+- `crates/utilities/notifications`
+- `crates/utilities/rate-limiting`
+- `crates/utilities/state-management`
+- `crates/utilities/streaming`
+- `crates/utilities/text-search`
+- `crates/utilities/time-utils`
+- `crates/utilities/vector-database`
+- `crates/utilities/websockets`
 
-`vendor/` contains source snapshots only.
+## 2. Desktop product surface
 
-`engines/` contains adapters and integration glue.
+The desktop application has one authoritative home: `crates/presentation/desktop/`.
+The frontend lives at `crates/presentation/desktop/frontend/`.
+The frontend is React + TypeScript + Vite and remains presentation-only; runtime ownership remains in Rust.
+There is no second legacy desktop application under `crates/interface/`.
 
-`crates/` contains AgentiCOS-owned Rust implementations.
+## 3. Frontend organization
 
-`apps/` contains product clients.
+    crates/presentation/desktop/frontend/
+    ├── src/
+    │   ├── components/     # shell, shared interaction and compatibility surfaces
+    │   ├── features/       # isolated product capabilities
+    │   ├── services/       # typed runtime boundary
+    │   ├── types/          # UI-facing runtime types
+    │   ├── navigation.ts   # centralized feature registry
+    │   ├── App.tsx         # desktop composition root
+    │   ├── main.tsx        # bootstrap + error boundary
+    │   ├── index.css       # primary design system
+    │   └── workspace-enhancements.css
+    ├── package.json
+    ├── package-lock.json
+    ├── vite.config.ts
+    └── tsconfig*.json
 
-`prototypes/` contains transitional experiments that must not become hidden production dependencies.
+Preview/local UI state must stay visually distinct from live runtime telemetry.
 
-Source Forge may ingest complete repositories, but it must preserve provenance and never bypass the vendor boundary.
+## 4. Verification and control plane
+
+- `reference/PROJECT-STATE.md` — current human-readable state.
+- `reference/manifests/implementation-state.json` — authoritative sequential state machine.
+- `reference/manifests/architecture-dag.json` — layer/dependency rules.
+- `reference/manifests/agent-continuity.json` — AI change-control contract.
+- `reference/journal/agent-operations.jsonl` — append-only operation history.
+- `scripts/verify-project-consistency.mjs` — project-state gate.
+- `scripts/verify-agent-continuity.mjs` — journal/continuity gate.
+- `scripts/verify-architecture-boundaries.mjs` — workspace ownership, layer and manifest-shape gate.
+- `scripts/verify-frontend-architecture.mjs` — frontend structure/route/service-boundary gate.
+
+## 5. Contracts, references and docs
+
+- `contracts/` — versioned AgentiCOS contracts.
+- `protocols/schemas/` — cross-boundary schemas.
+- `reference/manifests/` — machine-readable architecture and source metadata.
+- `vendor/` — controlled source snapshots and manifests.
+- `docs/architecture/` — current architecture documentation.
+- `docs/adr/` — architectural decisions.
+- `docs/archive/architecture/` — superseded proposals and historical structure analyses.
+
+## 6. Structural invariants
+
+The architecture gate enforces:
+
+1. exactly one Cargo workspace manifest per registered crate;
+2. no nested Cargo manifests inside a crate;
+3. every crate manifest is registered in the root workspace;
+4. no legacy `crates/interface` tree;
+5. no legacy flat-root crates duplicated under canonical owners;
+6. presentation code does not become part of the Brain/runtime;
+7. frontend leaf components do not bypass runtime transport boundaries.
+
+Historical source remains recoverable through Git history and documented evidence; it is not kept as duplicate live code.

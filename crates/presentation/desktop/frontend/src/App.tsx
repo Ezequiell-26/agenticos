@@ -170,6 +170,7 @@ function App() {
         onCreateConversation={handleCreateConversation}
         onOpenSearch={() => setPaletteOpen(true)}
         onSelectConversation={handleSelectConversation}
+        runtimeConnected={status.provider !== 'Runtime offline'}
       />
 
       <main className="workspace-main">

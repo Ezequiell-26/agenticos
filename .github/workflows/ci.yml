@@ -29,16 +29,16 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Verify durable AI continuity
-        run: echo "Skipping continuity verify for new MIT-based crates"
+        run: npm run continuity:verify
 
       - name: Verify project-state consistency
-        run: echo "Skipping state verify for new MIT-based crates"
+        run: npm run state:verify
 
       - name: Verify architecture, types and tests
-        run: echo "Skipping verify for new MIT-based crates"
+        run: npm run verify
 
       - name: Validate implementation state manifest
-        run: echo "Skipping state validation for new crates"
+        run: npm run state:verify
 
       - name: Dependency audit
         run: npm audit --audit-level=high
@@ -88,7 +88,16 @@ jobs:
         run: cargo test -p concurrency-stress -- --nocapture
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Verify architecture boundaries
+        run: npm run architecture:boundaries
+
+      - name: Verify workspace dependency inheritance
+        run: npm run workspace:inheritance
+
+      - name: Verify cargo dependency duplicates
+        run: npm run cargo:duplicates
 
       - name: Verify architecture workspace shape
         run: |

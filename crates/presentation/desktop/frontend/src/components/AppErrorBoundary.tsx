@@ -7,7 +7,7 @@ interface State { hasError: boolean; retryKey: number }
 export default class AppErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, retryKey: 0 }
 
-  static getDerivedStateFromError(error: unknown): State {
+  static getDerivedStateFromError(_error: unknown): State {
     return {
       hasError: true,
       retryKey: 0,

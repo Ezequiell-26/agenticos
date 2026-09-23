@@ -89,3 +89,19 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: latest main CI result after these changes, browser visual verification, Windows/Tauri runtime verification, live backend integration for provider/run surfaces.
 - Rollback point: 988cc8b3a3c18089a22367147e5239ad13f7b28.
 - Next step: evaluate the latest main CI run and record evidence without advancing Step 25 verification state.
+
+## Product Studio expansion — 2026-09-24
+
+- Scope: frontend-only product surface expansion; backend connectivity intentionally does not block visual or interaction work.
+- User-visible effect: expanded the desktop shell from five navigation views to a broader AI IDE surface with Files & Editor, Terminal, Runs, Workflows, Artifacts, Providers & Models, Skills, Tools, Memory and Settings.
+- Created: `crates/presentation/desktop/frontend/src/components/StudioSurface.tsx`.
+- Modified: `ActivityRail.tsx`, `CommandPalette.tsx`, `WorkspaceOverview.tsx`, `App.tsx`, and `index.css`.
+- Functionality added: local editor tabs and editing, diff preview, file filtering, run filtering/detail preview, provider selection, model search, skill/tool switches, memory pinning, workflow simulation, artifact selection/actions, terminal command simulation, settings toggles, notifications/toasts, expanded command search and keyboard navigation.
+- Deleted: none.
+- Preserved: existing chat/runtime integration, legacy components and repository history.
+- Visual direction: monochrome black/white desktop IDE with dense engineering information hierarchy, hover/focus states, modal command palette, panes, tables, cards and responsive fallbacks.
+- Verification evidence: GitHub writes accepted on `main`; CI run 654 was triggered from the frontend style commit and remained pending at the time of this entry.
+- Unverified checks: final CI conclusion, browser screenshot verification, Windows/Tauri rendering, production accessibility audit.
+- Rollback point: `988cc8b3a3c18089a22367147e5239ad13f7b28`.
+- Next step: continue expanding high-value frontend surfaces while keeping all non-connected actions explicitly in preview/local state.
+

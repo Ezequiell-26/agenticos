@@ -70,3 +70,4 @@ export function IntelligenceControlCenter({onAction}:{onAction:(message:string)=
 
   <div className="intelligence-control__guard"><Icon name="shield" size={13}/><span>Context, memory, research and token values shown here are preview metadata. The runtime remains authoritative for actual retrieval, persistence, provider limits and optimization.</span></div>
  </div>
+}

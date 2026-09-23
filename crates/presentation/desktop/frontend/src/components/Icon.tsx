@@ -11,12 +11,17 @@ export type IconName =
   | 'chevron-left'
   | 'chevron-right'
   | 'clock'
+  | 'cloud'
   | 'code'
   | 'command'
   | 'copy'
   | 'folder'
   | 'git'
+  | 'globe'
   | 'history'
+  | 'calendar'
+  | 'layers'
+  | 'mic'
   | 'layout'
   | 'message'
   | 'more'
@@ -49,12 +54,16 @@ const paths: Record<IconName, string[]> = {
   'chevron-left': ['m15 18-6-6 6-6'],
   'chevron-right': ['m9 18 6-6-6-6'],
   clock: ['M12 7v5l3 2', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
+  cloud: ['M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.4 4.5 4.5 0 0 0 7 18Z'],
   code: ['m8 9-3 3 3 3', 'm16 9 3 3-3 3', 'm14 6-4 12'],
   command: ['M18 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2', 'M6 17a2 2 0 1 0 4 0V8', 'M14 12h6', 'M17 9v6'],
   copy: ['M9 9h10v10H9z', 'M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1'],
   folder: ['M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
   git: ['M6 4v6a2 2 0 0 0 2 2h8a2 2 0 0 1 2 2v2', 'M6 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z', 'M18 4a2 2 0 1 0 0 4 2 2 0 0 0-4 4Z'],
   history: ['M3 12a9 9 0 1 0 3-6.7', 'M3 5v5h5'],
+  calendar: ['M6 3v3', 'M18 3v3', 'M4 8h16', 'M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z'],
+  layers: ['M12 3 21 8l-9 5-9-5 9-5Z', 'm3 12 9 5 9-5', 'm3 16 9 5 9-5'],
+  mic: ['M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z', 'M5 11a7 7 0 0 0 14 0', 'M12 18v3', 'M9 21h6'],
   layout: ['M4 5h16v14H4z', 'M9 5v14', 'M15 5v14'],
   message: ['M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 4v-4a2 2 0 0 1-1-2z'],
   more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],

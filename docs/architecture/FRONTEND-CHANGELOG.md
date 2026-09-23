@@ -1014,3 +1014,11 @@ Verification status:
 - Added pressed-state semantics to diagnostic severity filters so keyboard and assistive-technology users can identify the active filter.
 - Kept all QA data presentation-only; no runtime execution or persistence behavior changed.
 - Verification remains dependent on the fresh GitHub Actions frontend build for the repair branch.
+
+## 2026-09-24 — Chat workflow UX expansion
+
+- Added reusable recent-prompt history to the composer, including restore and local clear actions.
+- Added real clipboard copy for assistant responses with explicit fallback feedback when clipboard access is unavailable.
+- Added one-click composer reset for draft text, attachments and command-menu state.
+- Kept all runtime execution, provider routing and credentials behind the existing service boundary.
+- No new navigation mode was introduced; the capability stays inside Command Center to avoid feature fragmentation.

@@ -681,3 +681,10 @@ Runtime transport and credentials remain outside the frontend boundary.
 Replaced the shallow Research presentation with a dedicated Research Workbench covering Batch, Sources, Trajectories and Synthesis views, with responsive/reduced-motion styling.
 
 No external search or runtime execution was introduced.
+
+
+### 2026-09-24 — Frontend integrity and lazy-boundary hardening
+
+- Repaired the compatibility App preference imports so it uses the canonical UiLayoutPreferences helpers without stale symbol references.
+- Converted the remaining heavy Platform surfaces (Context, MCP, Hooks, Git/Diff, Environments, Automations, Credentials, Channels and Research) to independent lazy imports, matching the frontend performance contract.
+- Preserved presentation-only behavior: no backend routes, credentials, transport or runtime policy were introduced.

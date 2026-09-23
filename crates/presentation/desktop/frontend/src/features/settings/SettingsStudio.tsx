@@ -440,7 +440,6 @@ const sections: Array<{ id: SectionId; label: string; detail: string; icon: Icon
   { id: 'mcp', label: 'MCP', detail: 'Servers, discovery and timeouts', icon: 'network', group: 'Integrations' },
   { id: 'automation', label: 'Automation', detail: 'Cron, wake word and background runs', icon: 'calendar', group: 'Operations' },
   { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
-  { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
   { id: 'runtime', label: 'Runtime & Liveness', detail: 'Limits, spillover, code execution and anti-stall', icon: 'activity', group: 'Advanced' },
   { id: 'shortcuts', label: 'Shortcuts', detail: 'Keymap and custom workspace commands', icon: 'command', group: 'Advanced' },
   { id: 'advanced', label: 'Advanced / Raw Config', detail: 'Portable snapshot and expert controls', icon: 'sliders', group: 'Advanced' },

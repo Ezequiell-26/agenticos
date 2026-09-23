@@ -58,6 +58,11 @@ export type RailMode =
   | 'integrations'
   | 'homeassistant'
   | 'social'
+  | 'playground'
+  | 'routing'
+  | 'token-observatory'
+  | 'versions'
+  | 'audit'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 
@@ -107,7 +112,9 @@ export const navigationItems: NavigationItem[] = [
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
   { id: 'research', label: 'Research', detail: 'Batch tasks, sources, trajectories and exports', icon: 'search', group: 'operate' },
-  { id: 'evaluations', label: 'Evaluations', detail: 'Benchmark agents, prompts and model behavior with repeatable suites', icon: 'check', group: 'operate' },
+{ id: 'evaluations', label: 'Evaluations', detail: 'Benchmark agents, prompts and model behavior with repeatable suites', icon: 'check', group: 'operate' },
+  { id: 'versions', label: 'Agent Versions', detail: 'Immutable configurations, release states, diffs and rollback previews', icon: 'history', group: 'operate' },
+  { id: 'audit', label: 'Audit Log', detail: 'Chronological evidence for agents, tools, policies and workspace events', icon: 'activity', group: 'operate' },
   { id: 'notifications', label: 'Notifications', detail: 'Approvals, run completions, failures and workspace alerts', icon: 'bell', group: 'operate' },
   { id: 'sessions', label: 'Sessions', detail: 'Conversation history, recall, export and lifecycle control', icon: 'history', group: 'operate' },
   { id: 'logs', label: 'Logs & Traces', detail: 'Structured events, tool output and diagnostic traces', icon: 'activity', group: 'operate' },
@@ -115,7 +122,10 @@ export const navigationItems: NavigationItem[] = [
   { id: 'batch', label: 'Batch Processing', detail: 'Process many inputs with bounded concurrency and results', icon: 'layers', group: 'operate' },
   { id: 'learning', label: 'Learning Loop', detail: 'Capture useful run outcomes and evolve skills locally', icon: 'spark', group: 'operate' },
 
-  { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog, failover and quotas', icon: 'network', group: 'configure' },
+{ id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog, failover and quotas', icon: 'network', group: 'configure' },
+  { id: 'playground', label: 'Model Playground', detail: 'Compare models against identical prompts and inspect response metrics', icon: 'spark', group: 'configure' },
+  { id: 'routing', label: 'Routing Studio', detail: 'Model priorities, role routing, health and fallback policy', icon: 'network', group: 'configure' },
+  { id: 'token-observatory', label: 'Token Observatory', detail: 'Context pressure, token budgets, compaction and optimization pipeline', icon: 'archive', group: 'configure' },
   { id: 'skills', label: 'Skills', detail: 'Installable procedural capabilities', icon: 'spark', group: 'configure' },
   { id: 'tools', label: 'Tools', detail: 'Tool registry, risk and execution policy', icon: 'tool', group: 'configure' },
   { id: 'memory', label: 'Memory', detail: 'Persistent memory and cross-session recall', icon: 'database', group: 'configure' },
@@ -149,11 +159,11 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
   'browser', 'mcp', 'security', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'playground', 'routing', 'token-observatory', 'versions', 'audit',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

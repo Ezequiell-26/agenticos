@@ -954,3 +954,10 @@ Verification status:
 - Added Workspace Navigator with search, section filters, favorites and recent surfaces stored locally.
 - Propagated navigation callbacks through WorkspaceOverview → PlatformSurface so the Navigator can switch surfaces directly.
 - Updated Command Palette results to expose the same taxonomy context.
+
+
+## Quality Workbench — 2026-09-24
+
+- Added a centralized quality workspace for diagnostics, tests, coverage, quick fixes and release evidence.
+- Added explicit distinction between source findings, test expectations and runtime verification evidence.
+- Connected the quality surface to the shared navigation taxonomy.

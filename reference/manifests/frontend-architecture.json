@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "target-contract",
+  "stack": {
+    "desktop_shell": "tauri-2",
+    "runtime": "rust-tokio",
+    "ui": "react-typescript",
+    "bundler": "vite",
+    "editor": "monaco"
+  },
+  "frontend_layers": {
+    "ui": "rendering, interaction, accessibility and visual state",
+    "features": "isolated product capabilities",
+    "services": "typed HTTP/RPC/IPC ports",
+    "state": "ephemeral/session/runtime projection state",
+    "lib": "pure helpers and adapters",
+    "types": "stable UI-facing contract mirrors"
+  },
+  "service_ports": [
+    "ChatService",
+    "RunService",
+    "ToolService",
+    "ProviderService",
+    "ModelService",
+    "SkillService",
+    "McpService",
+    "MemoryService",
+    "KnowledgeService",
+    "RepositoryService",
+    "SettingsService"
+  ],
+  "rules": {
+    "components_cannot_call_provider_apis": true,
+    "components_cannot_hold_provider_secrets": true,
+    "components_cannot_own_retry_failover_policy": true,
+    "transport_must_be_swappable": true,
+    "durable_state_is_runtime_owned": true,
+    "loading_empty_error_streaming_states_required": true,
+    "keyboard_accessibility_required": true,
+    "frontend_change_log_required": true,
+    "browser_verification_when_dev_server_runs": true
+  },
+  "design_system": {
+    "dark_first": true,
+    "semantic_tokens": true,
+    "single_density_system": true,
+    "consistent_typography": true,
+    "quiet_icons": true,
+    "restrained_radius": true,
+    "no_ad_hoc_foundational_colors": true
+  },
+  "agent_surface": {
+    "lifecycle_states": [
+      "queued",
+      "planning",
+      "awaiting-approval",
+      "executing",
+      "tool-call",
+      "streaming",
+      "verifying",
+      "repairing",
+      "completed",
+      "cancelled",
+      "failed",
+      "timed-out",
+      "blocked",
+      "recovery-required"
+    ],
+    "durable_generation_identity": true,
+    "tool_call_visualization": true,
+    "approval_visualization": true,
+    "artifact_visualization": true
+  },
+  "security": {
+    "production_csp_required": true,
+    "least_privilege_tauri_permissions": true,
+    "no_secrets_in_bundle": true,
+    "destructive_operations_require_confirmation": true
+  },
+  "verification": {
+    "typescript_typecheck": true,
+    "targeted_ui_tests": true,
+    "browser_smoke": true,
+    "console_error_check": true,
+    "visual_regression_when_appropriate": true
+  }
+}

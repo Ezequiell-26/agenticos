@@ -127,7 +127,7 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
 
   for (const cratePath of REQUIRED_CRATE_PATHS) {
     await readRequired(root, `${cratePath}/Cargo.toml`);
-    await readRequired(root, `${cratePath}/src/lib.rs`);
+    await assertCrateEntryPoint(root, cratePath);
   }
 
   const state = JSON.parse(
@@ -379,6 +379,31 @@ function assertImplementationState(state: ImplementationState): void {
         },
       );
     }
+  }
+}
+
+
+async function assertCrateEntryPoint(root: string, cratePath: string): Promise<void> {
+  try {
+    await readFile(path.join(root, cratePath, "src/lib.rs"), "utf8");
+    return;
+  } catch {
+    // Binary-only crates use main.rs instead of lib.rs.
+  }
+
+  try {
+    await readFile(path.join(root, cratePath, "src/main.rs"), "utf8");
+    return;
+  } catch (error) {
+    throw new AgentiCOSError(
+      `Architecture readiness artifact is missing an entry point: ${cratePath}/src/lib.rs or ${cratePath}/src/main.rs`,
+      {
+        code: "CRATE_ENTRYPOINT_MISSING",
+        category: "VALIDATION",
+        severity: "critical",
+        cause: error,
+      },
+    );
   }
 }
 

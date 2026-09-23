@@ -153,3 +153,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Integration Control Center | IntegrationControlCenter | MCP, browser, channels, sources, credentials, webhooks and environments | preview |
+
+
+| Governance Control Center | GovernanceControlCenter | permissions, approvals, security, hooks, audit and release gates | preview |

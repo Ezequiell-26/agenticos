@@ -96,8 +96,6 @@ export default function CommandPalette({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target
-      const isSearchField = target instanceof HTMLInputElement
       if (event.key === 'Tab') {
         const root = dialogRef.current
         if (!root) return

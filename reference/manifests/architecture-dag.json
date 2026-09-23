@@ -1,0 +1,61 @@
+{
+  "schema_version": 3,
+  "status": "canonical-structure",
+  "layers": {
+    "domain": ["contracts", "brain"],
+    "application": ["agents", "execution", "scheduler", "workflows", "projects", "skills"],
+    "infrastructure": [
+      "kernel", "runtime", "providers", "tools", "mcp", "memory", "context",
+      "protocols", "source-forge", "observability", "evaluation", "security",
+      "sandbox", "adapters", "artifacts", "plugins", "router"
+    ],
+    "presentation": ["cli", "gateway", "desktop", "api-server"],
+    "utilities": ["reusable cross-cutting crates"]
+  },
+  "workspace_rules": {
+    "one_manifest_per_crate": true,
+    "manifest_shape": "crates/<layer>/<crate>/Cargo.toml",
+    "one_first_party_owner_per_package": true,
+    "domain_cannot_depend_on_application": true,
+    "domain_cannot_depend_on_infrastructure": true,
+    "domain_cannot_depend_on_presentation": true,
+    "application_cannot_depend_on_presentation": true,
+    "utilities_cannot_depend_on_domain": true,
+    "utilities_cannot_depend_on_application": true,
+    "utilities_cannot_depend_on_presentation": true
+  },
+  "runtime_rules": {
+    "brain_never_depends_on_concrete_provider_tool_mcp_or_surface": true,
+    "rust_is_canonical_runtime": true,
+    "frontend_is_product_surface": true
+  },
+  "external_source_policy": {
+    "canonical_source_license": "MIT-or-compatibly-licensed",
+    "provenance_required": true,
+    "integration_modes": [
+      "vendored",
+      "adapter",
+      "isolated-process",
+      "knowledge-source"
+    ],
+    "exact_revision_required_before_source_integration": true
+  },
+  "scale_rules": {
+    "incremental_ingestion": true,
+    "bounded_memory": true,
+    "bounded_caches": true,
+    "backpressure_required": true,
+    "selective_retrieval_required": true,
+    "spill_large_outputs": true
+  },
+  "frontend_rules": {
+    "desktop_shell": "tauri-2",
+    "ui": "react-typescript",
+    "bundler": "vite",
+    "editor_target": "monaco",
+    "transport_abstraction_required": true,
+    "component_direct_network_calls": false,
+    "durable_state_owned_by_runtime": true,
+    "frontend_change_log_required": true
+  }
+}

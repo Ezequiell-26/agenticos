@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "knowledge-base-implementation-vertical-slice-1",
+  "current_step": "integration-test-implementation-phase-3",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -116,7 +116,8 @@
       ],
       "unlocks": [
         "rust-kernel-vertical-slice-1"
-      ]
+      ],
+      "requires": []
     },
     {
       "id": "rust-kernel-vertical-slice-1",
@@ -246,7 +247,7 @@
         }
       ],
       "unlocks": [
-        "step-3-pending"
+        "architecture-hardening-2026-09-21"
       ]
     },
     {
@@ -539,7 +540,9 @@
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
       ],
-      "unlocks": []
+      "unlocks": [
+        "memory-context-vertical-slice-1"
+      ]
     },
     {
       "id": "memory-context-vertical-slice-1",
@@ -602,7 +605,9 @@
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
       ],
-      "unlocks": []
+      "unlocks": [
+        "protocol-implementation-vertical-slice-1"
+      ]
     },
     {
       "id": "protocol-implementation-vertical-slice-1",
@@ -664,7 +669,9 @@
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
       ],
-      "unlocks": []
+      "unlocks": [
+        "product-surfaces-cli-vertical-slice-1"
+      ]
     },
     {
       "id": "product-surfaces-cli-vertical-slice-1",
@@ -726,7 +733,9 @@
           "evidence": "Implementation follows contracts defined in contracts/registry.json and architecture documents"
         }
       ],
-      "unlocks": []
+      "unlocks": [
+        "runtime-integration-vertical-slice-1"
+      ]
     },
     {
       "id": "runtime-integration-vertical-slice-1",
@@ -764,7 +773,9 @@
         "security gate: PASSED - #![forbid(unsafe_code)] enforced in execution, providers, kernel; no credential exposure",
         "architecture gate: PASSED - Follows contracts, maintains layer boundaries, respects sequential protocol"
       ],
-      "unlocks": []
+      "unlocks": [
+        "cqrs-separation-vertical-slice-1"
+      ]
     },
     {
       "id": "cqrs-separation-vertical-slice-1",
@@ -800,7 +811,9 @@
         "architecture gate: PASSED - CQRS pattern follows MIT references (ddd-cqrs-es, Mnesis), maintains trait boundaries",
         "Rust fmt/check/test/clippy: PASSED - 47/47 tests passing, no clippy warnings, formatting check passed"
       ],
-      "unlocks": []
+      "unlocks": [
+        "outbox-pattern-vertical-slice-1"
+      ]
     },
     {
       "id": "outbox-pattern-vertical-slice-1",
@@ -1285,13 +1298,13 @@
         "Rust fmt/check/test/clippy: PASSED - 60/60 tests passing, no clippy warnings, formatting check passed"
       ],
       "unlocks": [
-        "project-status-summary-vertical-slice-1"
+        "integration-test-implementation-phase-3"
       ]
     },
     {
       "id": "integration-test-implementation-phase-3",
       "number": 25,
-      "status": "pending",
+      "status": "in_progress",
       "scope": [
         "implement provider layer integration tests",
         "add tests for provider failover",
@@ -1315,7 +1328,11 @@
         "Rust fmt/check/test/clippy"
       ],
       "verification_evidence": [],
-      "unlocks": []
+      "unlocks": [
+        "project-status-summary-vertical-slice-1"
+      ],
+      "started_at": "2026-09-23",
+      "operation_id": "step-25-provider-integration-tests-2026-09-23"
     },
     {
       "id": "project-status-summary-vertical-slice-1",
@@ -1407,7 +1424,7 @@
       ],
       "verification_evidence": [],
       "unlocks": [
-        "react-architecture-implementation-vertical-slice-1"
+        "windows-desktop-app-vertical-slice-1"
       ]
     },
     {
@@ -1440,7 +1457,9 @@
         "Rust fmt/check/test/clippy"
       ],
       "verification_evidence": [],
-      "unlocks": []
+      "unlocks": [
+        "react-architecture-implementation-vertical-slice-1"
+      ]
     },
     {
       "id": "react-architecture-implementation-vertical-slice-1",
@@ -1458,7 +1477,7 @@
         "verify ReAct loop functionality"
       ],
       "requires": [
-        "conversational-cli-vertical-slice-1"
+        "windows-desktop-app-vertical-slice-1"
       ],
       "required_checks": [
         "ReAct core loop tests",
@@ -2186,12 +2205,14 @@
         "Rust fmt/check/test/clippy"
       ],
       "verification_evidence": [],
-      "unlocks": []
+      "unlocks": [
+        "enterprise-utilities-vertical-slice-1"
+      ]
     },
     {
       "id": "enterprise-utilities-vertical-slice-1",
       "number": 52,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "concurrency-stress crate - concurrency stress testing based on MIT patterns",
         "crypto crate - cryptography (hashing, encryption, key pairs) based on rscrypto MIT",
@@ -2273,13 +2294,41 @@
         }
       ],
       "unlocks": [
+        "enterprise-utilities-integration-vertical-slice-1"
+      ]
+    },
+    {
+      "id": "enterprise-utilities-integration-vertical-slice-1",
+      "number": 53,
+      "status": "pending",
+      "scope": [
+        "review API compatibility of the enterprise utility crates",
+        "integrate only verified compatible utilities through canonical boundaries",
+        "add compatibility and integration tests",
+        "preserve standalone utility crates when integration is not justified"
+      ],
+      "requires": [
+        "enterprise-utilities-vertical-slice-1"
+      ],
+      "required_checks": [
+        "enterprise utility API compatibility tests",
+        "integration tests for accepted utilities",
+        "cargo build --workspace --all-targets",
+        "cargo fmt --all -- --check",
+        "cargo check --workspace --all-targets",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "security gate",
+        "architecture gate"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
         "brain-architecture-foundation-vertical-slice-1"
       ]
     },
     {
       "id": "brain-architecture-foundation-vertical-slice-1",
       "number": 54,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "create brain/kernel crate separate from existing kernel",
         "define Capability Registry contracts (dynamic capability discovery, version, origin, license, compatibility, dependencies, permissions, cost, consumption, evidence)",
@@ -2292,7 +2341,7 @@
         "ensure external resources conserve provenance, license, repository, commit/hash, version, changes and source evidence"
       ],
       "requires": [
-        "enterprise-utilities-vertical-slice-1"
+        "enterprise-utilities-integration-vertical-slice-1"
       ],
       "required_checks": [
         "brain/kernel crate creation",
@@ -2355,7 +2404,7 @@
     {
       "id": "capability-registry-implementation-vertical-slice-1",
       "number": 55,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement full CapabilityRegistry with dynamic capability registration",
         "implement capability validation and compatibility checking",
@@ -2432,7 +2481,7 @@
     {
       "id": "source-intelligence-implementation-vertical-slice-1",
       "number": 56,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement full Source Intelligence Engine with git discovery",
         "implement API discovery",
@@ -2510,7 +2559,7 @@
     {
       "id": "resource-governor-implementation-vertical-slice-1",
       "number": 57,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "implement full Resource Governor with RAM/CPU/disk limits",
         "implement TokenBudget with optimization",
@@ -2636,7 +2685,8 @@
     "future_scope_preimplementation_forbidden": true,
     "reference_lookup_required_for_nontrivial_features": true,
     "mit_only_canonical_third_party_source": true,
-    "verification_evidence_required_for_verified_status": true
+    "verification_evidence_required_for_verified_status": true,
+    "frontend_change_log_required": true
   },
   "transition_history": [
     {
@@ -2741,6 +2791,19 @@
       "from": "product-surfaces-cli-vertical-slice-1:verified",
       "to": "runtime-integration-vertical-slice-1:pending",
       "reason": "Reconciled the current main state after detecting a duplicate top-level steps key and stale human-readable state. The next authorized slice targets the documented integration gaps without rewriting verified history."
+    },
+    {
+      "from": "integration-test-implementation-phase-3:pending",
+      "to": "integration-test-implementation-phase-3:in_progress",
+      "reason": "Step 24 is verified and the authorized provider integration-test slice has started.",
+      "rollback_point": "a278008b536ef4da7cf18a67191291446dd7a8a5"
     }
-  ]
+  ],
+  "reconciliation": {
+    "date": "2026-09-23",
+    "type": "fail-closed-sequential-reconciliation",
+    "reason": "Main contained a missing Step 53 and later steps marked verified despite pending predecessors. All source code and historical evidence are preserved; only current verification admissibility is corrected.",
+    "current_verified_prefix": "0-24",
+    "later_status_rule": "pending until immediate predecessor is verified"
+  }
 }

@@ -1,198 +1,98 @@
 # AgentiCOS
 
-> Universal, model-agnostic agent runtime and application platform
+> Universal, model-agnostic AI agent runtime and desktop application platform.
 
-## Overview
+AgentiCOS is a Rust-first agent platform built around a central **Brain** that orchestrates models, providers, tools, MCP, memory, knowledge, source intelligence, planning, execution, verification and resource governance.
 
-AgentiCOS is a production-ready agent runtime platform built with Rust as the canonical runtime. It provides a universal, model-agnostic foundation for building, deploying, and managing AI agents with robust architecture, event sourcing, CQRS patterns, and comprehensive observability.
+## Architecture
 
-## Features
+The canonical architecture is documented in:
 
-### Core Capabilities
-- **Durable Runtime**: Event-sourced run lifecycle with state persistence and recovery
-- **Model Agnostic**: Support for multiple model providers through a unified interface
-- **CQRS Pattern**: Separation of command and query operations with event-driven synchronization
-- **Event Sourcing**: Reliable event publication with outbox pattern
-- **Workflow Orchestration**: Saga coordinator for multi-step workflows with compensating transactions
-- **Runtime Configuration**: Feature flags for dynamic configuration
-- **Observability**: Structured logging, metrics, and tracing
-- **Tool Execution**: Secure tool execution with policy-based approval
-- **Memory Management**: Context window management with compression and summarization
+- [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md)
+- [Frontend Architecture](docs/architecture/FRONTEND-ARCHITECTURE.md)
+- [Frontend Change Log](docs/architecture/FRONTEND-CHANGELOG.md)
+- [AI Skill Catalog](docs/ai/SKILLS-CATALOG.md)
+- [Implementation State](reference/manifests/implementation-state.json)
+- [Project State](reference/PROJECT-STATE.md)
 
-### Architecture
-- **Clean Architecture**: Layered design with dependency inversion
-- **Vertical Slices**: Sequential, verified implementation protocol
-- **Contract-First**: Domain contracts drive implementation
-- **MIT References**: Patterns from Tokio, Tower, Bulletproof Rust Web, ddd-cqres-es, Mnesis
+The dependency direction is:
 
-## Quick Start
-
-### Prerequisites
-- Rust 1.70+ with edition 2021
-- Cargo workspace support
-- Git
-
-### Installation
-```bash
-git clone https://github.com/Ezequiell-26/agenticos.git
-cd agenticos
-cargo build --release
+```
+Presentation → Application → Domain
+                     ↑
+              Infrastructure
+                     ↑
+                 Utilities
 ```
 
-### CLI Usage
+Rust remains the canonical runtime. The desktop product surface is Tauri 2 + React + TypeScript + Vite.
 
-#### Run Management
-```bash
-# Create a new run
-agenticos run create --id my-run --objective "Test objective"
+## Current state
 
-# List all runs
-agenticos run list
+- Sequential verification mode is fail-closed.
+- The current authorized implementation step is recorded in `reference/manifests/implementation-state.json`.
+- Existing Tauri/React/Vite/Tailwind code is preserved as repository state, but is not automatically considered verified.
+- Third-party source is admitted only through provenance/license evidence and a controlled integration mode.
 
-# Get run status
-agenticos run status --id my-run
+The README intentionally does not maintain an independent test count. Current verification evidence lives in the implementation-state manifest, operation journal and GitHub Actions.
+
+## Repository layout
+
+```
+crates/
+├── domain/
+├── application/
+├── infrastructure/
+├── presentation/
+└── utilities/
+
+crates/presentation/desktop/
+├── src/                 # Tauri/Rust boundary
+└── frontend/            # React/TypeScript/Vite product UI
+
+docs/
+├── architecture/
+└── ai/
+
+reference/
+├── manifests/
+└── journal/
+
+skills/
+└── agenticos-*/
 ```
 
-#### Feature Flags
-```bash
-# List all feature flags
-agenticos flags list
+## Development rules
 
-# Get feature flag details
-agenticos flags get --id my-flag
-
-# Enable a feature flag
-agenticos flags enable --id my-flag
-
-# Disable a feature flag
-agenticos flags disable --id my-flag
-```
-
-#### System Status
-```bash
-# Show system status
-agenticos status system
-
-# Show provider status
-agenticos status providers
-
-# Show tool status
-agenticos status tools
-```
-
-#### Configuration
-```bash
-# Show current configuration
-agenticos config show
-
-# Set configuration value
-agenticos config set key value
-```
-
-## Development
-
-### Building
-```bash
-# Build all crates
-cargo build --workspace
-
-# Build specific crate
-cargo build -p agenticos-kernel
-
-# Run tests
-cargo test --workspace
-
-# Run clippy
-cargo clippy --workspace --all-targets -- -D warnings
-
-# Format code
-cargo fmt --all
-```
-
-### Project Structure
-```
-agenticos/
-├── crates/              # Workspace crates
-│   ├── contracts/       # Domain contracts and traits
-│   ├── kernel/          # Durable runtime kernel
-│   ├── execution/      # CQRS execution layer
-│   ├── providers/       # Model provider integration
-│   ├── tools/           # Tool execution
-│   ├── memory/          # Context and memory
-│   ├── observability/   # Logging and metrics
-│   ├── cli/             # Command-line interface
-│   └── ...              # Additional crates
-├── docs/                # Architecture documentation
-├── doc/adr/             # Architecture Decision Records
-├── reference/           # Project state and manifests
-└── Cargo.toml           # Workspace configuration
-```
-
-### Architecture Documentation
-- [ENHANCED-ARCHITECTURE.md](docs/architecture/ENHANCED-ARCHITECTURE.md) - Clean Architecture and Tower patterns
-- [TOKEN-OPTIMIZATION.md](docs/architecture/TOKEN-OPTIMIZATION.md) - Token consumption optimization
-- [ADVANCED-ARCHITECTURE.md](docs/architecture/ADVANCED-ARCHITECTURE.md) - CQRS, Event Sourcing, Outbox, Saga
-- [CRATE-ORGANIZATION-ANALYSIS.md](docs/architecture/CRATE-ORGANIZATION-ANALYSIS.md) - Crate organization and migration plan
-- [PROJECT-EXECUTIVE-SUMMARY.md](docs/PROJECT-EXECUTIVE-SUMMARY.md) - Executive summary of all verified steps
-
-### Testing
-```bash
-# Run all tests
-cargo test --workspace
-
-# Run specific test suite
-cargo test -p agenticos-kernel
-
-# Run tests with output
-cargo test --workspace -- --nocapture
-```
+1. Read the project state and implementation-state before editing.
+2. Work only on the single authorized step.
+3. Preserve code and evidence by default.
+4. Use exact repository evidence for non-trivial external integrations.
+5. Verify before changing a status to `verified`.
+6. Record changed/created/deleted/preserved/verified/unverified/risk/rollback/next-step information for every operation.
+7. For frontend changes, update the frontend changelog in the same operation.
+8. Never commit secrets or provider credentials.
 
 ## Verification
 
-All 19 vertical slices have been verified with:
-- Rust fmt/formatting check
-- Cargo build verification
-- Cargo test suite (54 tests passing)
-- Cargo clippy (no warnings)
-- Security gate (#![forbid(unsafe_code)] enforced)
-- Architecture gate (contract boundaries maintained)
+Root checks:
 
-## Contributing
+```bash
+npm ci --no-audit --no-fund
+npm run verify
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+Rust checks:
 
-### Development Protocol
-The project follows a sequential, architecture-first development protocol with verified vertical slices. Each step must:
-1. Reference MIT repository evidence for non-trivial features
-2. Implement according to acceptance contract
-3. Pass all verification gates (security, architecture, fmt, check, test, clippy)
-4. Record evidence in implementation-state.json
-5. Create ADR for architectural decisions
+```bash
+cargo fmt --all -- --check
+cargo check --workspace --all-targets
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+```
 
-### Code Style
-- Rust edition 2021
-- `#![forbid(unsafe_code)]` enforced
-- `#![warn(missing_docs)]` enforced
-- `#![warn(missing_debug_implementations)]` enforced
-- Use `rtk` prefix for all commands (token optimization)
+The frontend verification contract additionally requires browser verification whenever an actual dev server is started for an authorized UI change.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
-
-## Acknowledgments
-
-Based on patterns from:
-- [Tokio](https://github.com/tokio-rs/tokio) - Async runtime and modular service abstractions
-- [Tower](https://github.com/tower-rs/tower) - Service, Layer, and composable middleware
-- [Bulletproof Rust Web](https://github.com/lf94/bulletproof-rust-web) - Clean architecture
-- [ddd-cqres-es](https://github.com/ddd-by-examples/library-ddd-cqres-es) - CQRS, Event Sourcing, Sagas
-- [Mnesis](https://github.com/mneisiago/mnesis) - Rust event sourcing and projections
-
-## Status
-
-**Version**: 0.1.0  
-**Status**: Architecture Foundation Complete  
-**Verified Steps**: 19/19  
-**Tests**: 54 passing  
-**Architecture**: Clean Architecture with CQRS and Event Sourcing
+MIT. See [LICENSE](LICENSE).

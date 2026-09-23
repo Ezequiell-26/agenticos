@@ -1,6 +1,6 @@
 //! Resource Governor - Resource management and optimization
 
-use super::{BrainError};
+use super::BrainError;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -88,28 +88,28 @@ impl ResourceGovernor {
         // Check RAM
         let current_ram = self.ram_limiter.current_mb.load(Ordering::Relaxed);
         if current_ram + required.ram_mb > self.ram_limiter.max_mb {
-            return Err(BrainError::ResourceLimitExceeded(
-                format!("RAM limit exceeded: {} + {} > {} MB", 
-                    current_ram, required.ram_mb, self.ram_limiter.max_mb)
-            ));
+            return Err(BrainError::ResourceLimitExceeded(format!(
+                "RAM limit exceeded: {} + {} > {} MB",
+                current_ram, required.ram_mb, self.ram_limiter.max_mb
+            )));
         }
 
         // Check CPU
         let current_cpu = self.cpu_limiter.current_percent.load(Ordering::Relaxed) as f64;
         if current_cpu + required.cpu_percent > self.cpu_limiter.max_percent {
-            return Err(BrainError::ResourceLimitExceeded(
-                format!("CPU limit exceeded: {} + {} > {}", 
-                    current_cpu, required.cpu_percent, self.cpu_limiter.max_percent)
-            ));
+            return Err(BrainError::ResourceLimitExceeded(format!(
+                "CPU limit exceeded: {} + {} > {}",
+                current_cpu, required.cpu_percent, self.cpu_limiter.max_percent
+            )));
         }
 
         // Check tokens
         let current_tokens = self.token_budget.current_usage.load(Ordering::Relaxed);
         if current_tokens + required.tokens > self.token_budget.max_tokens_per_session {
-            return Err(BrainError::ResourceLimitExceeded(
-                format!("Token budget exceeded: {} + {} > {}", 
-                    current_tokens, required.tokens, self.token_budget.max_tokens_per_session)
-            ));
+            return Err(BrainError::ResourceLimitExceeded(format!(
+                "Token budget exceeded: {} + {} > {}",
+                current_tokens, required.tokens, self.token_budget.max_tokens_per_session
+            )));
         }
 
         Ok(())
@@ -118,10 +118,14 @@ impl ResourceGovernor {
     /// Record resource usage after operation
     pub async fn record_usage(&self, usage: ResourceUsage) {
         // Update RAM usage
-        self.ram_limiter.current_mb.fetch_add(usage.ram_mb, Ordering::Relaxed);
-        
+        self.ram_limiter
+            .current_mb
+            .fetch_add(usage.ram_mb, Ordering::Relaxed);
+
         // Update token usage
-        self.token_budget.current_usage.fetch_add(usage.tokens, Ordering::Relaxed);
+        self.token_budget
+            .current_usage
+            .fetch_add(usage.tokens, Ordering::Relaxed);
     }
 
     /// Release resources after operation completes
@@ -129,7 +133,9 @@ impl ResourceGovernor {
         // Release RAM
         let current = self.ram_limiter.current_mb.load(Ordering::Relaxed);
         if current >= usage.ram_mb {
-            self.ram_limiter.current_mb.fetch_sub(usage.ram_mb, Ordering::Relaxed);
+            self.ram_limiter
+                .current_mb
+                .fetch_sub(usage.ram_mb, Ordering::Relaxed);
         }
 
         // Tokens are not released (they're cumulative per session)
@@ -150,7 +156,12 @@ impl ResourceGovernor {
     }
 
     /// Cache a value
-    pub async fn cache_put(&self, key: String, data: Vec<u8>, size_mb: u64) -> Result<(), BrainError> {
+    pub async fn cache_put(
+        &self,
+        key: String,
+        data: Vec<u8>,
+        size_mb: u64,
+    ) -> Result<(), BrainError> {
         self.cache_manager.put(key, data, size_mb).await
     }
 
@@ -238,10 +249,10 @@ impl TokenOptimizer {
     pub async fn optimize(&self, context: &str) -> Result<String, BrainError> {
         // Step 1: Deduplicate
         let deduplicated = self.deduplicator.deduplicate(context).await?;
-        
+
         // Step 2: Compress
         let compressed = self.compressor.compress(&deduplicated).await?;
-        
+
         // Step 3: Rank (return as-is for now)
         Ok(compressed)
     }
@@ -283,15 +294,14 @@ impl ContextDeduplicator {
 
     fn hash_line(&self, line: &str) -> u64 {
         // Simple hash for deduplication
-        line.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
+        line.bytes()
+            .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
     }
 }
 
 impl ContextCompressor {
     fn new(compression_ratio: f64) -> Self {
-        Self {
-            compression_ratio,
-        }
+        Self { compression_ratio }
     }
 
     /// Compress context (placeholder - real compression would use zstd)
@@ -304,16 +314,14 @@ impl ContextCompressor {
             .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
-        
+
         Ok(compressed)
     }
 }
 
 impl ContextRanker {
     fn new(max_items: usize) -> Self {
-        Self {
-            max_items,
-        }
+        Self { max_items }
     }
 
     /// Rank context items by importance (placeholder)
@@ -335,7 +343,7 @@ impl CacheManager {
     /// Put a value in cache
     pub async fn put(&self, key: String, data: Vec<u8>, size_mb: u64) -> Result<(), BrainError> {
         let current_size = self.current_size_mb.load(Ordering::Relaxed);
-        
+
         // Evict if necessary
         if current_size + size_mb > self.max_size_mb {
             self.evict().await?;
@@ -458,7 +466,7 @@ mod tests {
             cpu_percent: 10.0,
             tokens: 1000,
         };
-        
+
         let result = governor.check_resources(request).await;
         assert!(result.is_ok());
     }
@@ -471,7 +479,7 @@ mod tests {
             cpu_percent: 10.0,
             tokens: 1000,
         };
-        
+
         let result = governor.check_resources(request).await;
         assert!(result.is_err());
     }
@@ -484,7 +492,7 @@ mod tests {
             cpu_ms: 1000,
             tokens: 1000,
         };
-        
+
         governor.record_usage(usage).await;
         let state = governor.get_state().await;
         assert_eq!(state.ram_mb, 100);
@@ -499,7 +507,7 @@ mod tests {
             cpu_ms: 1000,
             tokens: 1000,
         };
-        
+
         governor.record_usage(usage.clone()).await;
         governor.release_resources(usage).await;
         let state = governor.get_state().await;
@@ -511,7 +519,7 @@ mod tests {
     async fn test_optimize_context() {
         let governor = ResourceGovernor::default();
         let context = "Line 1\nLine 2\nLine 1\nLine 3";
-        
+
         let result = governor.optimize_context(context).await;
         assert!(result.is_ok());
         let optimized = result.unwrap();
@@ -524,8 +532,11 @@ mod tests {
         let governor = ResourceGovernor::default();
         let key = "test_key".to_string();
         let data = vec![1, 2, 3, 4];
-        
-        governor.cache_put(key.clone(), data.clone(), 1).await.unwrap();
+
+        governor
+            .cache_put(key.clone(), data.clone(), 1)
+            .await
+            .unwrap();
         let retrieved = governor.cache_get(&key).await;
         assert_eq!(retrieved, Some(data));
     }
@@ -533,7 +544,7 @@ mod tests {
     #[tokio::test]
     async fn test_cache_evict() {
         let governor = ResourceGovernor::default();
-        
+
         // Add items that exceed cache limit (1024 MB)
         for i in 0..110 {
             let key = format!("key_{}", i);
@@ -541,7 +552,7 @@ mod tests {
             let result = governor.cache_put(key, data, 10).await;
             // Some items should fail due to eviction
         }
-        
+
         // Evict should remove some items
         let evicted = governor.cache_evict().await.unwrap();
         // We expect eviction to happen
@@ -556,7 +567,7 @@ mod tests {
             cpu_ms: 0,
             tokens: 5000,
         };
-        
+
         governor.record_usage(usage).await;
         governor.reset_token_budget().await;
         let state = governor.get_state().await;

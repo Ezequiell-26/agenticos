@@ -43,3 +43,20 @@ Every operation must record what changed, what was created, what was deleted, wh
 
 Run `npm run verify` before declaring the current operation complete.
 The repository state, not conversational memory, is the source of truth.
+
+
+## Frontend-specific continuity
+
+Before changing `crates/presentation/desktop/frontend/**`, also read:
+
+- `docs/architecture/CANONICAL-ARCHITECTURE.md`
+- `docs/architecture/FRONTEND-ARCHITECTURE.md`
+- `docs/architecture/FRONTEND-CHANGELOG.md`
+- `docs/ai/SKILLS-CATALOG.md`
+- the relevant file under `skills/agenticos-*/SKILL.md`
+
+Every frontend change must append a changelog entry and an operation-journal entry in the same operation. The changelog is append-only.
+
+Do not start a dev server and assume it works. When frontend runtime verification is authorized, use the browser verification procedure and record evidence.
+
+The presence of existing UI code does not override the sequential implementation state. Future frontend implementation must use the step currently authorized by `reference/manifests/implementation-state.json`.

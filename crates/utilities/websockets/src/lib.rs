@@ -2,11 +2,11 @@
 //! MIT Licensed - Async WebSocket implementation for Tokio
 //! Source: https://github.com/snapview/tokio-tungstenite (2481 stars, MIT)
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
 use thiserror::Error;
-use serde::{Deserialize, Serialize};
+use tokio::sync::{mpsc, RwLock};
 
 #[derive(Error, Debug, Clone)]
 pub enum WebSocketError {
@@ -29,10 +29,7 @@ pub enum WsMessage {
     Binary(Vec<u8>),
     Ping(Vec<u8>),
     Pong(Vec<u8>),
-    Close {
-        code: u16,
-        reason: String,
-    },
+    Close { code: u16, reason: String },
 }
 
 impl WsMessage {
@@ -140,7 +137,9 @@ impl WsServer {
     /// Remove client
     pub async fn remove_client(&self, id: &str) {
         self.clients.write().await.remove(id);
-        let _ = self.event_sender.send(WsEvent::Disconnected(id.to_string()));
+        let _ = self
+            .event_sender
+            .send(WsEvent::Disconnected(id.to_string()));
     }
 
     /// Get client
@@ -169,7 +168,8 @@ impl WsServer {
     /// Send message to specific client
     pub async fn send_to(&self, id: &str, message: WsMessage) -> Result<(), WebSocketError> {
         let clients = self.clients.read().await;
-        let client = clients.get(id)
+        let client = clients
+            .get(id)
             .ok_or_else(|| WebSocketError::ClientNotFound(id.to_string()))?;
         client.send(message)
     }
@@ -226,7 +226,11 @@ impl WsClientConnection {
 /// Message handler trait
 #[async_trait::async_trait]
 pub trait MessageHandler: Send + Sync {
-    async fn handle_message(&self, client_id: String, message: WsMessage) -> Result<(), WebSocketError>;
+    async fn handle_message(
+        &self,
+        client_id: String,
+        message: WsMessage,
+    ) -> Result<(), WebSocketError>;
     async fn handle_connect(&self, client_id: String);
     async fn handle_disconnect(&self, client_id: String);
 }
@@ -236,15 +240,17 @@ pub struct DefaultMessageHandler;
 
 #[async_trait::async_trait]
 impl MessageHandler for DefaultMessageHandler {
-    async fn handle_message(&self, _client_id: String, _message: WsMessage) -> Result<(), WebSocketError> {
+    async fn handle_message(
+        &self,
+        _client_id: String,
+        _message: WsMessage,
+    ) -> Result<(), WebSocketError> {
         Ok(())
     }
 
-    async fn handle_connect(&self, _client_id: String) {
-    }
+    async fn handle_connect(&self, _client_id: String) {}
 
-    async fn handle_disconnect(&self, _client_id: String) {
-    }
+    async fn handle_disconnect(&self, _client_id: String) {}
 }
 
 /// Room-based broadcasting
@@ -372,9 +378,9 @@ mod tests {
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let client = WsClient::new("test".to_string(), sender);
         server.add_client(client).await;
-        
+
         server.broadcast_text("hello".to_string()).await;
-        
+
         let msg = receiver.recv().await.unwrap();
         assert!(matches!(msg, WsMessage::Text(_)));
     }

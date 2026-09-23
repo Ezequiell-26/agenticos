@@ -789,3 +789,13 @@ Verification status:
 - Added navigation modes for Workspace Setup and QA & Readiness and routed provider/skills surfaces through the same platform boundary.
 - Runtime/backend integrations remain intentionally deferred; buttons stage UI actions only.
 - Verification note: this slice was not yet validated with a fresh Vite/TypeScript build, Tauri runtime, browser verification, accessibility audit, or GitHub Actions result.
+
+
+## 2026-09-24 — Final Frontend Control Suite
+
+- Added a unified frontend control suite for Agent Teams, Advanced Context, Cost & Usage, Observability, Release Center, Customization, Help & Documentation, and Offline & Recovery.
+- Added navigation registration for the new product surfaces and lazy routing through PlatformSurface.
+- Added responsive presentation states for filtering, metrics, control contracts, readiness evidence and fail-closed preview boundaries.
+- Architecture decision: this slice remains presentation-only. No provider calls, secret storage, runtime authorization, process execution or persistence was fabricated.
+- Verification status: fresh TypeScript/Vite build, browser/Tauri verification, accessibility audit and GitHub Actions result remain pending.
+- Rollback: revert this feature branch/PR to its main base; no history rewrite or destructive deletion.

@@ -984,6 +984,26 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
             </SettingsPage>
           )}
 
+          {section === 'web' && (
+            <SettingsPage title="Web Search" description="Configure search and extraction routing, free-tier fallback and provider tiers.">
+              <SettingSection title="Search & extraction">
+                <SelectField label="Search backend" value={settings.webBackend} onChange={(v) => update('webBackend', v)} options={['auto', 'firecrawl', 'searxng', 'parallel', 'tavily', 'perplexity', 'keenable', 'exa']} />
+                <SelectField label="Extract backend" value={settings.webExtractBackend} onChange={(v) => update('webExtractBackend', v)} options={['auto', 'firecrawl', 'searxng', 'parallel', 'tavily', 'perplexity', 'keenable', 'exa']} />
+                <ToggleRow label="Keyless fallback" detail="Use supported anonymous/free backends when no keyed provider is configured." enabled={settings.webKeylessFallback} onChange={() => update('webKeylessFallback', !settings.webKeylessFallback)} />
+                <ToggleRow label="Keyless rescue" detail="Retry a failed call once through the keyless provider ring." enabled={settings.webKeylessRescue} onChange={() => update('webKeylessRescue', !settings.webKeylessRescue)} />
+              </SettingSection>
+              <SettingSection title="Provider tiers">
+                <SelectField label="Parallel tier" value={settings.parallelTier} onChange={(v) => update('parallelTier', v)} options={['auto', 'free', 'paid']} />
+                <SelectField label="Exa tier" value={settings.exaTier} onChange={(v) => update('exaTier', v)} options={['auto', 'free', 'paid']} />
+                <SelectField label="Browser cloud provider" value={settings.browserCloudProvider} onChange={(v) => update('browserCloudProvider', v)} options={['none', 'Browserbase', 'Browser Use', 'Camofox', 'Custom']} />
+              </SettingSection>
+              <SettingSection title="Search policy">
+                <TextField label="Timezone" value={settings.timezone} onChange={(v) => update('timezone', v)} placeholder="UTC or IANA timezone" />
+                <InfoBanner icon="search" title="Provider-neutral web plane" text="Search and extraction remain separate so a free search backend can be combined with a paid or self-hosted extractor." />
+              </SettingSection>
+            </SettingsPage>
+          )}
+
           {section === 'browser' && (
             <SettingsPage title="Browser Automation" description="Tune persistent browser sessions, CDP attachment and native dialog policy.">
               <SettingSection title="Session lifecycle">

@@ -1,0 +1,22 @@
+.qa-harness{display:grid;gap:16px}
+.qa-harness__hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:4px 0}
+.qa-harness__hero h1{margin:4px 0 6px;font-size:30px;letter-spacing:-.03em}
+.qa-harness__hero p{margin:0;max-width:760px;color:var(--text-muted);line-height:1.55}
+.qa-harness__badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.qa-harness__metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.qa-harness__toolbar{display:flex;gap:8px;align-items:center}
+.qa-harness__search{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)}
+.qa-harness__search input{width:100%;border:0;outline:0;background:transparent;color:var(--text-strong);padding:10px 0}
+.qa-harness__grid{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(0,1.4fr);gap:12px}
+.qa-harness__list{display:grid;gap:4px}
+.qa-gate{width:100%;display:grid;grid-template-columns:8px 1fr auto;gap:10px;align-items:center;text-align:left;padding:11px;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+.qa-gate:hover,.qa-gate--active{background:var(--surface-2);border-color:var(--border)}
+.qa-gate__dot{width:7px;height:7px;border-radius:50%}
+.qa-gate__dot--pass{background:#5cbd72}.qa-gate__dot--warning{background:#d4a84f}.qa-gate__dot--pending{background:#77808c}
+.qa-gate strong,.qa-gate small{display:block}.qa-gate small{margin-top:3px;color:var(--text-muted)}
+.qa-harness__detail h2{margin:5px 0 7px}.qa-harness__detail p{color:var(--text-muted);line-height:1.55}
+.qa-harness__detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.qa-harness__actions{display:flex;gap:8px;flex-wrap:wrap}
+.qa-harness .callout{margin-top:14px}
+@media(max-width:900px){.qa-harness__metrics{grid-template-columns:1fr 1fr}.qa-harness__grid{grid-template-columns:1fr}.qa-harness__hero{flex-direction:column}}
+@media(max-width:620px){.qa-harness__metrics{grid-template-columns:1fr}.qa-harness__toolbar{flex-wrap:wrap}.qa-harness__search{flex-basis:100%}}

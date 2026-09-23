@@ -738,3 +738,18 @@ Verification status:
 - Unverified checks: TypeScript/Vite production build, GitHub Actions conclusion, browser/Tauri visual verification, accessibility audit.
 - Rollback point: branch base `main` before this slice; no history rewrite or destructive deletion.
 - Next step: deepen Prompt Lab and task/agent execution surfaces, then run a fresh frontend build and browser verification.
+
+
+## Prompt Lab + Platform Mode Registration — 2026-09-24
+
+- Added a dedicated frontend Prompt Lab for prompt versions, layered system/developer/user instructions, variables, model compatibility, token estimates, tests, diffs and release safeguards.
+- Added preview-only prompt actions for testing, comparison, rollback, branching and publishing.
+- Added explicit backend boundary: prompt deployment and runtime enforcement remain outside the presentation layer.
+- Fixed the `PlatformMode` type registration for `agent-control` and added `prompts` so the navigation modes match the surfaces actually rendered by `PlatformSurface.tsx`.
+- Created:
+  - `crates/presentation/desktop/frontend/src/features/platform/PromptLab.tsx`;
+  - `crates/presentation/desktop/frontend/src/features/platform/PromptLab.css`.
+- Modified:
+  - `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx`;
+  - `crates/presentation/desktop/frontend/src/navigation.ts`.
+- Verification: repository changes committed on branch `feature/frontend-prompt-lab-2026-09-24`; fresh TypeScript/build/browser verification is still pending.

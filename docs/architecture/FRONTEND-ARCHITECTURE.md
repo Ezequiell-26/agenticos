@@ -358,3 +358,11 @@ Context Inspector covers source inclusion, pin/exclude state, token budget, comp
 `features/hooks/HookManager.tsx` now owns the detailed Hooks & Policies presentation surface. It exposes lifecycle event selection, matchers, deterministic ordering, actions, failure strategy, timeout, dry-run mode, lifecycle trace and synthetic test fixtures.
 
 Authorization and middleware execution remain runtime-owned.
+
+## Git Diff Center and Environment Builder (2026-09-24)
+
+`features/git/GitDiffCenter.tsx` now owns the detailed review/staging presentation for changed files, unified diff, review checklist, checkpoint preparation and handoff preview.
+
+`features/environments/EnvironmentBuilder.tsx` now owns reusable environment configuration for local, container and remote envelopes, including resource bounds, network policy, secret boundary, lifecycle and cleanup expectations.
+
+Both remain presentation-only until runtime contracts are connected.

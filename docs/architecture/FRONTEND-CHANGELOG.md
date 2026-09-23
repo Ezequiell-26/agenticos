@@ -688,3 +688,21 @@ No external search or runtime execution was introduced.
 - Repaired the compatibility App preference imports so it uses the canonical UiLayoutPreferences helpers without stale symbol references.
 - Converted the remaining heavy Platform surfaces (Context, MCP, Hooks, Git/Diff, Environments, Automations, Credentials, Channels and Research) to independent lazy imports, matching the frontend performance contract.
 - Preserved presentation-only behavior: no backend routes, credentials, transport or runtime policy were introduced.
+
+
+### 2026-09-24 — Advanced product-depth control plane
+
+Added a dedicated lazy-loaded AdvancedStudio surface for the remaining high-value frontend depth gaps:
+- Model Playground for side-by-side model comparison.
+- Routing Studio for primary/fast/reasoning/fallback route visualization.
+- Token Observatory for context pressure, budget allocation and the planned trim → dedupe → compaction → dynamic-trim pipeline.
+- Agent Versions for immutable configuration snapshots, diffs, promotion and rollback previews.
+- Audit Log for chronological agent/tool/policy/workspace evidence.
+
+Navigation and platform-mode contracts were extended without changing runtime behavior. All controls remain local presentation state and explicitly label backend-owned data as preview until integration exists.
+
+Verification status:
+- source-level imports and icon registry references inspected;
+- design tokens aligned with the existing monochrome system;
+- lazy loading preserved for the new feature;
+- fresh TypeScript/Vite build, GitHub Actions, browser/Tauri verification and accessibility audit remain pending.

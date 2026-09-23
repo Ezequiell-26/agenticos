@@ -343,3 +343,29 @@ The current repository already contains an early desktop UI from existing commit
 - Preserved `ChatEnhancementDock` because `ChatSurface` still consumes it.
 - Removed the duplicate `/compact` command entry to avoid duplicate React list keys and conflicting command rows.
 - Purpose: keep one authoritative implementation per active product surface and prevent stale component copies from accumulating.
+
+## Visual system + iconography polish — 2026-09-24
+
+- Scope: frontend-only visual quality pass over the existing desktop shell; no runtime contracts or provider behavior changed.
+- User-visible effect: upgraded the monochrome interface with a more disciplined visual hierarchy, refined surface depth, cleaner focus/hover/active states, more consistent controls, polished scrollbars, reduced-motion behavior and stronger desktop shell cohesion.
+- Iconography:
+  - expanded the local SVG icon set with dedicated Home, File Code, Database, Network, Users, Lock, Bell, Bug, Refresh, Sliders, Filter, Maximize, Minimize, Panel, External, Upload, Download, Check Circle, Alert and Info geometry;
+  - increased icon rendering precision and non-scaling stroke behavior;
+  - remapped high-frequency navigation surfaces away from overloaded generic symbols;
+  - replaced the attachment remove glyph and dock sizing glyph with the shared icon system.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/Icon.tsx
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - crates/presentation/desktop/frontend/src/components/ChatSurface.tsx
+  - crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx
+  - crates/presentation/desktop/frontend/src/components/StatusBar.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: Rust runtime, typed service boundary, existing feature surfaces, local/preview state semantics, implementation-state manifest and repository history.
+- Architecture decision: the icon system remains repository-owned and dependency-free; the visual pass does not introduce a second component library or a second token system.
+- Verification evidence: source-level review completed for the changed icon registry, navigation mappings and CSS selectors; no backend route or credential surface was introduced.
+- Unverified checks: branch CI/build, browser screenshot verification, Windows/Tauri rendering, full accessibility audit and live runtime integration.
+- Rollback point: 079762e7fab4ab6f3fea9cba3be914c40ec2399f.
+- Next step: run branch CI and inspect the real frontend build before merging the visual polish into main.

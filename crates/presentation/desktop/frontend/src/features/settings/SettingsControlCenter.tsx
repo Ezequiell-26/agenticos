@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
 import SettingsStudio from './SettingsStudio'
+import EffectivePermissionMatrix from '../security/EffectivePermissionMatrix'
 import {
   type SettingsScope,
   type SettingsStore,
@@ -579,6 +580,15 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Loop guardrails" value={state.guardrails} onChange={(value) => update('guardrails', value)} />
                 <Toggle label="Auto-fix errors" value={state.autoFix} onChange={(value) => update('autoFix', value)} />
                 <Toggle label="Auto-run" value={state.autoRun === 'Always proceed'} onChange={(value) => update('autoRun', value ? 'Always proceed' : 'Request review')} />
+              </ControlSection>
+              <ControlSection title="Effective permissions">
+                <EffectivePermissionMatrix
+                  executionMode={state.permissionMode}
+                  workspaceOnly={state.workspaceOnly}
+                  networkAccess={state.networkAccess}
+                  terminalSandbox={state.terminalSandbox}
+                  guardrails={state.guardrails}
+                />
               </ControlSection>
               <InfoCallout icon="lock" title="Safe defaults" text="Destructive and privileged execution remains explicit. The frontend represents policy state; runtime enforcement stays behind typed service contracts." />
             </ControlPage>

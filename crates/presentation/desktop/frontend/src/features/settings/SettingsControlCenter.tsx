@@ -106,7 +106,6 @@ interface ControlState {
   goalRetention: boolean
   steeringWhileRunning: boolean
   loopCheckInterval: number
-  remoteControl: boolean
   remoteNickname: string
 }
 
@@ -211,7 +210,6 @@ const defaults: ControlState = {
   goalRetention: true,
   steeringWhileRunning: true,
   loopCheckInterval: 30,
-  remoteControl: false,
   remoteNickname: 'this workstation',
 }
 

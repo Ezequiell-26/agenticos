@@ -1,17 +1,14 @@
 import Icon from './Icon'
 
-interface Provider {
+interface RouteSlot {
   name: string
-  status: 'healthy' | 'degraded' | 'offline'
-  models: number
-  quota: string
-  latency: string
+  role: string
 }
 
-const providers: Provider[] = [
-  { name: 'Primary runtime', status: 'healthy', models: 12, quota: '84%', latency: '142 ms' },
-  { name: 'Fallback route', status: 'healthy', models: 7, quota: '61%', latency: '188 ms' },
-  { name: 'Local models', status: 'degraded', models: 4, quota: '—', latency: 'On demand' },
+const routeSlots: RouteSlot[] = [
+  { name: 'Primary route', role: 'Preferred provider path' },
+  { name: 'Fallback route', role: 'Failover provider path' },
+  { name: 'Local route', role: 'On-device model path' },
 ]
 
 export default function ProviderDashboard() {
@@ -21,29 +18,27 @@ export default function ProviderDashboard() {
         <div>
           <span className="eyebrow">Model plane</span>
           <h1>Providers & models</h1>
-          <p>Operational view of the provider layer. Secrets and routing remain owned by the runtime.</p>
+          <p>Runtime-owned provider routing and model discovery. No credentials or provider calls are handled by leaf UI components.</p>
         </div>
         <div className="overview-heading__badge"><Icon name="shield" size={14} /> Runtime protected</div>
       </div>
 
       <div className="metric-row">
-        <div className="metric-card"><span>Active routes</span><strong>3</strong><small>Primary + fallback + local</small></div>
-        <div className="metric-card"><span>Available models</span><strong>23</strong><small>Capabilities discovered by runtime</small></div>
-        <div className="metric-card"><span>Avg. latency</span><strong>165 ms</strong><small>Last observed session window</small></div>
+        <div className="metric-card"><span>Telemetry</span><strong>Awaiting runtime</strong><small>No synthetic health, quota or latency values.</small></div>
+        <div className="metric-card"><span>Model catalog</span><strong>Runtime owned</strong><small>Model discovery belongs behind the service boundary.</small></div>
+        <div className="metric-card"><span>Secrets</span><strong>Isolated</strong><small>Credentials never live in the component tree.</small></div>
       </div>
 
       <div className="surface-block">
-        <div className="surface-block__heading"><span>Provider health</span><span className="mono-text">runtime snapshot</span></div>
+        <div className="surface-block__heading"><span>Route slots</span><span className="mono-text">design contract</span></div>
         <div className="provider-list">
-          {providers.map((provider) => (
-            <div className="provider-row" key={provider.name}>
-              <div className="provider-row__identity"><span className={
-                `status-dot ${provider.status === 'offline' ? 'status-dot--offline' : 'status-dot--live'}`
-              } /><strong>{provider.name}</strong></div>
-              <span>{provider.models} models</span>
-              <span>{provider.quota}</span>
-              <span>{provider.latency}</span>
-              <button className="icon-button" type="button" aria-label={`Open ${provider.name}`} title={`Open ${provider.name}`}><Icon name="chevron-right" size={15} /></button>
+          {routeSlots.map((route) => (
+            <div className="provider-row" key={route.name}>
+              <div className="provider-row__identity"><span className="status-dot status-dot--offline" /><strong>{route.name}</strong></div>
+              <span>Not connected</span>
+              <span>—</span>
+              <span>{route.role}</span>
+              <button className="icon-button" type="button" aria-label={`Open ${route.name}`} title={`Open ${route.name}`}><Icon name="chevron-right" size={15} /></button>
             </div>
           ))}
         </div>

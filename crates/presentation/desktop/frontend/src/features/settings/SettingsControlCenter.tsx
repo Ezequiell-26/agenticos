@@ -275,12 +275,13 @@ function readControlStore(): SettingsStore<PersistedControlState> {
 }
 
 export default function SettingsControlCenter({ notify }: SettingsControlCenterProps) {
-  const [store, setStore] = useState<SettingsStore<PersistedControlState>>(() => readControlStore())
+  const initialStore = useMemo(() => readControlStore(), [])
+  const [store, setStore] = useState<SettingsStore<PersistedControlState>>(initialStore)
   const [section, setSection] = useState<SectionId>('overview')
   const [query, setQuery] = useState('')
   const [deepConfig, setDeepConfig] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [savedStore, setSavedStore] = useState(() => readControlStore())
+  const [savedStore, setSavedStore] = useState<SettingsStore<PersistedControlState>>(initialStore)
 
   const state = useMemo<ControlState>(() => ({
     ...resolveSettingsScope(store, store.activeScope),
@@ -303,7 +304,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
   const update = <K extends keyof ControlState>(key: K, value: ControlState[K]) => {
     if (key === 'scope') {
       const nextScope = value as SettingsScope
+      if (dirty && !window.confirm('Discard unsaved changes before switching scope?')) return
       setStore((current) => ({ ...current, activeScope: nextScope }))
+      setSavedStore((current) => ({ ...current, activeScope: nextScope }))
       setDirty(false)
       return
     }

@@ -1156,3 +1156,15 @@ Verification status:
 - Added queued voice-design instruction state so a developer can prepare the next visual change without leaving the design workflow.
 - The visual brief now requires at least one selected target and carries the selected-element scope into the staged action label.
 - This remains a presentation contract until browser/computer-use adapters provide real element selection, voice capture and code mutation.
+
+
+## 2026-09-24 — Current AI developer capability convergence
+
+- Added Goal Mode with explicit success criteria and progress state in Agent Mission Control.
+- Expanded Collaboration & Review with batch-fix workflow, "new findings only" filtering and review-resolution reasons.
+- Added live preview/port-forward state to Environment Lab.
+- Expanded Browser Workspace with annotation mode, multi-select DOM targets, read-only JavaScript context, asset extraction and tab grouping.
+- Added Appshot context attachment and explicit Design Mode state to Developer Workspace.
+- Added scratch/template/import project bootstrap and preview/publish state to Project Control Center.
+- These capabilities are presentation contracts only until their corresponding Tauri/Rust/browser/provider services are connected.
+- Current capability coverage was cross-checked against current 2026 documentation from OpenAI Codex, Cursor and GitHub Copilot. citeturn900621search0turn900621search2turn900621search7turn900621search8turn900621search11

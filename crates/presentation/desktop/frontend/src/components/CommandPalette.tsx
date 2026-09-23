@@ -12,6 +12,9 @@ interface CommandPaletteProps {
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
   onSelectMode: (mode: RailMode) => void
+  onToggleFocus?: () => void
+  onToggleDock?: () => void
+  onTogglePanels?: () => void
 }
 
 interface Command {
@@ -30,6 +33,9 @@ export default function CommandPalette({
   onSelectConversation,
   onCreateConversation,
   onSelectMode,
+  onToggleFocus,
+  onToggleDock,
+  onTogglePanels,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -38,6 +44,9 @@ export default function CommandPalette({
 
   const commands = useMemo<Command[]>(() => [
     { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
+    ...(onToggleFocus ? [{ id: 'toggle-focus', label: 'Toggle focus mode', detail: 'Use the full window for the active workspace surface', icon: 'maximize' as IconName, shortcut: 'Ctrl+Shift+F', action: onToggleFocus }] : []),
+    ...(onTogglePanels ? [{ id: 'toggle-panels', label: 'Toggle side panels', detail: 'Show or hide the workspace sidebar and agent inspector', icon: 'layout' as IconName, shortcut: 'Ctrl+B', action: onTogglePanels }] : []),
+    ...(onToggleDock ? [{ id: 'toggle-dock', label: 'Toggle bottom dock', detail: 'Show or hide terminal, timeline, problems and output', icon: 'terminal' as IconName, shortcut: 'Ctrl+J', action: onToggleDock }] : []),
     ...navigationItems.map((item) => ({
       id: item.id,
       label: item.label,
@@ -52,7 +61,7 @@ export default function CommandPalette({
       icon: conversation.pinned ? 'archive' as IconName : 'history' as IconName,
       action: () => onSelectConversation(conversation.id),
     })),
-  ], [conversations, onCreateConversation, onSelectConversation, onSelectMode])
+  ], [conversations, onCreateConversation, onSelectConversation, onSelectMode, onToggleDock, onToggleFocus, onTogglePanels])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()

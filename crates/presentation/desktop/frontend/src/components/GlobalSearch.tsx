@@ -107,7 +107,7 @@ export default function GlobalSearch({
         <div className="global-search__head">
           <Icon name="search" size={17} />
           <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anything in AgentiCOS…" aria-label="Search anything in AgentiCOS" />
-          <kbd>Ctrl+Shift+F</kbd>
+          <span className="global-search__hint">Quick search</span>
           <button type="button" className="icon-button" aria-label="Close search" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div className="global-search__meta">{filtered.length} result{filtered.length === 1 ? '' : 's'} · navigation, settings, sessions and platform surfaces</div>

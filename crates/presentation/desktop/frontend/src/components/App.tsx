@@ -291,6 +291,13 @@ function App() {
         onCreateConversation={handleCreateConversation}
         onSelectConversation={handleSelectConversation}
         onSelectMode={(nextMode) => { setMode(nextMode); setPaletteOpen(false) }}
+        onToggleDock={() => setDockOpen((open) => !open)}
+        onToggleFocus={() => setFocusMode((open) => !open)}
+        onTogglePanels={() => {
+          const next = !(leftPanelOpen && agentPanelOpen)
+          setLeftPanelOpen(next)
+          setAgentPanelOpen(next)
+        }}
         open={paletteOpen}
       />
     </div>

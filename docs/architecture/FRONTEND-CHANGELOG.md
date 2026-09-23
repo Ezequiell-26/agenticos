@@ -1029,3 +1029,12 @@ Verification status:
 - Focus mode hides the activity rail, workspace sidebar, agent inspector and bottom dock so chat/editor surfaces can use the full window.
 - The mode is presentation-only and does not alter runtime state or persisted project data.
 - Added an explicit topbar control with `aria-pressed` state and keyboard shortcut labeling.
+
+
+## 2026-09-24 — Navigation registry + command palette hardening
+
+- Reconciled the typed RailMode registry with the already implemented Workspace Setup, QA & Readiness and Wake Word & Presence platform surfaces.
+- Added shell controls to the Command Palette for Focus mode, side panels and the bottom dock, reusing existing state transitions instead of creating duplicate navigation surfaces.
+- Removed the stale Ctrl+Shift+F hint from the standalone Global Search surface because that shortcut is reserved by the application shell for Focus mode.
+- No provider, credential, filesystem, network or runtime execution behavior changed.
+- Verification remains source-level; a fresh frontend build and browser/Tauri interaction pass are still required.

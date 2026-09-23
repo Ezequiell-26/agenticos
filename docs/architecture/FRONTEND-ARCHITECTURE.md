@@ -327,3 +327,10 @@ The builder is intentionally frontend-only and keeps runtime integration outside
 The surface is reachable from the existing `agents` / Agent Profiles navigation mode. `AgentStudio.tsx` remains preserved for compatibility with older references, while `StudioSurface.tsx` now dispatches Agent Profiles to the richer builder.
 
 No credentials, network calls, runtime authorization, model transport or persistence contract were introduced by this frontend slice.
+
+
+## Subagent Builder Surface (2026-09-24)
+
+The Subagents workspace now routes through `features/subagents/SubagentBuilder.tsx`, while `SubagentFleet.tsx` is preserved as a compatibility dispatcher.
+
+The visual builder covers delegated task definition, context isolation, model/toolset selection, memory scope, handoff format, recursive delegation, workspace/network access, approval requirements, run state and handoff timeline. All state is local presentation state; runtime authorization and execution remain outside the frontend boundary.

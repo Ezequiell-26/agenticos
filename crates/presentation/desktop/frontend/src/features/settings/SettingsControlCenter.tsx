@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
 import SettingsStudio from './SettingsStudio'
 import EffectivePermissionMatrix from '../security/EffectivePermissionMatrix'
+const CustomizeManager = lazy(() => import('./CustomizeManager'))
+const KeymapEditor = lazy(() => import('./KeymapEditor'))
+const CapabilityRegistry = lazy(() => import('../runtime/CapabilityRegistry'))
 import {
   type SettingsScope,
   type SettingsStore,
@@ -491,6 +494,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Select label="Active mode" value={state.activeMode} options={modes} onChange={(value) => update('activeMode', value)} />
                 <Text label="Custom agent instructions" value={state.customInstructions} onChange={(value) => update('customInstructions', value)} placeholder="Optional workspace-specific guidance…" />
               </ControlSection>
+              <ControlSection title="Runtime capabilities" detail="The frontend adapts to what the runtime actually exposes.">
+                <LazyPanel><CapabilityRegistry /></LazyPanel>
+              </ControlSection>
             </ControlPage>
           )}
 
@@ -628,6 +634,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Lifecycle hooks" value={state.hooksEnabled} onChange={(value) => update('hooksEnabled', value)} />
                 <Toggle label="Inherit existing customizations" value={state.inheritCustomizations} onChange={(value) => update('inheritCustomizations', value)} />
               </ControlSection>
+              <ControlSection title="Customization manager">
+                <LazyPanel><CustomizeManager /></LazyPanel>
+              </ControlSection>
               <ControlSection title="Source formats">
                 <InfoLine title=".cursor/rules + AGENTS.md" detail="Scoped project instructions and nested rules." />
                 <InfoLine title="Skills / slash workflows" detail="Reusable procedural capabilities with progressive disclosure." />
@@ -658,6 +667,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
 
           {section === 'developer' && (
             <ControlPage title="Editor, Git & Verification" description="IDE-level controls for code editing, inline completion, version control, verification and long-running task workflows.">
+              <ControlSection title="Keymap">
+                <LazyPanel><KeymapEditor /></LazyPanel>
+              </ControlSection>
               <ControlSection title="Editor">
                 <Number label="Editor font size" value={state.editorFontSize} suffix="px" min={10} max={24} onChange={(value) => update('editorFontSize', value)} />
                 <Number label="Tab size" value={state.editorTabSize} suffix="spaces" min={1} max={8} onChange={(value) => update('editorTabSize', value)} />
@@ -744,6 +756,10 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
       </div>
     </section>
   )
+}
+
+function LazyPanel({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<div className="settings-lazy-panel"><span className="surface-loading__spinner" /><span>Loading control surface…</span></div>}>{children}</Suspense>
 }
 
 function ControlPage({ title, description, children }: { title: string; description: string; children: ReactNode }) {

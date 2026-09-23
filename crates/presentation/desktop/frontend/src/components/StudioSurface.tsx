@@ -76,29 +76,6 @@ Rules:
 `,
 }
 
-const providers = [
-  { name: 'Primary Route', health: 'Healthy', models: 12, latency: '142 ms', load: 68 },
-  { name: 'Fallback Route', health: 'Healthy', models: 7, latency: '188 ms', load: 41 },
-  { name: 'Local Route', health: 'Degraded', models: 4, latency: 'On demand', load: 22 },
-]
-
-/* REMOVED_LEGACY_SKILLS */
-/* legacy skills data moved to features/skills */
-
-/* REMOVED_LEGACY_TOOLS */
-/* legacy tools data moved to features/tools */
-
-const memories: ReadonlyArray<[string, string, string, boolean]> = [
-  ['Architecture rules', 'Never bypass the Rust runtime boundary for secrets or provider credentials.', 'Project', true],
-  ['Frontend principle', 'Prefer reversible, incremental UI work with clear visual states.', 'Workspace', true],
-  ['Current focus', 'Premium desktop Command Center with a professional black/white system.', 'Agent', false],
-  ['Testing policy', 'Do not mark implementation steps verified without evidence.', 'Project', true],
-  ['Provider strategy', 'Runtime owns provider selection, failover and health semantics.', 'Project', false],
-]
-
-/* REMOVED_LEGACY_WORKFLOWS */
-/* legacy workflow data moved to features/workflows */
-
 const artifacts = [
   ['agenticos-command-center.png', 'Image', '2.8 MB'],
   ['architecture-report.md', 'Document', '18 KB'],

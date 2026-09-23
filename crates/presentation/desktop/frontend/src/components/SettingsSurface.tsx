@@ -113,6 +113,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   const [defaultModel, setDefaultModel] = useState('Auto route')
   const [defaultAgent, setDefaultAgent] = useState('Builder')
   const [defaultMode, setDefaultMode] = useState('Agent')
+  const [defaultMode, setDefaultMode] = useState('Agent')
   const [theme, setTheme] = useState('Monochrome')
   const [density, setDensity] = useState('Comfortable')
   const [fontSize, setFontSize] = useState('13')
@@ -149,6 +150,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
       if (parsed.values) setValues((current) => ({ ...current, ...parsed.values }))
       if (parsed.defaultModel) setDefaultModel(parsed.defaultModel)
       if (parsed.defaultAgent) setDefaultAgent(parsed.defaultAgent)
+      if (parsed.defaultMode) setDefaultMode(parsed.defaultMode)
       if (parsed.theme) setTheme(parsed.theme)
       if (parsed.density) setDensity(parsed.density)
       if (parsed.fontSize) setFontSize(parsed.fontSize)
@@ -178,6 +180,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
         values,
         defaultModel,
         defaultAgent,
+        defaultMode,
         theme,
         density,
         fontSize,
@@ -201,6 +204,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
     setValues(defaults)
     setDefaultModel('Auto route')
     setDefaultAgent('Builder')
+    setDefaultMode('Agent')
     setTheme('Monochrome')
     setDensity('Comfortable')
     setFontSize('13')

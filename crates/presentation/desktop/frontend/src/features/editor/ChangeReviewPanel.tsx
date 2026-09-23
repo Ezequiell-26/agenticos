@@ -66,7 +66,7 @@ export default function ChangeReviewPanel({ onClose, onAction }: { onClose: () =
           <div className="surface-block__heading"><span>Hunks</span><span className="mono-text">preview</span></div>
           {hunks.filter(([file]) => file === selected).map(([file, title, delta, description]) => {
             const state = states[description] ?? 'pending'
-            return <div className="change-hunk" key={title}><div className="change-hunk__top"><div><strong>{title}</strong><span>{file} · {delta}</span></div><span className={state === 'approved' ? 'state-pill state-pill--completed' : state === 'rejected' ? 'state-pill state-pill--pending' : 'state-pill state-pill--active'}>{state}</span></div><p>{description}</p><pre>@@ {title.toLowerCase().replaceAll(' ', '_')}
+            return <div className="change-hunk" key={title}><div className="change-hunk__top"><div><strong>{title}</strong><span>{file} · {delta}</span></div><span className={state === 'approved' ? 'state-pill state-pill--completed' : state === 'rejected' ? 'state-pill state-pill--pending' : 'state-pill state-pill--active'}>{state}</span></div><p>{description}</p><pre>@@ {title.toLowerCase().replace(/ /g, '_')}
 - previous implementation
 + proposed frontend behavior</pre><div className="change-hunk__actions"><button className="icon-button" type="button" title="Reject hunk" onClick={() => setState(description, 'rejected')}><Icon name="x" size={13} /></button><button className="icon-button" type="button" title="Approve hunk" onClick={() => setState(description, 'approved')}><Icon name="check" size={13} /></button></div>{comments[description] && <div className="change-comment"><Icon name="message" size={12} /><span>{comments[description]}</span></div>}</div>
           })}

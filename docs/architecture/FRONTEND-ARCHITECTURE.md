@@ -340,3 +340,9 @@ The visual builder covers delegated task definition, context isolation, model/to
 The Providers & Models surface now includes an Accounts tab for safe connection metadata: provider/account identity, authentication type, model count, quota preview, routing role, capability tags and connection/model refresh actions. Secrets are represented as masked/external metadata only.
 
 The presentation layer does not store or expose API keys, OAuth tokens or provider transport state. Runtime-owned provider contracts remain the future integration boundary.
+
+## Context Inspector and Run Timeline (2026-09-24)
+
+`features/context/ContextInspector.tsx` and `features/runs/RunTimeline.tsx` now own the detailed presentation for context composition and agent execution history.
+
+Context Inspector covers source inclusion, pin/exclude state, token budget, compaction strategy, prompt/memory/code breakdown and handoff preview. Run Timeline covers run filtering, selection, lifecycle events, tool activity and change inspection. Both surfaces are local presentation state and preserve runtime-owned enforcement/execution boundaries.

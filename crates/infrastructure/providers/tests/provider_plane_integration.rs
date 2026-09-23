@@ -14,11 +14,7 @@ fn provider(id: &str, models: &[&str]) -> ProviderEntry {
     provider_with_base_url(id, format!("https://{id}.example.test"), models)
 }
 
-fn provider_with_base_url(
-    id: &str,
-    base_url: impl Into<String>,
-    models: &[&str],
-) -> ProviderEntry {
+fn provider_with_base_url(id: &str, base_url: impl Into<String>, models: &[&str]) -> ProviderEntry {
     ProviderEntry {
         provider_id: id.to_string(),
         name: format!("Provider {id}"),

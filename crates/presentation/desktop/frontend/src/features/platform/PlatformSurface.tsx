@@ -5,6 +5,7 @@ import McpManager from '../mcp/McpManager'
 import HookManager from '../hooks/HookManager'
 import GitDiffCenter from '../git/GitDiffCenter'
 import EnvironmentBuilder from '../environments/EnvironmentBuilder'
+import AutomationBuilder from '../automations/AutomationBuilder'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -382,9 +383,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'automations') return (
     <Shell>
-      {renderHeader('Schedules & triggers', 'Automations', 'Natural-language or cron-style schedules for recurring agent work.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Automation builder opened in preview')}><Icon name="calendar" size={14} /> New automation</button>)}
-      <div className="automation-table"><div className="automation-head"><span>Name</span><span>Schedule</span><span>Trigger</span><span>Status</span><span /></div>{automations.map(([name, schedule, trigger, state]) => { const paused = pausedAutomations.has(name); return <div className="automation-row" key={name}><div><strong>{name}</strong><span>{paused ? 'paused locally' : 'preview schedule'}</span></div><span>{schedule}</span><span>{trigger}</span><span className={`state-pill state-pill--${paused ? 'pending' : 'active'}`}>{paused ? 'Paused' : state}</span><button className="studio-button" type="button" onClick={() => { toggle(setPausedAutomations, pausedAutomations, name); notify(`${name} toggled in preview`) }}>{paused ? 'Resume' : 'Pause'}</button></div> })}</div>
-      <Panel title="Schedule builder"><div className="schedule-builder"><label>Natural language<input className="settings-input" defaultValue="Run a frontend regression scan every 6 hours." /></label><label>Equivalent cron<input className="settings-input" defaultValue="0 */6 * * *" /></label><label>Delivery<select className="settings-input" defaultValue="Workspace notification"><option>Workspace notification</option><option>Channel delivery</option><option>Artifact only</option></select></label></div></Panel>
+      <AutomationBuilder onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

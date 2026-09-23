@@ -29,6 +29,7 @@ const problems = [
 
 export default function WorkspaceDock({ open, mode, status, running, messageCount, onClose }: WorkspaceDockProps) {
   const [tab, setTab] = useState<DockTab>('Timeline')
+  const [selectedProblem, setSelectedProblem] = useState<string | null>(null)
   const [maximized, setMaximized] = useState(false)
   const [terminalInput, setTerminalInput] = useState('')
   const [terminalLines, setTerminalLines] = useState<string[]>([
@@ -72,6 +73,8 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
               type="button"
               role="tab"
               aria-selected={tab === item}
+              aria-controls={'workspace-dock-panel-' + item.toLowerCase()}
+              id={'workspace-dock-tab-' + item.toLowerCase()}
               onClick={() => setTab(item)}
             >
               <Icon name={item === 'Terminal' ? 'terminal' : item === 'Problems' ? 'shield' : item === 'Timeline' ? 'activity' : 'archive'} size={13} />
@@ -93,25 +96,25 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         </div>
       </header>
 
-      <div className="workspace-dock__body">
+      <div className="workspace-dock__body" aria-live="polite">
         {tab === 'Terminal' && (
-          <div className="dock-terminal">
-            <div className="dock-terminal__output">
+          <div className="dock-terminal" id="workspace-dock-panel-terminal" role="tabpanel" aria-labelledby="workspace-dock-tab-terminal" tabIndex={0}>
+            <div className="dock-terminal__output" role="log" aria-label="Terminal preview output">
               {terminalLines.map((line, index) => <div className={line.startsWith('$') ? 'dock-terminal__command' : ''} key={index}>{line || ' '}</div>)}
             </div>
             <form className="dock-terminal__input" onSubmit={(event) => { event.preventDefault(); runPreviewCommand() }}>
               <span>$</span>
               <input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} aria-label="Terminal command" placeholder="Type a preview command…" />
-              <kbd>Enter</kbd>
+              <button className="icon-button" type="button" aria-label="Clear terminal preview" title="Clear terminal" onClick={() => setTerminalLines([])}><Icon name="trash" size={13} /></button><kbd>Enter</kbd>
             </form>
           </div>
         )}
 
         {tab === 'Problems' && (
-          <div className="dock-problems">
+          <div className="dock-problems" id="workspace-dock-panel-problems" role="tabpanel" aria-labelledby="workspace-dock-tab-problems" tabIndex={0}>
             <div className="dock-section-heading"><span>Problems</span><span className="mono-text">frontend evidence</span></div>
             {problems.map(([id, title, area, level]) => (
-              <button className="dock-problem-row" type="button" key={id}>
+              <button className={selectedProblem === id ? "dock-problem-row dock-problem-row--active" : "dock-problem-row"} type="button" key={id} aria-pressed={selectedProblem === id} onClick={() => setSelectedProblem(id)}>
                 <span className={'dock-problem-icon dock-problem-icon--' + level}>{level === 'warning' ? '!' : 'i'}</span>
                 <span className="dock-problem-copy"><strong>{title}</strong><small>{id} · {area}</small></span>
                 <Icon name="chevron-right" size={13} />
@@ -121,7 +124,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         )}
 
         {tab === 'Timeline' && (
-          <div className="dock-timeline">
+          <div className="dock-timeline" id="workspace-dock-panel-timeline" role="tabpanel" aria-labelledby="workspace-dock-tab-timeline" tabIndex={0}>
             <div className="dock-section-heading"><span>Agent lifecycle</span><span className="mono-text">preview trace</span></div>
             <div className="dock-timeline-grid">
               {timeline.map(([title, detail, state], index) => (
@@ -135,7 +138,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         )}
 
         {tab === 'Output' && (
-          <div className="dock-output">
+          <div className="dock-output" id="workspace-dock-panel-output" role="tabpanel" aria-labelledby="workspace-dock-tab-output" tabIndex={0}>
             <div className="dock-section-heading"><span>Session output</span><span className="mono-text">{messageCount} messages</span></div>
             <div className="dock-output__grid">
               <div><span>Current session</span><strong>Connected UI surface</strong><small>{messageCount} visible messages</small></div>

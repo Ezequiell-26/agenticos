@@ -366,3 +366,9 @@ Authorization and middleware execution remain runtime-owned.
 `features/environments/EnvironmentBuilder.tsx` now owns reusable environment configuration for local, container and remote envelopes, including resource bounds, network policy, secret boundary, lifecycle and cleanup expectations.
 
 Both remain presentation-only until runtime contracts are connected.
+
+## Automation and Credential Manager Surfaces (2026-09-24)
+
+`features/automations/AutomationBuilder.tsx` now owns schedule/trigger, execution policy and result-delivery presentation.
+
+`features/credentials/CredentialManager.tsx` now owns metadata-only credential presentation, scopes and usage/audit views. Secret values remain masked and external to React state.

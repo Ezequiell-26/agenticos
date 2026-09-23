@@ -57,11 +57,29 @@ const REQUIRED_PROTOCOLS = [
   "migration.schema.json",
 ] as const;
 
-const REQUIRED_CRATE_NAMES = [
-  "kernel", "contracts", "runtime", "execution", "scheduler", "providers",
-  "router", "tools", "sandbox", "context", "memory", "skills", "workflows",
-  "agents", "projects", "artifacts", "plugins", "gateway", "security",
-  "observability", "evaluation", "source-forge",
+const REQUIRED_CRATE_PATHS = [
+  "crates/infrastructure/kernel",
+  "crates/domain/contracts",
+  "crates/infrastructure/runtime",
+  "crates/application/execution",
+  "crates/application/scheduler",
+  "crates/infrastructure/providers",
+  "crates/router",
+  "crates/infrastructure/tools",
+  "crates/infrastructure/sandbox",
+  "crates/context",
+  "crates/infrastructure/memory",
+  "crates/skills",
+  "crates/application/workflows",
+  "crates/application/agents",
+  "crates/projects",
+  "crates/artifacts",
+  "crates/plugins",
+  "crates/presentation/gateway",
+  "crates/infrastructure/security",
+  "crates/infrastructure/observability",
+  "crates/infrastructure/evaluation",
+  "crates/infrastructure/source-forge",
 ] as const;
 
 export async function assertArchitectureReadiness(root = process.cwd()): Promise<void> {
@@ -107,9 +125,9 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
     await readRequired(root, `protocols/schemas/${protocol}`);
   }
 
-  for (const crate of REQUIRED_CRATE_NAMES) {
-    await readRequired(root, `crates/${crate}/Cargo.toml`);
-    await readRequired(root, `crates/${crate}/src/lib.rs`);
+  for (const cratePath of REQUIRED_CRATE_PATHS) {
+    await readRequired(root, `${cratePath}/Cargo.toml`);
+    await readRequired(root, `${cratePath}/src/lib.rs`);
   }
 
   const state = JSON.parse(

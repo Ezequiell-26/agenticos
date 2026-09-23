@@ -1409,3 +1409,17 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 .overview-alert__dot--info{background:var(--accent)}
 .overview-action__icon{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--border-subtle);border-radius:7px;background:var(--surface-1)}
 @media (max-width:1100px){.overview-grid--three{grid-template-columns:1fr}.overview-grid{grid-template-columns:1fr}}
+
+/* Governance surfaces */
+.approval-layout{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(0,1.28fr);gap:14px}
+.approval-list{display:grid;gap:7px}
+.approval-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:11px;border:1px solid var(--border-subtle);background:var(--surface-2);border-radius:9px;color:inherit;text-align:left;cursor:pointer}
+.approval-row--active,.approval-row:hover{border-color:var(--border-strong)}
+.approval-row>div{display:grid;gap:3px;min-width:0}.approval-row span,.approval-row small{color:var(--text-muted)}
+.approval-risk{font:600 9px var(--font-mono);text-transform:uppercase;padding:4px 5px;border-radius:5px;border:1px solid var(--border-subtle)}
+.approval-risk--high{color:var(--danger)}.approval-risk--medium{color:var(--warning)}.approval-risk--low{color:var(--text-muted)}
+.approval-detail{display:grid;gap:12px}.approval-detail h2{margin:0}.approval-detail p{color:var(--text-muted);max-width:70ch}
+.approval-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.approval-facts>div{display:grid;gap:3px;padding:10px;background:var(--surface-2);border:1px solid var(--border-subtle);border-radius:8px}.approval-facts span{color:var(--text-muted);font-size:11px}
+.approval-reason{display:grid;gap:6px;color:var(--text-muted);font-size:12px}.approval-reason textarea{min-height:76px;resize:vertical}
+.permission-table{overflow:auto}.permission-head,.permission-row{display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1fr;gap:10px;align-items:center}.permission-head{padding:8px 10px;color:var(--text-muted);font:600 10px var(--font-mono);text-transform:uppercase}.permission-row{width:100%;padding:10px;border:0;border-top:1px solid var(--border-subtle);background:transparent;color:inherit;text-align:left;cursor:pointer}.permission-row:hover{background:var(--surface-2)}
+@media (max-width:900px){.approval-layout{grid-template-columns:1fr}.approval-facts{grid-template-columns:1fr}.permission-head,.permission-row{grid-template-columns:1fr 1fr}}

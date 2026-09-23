@@ -51,6 +51,8 @@ export type RailMode =
   | 'agent-arena'
   | 'frontend-state-matrix'
   | 'visual-accessibility-lab'
+  | 'collaboration-review'
+  | 'design-system'
   | 'security'
   | 'sessions'
   | 'logs'
@@ -106,6 +108,8 @@ export interface NavigationItem {
 export const navigationItems: NavigationItem[] = [
   { id: 'session-replay', label: 'Session Replay Studio', detail: 'Branch, replay, compare and restore agent session trajectories', icon: 'history', group: 'operate' },
   { id: 'evidence-inspector', label: 'Evidence & Artifact Inspector', detail: 'Inspect screenshots, logs, diffs, reports and provenance chains', icon: 'archive', group: 'operate' },
+  { id: 'collaboration-review', label: 'Collaboration & Review Center', detail: 'Review threads, automated findings, approvals and verification gates', icon: 'check', group: 'operate' },
+  { id: 'design-system', label: 'Design System Studio', detail: 'Components, interaction states, tokens, density and accessibility foundations', icon: 'layers', group: 'configure' },
   { id: 'agent-arena', label: 'Agent Arena', detail: 'Parallel agents, isolated lanes, criterion comparison and convergence', icon: 'users', group: 'operate' },
   { id: 'frontend-state-matrix', label: 'Frontend State Matrix', detail: 'Loading, error, offline, stale, permission and approval state contracts', icon: 'layers', group: 'operate' },
   { id: 'visual-accessibility-lab', label: 'Visual & Accessibility Lab', detail: 'Viewport, keyboard, motion, contrast, semantics and recovery verification', icon: 'check-circle', group: 'operate' },
@@ -203,11 +207,11 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
   'browser', 'mcp', 'security', 'permissions', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'knowledge' | 'developer-workspace' | 'git-control' | 'agent-mission' | 'task-execution' | 'session-replay' | 'evidence-inspector' | 'environment-lab' | 'agent-arena' | 'frontend-state-matrix' | 'visual-accessibility-lab' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows' | 'teams' | 'advanced-context' | 'usage' | 'release' | 'customization' | 'help' | 'recovery' | 'observability' | 'approvals'>
+export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'knowledge' | 'developer-workspace' | 'git-control' | 'agent-mission' | 'task-execution' | 'session-replay' | 'evidence-inspector' | 'environment-lab' | 'agent-arena' | 'frontend-state-matrix' | 'visual-accessibility-lab' | 'collaboration-review' | 'design-system' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows' | 'teams' | 'advanced-context' | 'usage' | 'release' | 'customization' | 'help' | 'recovery' | 'observability' | 'approvals'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'overview', 'agent-control', 'prompts', 'permissions', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'knowledge', 'developer-workspace', 'git-control', 'agent-mission', 'task-execution', 'session-replay', 'evidence-inspector', 'environment-lab', 'agent-arena', 'frontend-state-matrix', 'visual-accessibility-lab', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows', 'teams', 'advanced-context', 'usage', 'observability', 'release', 'customization', 'help', 'recovery', 'approvals',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'knowledge', 'developer-workspace', 'git-control', 'agent-mission', 'task-execution', 'session-replay', 'evidence-inspector', 'environment-lab', 'agent-arena', 'frontend-state-matrix', 'visual-accessibility-lab', 'collaboration-review', 'design-system', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows', 'teams', 'advanced-context', 'usage', 'observability', 'release', 'customization', 'help', 'recovery', 'approvals',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

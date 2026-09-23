@@ -166,7 +166,6 @@ async fn provider_failover_follows_declared_order() {
 }
 
 
-
 #[tokio::test]
 async fn auto_failover_disabled_does_not_advance_to_fallback() {
     let fallback_manager = FallbackManager::new();

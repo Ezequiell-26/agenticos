@@ -1859,3 +1859,6 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .composer-toolbar { flex-wrap:wrap; }
   .composer-hint { display:none; }
 }
+
+/* Browser agent context controls */
+.browser-tab-group{display:flex;align-items:center;gap:5px;margin-right:auto}.browser-tab-group select{padding:5px 7px;border:1px solid #252525;border-radius:6px;background:#101010;color:#999;font-size:7px}.browser-page__hero--annotation{outline:1px dashed #777;outline-offset:6px}.browser-annotation-hint{display:inline-block;margin-bottom:10px;padding:5px 7px;border:1px solid #2a2a2a;border-radius:6px;background:#141414;color:#666;font-size:7px}.browser-inspector-feature{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid #202020;border-radius:7px;background:#101010}.browser-inspector-feature>div{min-width:0;display:flex;flex-direction:column;gap:3px}.browser-inspector-feature strong{font-size:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.browser-inspector-feature small{font-size:6px;color:#555;line-height:1.4}.browser-tree__node{border:1px solid transparent!important}.browser-tree__node--selected{border-color:#555!important;background:#151515!important}@media(max-width:760px){.browser-session-bar{flex-wrap:wrap}.browser-tab-group{width:100%;order:2}.browser-tab-group select{width:100%}}

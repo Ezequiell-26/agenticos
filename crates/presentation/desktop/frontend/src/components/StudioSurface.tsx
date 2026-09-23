@@ -7,7 +7,7 @@ import ProviderStudio from '../features/providers/ProviderStudio'
 import MemoryStudio from '../features/memory/MemoryStudio'
 import SkillsStudio from '../features/skills/SkillsStudio'
 import ToolsStudio from '../features/tools/ToolsStudio'
-import AgentStudio from '../features/agents/AgentStudio'
+import AgentBuilder from '../features/agents/AgentBuilder'
 import PromptStudio from '../features/prompts/PromptStudio'
 import SettingsSurface from './SettingsSurface'
 import CodeEditorSurface from '../features/editor/CodeEditorSurface'
@@ -352,7 +352,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   if (mode === 'agents') return (
     <section className="studio-surface">
       <StudioHeader eyebrow="Agent control" title="Agent Profiles" subtitle="Build specialist agents with explicit models, capabilities, tools, behavior and verification policy." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('New agent profile created in preview')}><Icon name="plus" size={14} /> New agent</button>} />
-      <AgentStudio onAction={notify} />
+      <AgentBuilder onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

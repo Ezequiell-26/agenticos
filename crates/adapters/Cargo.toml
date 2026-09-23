@@ -1,19 +1,16 @@
 [package]
-name = "agenticos-providers"
+name = "agenticos-adapters"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 agenticos-contracts = { path = "../contracts" }
-async-trait = "0.1"
-tokio = { version = "1.0", features = ["sync", "rt-multi-thread", "macros"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-reqwest = { version = "0.11", features = ["json"] }
-
-[dev-dependencies]
-tokio = { version = "1.0", features = ["sync", "rt-multi-thread", "macros"] }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
 
 [lints]
 workspace = true

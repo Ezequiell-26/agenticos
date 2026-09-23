@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "enterprise-utilities-vertical-slice-1",
+  "current_step": "brain-architecture-foundation-vertical-slice-1",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -2273,45 +2273,41 @@
         }
       ],
       "unlocks": [
-        "enterprise-utilities-integration-vertical-slice-1"
+        "brain-architecture-foundation-vertical-slice-1"
       ]
     },
     {
-      "id": "enterprise-utilities-integration-vertical-slice-1",
-      "number": 53,
-      "status": "pending",
+      "id": "brain-architecture-foundation-vertical-slice-1",
+      "number": 54,
+      "status": "in_progress",
       "scope": [
-        "integrate logging crate with AgentEngine and ReactAgent for structured logging",
-        "integrate metrics crate with AgentEngine for token usage, latency, and error tracking",
-        "integrate configuration crate with runtime for layered configuration management",
-        "integrate cache crate with memory/context for conversation caching",
-        "integrate http-client crate with HttpModelProvider for real HTTP transport",
-        "integrate async-utils crate with execution layer for async operations",
-        "integrate time-utils crate with runtime for timestamp management",
-        "integrate crypto crate with security module for hashing and encryption",
-        "integrate rate-limiting crate with providers for API rate limiting",
-        "integrate vector-database crate with memory for vector embeddings",
-        "integrate websockets crate with API server for real-time communication",
-        "integrate task-scheduler crate with runtime for background task scheduling",
-        "integrate authentication crate with gateway for JWT token management",
-        "integrate event-bus crate with execution layer for event-driven architecture",
-        "integrate state-management crate with AgentEngine for state machine patterns",
-        "integrate notifications crate with CLI and API for user notifications"
+        "create brain/kernel crate separate from existing kernel",
+        "define Capability Registry contracts (dynamic capability discovery, version, origin, license, compatibility, dependencies, permissions, cost, consumption, evidence)",
+        "define Source Intelligence Engine contracts (discovery, import, update, analyze, version, deduplicate, index, evaluate, MIT/open-source repositories, incremental ingestion pipelines)",
+        "define Resource Governor contracts (RAM, CPU, Disk, Concurrency, Network, Token budgets, caching, eviction, queues, backpressure, context management)",
+        "define Knowledge Base contracts (persistent knowledge storage, indexed searchable knowledge, on-demand retrieval, provenance tracking)",
+        "define Reasoning & Planning Engine contracts (multi-step reasoning, plan generation and re-planning, capability selection, evaluation and learning)",
+        "define strict DAG between crates (contracts/core, brain/kernel, runtime, providers, tools, mcp, agents, workflows, knowledge, storage, security, observability, adapters, interfaces)",
+        "ensure Brain never depends structurally on concrete repository, provider, model, MCP or tool",
+        "ensure external resources conserve provenance, license, repository, commit/hash, version, changes and source evidence"
       ],
       "requires": [
         "enterprise-utilities-vertical-slice-1"
       ],
       "required_checks": [
-        "API compatibility review for all 22 crates",
-        "logging integration tests",
-        "metrics integration tests",
-        "configuration integration tests",
-        "cache integration tests",
-        "http-client integration tests",
-        "async-utils integration tests",
+        "brain/kernel crate creation",
+        "Capability Registry contracts definition",
+        "Source Intelligence Engine contracts definition",
+        "Resource Governor contracts definition",
+        "Knowledge Base contracts definition",
+        "Reasoning & Planning Engine contracts definition",
+        "DAG dependency validation",
+        "cargo build --workspace --all-targets",
+        "cargo fmt --all -- --check",
+        "cargo check --workspace --all-targets",
+        "cargo clippy --workspace --all-targets -- -D warnings",
         "security gate",
-        "architecture gate",
-        "Rust fmt/check/test/clippy"
+        "architecture gate"
       ],
       "verification_evidence": [],
       "unlocks": []

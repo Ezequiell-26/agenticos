@@ -220,6 +220,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "agenticos-brain"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "async-trait",
+ "chrono",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "agenticos-cli"
 version = "0.1.0"
 dependencies = [

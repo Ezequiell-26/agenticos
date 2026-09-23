@@ -1,0 +1,19 @@
+[package]
+name = "agenticos-brain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+agenticos-contracts = { path = "../contracts" }
+async-trait = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+semver = "1.0"
+
+[lints]
+workspace = true

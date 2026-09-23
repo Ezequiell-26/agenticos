@@ -1,21 +1,21 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import Icon from '../../components/Icon'
-import BrowserWorkspace from '../browser/BrowserWorkspace'
-import SecurityCenter from '../security/SecurityCenter'
-import CanvasStudio from '../canvas/CanvasStudio'
-import CommandStudio from '../commands/CommandStudio'
-import SubagentFleet from '../subagents/SubagentFleet'
-import CloudAgentsWorkspace from '../cloud/CloudAgentsWorkspace'
-import ComputerUseWorkspace from '../computer/ComputerUseWorkspace'
-import OperationsCenter from '../operations/OperationsCenter'
-import MarketplaceStudio from '../marketplace/MarketplaceStudio'
-import KanbanBoard from '../kanban/KanbanBoard'
-import IntegrationCatalogSurface from '../integrations/IntegrationCatalogSurface'
+const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
+const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
+const CanvasStudio = lazy(() => import('../canvas/CanvasStudio'))
+const CommandStudio = lazy(() => import('../commands/CommandStudio'))
+const SubagentFleet = lazy(() => import('../subagents/SubagentFleet'))
+const CloudAgentsWorkspace = lazy(() => import('../cloud/CloudAgentsWorkspace'))
+const ComputerUseWorkspace = lazy(() => import('../computer/ComputerUseWorkspace'))
+const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
+const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
+const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
+const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
 import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
+function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
@@ -445,4 +445,18 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   )
 }
 
+function PlatformSurface({ mode }: { mode: PlatformMode }) {
+  return (
+    <Suspense fallback={
+      <section className="surface-loading" aria-live="polite">
+        <span className="surface-loading__spinner" />
+        <div><strong>Loading workspace feature</strong><small>The selected tool is being loaded on demand.</small></div>
+      </section>
+    }>
+      <PlatformSurfaceContent mode={mode} />
+    </Suspense>
+  )
+}
+
+export default PlatformSurface
 

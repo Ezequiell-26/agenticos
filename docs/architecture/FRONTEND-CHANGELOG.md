@@ -996,3 +996,14 @@ Verification status:
 - Added a workspace-level project control surface for project identity, current branch, tasks, environment, layout and recovery context.
 - Added direct launch cards into Developer, Mission, Execution, Intelligence, Governance and Integration workspaces.
 - Kept project/branch/environment changes as presentation intents until runtime project services are connected.
+
+## 2026-09-24 — Frontend build regression repair
+
+- Repaired six existing platform surfaces whose JSX/TypeScript syntax blocked the production frontend build on main.
+- Closed the missing EvidenceArtifactInspector preview wrapper and the missing component/function closures in GovernanceControlCenter, IntegrationControlCenter, IntelligenceControlCenter, ProjectControlCenter, and QualityWorkbench.
+- No new capability, provider integration, credential handling, runtime execution or persistence behavior was introduced.
+- Source-level tag/brace audit after repair is balanced for the changed files.
+- Verification: the previous main build had reproducible TypeScript errors in these surfaces; the repaired branch now requires a fresh GitHub Actions frontend build before the fix is considered build-verified.
+- Unverified: browser/Tauri execution and accessibility execution.
+- Rollback: revert PR #60; no history rewrite or destructive deletion.
+- Next step: validate PR #60 with the fresh frontend verification workflow and only then continue broader frontend hardening.

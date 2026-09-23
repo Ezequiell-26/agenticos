@@ -663,3 +663,9 @@ No runtime middleware or authorization behavior was introduced.
 Added dedicated feature components for source-control review and environment configuration. The dispatcher now routes Reviews through Git Diff Center and Environments through Environment Builder, reducing inline surface state.
 
 No backend execution, credentials or runtime authorization were introduced.
+
+### 2026-09-24 — Automation and Credential Managers
+
+Added dedicated builders for Automations and Credentials and routed both surfaces through `PlatformSurface`. Added responsive/reduced-motion styling and explicit presentation-only boundaries.
+
+Credentials never expose secret material in the frontend.

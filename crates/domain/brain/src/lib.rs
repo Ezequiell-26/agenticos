@@ -19,6 +19,7 @@ pub mod reasoning_engine;
 
 pub use capability_registry::{CapabilityRegistry, RegistryConfig, RegistryStats};
 pub use source_intelligence::{SourceIntelligenceEngine, EngineConfig, RepositoryAnalysis, RepositoryMetadata, RepositoryStatus};
+pub use resource_governor::{ResourceGovernor, GovernorConfig, ResourceRequest, ResourceUsage, ResourceState};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

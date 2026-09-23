@@ -1,4 +1,4 @@
-import { navigationItems, platformModes, type PlatformMode, type RailMode } from './navigation'
+import { navigationItems, platformModes, type RailMode } from './navigation'
 
 export type NavigationAuditIssueCode =
   | 'duplicate-navigation-id'

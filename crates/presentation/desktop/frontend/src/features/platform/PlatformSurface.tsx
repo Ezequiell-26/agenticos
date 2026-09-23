@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import Icon from '../../components/Icon'
+import BrowserWorkspace from '../browser/BrowserWorkspace'
 import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -316,8 +317,8 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'browser') return (
     <Shell>
-      {renderHeader('Web control', 'Browser', 'Interactive browser sessions for navigation, scraping, form filling and verification.', <button className="studio-button studio-button--active" type="button" onClick={() => { setBrowserLog((lines) => [...lines, 'new tab opened · isolated preview']); notify('New browser tab opened in preview') }}><Icon name="plus" size={14} /> New tab</button>)}
-      <div className="browser-shell"><div className="browser-toolbar"><button className="icon-button" type="button" title="Back" onClick={() => notify('Browser back in preview')}><Icon name="chevron-left" size={15} /></button><button className="icon-button" type="button" title="Forward" onClick={() => notify('Browser forward in preview')}><Icon name="chevron-right" size={15} /></button><button className="icon-button" type="button" title="Refresh" onClick={() => notify('Browser refreshed in preview')}><Icon name="history" size={15} /></button><input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Browser URL" /><button className="studio-button studio-button--active" type="button" onClick={() => { setBrowserLog((lines) => [...lines, `navigate · ${browserUrl}`]); notify('Navigation recorded in preview') }}>Go</button></div><div className="browser-body"><div className="browser-preview"><div className="browser-preview__top"><span>isolated browser</span><span className="mono-text">no live browser connection</span></div><div className="browser-preview__content"><Icon name="globe" size={28} /><strong>Browser session preview</strong><span>Navigation, DOM snapshots, forms and screenshots are represented here until a browser runtime contract is connected.</span></div></div><Panel title="Action log"><List items={browserLog} /><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Screenshot capture staged in preview')}>Capture screenshot</button><button className="studio-button" type="button" onClick={() => notify('DOM snapshot staged in preview')}>Snapshot DOM</button></div></Panel></div></div>
+      {renderHeader('Web control', 'Browser', 'Interactive browser workspace for navigation, DOM inspection, console output, network events and session state.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New browser session staged in preview')}><Icon name="plus" size={14} /> New session</button>)}
+      <BrowserWorkspace onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

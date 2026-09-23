@@ -29,6 +29,13 @@ export type RailMode =
   | 'research'
   | 'mcp'
   | 'security'
+  | 'plugins'
+  | 'hooks'
+  | 'batch'
+  | 'learning'
+  | 'execution'
+  | 'environments'
+  | 'integrations'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 
@@ -68,25 +75,32 @@ export const navigationItems: NavigationItem[] = [
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
   { id: 'research', label: 'Research', detail: 'Batch tasks, sources, trajectories and exports', icon: 'search', group: 'operate' },
+  { id: 'batch', label: 'Batch Processing', detail: 'Process many inputs with bounded concurrency and results', icon: 'layers', group: 'operate' },
+  { id: 'learning', label: 'Learning Loop', detail: 'Capture useful run outcomes and evolve skills locally', icon: 'spark', group: 'operate' },
 
   { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog, failover and quotas', icon: 'bot', group: 'configure' },
   { id: 'skills', label: 'Skills', detail: 'Installable procedural capabilities', icon: 'spark', group: 'configure' },
   { id: 'tools', label: 'Tools', detail: 'Tool registry, risk and execution policy', icon: 'tool', group: 'configure' },
   { id: 'memory', label: 'Memory', detail: 'Persistent memory and cross-session recall', icon: 'history', group: 'configure' },
   { id: 'settings', label: 'Settings', detail: 'Appearance, behavior, privacy and safety', icon: 'settings', group: 'configure' },
+  { id: 'plugins', label: 'Plugins', detail: 'Extend the product surface with packaged capabilities', icon: 'tool', group: 'configure' },
+  { id: 'hooks', label: 'Hooks & Policies', detail: 'Lifecycle hooks, middleware and event rules', icon: 'shield', group: 'configure' },
+  { id: 'execution', label: 'Execution Lab', detail: 'Sandboxed code execution and reproducible task previews', icon: 'code', group: 'configure' },
 
   { id: 'channels', label: 'Channels & Gateway', detail: 'Messaging surfaces, gateway connections and delivery', icon: 'message', group: 'integrate' },
   { id: 'browser', label: 'Browser', detail: 'Navigation, scraping, form actions and sessions', icon: 'globe', group: 'integrate' },
   { id: 'voice', label: 'Voice & Media', detail: 'Voice input, TTS, vision and media tools', icon: 'mic', group: 'integrate' },
   { id: 'mcp', label: 'MCP Servers', detail: 'External tool servers, OAuth and capabilities', icon: 'tool', group: 'integrate' },
+  { id: 'environments', label: 'Environments', detail: 'Development images, setup, network and runtime configuration', icon: 'cloud', group: 'integrate' },
+  { id: 'integrations', label: 'Source Integrations', detail: 'GitHub, GitLab and connected engineering systems', icon: 'git', group: 'integrate' },
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'mcp' | 'security'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'artifacts' | 'channels' | 'browser' | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'mcp', 'security',
+  'bots', 'automations', 'artifacts', 'channels', 'browser', 'voice', 'research', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'integrations', 'security',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

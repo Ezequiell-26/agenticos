@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
 import ChatEnhancementDock from './ChatEnhancementDock'
+import AgentModeStrip, { type AgentMode } from '../features/chat/AgentModeStrip'
 
 interface ChatSurfaceProps {
   sessionId: string
@@ -38,6 +39,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [draft, setDraft] = useState('')
   const [model, setModel] = useState(models[0])
   const [agent, setAgent] = useState(agents[0])
+  const [agentMode, setAgentMode] = useState<AgentMode>('Agent')
   const [contextScope, setContextScope] = useState(contextScopes[0])
   const [effort, setEffort] = useState(effortLevels[2])
   const [maxTokens, setMaxTokens] = useState('8192')
@@ -100,7 +102,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       <header className="chat-header">
         <div className="chat-header__title">
           <div className="chat-title-icon"><Icon name="spark" size={17} /></div>
-          <div><strong>Agent session</strong><span>Private runtime workspace · {agent}</span></div>
+          <div><strong>Agent session</strong><span>Private runtime workspace · {agent} · {agentMode}</span></div>
         </div>
         <div className="chat-header__actions">
           <div className="model-chip"><span className="status-dot status-dot--live" /><select value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></div>
@@ -111,6 +113,8 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       </header>
 
       {advancedOpen && (
+        <div className="chat-control-stack">
+          <AgentModeStrip mode={agentMode} onAction={setNotice} onChange={setAgentMode} />
         <div className="chat-control-bar">
           <label><span>Agent</span><select value={agent} onChange={(event) => setAgent(event.target.value)}>{agents.map((item) => <option key={item}>{item}</option>)}</select></label>
           <label><span>Context</span><select value={contextScope} onChange={(event) => setContextScope(event.target.value)}>{contextScopes.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -121,6 +125,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <button type="button" className={`control-pill ${codeMode ? 'control-pill--active' : ''}`} onClick={() => setCodeMode((value) => !value)}><Icon name="code" size={12} /> Code</button>
           <button type="button" className={`control-pill ${webAccess ? 'control-pill--active' : ''}`} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={12} /> Web</button>
           <button type="button" className={`control-pill ${rememberContext ? 'control-pill--active' : ''}`} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={12} /> Memory</button>
+        </div>
         </div>
       )}
 

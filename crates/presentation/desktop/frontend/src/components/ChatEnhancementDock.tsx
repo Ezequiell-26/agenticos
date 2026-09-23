@@ -22,6 +22,14 @@ const commands = [
   ['/fix', 'Diagnose and fix a problem'],
   ['/test', 'Build a verification plan'],
   ['/summarize', 'Summarize the current run'],
+  ['/ask', 'Switch to read-only exploration'],
+  ['/debug', 'Start evidence-first debugging'],
+  ['/goal', 'Set a long-lived objective'],
+  ['/fork', 'Fork this conversation'],
+  ['/resume', 'Resume a recent session'],
+  ['/compact', 'Compact the current context'],
+  ['/rename', 'Rename the current session'],
+  ['/run-everything', 'Configure automatic execution preview'],
 ]
 
 export default function ChatEnhancementDock({ onInsert, onAction }: ChatEnhancementDockProps) {
@@ -69,6 +77,8 @@ export default function ChatEnhancementDock({ onInsert, onAction }: ChatEnhancem
               <button type="button" onClick={() => onAction('Structured output mode enabled in preview')}><strong>Structured output</strong><span>Request JSON-like response structure</span></button>
               <button type="button" onClick={() => onAction('Citations enabled in preview')}><strong>Citations</strong><span>Show source references when available</span></button>
               <button type="button" onClick={() => onAction('Voice input staged in preview')}><strong>Voice input</strong><span>Use microphone transcription when connected</span></button>
+              <button type="button" onClick={() => onAction('Session fork created in preview')}><strong>Fork session</strong><span>Create a separate conversation branch</span></button>
+              <button type="button" onClick={() => onAction('Context compacted in preview')}><strong>Compact context</strong><span>Reduce active context before continuing</span></button>
             </>
           )}
         </div>

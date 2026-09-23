@@ -7,6 +7,7 @@ import Icon from './components/Icon'
 import StatusBar from './components/StatusBar'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
+import { navigationItems } from './navigation'
 import { runtime } from './services/runtime'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
 
@@ -35,12 +36,10 @@ const fallbackStatus: AgentStatusSnapshot = {
 
 const modeStorageKey = 'agenticos.ui.mode'
 const sessionStorageKey = 'agenticos.ui.session'
-const railModes: RailMode[] = ['chat', 'files', 'runs', 'approvals', 'observability', 'agents', 'prompts', 'providers', 'skills', 'tools', 'memory', 'workflows', 'artifacts', 'terminal', 'settings']
-
 function readStoredMode(): RailMode {
   try {
     const value = window.localStorage.getItem(modeStorageKey)
-    return value && railModes.includes(value as RailMode) ? value as RailMode : 'chat'
+    return value && navigationItems.some((item) => item.id === value as RailMode) ? value as RailMode : 'chat'
   } catch {
     return 'chat'
   }
@@ -102,10 +101,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const visibleTitle = useMemo(() => {
-    if (mode === 'chat') return 'Command Center'
-    return mode.charAt(0).toUpperCase() + mode.slice(1)
-  }, [mode])
+  const visibleTitle = useMemo(() => navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center', [mode])
 
   async function handleSend(message: string) {
     const userMessage: ChatMessage = {

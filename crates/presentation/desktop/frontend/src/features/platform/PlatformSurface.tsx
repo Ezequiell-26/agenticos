@@ -5,7 +5,7 @@ import Icon from '../../components/Icon'
 type PlatformMode = Extract<RailMode,
   | 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews'
   | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser'
-  | 'voice' | 'research' | 'mcp' | 'security'
+  | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'
 >
 
 type Item = { id: string; title: string; detail: string; meta?: string; state?: string }
@@ -93,6 +93,46 @@ const researchBatches = [
   ['BATCH-012', 'Frontend UX benchmark', '12 inputs', 'Complete'],
 ]
 
+const batchJobs: ReadonlyArray<[string, string, string, string]> = [
+  ['BATCH-014', 'Frontend screenshot audit', '48 inputs · concurrency 6', 'Running'],
+  ['BATCH-013', 'Provider metadata normalization', '18 inputs · concurrency 4', 'Complete'],
+  ['BATCH-012', 'Documentation link validation', '62 inputs · concurrency 8', 'Queued'],
+]
+
+const learningSignals: ReadonlyArray<[string, string, string, string]> = [
+  ['Skill candidate', 'frontend-regression-review', '4 supporting runs', 'Draft'],
+  ['Memory candidate', 'Preferred fail-closed workflow', '3 supporting sessions', 'Ready'],
+  ['Prompt improvement', 'Architecture planning checklist', '12% fewer retries', 'Suggested'],
+]
+
+const plugins: ReadonlyArray<[string, string, string, string, boolean]> = [
+  ['GitHub Toolkit', 'Source control and PR workflows', '18 tools', 'Repository', true],
+  ['Browser Operator', 'Browser automation and visual verification', '7 tools', 'Automation', true],
+  ['Research Pack', 'Web sources and evidence workflows', '9 tools', 'Research', false],
+  ['Media Pack', 'Vision, TTS and image/video surfaces', '6 tools', 'Media', false],
+]
+
+const hooks: ReadonlyArray<[string, string, string, boolean]> = [
+  ['before-run', 'Validate policy, context and approvals', 'Execution', true],
+  ['before-tool', 'Check risk and tool allowlist', 'Security', true],
+  ['after-tool', 'Record outcome and artifact references', 'Telemetry', true],
+  ['on-error', 'Capture evidence and propose recovery', 'Recovery', true],
+  ['after-run', 'Compile summary and handoff package', 'Lifecycle', false],
+]
+
+const environments: ReadonlyArray<[string, string, string, string]> = [
+  ['Local Desktop', 'Tauri workstation', 'Node 22 · Rust stable', 'Ready'],
+  ['Linux Builder', 'Containerized build environment', 'Ubuntu · cached toolchain', 'Preview'],
+  ['Agent VM', 'Isolated long-running environment', 'Dockerfile / snapshot', 'Preview'],
+]
+
+const integrations: ReadonlyArray<[string, string, string, string]> = [
+  ['GitHub', 'Repository + PR', 'Connected', 'Read / write via runtime'],
+  ['GitLab', 'Repository', 'Available', 'OAuth preview'],
+  ['Azure DevOps', 'Repository + work items', 'Available', 'OAuth preview'],
+  ['Linear', 'Issues + projects', 'Preview', 'API not connected'],
+]
+
 const mcpServers = [
   ['filesystem', 'Local files', '12 tools', 'Connected'],
   ['browser', 'Browser automation', '7 tools', 'Preview'],
@@ -124,6 +164,11 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   const [selectedMcp, setSelectedMcp] = useState(mcpServers[0][0])
   const [voiceMode, setVoiceMode] = useState(true)
   const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
+  const [batchJob, setBatchJob] = useState(batchJobs[0][0])
+  const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
+  const [selectedHook, setSelectedHook] = useState(hooks[0][0])
+  const [environment, setEnvironment] = useState(environments[0][0])
+  const [integration, setIntegration] = useState(integrations[0][0])
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -150,6 +195,67 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
       </header>
     )
   }
+
+
+  if (mode === 'batch') return (
+    <Shell>
+      {renderHeader('Parallel work', 'Batch Processing', 'Process many inputs with bounded concurrency, progress, failures and export-ready results.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New batch opened in preview')}><Icon name="plus" size={14} /> New batch</button>)}
+      <div className="batch-layout"><div className="batch-list">{batchJobs.map(([id, title, inputs, state]) => <button type="button" key={id} className={`batch-row ${batchJob === id ? 'batch-row--active' : ''}`} onClick={() => setBatchJob(id)}><div><strong>{title}</strong><span>{id} · {inputs}</span></div><span className={`state-pill state-pill--${state === 'Complete' ? 'completed' : state === 'Running' ? 'active' : 'pending'}`}>{state}</span></button>)}</div><Panel title={batchJob}><div className="batch-metrics"><Metric label="Inputs" value="48" /><Metric label="Concurrency" value="6" /><Metric label="Processed" value="31" /><Metric label="Failed" value="1" /></div><div className="budget-bar"><span style={{ width:'64%' }} /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Batch paused in preview')}><Icon name="stop" size={14} /> Pause</button><button className="studio-button" type="button" onClick={() => notify('Failed inputs opened in preview')}>Inspect failures</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Batch export prepared in preview')}><Icon name="arrow-down" size={14} /> Export results</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'learning') return (
+    <Shell>
+      {renderHeader('Continuous improvement', 'Learning Loop', 'Turn useful run outcomes into reviewable memory, skill and prompt candidates without silently changing behavior.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Learning review started in preview')}><Icon name="spark" size={14} /> Review candidates</button>)}
+      <div className="learning-grid">{learningSignals.map(([kind, title, evidence, state]) => <button type="button" key={title} className="platform-card learning-card" onClick={() => notify(`${title} selected`)}><span className="eyebrow">{kind}</span><strong>{title}</strong><span>{evidence}</span><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
+      <Panel title="Safety boundary"><div className="callout"><Icon name="shield" size={14} /><span>Learning candidates remain drafts until a human or explicit runtime policy accepts them; no silent prompt, memory or skill mutation is performed by this UI.</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Candidate diff opened in preview')}>View proposed diff</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Candidate approval staged in preview')}>Approve candidate</button></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'plugins') return (
+    <Shell>
+      {renderHeader('Extension plane', 'Plugins', 'Discover packaged capabilities, inspect their tool surface and toggle local availability.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin browser opened in preview')}><Icon name="plus" size={14} /> Add plugin</button>)}
+      <div className="plugin-grid">{plugins.map(([name, detail, tools, category, enabled]) => <button type="button" key={name} className={`platform-card plugin-card ${enabled ? 'platform-card--active' : ''}`} onClick={() => setSelectedPlugin(name)}><div className="plugin-card__icon"><Icon name="tool" size={17} /></div><div><strong>{name}</strong><span>{detail}</span><small>{category} · {tools}</small></div><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div>
+      <Panel title={selectedPlugin}><div className="platform-grid platform-grid--2"><Metric label="Capability scope" value="Explicit" /><Metric label="Credentials" value="External" /><Metric label="Updates" value="Review" /><Metric label="Source trust" value="Pinned" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Plugin manifest opened in preview')}>Inspect manifest</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin toggle staged in preview')}>Enable / disable</button></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'hooks') return (
+    <Shell>
+      {renderHeader('Lifecycle control', 'Hooks & Policies', 'Event-driven middleware for run, tool, error and handoff lifecycle boundaries.', <button className="studio-button" type="button" onClick={() => notify('Hook editor opened in preview')}><Icon name="plus" size={14} /> New hook</button>)}
+      <div className="hook-layout"><div className="hook-list">{hooks.map(([name, detail, group, enabled]) => <button type="button" key={name} className={`hook-row ${selectedHook === name ? 'hook-row--active' : ''}`} onClick={() => setSelectedHook(name)}><div><strong>{name}</strong><span>{detail}</span></div><small>{group}</small><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div><Panel title={selectedHook}><div className="strategy-stack"><div><span>Order</span><strong>Deterministic</strong></div><div><span>Failure behavior</span><strong>Fail closed</strong></div><div><span>Context</span><strong>Explicit inputs</strong></div><div><span>Persistence</span><strong>Audit reference</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Hook trace opened in preview')}>Inspect trace</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Hook saved in preview')}><Icon name="check" size={14} /> Save hook</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'execution') return (
+    <Shell>
+      {renderHeader('Code execution', 'Execution Lab', 'Reproducible execution previews with language, environment, dependencies, stdin and captured output.', <button className="studio-button" type="button" onClick={() => notify('Execution sandbox reset in preview')}><Icon name="history" size={14} /> Reset</button>)}
+      <div className="execution-layout"><Panel title="Program"><div className="execution-toolbar"><span className="mono-text">sandbox · no live execution</span><select className="settings-input" defaultValue="Python"><option>Python</option><option>Node.js</option><option>Rust</option><option>Shell</option></select></div><textarea className="execution-editor" defaultValue={'print("AgentiCOS execution preview")\nfor i in range(3):\n    print(i)'} aria-label="Execution editor" /><div className="platform-actions"><button className="studio-button studio-button--active" type="button" onClick={() => notify('Execution staged in preview')}><Icon name="play" size={14} /> Run preview</button><button className="studio-button" type="button" onClick={() => notify('Dependencies configuration opened in preview')}>Dependencies</button></div></Panel><Panel title="Output"><pre className="execution-output">$ sandbox\nAgentiCOS execution preview\n0\n1\n2\n\nexit: 0 (preview)</pre><div className="callout"><Icon name="shield" size={14} /><span>Execution UI never runs code in the browser. A future runtime contract must provide the sandbox and policy boundary.</span></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'environments') return (
+    <Shell>
+      {renderHeader('Runtime environments', 'Environments', 'Reusable development environments for local, background and future cloud agents.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Environment builder opened in preview')}><Icon name="cloud" size={14} /> New environment</button>)}
+      <div className="environment-grid">{environments.map(([name, type, stack, state]) => <button type="button" key={name} className={`platform-card environment-card ${environment === name ? 'platform-card--active' : ''}`} onClick={() => setEnvironment(name)}><div><strong>{name}</strong><span>{type}</span><small>{stack}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
+      <Panel title={environment}><div className="platform-grid platform-grid--2"><Metric label="Setup" value="Dockerfile / script" /><Metric label="Network" value="Allowlist preview" /><Metric label="Secrets" value="External store" /><Metric label="MCP" value="Explicit allowlist" /></div><div className="callout"><Icon name="shield" size={14} /><span>Environment configuration follows the same explicit isolation model as background agents; no credentials are rendered here.</span></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'integrations') return (
+    <Shell>
+      {renderHeader('Source control', 'Source Integrations', 'Repository providers and engineering systems that can participate in agent projects and handoffs.', <button className="studio-button" type="button" onClick={() => notify('Integration picker opened in preview')}><Icon name="plus" size={14} /> Add integration</button>)}
+      <div className="integration-grid">{integrations.map(([name, role, state, detail]) => <button type="button" key={name} className={`platform-card integration-card ${integration === name ? 'platform-card--active' : ''}`} onClick={() => setIntegration(name)}><div className="integration-card__icon"><Icon name="git" size={17} /></div><div><strong>{name}</strong><span>{role}</span><small>{detail}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
+      <Panel title={integration}><div className="platform-grid platform-grid--2"><Metric label="Auth" value="OAuth preview" /><Metric label="Repositories" value="Scoped" /><Metric label="Webhooks" value="Optional" /><Metric label="Handoff" value="Branch / PR preview" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Integration auth opened in preview')}>Authenticate</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Integration test staged in preview')}><Icon name="check" size={14} /> Test connection</button></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'projects') return (
     <Shell>

@@ -2,7 +2,7 @@
 //! MIT/Apache-2.0 Licensed - Simple and fast linear algebra for games and graphics
 //! Source: https://github.com/bitshifter/glam-rs (1998 stars, MIT/Apache-2.0)
 
-use std::ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// 2D Vector (f32)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -151,11 +151,31 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
-    pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
-    pub const X: Self = Self { x: 1.0, y: 0.0, z: 0.0 };
-    pub const Y: Self = Self { x: 0.0, y: 1.0, z: 0.0 };
-    pub const Z: Self = Self { x: 0.0, y: 0.0, z: 1.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
+    pub const X: Self = Self {
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const Y: Self = Self {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
+    pub const Z: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
 
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
@@ -276,8 +296,18 @@ pub struct Vec4 {
 }
 
 impl Vec4 {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0, w: 0.0 };
-    pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0, w: 1.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        w: 1.0,
+    };
 
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
@@ -357,10 +387,30 @@ impl Mat4 {
 
     pub const IDENTITY: Self = Self {
         cols: [
-            Vec4 { x: 1.0, y: 0.0, z: 0.0, w: 0.0 },
-            Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 },
-            Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 },
-            Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+            Vec4 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            Vec4 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+                w: 0.0,
+            },
+            Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 1.0,
+            },
         ],
     };
 
@@ -399,10 +449,17 @@ impl Mat4 {
         let c = self.cols[2];
         let d = self.cols[3];
 
-        a.x * (b.y * (c.z * d.w - d.z * c.w) - b.z * (c.y * d.w - d.y * c.w) + b.w * (c.y * d.z - d.y * c.z))
-            - a.y * (b.x * (c.z * d.w - d.z * c.w) - b.z * (c.x * d.w - d.x * c.w) + b.w * (c.x * d.z - d.x * c.z))
-            + a.z * (b.x * (c.y * d.w - d.y * c.w) - b.y * (c.x * d.w - d.x * c.w) + b.w * (c.x * d.y - d.x * c.y))
-            - a.w * (b.x * (c.y * d.z - d.y * c.z) - b.y * (c.x * d.z - d.x * c.z) + b.z * (c.x * d.y - d.x * c.y))
+        a.x * (b.y * (c.z * d.w - d.z * c.w) - b.z * (c.y * d.w - d.y * c.w)
+            + b.w * (c.y * d.z - d.y * c.z))
+            - a.y
+                * (b.x * (c.z * d.w - d.z * c.w) - b.z * (c.x * d.w - d.x * c.w)
+                    + b.w * (c.x * d.z - d.x * c.z))
+            + a.z
+                * (b.x * (c.y * d.w - d.y * c.w) - b.y * (c.x * d.w - d.x * c.w)
+                    + b.w * (c.x * d.y - d.x * c.y))
+            - a.w
+                * (b.x * (c.y * d.z - d.y * c.z) - b.y * (c.x * d.z - d.x * c.z)
+                    + b.z * (c.x * d.y - d.x * c.y))
     }
 
     pub fn inverse(&self) -> Option<Self> {
@@ -417,10 +474,30 @@ impl Mat4 {
     pub fn transpose(&self) -> Self {
         Self {
             cols: [
-                Vec4::new(self.cols[0].x, self.cols[1].x, self.cols[2].x, self.cols[3].x),
-                Vec4::new(self.cols[0].y, self.cols[1].y, self.cols[2].y, self.cols[3].y),
-                Vec4::new(self.cols[0].z, self.cols[1].z, self.cols[2].z, self.cols[3].z),
-                Vec4::new(self.cols[0].w, self.cols[1].w, self.cols[2].w, self.cols[3].w),
+                Vec4::new(
+                    self.cols[0].x,
+                    self.cols[1].x,
+                    self.cols[2].x,
+                    self.cols[3].x,
+                ),
+                Vec4::new(
+                    self.cols[0].y,
+                    self.cols[1].y,
+                    self.cols[2].y,
+                    self.cols[3].y,
+                ),
+                Vec4::new(
+                    self.cols[0].z,
+                    self.cols[1].z,
+                    self.cols[2].z,
+                    self.cols[3].z,
+                ),
+                Vec4::new(
+                    self.cols[0].w,
+                    self.cols[1].w,
+                    self.cols[2].w,
+                    self.cols[3].w,
+                ),
             ],
         }
     }
@@ -440,28 +517,76 @@ impl Mul for Mat4 {
         Self {
             cols: [
                 Vec4::new(
-                    a.cols[0].x * b.cols[0].x + a.cols[1].x * b.cols[0].y + a.cols[2].x * b.cols[0].z + a.cols[3].x * b.cols[0].w,
-                    a.cols[0].y * b.cols[0].x + a.cols[1].y * b.cols[0].y + a.cols[2].y * b.cols[0].z + a.cols[3].y * b.cols[0].w,
-                    a.cols[0].z * b.cols[0].x + a.cols[1].z * b.cols[0].y + a.cols[2].z * b.cols[0].z + a.cols[3].z * b.cols[0].w,
-                    a.cols[0].w * b.cols[0].x + a.cols[1].w * b.cols[0].y + a.cols[2].w * b.cols[0].z + a.cols[3].w * b.cols[0].w,
+                    a.cols[0].x * b.cols[0].x
+                        + a.cols[1].x * b.cols[0].y
+                        + a.cols[2].x * b.cols[0].z
+                        + a.cols[3].x * b.cols[0].w,
+                    a.cols[0].y * b.cols[0].x
+                        + a.cols[1].y * b.cols[0].y
+                        + a.cols[2].y * b.cols[0].z
+                        + a.cols[3].y * b.cols[0].w,
+                    a.cols[0].z * b.cols[0].x
+                        + a.cols[1].z * b.cols[0].y
+                        + a.cols[2].z * b.cols[0].z
+                        + a.cols[3].z * b.cols[0].w,
+                    a.cols[0].w * b.cols[0].x
+                        + a.cols[1].w * b.cols[0].y
+                        + a.cols[2].w * b.cols[0].z
+                        + a.cols[3].w * b.cols[0].w,
                 ),
                 Vec4::new(
-                    a.cols[0].x * b.cols[1].x + a.cols[1].x * b.cols[1].y + a.cols[2].x * b.cols[1].z + a.cols[3].x * b.cols[1].w,
-                    a.cols[0].y * b.cols[1].x + a.cols[1].y * b.cols[1].y + a.cols[2].y * b.cols[1].z + a.cols[3].y * b.cols[1].w,
-                    a.cols[0].z * b.cols[1].x + a.cols[1].z * b.cols[1].y + a.cols[2].z * b.cols[1].z + a.cols[3].z * b.cols[1].w,
-                    a.cols[0].w * b.cols[1].x + a.cols[1].w * b.cols[1].y + a.cols[2].w * b.cols[1].z + a.cols[3].w * b.cols[1].w,
+                    a.cols[0].x * b.cols[1].x
+                        + a.cols[1].x * b.cols[1].y
+                        + a.cols[2].x * b.cols[1].z
+                        + a.cols[3].x * b.cols[1].w,
+                    a.cols[0].y * b.cols[1].x
+                        + a.cols[1].y * b.cols[1].y
+                        + a.cols[2].y * b.cols[1].z
+                        + a.cols[3].y * b.cols[1].w,
+                    a.cols[0].z * b.cols[1].x
+                        + a.cols[1].z * b.cols[1].y
+                        + a.cols[2].z * b.cols[1].z
+                        + a.cols[3].z * b.cols[1].w,
+                    a.cols[0].w * b.cols[1].x
+                        + a.cols[1].w * b.cols[1].y
+                        + a.cols[2].w * b.cols[1].z
+                        + a.cols[3].w * b.cols[1].w,
                 ),
                 Vec4::new(
-                    a.cols[0].x * b.cols[2].x + a.cols[1].x * b.cols[2].y + a.cols[2].x * b.cols[2].z + a.cols[3].x * b.cols[2].w,
-                    a.cols[0].y * b.cols[2].x + a.cols[1].y * b.cols[2].y + a.cols[2].y * b.cols[2].z + a.cols[3].y * b.cols[2].w,
-                    a.cols[0].z * b.cols[2].x + a.cols[1].z * b.cols[2].y + a.cols[2].z * b.cols[2].z + a.cols[3].z * b.cols[2].w,
-                    a.cols[0].w * b.cols[2].x + a.cols[1].w * b.cols[2].y + a.cols[2].w * b.cols[2].z + a.cols[3].w * b.cols[2].w,
+                    a.cols[0].x * b.cols[2].x
+                        + a.cols[1].x * b.cols[2].y
+                        + a.cols[2].x * b.cols[2].z
+                        + a.cols[3].x * b.cols[2].w,
+                    a.cols[0].y * b.cols[2].x
+                        + a.cols[1].y * b.cols[2].y
+                        + a.cols[2].y * b.cols[2].z
+                        + a.cols[3].y * b.cols[2].w,
+                    a.cols[0].z * b.cols[2].x
+                        + a.cols[1].z * b.cols[2].y
+                        + a.cols[2].z * b.cols[2].z
+                        + a.cols[3].z * b.cols[2].w,
+                    a.cols[0].w * b.cols[2].x
+                        + a.cols[1].w * b.cols[2].y
+                        + a.cols[2].w * b.cols[2].z
+                        + a.cols[3].w * b.cols[2].w,
                 ),
                 Vec4::new(
-                    a.cols[0].x * b.cols[3].x + a.cols[1].x * b.cols[3].y + a.cols[2].x * b.cols[3].z + a.cols[3].x * b.cols[3].w,
-                    a.cols[0].y * b.cols[3].x + a.cols[1].y * b.cols[3].y + a.cols[2].y * b.cols[3].z + a.cols[3].y * b.cols[3].w,
-                    a.cols[0].z * b.cols[3].x + a.cols[1].z * b.cols[3].y + a.cols[2].z * b.cols[3].z + a.cols[3].z * b.cols[3].w,
-                    a.cols[0].w * b.cols[3].x + a.cols[1].w * b.cols[3].y + a.cols[2].w * b.cols[3].z + a.cols[3].w * b.cols[3].w,
+                    a.cols[0].x * b.cols[3].x
+                        + a.cols[1].x * b.cols[3].y
+                        + a.cols[2].x * b.cols[3].z
+                        + a.cols[3].x * b.cols[3].w,
+                    a.cols[0].y * b.cols[3].x
+                        + a.cols[1].y * b.cols[3].y
+                        + a.cols[2].y * b.cols[3].z
+                        + a.cols[3].y * b.cols[3].w,
+                    a.cols[0].z * b.cols[3].x
+                        + a.cols[1].z * b.cols[3].y
+                        + a.cols[2].z * b.cols[3].z
+                        + a.cols[3].z * b.cols[3].w,
+                    a.cols[0].w * b.cols[3].x
+                        + a.cols[1].w * b.cols[3].y
+                        + a.cols[2].w * b.cols[3].z
+                        + a.cols[3].w * b.cols[3].w,
                 ),
             ],
         }
@@ -492,7 +617,12 @@ pub struct Quat {
 }
 
 impl Quat {
-    pub const IDENTITY: Self = Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
+    pub const IDENTITY: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 1.0,
+    };
 
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
@@ -580,7 +710,7 @@ mod tests {
     fn test_vec2_operations() {
         let v1 = Vec2::new(1.0, 2.0);
         let v2 = Vec2::new(3.0, 4.0);
-        
+
         assert_eq!(v1 + v2, Vec2::new(4.0, 6.0));
         assert_eq!(v1 - v2, Vec2::new(-2.0, -2.0));
         assert_eq!(v1 * 2.0, Vec2::new(2.0, 4.0));
@@ -612,7 +742,7 @@ mod tests {
     fn test_vec3_operations() {
         let v1 = Vec3::new(1.0, 2.0, 3.0);
         let v2 = Vec3::new(4.0, 5.0, 6.0);
-        
+
         assert_eq!(v1 + v2, Vec3::new(5.0, 7.0, 9.0));
         assert_eq!(v1 - v2, Vec3::new(-3.0, -3.0, -3.0));
     }

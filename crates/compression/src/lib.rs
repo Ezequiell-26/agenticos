@@ -32,7 +32,10 @@ impl Compressor {
             let byte = data[i];
             let mut count = 1u8;
 
-            while (i + count as usize) < data.len() && data[i + count as usize] == byte && count < 255 {
+            while (i + count as usize) < data.len()
+                && data[i + count as usize] == byte
+                && count < 255
+            {
                 count += 1;
             }
 
@@ -131,9 +134,7 @@ pub struct StreamCompressor {
 
 impl StreamCompressor {
     pub fn new() -> Self {
-        Self {
-            buffer: Vec::new(),
-        }
+        Self { buffer: Vec::new() }
     }
 
     pub fn write(&mut self, data: &[u8]) -> Result<(), CompressionError> {

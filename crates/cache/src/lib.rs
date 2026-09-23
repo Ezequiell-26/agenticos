@@ -207,7 +207,8 @@ where
 
     pub fn remove_expired(&mut self) {
         let now = std::time::Instant::now();
-        self.entries.retain(|_, (_, timestamp)| now.duration_since(*timestamp) < self.ttl);
+        self.entries
+            .retain(|_, (_, timestamp)| now.duration_since(*timestamp) < self.ttl);
     }
 
     pub fn len(&self) -> usize {

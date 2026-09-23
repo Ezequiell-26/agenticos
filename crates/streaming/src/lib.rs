@@ -230,7 +230,7 @@ mod tests {
             }
         });
         let item = StreamItem::new(serde_json::json!(21));
-        
+
         let results = operator.process(item).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].data, 42);
@@ -246,7 +246,7 @@ mod tests {
             }
         });
         let item = StreamItem::new(serde_json::json!(15));
-        
+
         let results = operator.process(item).await;
         assert_eq!(results.len(), 1);
     }
@@ -255,19 +255,22 @@ mod tests {
     async fn test_stream_pipeline() {
         let mut pipeline = StreamPipeline::new();
         let _receiver = pipeline.add_source();
-        
+
         let item = StreamItem::new(serde_json::json!(42));
         pipeline.send(item).unwrap();
     }
 
     #[tokio::test]
     async fn test_windowed_aggregator() {
-        let aggregator = WindowedAggregator::new(2, Arc::new(|items: &[serde_json::Value]| {
-            let sum: i64 = items.iter().filter_map(|v| v.as_i64()).sum();
-            serde_json::json!(sum)
-        }));
+        let aggregator = WindowedAggregator::new(
+            2,
+            Arc::new(|items: &[serde_json::Value]| {
+                let sum: i64 = items.iter().filter_map(|v| v.as_i64()).sum();
+                serde_json::json!(sum)
+            }),
+        );
         let (sender, receiver) = mpsc::unbounded_channel();
-        
+
         tokio::spawn(async move {
             let _ = sender.send(StreamItem::new(serde_json::json!(10)));
             let _ = sender.send(StreamItem::new(serde_json::json!(20)));

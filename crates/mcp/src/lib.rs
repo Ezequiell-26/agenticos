@@ -78,7 +78,11 @@ pub trait McpAdapter: Send + Sync {
     /// Describe the connected MCP server.
     async fn describe(&self) -> Result<McpServerDescriptor, agenticos_contracts::ContractError>;
     /// Discover tools.
-    async fn list_tools(&self) -> Result<Vec<McpToolDescriptor>, agenticos_contracts::ContractError>;
+    async fn list_tools(
+        &self,
+    ) -> Result<Vec<McpToolDescriptor>, agenticos_contracts::ContractError>;
     /// Discover resources.
-    async fn list_resources(&self) -> Result<Vec<McpResourceDescriptor>, agenticos_contracts::ContractError>;
+    async fn list_resources(
+        &self,
+    ) -> Result<Vec<McpResourceDescriptor>, agenticos_contracts::ContractError>;
 }

@@ -59,7 +59,7 @@ impl SimpleCipher {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos() as u64;
-        
+
         for i in 0..length {
             key.push(((timestamp >> (i * 8)) & 0xFF) as u8);
         }
@@ -132,7 +132,7 @@ impl KeyPair {
         let seed = SimpleCipher::generate_key(32);
         let public_key = hash(&seed).to_vec();
         let private_key = seed;
-        
+
         Ok(Self {
             public_key,
             private_key,
@@ -209,11 +209,11 @@ mod tests {
     fn test_simple_cipher() {
         let key = SimpleCipher::generate_key(16);
         let cipher = SimpleCipher::new(key).unwrap();
-        
+
         let plaintext = b"hello world";
         let encrypted = cipher.encrypt(plaintext).unwrap();
         let decrypted = cipher.decrypt(&encrypted).unwrap();
-        
+
         assert_eq!(plaintext, decrypted.as_slice());
     }
 
@@ -222,24 +222,24 @@ mod tests {
         let data = b"test data";
         let hash1 = hash(data);
         let hash2 = hash(data);
-        
+
         assert_eq!(hash1, hash2);
-        
+
         let different_data = b"different";
         let hash3 = hash(different_data);
-        
+
         assert_ne!(hash1, hash3);
     }
 
     #[test]
     fn test_key_pair() {
         let keypair = KeyPair::generate().unwrap();
-        
+
         let data = b"test message";
         let signature = keypair.sign(data).unwrap();
-        
+
         assert!(keypair.verify(data, &signature));
-        
+
         let fake_data = b"fake message";
         assert!(!keypair.verify(fake_data, &signature));
     }
@@ -247,15 +247,15 @@ mod tests {
     #[test]
     fn test_rng() {
         let mut rng = Rng::new();
-        
+
         let value1 = rng.next();
         let value2 = rng.next();
-        
+
         assert_ne!(value1, value2);
-        
+
         let bytes = rng.next_bytes(10);
         assert_eq!(bytes.len(), 10);
-        
+
         let ranged = rng.next_range(10, 20);
         assert!(ranged >= 10 && ranged < 20);
     }

@@ -2,11 +2,11 @@
 //! MIT Licensed - Lock-free pub/sub event bus
 //! Source: tokio-events (MIT), eventador-rs (24 stars, MIT)
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::{broadcast, RwLock};
-use serde::{Deserialize, Serialize};
 
 #[derive(Error, Debug)]
 pub enum EventBusError {
@@ -54,7 +54,9 @@ pub struct Subscriber {
 
 impl Subscriber {
     pub async fn next(&mut self) -> Result<Event, EventBusError> {
-        self.receiver.recv().await
+        self.receiver
+            .recv()
+            .await
             .map_err(|_| EventBusError::ChannelClosed)
     }
 
@@ -92,7 +94,8 @@ impl EventBus {
     /// Publish event
     pub async fn publish(&self, event: Event) -> Result<usize, EventBusError> {
         let sender = self.get_or_create_channel(&event.event_type).await;
-        sender.send(event.clone())
+        sender
+            .send(event.clone())
             .map_err(|e| EventBusError::SendError(e.to_string()))
     }
 
@@ -106,7 +109,8 @@ impl EventBus {
     /// Get subscriber count for event type
     pub async fn subscriber_count(&self, event_type: &str) -> usize {
         let channels = self.channels.read().await;
-        channels.get(event_type)
+        channels
+            .get(event_type)
             .map(|s| s.receiver_count())
             .unwrap_or(0)
     }
@@ -153,7 +157,10 @@ impl EventRouter {
     /// Register handler for event type
     pub async fn register_handler(&self, event_type: String, handler: Arc<dyn EventHandler>) {
         let mut handlers = self.handlers.write().await;
-        handlers.entry(event_type).or_insert_with(Vec::new).push(handler);
+        handlers
+            .entry(event_type)
+            .or_insert_with(Vec::new)
+            .push(handler);
     }
 
     /// Route event to handlers
@@ -233,7 +240,7 @@ impl EventStore {
     pub async fn store(&self, event: Event) {
         let mut events = self.events.write().await;
         events.push(event);
-        
+
         // Limit size
         if events.len() > self.max_size {
             events.remove(0);
@@ -248,7 +255,8 @@ impl EventStore {
     /// Get events by type
     pub async fn get_by_type(&self, event_type: &str) -> Vec<Event> {
         let events = self.events.read().await;
-        events.iter()
+        events
+            .iter()
             .filter(|e| e.event_type == event_type)
             .cloned()
             .collect()
@@ -257,7 +265,8 @@ impl EventStore {
     /// Get events since timestamp
     pub async fn get_since(&self, timestamp: i64) -> Vec<Event> {
         let events = self.events.read().await;
-        events.iter()
+        events
+            .iter()
             .filter(|e| e.timestamp >= timestamp)
             .cloned()
             .collect()
@@ -310,10 +319,10 @@ mod tests {
     async fn test_event_bus_subscribe() {
         let bus = EventBus::new(10);
         let mut subscriber = bus.subscribe("test").await;
-        
+
         let event = Event::new("test".to_string(), serde_json::json!({}));
         bus.publish(event).await.unwrap();
-        
+
         let received = subscriber.next().await.unwrap();
         assert_eq!(received.event_type, "test");
     }
@@ -323,7 +332,7 @@ mod tests {
         let bus = EventBus::new(10);
         bus.subscribe("test").await;
         bus.subscribe("test").await;
-        
+
         let count = bus.subscriber_count("test").await;
         assert_eq!(count, 2);
     }
@@ -332,10 +341,10 @@ mod tests {
     async fn test_event_router() {
         let bus = EventBus::new(10);
         let router = EventRouter::new(bus);
-        
+
         let handler = Arc::new(TestHandler);
         router.register_handler("test".to_string(), handler).await;
-        
+
         let count = router.handler_count("test").await;
         assert_eq!(count, 1);
     }
@@ -345,7 +354,7 @@ mod tests {
         let store = EventStore::new(100);
         let event = Event::new("test".to_string(), serde_json::json!({}));
         store.store(event).await;
-        
+
         assert_eq!(store.len().await, 1);
     }
 
@@ -354,7 +363,7 @@ mod tests {
         let store = EventStore::new(100);
         let event = Event::new("test".to_string(), serde_json::json!({}));
         store.store(event).await;
-        
+
         let events = store.get_by_type("test").await;
         assert_eq!(events.len(), 1);
     }
@@ -364,7 +373,7 @@ mod tests {
         let store = EventStore::new(100);
         let event = Event::new("test".to_string(), serde_json::json!({}));
         store.store(event).await;
-        
+
         let timestamp = chrono::Utc::now().timestamp() - 1;
         let events = store.get_since(timestamp).await;
         assert_eq!(events.len(), 1);

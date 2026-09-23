@@ -2,8 +2,11 @@
 //! MIT/Apache-2.0 Licensed - Easy and powerful HTTP Client for Rust
 //! Source: https://github.com/seanmonstar/reqwest (11,809 stars, MIT/Apache-2.0)
 
-use reqwest::{Client, Response, Error as ReqwestError, Method, header::{HeaderMap, HeaderValue, CONTENT_TYPE, AUTHORIZATION, USER_AGENT}};
-use serde::{Serialize, Deserialize};
+use reqwest::{
+    header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT},
+    Client, Error as ReqwestError, Method, Response,
+};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -34,7 +37,7 @@ impl HttpClient {
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(HttpClientError::RequestError)?;
-        
+
         Ok(Self {
             client,
             default_headers: HeaderMap::new(),
@@ -47,7 +50,7 @@ impl HttpClient {
             .timeout(timeout)
             .build()
             .map_err(HttpClientError::RequestError)?;
-        
+
         Ok(Self {
             client,
             default_headers: HeaderMap::new(),
@@ -56,26 +59,36 @@ impl HttpClient {
 
     /// Set default user agent
     pub fn with_user_agent(mut self, user_agent: &str) -> Result<Self, HttpClientError> {
-        let value = HeaderValue::from_str(user_agent)
-            .map_err(|e: reqwest::header::InvalidHeaderValue| HttpClientError::SerializationError(e.to_string()))?;
+        let value = HeaderValue::from_str(user_agent).map_err(
+            |e: reqwest::header::InvalidHeaderValue| {
+                HttpClientError::SerializationError(e.to_string())
+            },
+        )?;
         self.default_headers.insert(USER_AGENT, value);
         Ok(self)
     }
 
     /// Set default authorization header
     pub fn with_auth(mut self, auth: &str) -> Result<Self, HttpClientError> {
-        let value = HeaderValue::from_str(auth)
-            .map_err(|e: reqwest::header::InvalidHeaderValue| HttpClientError::SerializationError(e.to_string()))?;
+        let value =
+            HeaderValue::from_str(auth).map_err(|e: reqwest::header::InvalidHeaderValue| {
+                HttpClientError::SerializationError(e.to_string())
+            })?;
         self.default_headers.insert(AUTHORIZATION, value);
         Ok(self)
     }
 
     /// Set default header
     pub fn with_header(mut self, name: &str, value: &str) -> Result<Self, HttpClientError> {
-        let header_name: reqwest::header::HeaderName = name.parse()
-            .map_err(|e: reqwest::header::InvalidHeaderName| HttpClientError::SerializationError(e.to_string()))?;
-        let header_value = HeaderValue::from_str(value)
-            .map_err(|e: reqwest::header::InvalidHeaderValue| HttpClientError::SerializationError(e.to_string()))?;
+        let header_name: reqwest::header::HeaderName =
+            name.parse()
+                .map_err(|e: reqwest::header::InvalidHeaderName| {
+                    HttpClientError::SerializationError(e.to_string())
+                })?;
+        let header_value =
+            HeaderValue::from_str(value).map_err(|e: reqwest::header::InvalidHeaderValue| {
+                HttpClientError::SerializationError(e.to_string())
+            })?;
         self.default_headers.insert(header_name, header_value);
         Ok(self)
     }
@@ -90,29 +103,49 @@ impl HttpClient {
     }
 
     /// POST request with JSON body
-    pub async fn post<T: Serialize>(&self, url: &str, body: &T) -> Result<Response, HttpClientError> {
+    pub async fn post<T: Serialize>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<Response, HttpClientError> {
         let json = serde_json::to_string(body)
             .map_err(|e| HttpClientError::SerializationError(e.to_string()))?;
-        
-        let mut request = self.client.post(url)
+
+        let mut request = self
+            .client
+            .post(url)
             .header(CONTENT_TYPE, "application/json");
         for (name, value) in self.default_headers.iter() {
             request = request.header(name, value);
         }
-        request.body(json).send().await.map_err(HttpClientError::RequestError)
+        request
+            .body(json)
+            .send()
+            .await
+            .map_err(HttpClientError::RequestError)
     }
 
     /// PUT request with JSON body
-    pub async fn put<T: Serialize>(&self, url: &str, body: &T) -> Result<Response, HttpClientError> {
+    pub async fn put<T: Serialize>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<Response, HttpClientError> {
         let json = serde_json::to_string(body)
             .map_err(|e| HttpClientError::SerializationError(e.to_string()))?;
-        
-        let mut request = self.client.put(url)
+
+        let mut request = self
+            .client
+            .put(url)
             .header(CONTENT_TYPE, "application/json");
         for (name, value) in self.default_headers.iter() {
             request = request.header(name, value);
         }
-        request.body(json).send().await.map_err(HttpClientError::RequestError)
+        request
+            .body(json)
+            .send()
+            .await
+            .map_err(HttpClientError::RequestError)
     }
 
     /// DELETE request
@@ -125,16 +158,26 @@ impl HttpClient {
     }
 
     /// PATCH request with JSON body
-    pub async fn patch<T: Serialize>(&self, url: &str, body: &T) -> Result<Response, HttpClientError> {
+    pub async fn patch<T: Serialize>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<Response, HttpClientError> {
         let json = serde_json::to_string(body)
             .map_err(|e| HttpClientError::SerializationError(e.to_string()))?;
-        
-        let mut request = self.client.patch(url)
+
+        let mut request = self
+            .client
+            .patch(url)
             .header(CONTENT_TYPE, "application/json");
         for (name, value) in self.default_headers.iter() {
             request = request.header(name, value);
         }
-        request.body(json).send().await.map_err(HttpClientError::RequestError)
+        request
+            .body(json)
+            .send()
+            .await
+            .map_err(HttpClientError::RequestError)
     }
 
     /// Custom request with method
@@ -147,28 +190,42 @@ impl HttpClient {
     }
 
     /// GET request and parse JSON response
-    pub async fn get_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T, HttpClientError> {
+    pub async fn get_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        url: &str,
+    ) -> Result<T, HttpClientError> {
         let response = self.get(url).await?;
         self.check_status(&response)?;
         response.json().await.map_err(HttpClientError::RequestError)
     }
 
     /// POST request with JSON body and parse JSON response
-    pub async fn post_json<T: Serialize, R: for<'de> Deserialize<'de>>(&self, url: &str, body: &T) -> Result<R, HttpClientError> {
+    pub async fn post_json<T: Serialize, R: for<'de> Deserialize<'de>>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<R, HttpClientError> {
         let response = self.post(url, body).await?;
         self.check_status(&response)?;
         response.json().await.map_err(HttpClientError::RequestError)
     }
 
     /// PUT request with JSON body and parse JSON response
-    pub async fn put_json<T: Serialize, R: for<'de> Deserialize<'de>>(&self, url: &str, body: &T) -> Result<R, HttpClientError> {
+    pub async fn put_json<T: Serialize, R: for<'de> Deserialize<'de>>(
+        &self,
+        url: &str,
+        body: &T,
+    ) -> Result<R, HttpClientError> {
         let response = self.put(url, body).await?;
         self.check_status(&response)?;
         response.json().await.map_err(HttpClientError::RequestError)
     }
 
     /// DELETE request and parse JSON response
-    pub async fn delete_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T, HttpClientError> {
+    pub async fn delete_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        url: &str,
+    ) -> Result<T, HttpClientError> {
         let response = self.delete(url).await?;
         self.check_status(&response)?;
         response.json().await.map_err(HttpClientError::RequestError)
@@ -197,7 +254,10 @@ impl HttpClient {
     pub async fn get_bytes(&self, url: &str) -> Result<Vec<u8>, HttpClientError> {
         let response = self.get(url).await?;
         self.check_status(&response)?;
-        let bytes = response.bytes().await.map_err(HttpClientError::RequestError)?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(HttpClientError::RequestError)?;
         Ok(bytes.to_vec())
     }
 }
@@ -227,7 +287,10 @@ pub async fn get_json<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, Http
 }
 
 /// Simple POST request with JSON body and parse JSON
-pub async fn post_json<T: Serialize, R: for<'de> Deserialize<'de>>(url: &str, body: &T) -> Result<R, HttpClientError> {
+pub async fn post_json<T: Serialize, R: for<'de> Deserialize<'de>>(
+    url: &str,
+    body: &T,
+) -> Result<R, HttpClientError> {
     let client = HttpClient::new()?;
     client.post_json(url, body).await
 }
@@ -250,22 +313,19 @@ mod tests {
 
     #[test]
     fn test_http_client_with_user_agent() {
-        let client = HttpClient::new()
-            .and_then(|c| c.with_user_agent("test-agent"));
+        let client = HttpClient::new().and_then(|c| c.with_user_agent("test-agent"));
         assert!(client.is_ok());
     }
 
     #[test]
     fn test_http_client_with_auth() {
-        let client = HttpClient::new()
-            .and_then(|c| c.with_auth("Bearer token"));
+        let client = HttpClient::new().and_then(|c| c.with_auth("Bearer token"));
         assert!(client.is_ok());
     }
 
     #[test]
     fn test_http_client_with_header() {
-        let client = HttpClient::new()
-            .and_then(|c| c.with_header("X-Custom", "value"));
+        let client = HttpClient::new().and_then(|c| c.with_header("X-Custom", "value"));
         assert!(client.is_ok());
     }
 

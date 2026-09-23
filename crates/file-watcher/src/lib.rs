@@ -87,8 +87,12 @@ impl FileWatcher {
 
     /// Manually send an event (for testing)
     pub fn send_event(&self, event: FileEvent) -> Result<(), WatcherError> {
-        self.event_sender.send(event)
-            .map_err(|_| WatcherError::IoError(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "channel closed")))
+        self.event_sender.send(event).map_err(|_| {
+            WatcherError::IoError(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "channel closed",
+            ))
+        })
     }
 
     /// Get event stream (tokio-compatible)
@@ -182,7 +186,9 @@ where
     where
         F: FnOnce(&Path) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
     {
-        let value = loader(&self.path).map_err(|e| WatcherError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        let value = loader(&self.path).map_err(|e| {
+            WatcherError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        })?;
         self.current = Some(value);
         Ok(())
     }
@@ -211,7 +217,7 @@ mod tests {
         let path = PathBuf::from("/tmp/config.toml");
         let manager = HotReloadManager::<String>::new(path);
         assert!(manager.current().is_none());
-        
+
         manager.set_current("test".to_string());
         assert_eq!(manager.current(), Some(&"test".to_string()));
     }
@@ -234,7 +240,10 @@ mod tests {
     fn test_file_event_renamed() {
         let old = PathBuf::from("/tmp/old.txt");
         let new = PathBuf::from("/tmp/new.txt");
-        let event = FileEvent::Renamed { old, new: new.clone() };
+        let event = FileEvent::Renamed {
+            old,
+            new: new.clone(),
+        };
         assert_eq!(event.path(), &new);
     }
 

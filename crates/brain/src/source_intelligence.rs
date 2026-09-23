@@ -1,6 +1,6 @@
 //! Source Intelligence Engine - Discovery, import, analysis of external repositories
 
-use super::{BrainError, RepoId, CommitHash, ProvenanceEvidence};
+use super::{BrainError, CommitHash, ProvenanceEvidence, RepoId};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -59,7 +59,7 @@ impl SourceIntelligenceEngine {
                 None
             },
         };
-        
+
         Self {
             discovery: Arc::new(RwLock::new(discovery)),
             config,
@@ -73,15 +73,23 @@ impl SourceIntelligenceEngine {
     }
 
     /// Import a repository
-    pub async fn import(&self, _repo_id: RepoId, _commit: CommitHash) -> Result<ProvenanceEvidence, BrainError> {
+    pub async fn import(
+        &self,
+        _repo_id: RepoId,
+        _commit: CommitHash,
+    ) -> Result<ProvenanceEvidence, BrainError> {
         // Placeholder implementation
-        Err(BrainError::SourceIntelligenceError("Not implemented".to_string()))
+        Err(BrainError::SourceIntelligenceError(
+            "Not implemented".to_string(),
+        ))
     }
 
     /// Analyze a repository
     pub async fn analyze(&self, _repo_id: &RepoId) -> Result<RepositoryAnalysis, BrainError> {
         // Placeholder implementation
-        Err(BrainError::SourceIntelligenceError("Not implemented".to_string()))
+        Err(BrainError::SourceIntelligenceError(
+            "Not implemented".to_string(),
+        ))
     }
 }
 

@@ -2,9 +2,9 @@
 //! MIT Licensed - High-performance GCRA rate limiter
 //! Source: https://github.com/lazureykis/throttlecrab (11 stars, MIT)
 
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use dashmap::DashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -46,12 +46,13 @@ impl GcraRateLimiter {
     /// Check if request is allowed
     pub fn check(&self, key: &str) -> Result<(), RateLimitError> {
         let now = Instant::now();
-        let mut state = self.state.entry(key.to_string()).or_insert_with(|| {
-            GcraState {
+        let mut state = self
+            .state
+            .entry(key.to_string())
+            .or_insert_with(|| GcraState {
                 arrival: now,
                 next_arrival: now,
-            }
-        });
+            });
 
         let arrival = state.arrival;
         let next_arrival = state.next_arrival;
@@ -124,12 +125,13 @@ impl TokenBucketRateLimiter {
     /// Check if request is allowed
     pub fn check(&self, key: &str) -> Result<(), RateLimitError> {
         let now = Instant::now();
-        let mut state = self.state.entry(key.to_string()).or_insert_with(|| {
-            TokenBucketState {
+        let mut state = self
+            .state
+            .entry(key.to_string())
+            .or_insert_with(|| TokenBucketState {
                 tokens: self.capacity,
                 last_refill: now,
-            }
-        });
+            });
 
         // Refill tokens
         let elapsed = now.duration_since(state.last_refill).as_secs_f64();
@@ -216,14 +218,24 @@ impl RateLimitRegistry {
     }
 
     /// Register GCRA rate limiter
-    pub fn register_gcra(&self, name: &str, capacity: u64, per_duration: Duration) -> Result<(), RateLimitError> {
+    pub fn register_gcra(
+        &self,
+        name: &str,
+        capacity: u64,
+        per_duration: Duration,
+    ) -> Result<(), RateLimitError> {
         let limiter = GcraRateLimiter::new(capacity, per_duration)?;
         self.limiters.insert(name.to_string(), Box::new(limiter));
         Ok(())
     }
 
     /// Register token bucket rate limiter
-    pub fn register_token_bucket(&self, name: &str, capacity: u64, refill_rate: u64) -> Result<(), RateLimitError> {
+    pub fn register_token_bucket(
+        &self,
+        name: &str,
+        capacity: u64,
+        refill_rate: u64,
+    ) -> Result<(), RateLimitError> {
         let limiter = TokenBucketRateLimiter::new(capacity, refill_rate)?;
         self.limiters.insert(name.to_string(), Box::new(limiter));
         Ok(())
@@ -311,7 +323,9 @@ mod tests {
     #[test]
     fn test_registry() {
         let registry = RateLimitRegistry::new();
-        registry.register_gcra("test_limiter", 10, Duration::from_secs(1)).unwrap();
+        registry
+            .register_gcra("test_limiter", 10, Duration::from_secs(1))
+            .unwrap();
         assert!(registry.check("test_limiter", "test").is_ok());
     }
 }

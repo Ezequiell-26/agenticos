@@ -477,3 +477,25 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: new branch CI after the fixes, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: 4a25b5e48658184e2c6a849edc214da5e3803d66.
 - Next step: inspect the post-fix CI run and correct only any newly reported concrete failures.
+
+## Full Hermes configuration coverage pass — 2026-09-24
+
+- Scope: frontend-only expansion to close the remaining documented Hermes configuration domains.
+- Added configuration domains:
+  - Web Search: search/extract backend split, keyless fallback/rescue, Parallel/Exa free/paid tiers, browser provider and timezone.
+  - Browser Automation: inactivity timeout, command timeout, recording, managed persistence, CDP URL and native dialog policy.
+  - Runtime & Liveness: NOFILE limit, result spillover, code execution mode/timeout/call cap, tool-loop thresholds, hard-stop policies, web/subagent loop caps, execution guidance, stall guards and turn liveness.
+  - Terminal refinement: Vercel Sandbox plus temp directory, terminal font, HOME mode, remote sync-back cap, backend images and Docker env forwarding.
+  - Display refinement: focus view, interim gateway updates, warning suppression, commentary, Vim mode, timestamp formatting, turn summary, spinner token flow, prompt bell, file-mutation verification, credits notices and multiline shortcuts.
+- Structural result: Settings is now a feature-owned studio with a thin compatibility wrapper and a shared preference bridge.
+- Verification: 193 SettingsState fields, 193 defaults, 20 configuration domains with matching views and zero undefined onChange handlers.
+- Modified:
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: all previous frontend surfaces, icon system, shell customization bridge, runtime/service boundaries and secret isolation.
+- Reference basis: current Hermes configuration documentation covers these runtime, terminal, tool-loop, display, browser, web and timezone controls. citeturn785892view2turn785892view3turn832737view0turn258108view3turn785892view4turn258108view4
+- Unverified checks: post-pass GitHub Actions result, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: a314febfce604ad16fe41509790c489b01b6e755.
+- Next step: inspect the post-pass CI result and continue from verified evidence only.

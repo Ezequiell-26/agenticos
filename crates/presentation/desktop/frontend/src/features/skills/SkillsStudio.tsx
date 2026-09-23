@@ -22,6 +22,13 @@ const skillCatalog = [
   { name: '/review-bugbot', detail: 'Review changes for bugs, security and regressions.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
   { name: '/review-security', detail: 'Run security-focused review workflows.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
   { name: '/loop', detail: 'Repeat a prompt or skill on a defined interval.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/cursor-blame', detail: 'Investigate AI-authored changes and the prompts behind them.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/migrate-to-skills', detail: 'Convert eligible rules and slash commands into skills.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/sdk', detail: 'Build applications and integrations with the Cursor SDK.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/split-to-prs', detail: 'Split a large change into smaller pull requests.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/statusline', detail: 'Configure the agent status line presentation.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/update-cli-config', detail: 'Update Cursor CLI configuration.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/update-cursor-settings', detail: 'Find and update Cursor or VS Code settings.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
 ]
 
 export default function SkillsStudio({ onAction }: { onAction: (message: string) => void }) {

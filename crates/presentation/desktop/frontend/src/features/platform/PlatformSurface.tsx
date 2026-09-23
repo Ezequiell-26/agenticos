@@ -37,6 +37,7 @@ const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) =
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
 const SessionReplayStudio = lazy(() => import('./SessionReplayStudio').then((module) => ({ default: module.SessionReplayStudio })))
 const EvidenceArtifactInspector = lazy(() => import('./EvidenceArtifactInspector').then((module) => ({ default: module.EvidenceArtifactInspector })))
+const IntegrationControlCenter = lazy(() => import('./IntegrationControlCenter').then((module) => ({ default: module.IntegrationControlCenter })))
 const ModelControlCenter = lazy(() => import('./ModelControlCenter').then((module) => ({ default: module.ModelControlCenter })))
 const QualityWorkbench = lazy(() => import('./QualityWorkbench').then((module) => ({ default: module.QualityWorkbench })))
 const NavigationCenter = lazy(() => import('./NavigationCenter').then((module) => ({ default: module.NavigationCenter })))
@@ -65,6 +66,7 @@ import './FrontendCoverageStudio.css'
 import './NavigationCenter.css'
 import './QualityWorkbench.css'
 import './ModelControlCenter.css'
+import './IntegrationControlCenter.css'
 import './DesignSystemStudio.css'
 import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
@@ -157,6 +159,8 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
       <Toast message={notice} />
     </Shell>
   )
+
+  if (mode === 'integration-control') return (<Shell><IntegrationControlCenter onAction={notify} /><Toast message={notice} /></Shell>)
 
   if (mode === 'model-control') return (<Shell><ModelControlCenter onAction={notify} /><Toast message={notice} /></Shell>)
 

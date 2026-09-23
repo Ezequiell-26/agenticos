@@ -67,7 +67,7 @@ where
     E: std::fmt::Display,
 {
     let mut delay = initial_delay_ms;
-    
+
     for attempt in 0..=max_retries {
         match f().await {
             Ok(result) => return Ok(result),
@@ -78,7 +78,7 @@ where
             Err(e) => return Err(AsyncError::JoinError(e.to_string())),
         }
     }
-    
+
     Err(AsyncError::JoinError("Max retries exceeded".to_string()))
 }
 
@@ -87,29 +87,21 @@ pub async fn with_timeout<F, T>(future: F, timeout_ms: u64) -> Result<T, AsyncEr
 where
     F: Future<Output = T>,
 {
-    match tokio::time::timeout(
-        tokio::time::Duration::from_millis(timeout_ms),
-        future,
-    )
-    .await
-    {
+    match tokio::time::timeout(tokio::time::Duration::from_millis(timeout_ms), future).await {
         Ok(result) => Ok(result),
         Err(_) => Err(AsyncError::TimeoutError),
     }
 }
 
 /// Run multiple futures concurrently with a limit on concurrent tasks
-pub async fn run_concurrent<F, Fut, T>(
-    futures: F,
-    max_concurrent: usize,
-) -> Vec<T>
+pub async fn run_concurrent<F, Fut, T>(futures: F, max_concurrent: usize) -> Vec<T>
 where
     F: IntoIterator<Item = Fut>,
     Fut: Future<Output = T>,
     T: Send + 'static,
 {
     use futures::stream::{self, StreamExt};
-    
+
     stream::iter(futures)
         .map(|fut| async move { fut.await })
         .buffer_unordered(max_concurrent)
@@ -129,13 +121,13 @@ where
     Fut: Future<Output = Vec<R>>,
 {
     let mut results = Vec::new();
-    
+
     for chunk in items.chunks(batch_size) {
         let batch = chunk.to_vec();
         let batch_results = processor(batch).await;
         results.extend(batch_results);
     }
-    
+
     results
 }
 
@@ -152,7 +144,7 @@ impl Debounce {
             delay: tokio::time::Duration::from_millis(delay_ms),
         }
     }
-    
+
     pub async fn call<F, Fut, T>(&mut self, f: F) -> T
     where
         F: FnOnce() -> Fut,
@@ -164,7 +156,7 @@ impl Debounce {
                 tokio::time::sleep(self.delay - elapsed).await;
             }
         }
-        
+
         self.last_call = Some(tokio::time::Instant::now());
         f().await
     }
@@ -183,7 +175,7 @@ impl Throttle {
             min_interval: tokio::time::Duration::from_millis(interval_ms),
         }
     }
-    
+
     pub async fn call<F, Fut, T>(&mut self, f: F) -> T
     where
         F: FnOnce() -> Fut,
@@ -195,7 +187,7 @@ impl Throttle {
                 tokio::time::sleep(self.min_interval - elapsed).await;
             }
         }
-        
+
         self.last_call = Some(tokio::time::Instant::now());
         f().await
     }
@@ -254,19 +246,19 @@ where
             Err(e) => return Err(AsyncError::JoinError(e.to_string())),
         }
     }
-    
+
     Err(AsyncError::JoinError("Max retries exceeded".to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     async fn async_operation(value: u32) -> u32 {
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         value * 2
     }
-    
+
     async fn async_operation_with_result(value: u32) -> Result<u32, String> {
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         if value > 100 {
@@ -275,7 +267,7 @@ mod tests {
             Ok(value * 2)
         }
     }
-    
+
     #[tokio::test]
     async fn test_join_all_futures() {
         let futures = vec![
@@ -286,7 +278,7 @@ mod tests {
         let results = join_all_futures(futures).await;
         assert_eq!(results, vec![2, 4, 6]);
     }
-    
+
     #[tokio::test]
     async fn test_retry_with_backoff_success() {
         let mut attempts = 0;
@@ -303,10 +295,11 @@ mod tests {
             },
             5,
             10,
-        ).await;
+        )
+        .await;
         assert!(result.is_ok());
     }
-    
+
     #[tokio::test]
     async fn test_with_timeout_success() {
         let result = with_timeout(
@@ -315,10 +308,11 @@ mod tests {
                 42
             },
             100,
-        ).await;
+        )
+        .await;
         assert_eq!(result.unwrap(), 42);
     }
-    
+
     #[tokio::test]
     async fn test_with_timeout_failure() {
         let result = with_timeout(
@@ -327,10 +321,11 @@ mod tests {
                 42
             },
             10,
-        ).await;
+        )
+        .await;
         assert!(matches!(result, Err(AsyncError::TimeoutError)));
     }
-    
+
     #[tokio::test]
     async fn test_execute_sequence() {
         let futures = vec![
@@ -341,27 +336,27 @@ mod tests {
         let results = execute_sequence(futures).await;
         assert_eq!(results, vec![2, 4, 6]);
     }
-    
+
     #[tokio::test]
     async fn test_debounce() {
         let mut debounce = Debounce::new(50);
         let start = tokio::time::Instant::now();
-        
+
         debounce.call(|| async { 1 }).await;
         debounce.call(|| async { 2 }).await;
-        
+
         let elapsed = start.elapsed();
         assert!(elapsed >= tokio::time::Duration::from_millis(50));
     }
-    
+
     #[tokio::test]
     async fn test_throttle() {
         let mut throttle = Throttle::new(50);
         let start = tokio::time::Instant::now();
-        
+
         throttle.call(|| async { 1 }).await;
         throttle.call(|| async { 2 }).await;
-        
+
         let elapsed = start.elapsed();
         assert!(elapsed >= tokio::time::Duration::from_millis(50));
     }

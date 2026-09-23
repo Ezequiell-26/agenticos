@@ -105,9 +105,9 @@ impl Config {
     /// Add file layer
     pub fn add_file(&mut self, path: PathBuf) -> Result<(), ConfigError> {
         let content = std::fs::read_to_string(&path)?;
-        let table: toml::Value = toml::from_str(&content)
-            .map_err(|e| ConfigError::ParseError(e.to_string()))?;
-        
+        let table: toml::Value =
+            toml::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))?;
+
         let mut config_map = HashMap::new();
         if let toml::Value::Table(table) = table {
             for (key, value) in table {
@@ -181,7 +181,11 @@ impl Config {
     /// Set value in memory layer
     pub fn set(&mut self, key: String, value: ConfigValue) {
         // Find or create memory layer
-        if !self.layers.iter().any(|l| matches!(l, ConfigLayer::Memory(_))) {
+        if !self
+            .layers
+            .iter()
+            .any(|l| matches!(l, ConfigLayer::Memory(_)))
+        {
             self.layers.push(ConfigLayer::Memory(HashMap::new()));
         }
 
@@ -210,10 +214,10 @@ impl Config {
     fn get_from_layer(&self, layer: &ConfigLayer, key: &str) -> Option<ConfigValue> {
         match layer {
             ConfigLayer::Memory(map) => map.get(key).cloned(),
-            ConfigLayer::Environment => std::env::var(key).ok()
-                .map(|v| ConfigValue::String(v)),
-            ConfigLayer::CommandLine(args) => args.get(key).cloned()
-                .map(|v| ConfigValue::String(v)),
+            ConfigLayer::Environment => std::env::var(key).ok().map(|v| ConfigValue::String(v)),
+            ConfigLayer::CommandLine(args) => {
+                args.get(key).cloned().map(|v| ConfigValue::String(v))
+            }
             ConfigLayer::File(_) => None, // Files are loaded into Memory layer
         }
     }
@@ -224,13 +228,14 @@ impl Config {
             toml::Value::Integer(i) => ConfigValue::Integer(i),
             toml::Value::Float(f) => ConfigValue::Float(f),
             toml::Value::Boolean(b) => ConfigValue::Boolean(b),
-            toml::Value::Array(arr) => ConfigValue::Array(
-                arr.into_iter().map(|v| self.toml_to_config(v)).collect()
-            ),
+            toml::Value::Array(arr) => {
+                ConfigValue::Array(arr.into_iter().map(|v| self.toml_to_config(v)).collect())
+            }
             toml::Value::Table(table) => ConfigValue::Table(
-                table.into_iter()
+                table
+                    .into_iter()
                     .map(|(k, v)| (k, self.toml_to_config(v)))
-                    .collect()
+                    .collect(),
             ),
             _ => ConfigValue::String(value.to_string()),
         }

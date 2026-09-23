@@ -71,17 +71,28 @@ impl ReasoningEngine {
     /// Generate a plan for a given objective
     pub async fn generate_plan(&self, _objective: &str) -> Result<ReasoningPlan, BrainError> {
         // Placeholder implementation
-        Err(BrainError::ReasoningEngineError("Not implemented".to_string()))
+        Err(BrainError::ReasoningEngineError(
+            "Not implemented".to_string(),
+        ))
     }
 
     /// Re-plan based on new information
-    pub async fn re_plan(&self, _plan: ReasoningPlan, _feedback: &str) -> Result<ReasoningPlan, BrainError> {
+    pub async fn re_plan(
+        &self,
+        _plan: ReasoningPlan,
+        _feedback: &str,
+    ) -> Result<ReasoningPlan, BrainError> {
         // Placeholder implementation
-        Err(BrainError::ReasoningEngineError("Not implemented".to_string()))
+        Err(BrainError::ReasoningEngineError(
+            "Not implemented".to_string(),
+        ))
     }
 
     /// Select capabilities for a plan
-    pub async fn select_capabilities(&self, _steps: &[PlanStep]) -> Result<Vec<CapabilityId>, BrainError> {
+    pub async fn select_capabilities(
+        &self,
+        _steps: &[PlanStep],
+    ) -> Result<Vec<CapabilityId>, BrainError> {
         // Placeholder implementation
         Ok(vec![])
     }
@@ -89,7 +100,9 @@ impl ReasoningEngine {
     /// Evaluate a plan
     pub async fn evaluate(&self, _plan: &ReasoningPlan) -> Result<EvaluationResult, BrainError> {
         // Placeholder implementation
-        Err(BrainError::ReasoningEngineError("Not implemented".to_string()))
+        Err(BrainError::ReasoningEngineError(
+            "Not implemented".to_string(),
+        ))
     }
 }
 

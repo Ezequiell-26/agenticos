@@ -1,6 +1,9 @@
 //! Source Intelligence Engine - Discovery, import, analysis of external repositories
 
-use super::{BrainError, RepoId, CommitHash, ProvenanceEvidence, Capability, CapabilityOrigin, CapabilityStatus, License};
+use super::{
+    BrainError, Capability, CapabilityOrigin, CapabilityStatus, CommitHash, License,
+    ProvenanceEvidence, RepoId,
+};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -39,10 +42,7 @@ impl Default for EngineConfig {
                 "0BSD".to_string(),
                 "Unlicense".to_string(),
             ],
-            denied_licenses: vec![
-                "GPL-3.0".to_string(),
-                "AGPL-3.0".to_string(),
-            ],
+            denied_licenses: vec!["GPL-3.0".to_string(), "AGPL-3.0".to_string()],
         }
     }
 }
@@ -104,7 +104,7 @@ impl SourceIntelligenceEngine {
                 None
             },
         };
-        
+
         Self {
             discovery: Arc::new(RwLock::new(discovery)),
             config,
@@ -115,46 +115,59 @@ impl SourceIntelligenceEngine {
     /// Discover repositories from a source (GitHub, GitLab, local git, etc.)
     pub async fn discover(&self, source: &str) -> Result<Vec<RepoId>, BrainError> {
         let discovery = self.discovery.read().await;
-        
+
         if source.starts_with("github.com") || source.starts_with("https://github.com") {
             if let Some(api_discoverer) = &discovery.api_discoverer {
                 return self.discover_github(source, api_discoverer).await;
             }
         }
-        
+
         if source.starts_with("git@") || source.ends_with(".git") {
             if let Some(git_discoverer) = &discovery.git_discoverer {
                 return self.discover_git(source, git_discoverer).await;
             }
         }
-        
-        Err(BrainError::SourceIntelligenceError(
-            format!("Unsupported source: {}", source)
-        ))
+
+        Err(BrainError::SourceIntelligenceError(format!(
+            "Unsupported source: {}",
+            source
+        )))
     }
 
     /// Import a repository with provenance tracking
-    pub async fn import(&self, repo_id: RepoId, commit: CommitHash) -> Result<ProvenanceEvidence, BrainError> {
+    pub async fn import(
+        &self,
+        repo_id: RepoId,
+        commit: CommitHash,
+    ) -> Result<ProvenanceEvidence, BrainError> {
         let metadata = {
             let registry = self.registry.read().await;
-            registry.get(&repo_id)
-                .ok_or_else(|| BrainError::SourceIntelligenceError(
-                    format!("Repository {} not discovered", repo_id)
-                ))?
+            registry
+                .get(&repo_id)
+                .ok_or_else(|| {
+                    BrainError::SourceIntelligenceError(format!(
+                        "Repository {} not discovered",
+                        repo_id
+                    ))
+                })?
                 .clone()
         };
 
         // Validate license
         if let Some(license) = &metadata.license {
             if self.config.denied_licenses.contains(license) {
-                return Err(BrainError::PermissionDenied(
-                    format!("License {} is denied", license)
-                ));
+                return Err(BrainError::PermissionDenied(format!(
+                    "License {} is denied",
+                    license
+                )));
             }
-            if !self.config.allowed_licenses.is_empty() && !self.config.allowed_licenses.contains(license) {
-                return Err(BrainError::PermissionDenied(
-                    format!("License {} is not in allowed list", license)
-                ));
+            if !self.config.allowed_licenses.is_empty()
+                && !self.config.allowed_licenses.contains(license)
+            {
+                return Err(BrainError::PermissionDenied(format!(
+                    "License {} is not in allowed list",
+                    license
+                )));
             }
         }
 
@@ -179,10 +192,14 @@ impl SourceIntelligenceEngine {
     pub async fn analyze(&self, repo_id: &str) -> Result<RepositoryAnalysis, BrainError> {
         let metadata = {
             let registry = self.registry.read().await;
-            registry.get(repo_id)
-                .ok_or_else(|| BrainError::SourceIntelligenceError(
-                    format!("Repository {} not discovered", repo_id)
-                ))?
+            registry
+                .get(repo_id)
+                .ok_or_else(|| {
+                    BrainError::SourceIntelligenceError(format!(
+                        "Repository {} not discovered",
+                        repo_id
+                    ))
+                })?
                 .clone()
         };
 
@@ -212,10 +229,14 @@ impl SourceIntelligenceEngine {
     ) -> Result<Vec<Capability>, BrainError> {
         let metadata = {
             let registry = self.registry.read().await;
-            registry.get(repo_id)
-                .ok_or_else(|| BrainError::SourceIntelligenceError(
-                    format!("Repository {} not discovered", repo_id)
-                ))?
+            registry
+                .get(repo_id)
+                .ok_or_else(|| {
+                    BrainError::SourceIntelligenceError(format!(
+                        "Repository {} not discovered",
+                        repo_id
+                    ))
+                })?
                 .clone()
         };
 
@@ -285,11 +306,9 @@ impl SourceIntelligenceEngine {
     /// Get repository metadata
     pub async fn get_metadata(&self, repo_id: &str) -> Result<RepositoryMetadata, BrainError> {
         let registry = self.registry.read().await;
-        registry.get(repo_id)
-            .cloned()
-            .ok_or_else(|| BrainError::SourceIntelligenceError(
-                format!("Repository {} not found", repo_id)
-            ))
+        registry.get(repo_id).cloned().ok_or_else(|| {
+            BrainError::SourceIntelligenceError(format!("Repository {} not found", repo_id))
+        })
     }
 
     /// List all discovered repositories
@@ -299,9 +318,14 @@ impl SourceIntelligenceEngine {
     }
 
     /// Discover repositories from GitHub
-    async fn discover_github(&self, source: &str, _discoverer: &ApiDiscoverer) -> Result<Vec<RepoId>, BrainError> {
+    async fn discover_github(
+        &self,
+        source: &str,
+        _discoverer: &ApiDiscoverer,
+    ) -> Result<Vec<RepoId>, BrainError> {
         // Parse GitHub URL and extract owner/repo
-        let repo_id = source.replace("https://github.com/", "")
+        let repo_id = source
+            .replace("https://github.com/", "")
             .replace("github.com/", "")
             .replace(".git", "")
             .to_string();
@@ -316,9 +340,9 @@ impl SourceIntelligenceEngine {
             url: format!("https://github.com/{}", repo_id),
             default_branch: "main".to_string(),
             last_indexed: Utc::now(),
-            license: Some("MIT".to_string()), // Placeholder
+            license: Some("MIT".to_string()),   // Placeholder
             language: Some("Rust".to_string()), // Placeholder
-            stars: 1000, // Placeholder
+            stars: 1000,                        // Placeholder
             status: RepositoryStatus::Discovered,
         };
 
@@ -329,9 +353,14 @@ impl SourceIntelligenceEngine {
     }
 
     /// Discover repositories from git
-    async fn discover_git(&self, source: &str, _discoverer: &GitDiscoverer) -> Result<Vec<RepoId>, BrainError> {
+    async fn discover_git(
+        &self,
+        source: &str,
+        _discoverer: &GitDiscoverer,
+    ) -> Result<Vec<RepoId>, BrainError> {
         // Parse git URL
-        let repo_id = source.replace("git@github.com:", "")
+        let repo_id = source
+            .replace("git@github.com:", "")
             .replace("https://", "")
             .replace(".git", "")
             .to_string();
@@ -341,7 +370,7 @@ impl SourceIntelligenceEngine {
             url: source.to_string(),
             default_branch: "main".to_string(),
             last_indexed: Utc::now(),
-            license: Some("MIT".to_string()), // Placeholder
+            license: Some("MIT".to_string()),   // Placeholder
             language: Some("Rust".to_string()), // Placeholder
             stars: 0,
             status: RepositoryStatus::Discovered,
@@ -419,8 +448,11 @@ mod tests {
     #[tokio::test]
     async fn test_get_metadata() {
         let engine = SourceIntelligenceEngine::default();
-        engine.discover("https://github.com/user/repo").await.unwrap();
-        
+        engine
+            .discover("https://github.com/user/repo")
+            .await
+            .unwrap();
+
         let metadata = engine.get_metadata("user/repo").await;
         assert!(metadata.is_ok());
         let meta = metadata.unwrap();
@@ -430,17 +462,25 @@ mod tests {
     #[tokio::test]
     async fn test_import() {
         let engine = SourceIntelligenceEngine::default();
-        engine.discover("https://github.com/user/repo").await.unwrap();
-        
-        let result = engine.import("user/repo".to_string(), "abc123".to_string()).await;
+        engine
+            .discover("https://github.com/user/repo")
+            .await
+            .unwrap();
+
+        let result = engine
+            .import("user/repo".to_string(), "abc123".to_string())
+            .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_analyze() {
         let engine = SourceIntelligenceEngine::default();
-        engine.discover("https://github.com/user/repo").await.unwrap();
-        
+        engine
+            .discover("https://github.com/user/repo")
+            .await
+            .unwrap();
+
         let result = engine.analyze("user/repo").await;
         assert!(result.is_ok());
         let analysis = result.unwrap();
@@ -451,10 +491,15 @@ mod tests {
     #[tokio::test]
     async fn test_register_capabilities() {
         let engine = SourceIntelligenceEngine::default();
-        engine.discover("https://github.com/user/repo").await.unwrap();
-        
+        engine
+            .discover("https://github.com/user/repo")
+            .await
+            .unwrap();
+
         let analysis = engine.analyze("user/repo").await.unwrap();
-        let capabilities = engine.register_capabilities("user/repo", "abc123".to_string(), &analysis).await;
+        let capabilities = engine
+            .register_capabilities("user/repo", "abc123".to_string(), &analysis)
+            .await;
         assert!(capabilities.is_ok());
         let caps = capabilities.unwrap();
         assert!(!caps.is_empty());
@@ -467,9 +512,14 @@ mod tests {
             ..Default::default()
         };
         let engine = SourceIntelligenceEngine::new(config);
-        engine.discover("https://github.com/user/repo").await.unwrap();
-        
-        let result = engine.import("user/repo".to_string(), "abc123".to_string()).await;
+        engine
+            .discover("https://github.com/user/repo")
+            .await
+            .unwrap();
+
+        let result = engine
+            .import("user/repo".to_string(), "abc123".to_string())
+            .await;
         assert!(result.is_err());
     }
 }

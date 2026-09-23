@@ -47,7 +47,12 @@ impl Embedding {
             return Err(VectorDbError::InvalidDimension(self.vector.len()));
         }
 
-        let dot_product: f32 = self.vector.iter().zip(other.vector.iter()).map(|(a, b)| a * b).sum();
+        let dot_product: f32 = self
+            .vector
+            .iter()
+            .zip(other.vector.iter())
+            .map(|(a, b)| a * b)
+            .sum();
         let norm_a: f32 = self.vector.iter().map(|x| x * x).sum::<f32>().sqrt();
         let norm_b: f32 = other.vector.iter().map(|x| x * x).sum::<f32>().sqrt();
 
@@ -64,7 +69,9 @@ impl Embedding {
             return Err(VectorDbError::InvalidDimension(self.vector.len()));
         }
 
-        let sum_sq: f32 = self.vector.iter()
+        let sum_sq: f32 = self
+            .vector
+            .iter()
             .zip(other.vector.iter())
             .map(|(a, b)| (a - b).powi(2))
             .sum();
@@ -78,7 +85,12 @@ impl Embedding {
             return Err(VectorDbError::InvalidDimension(self.vector.len()));
         }
 
-        Ok(self.vector.iter().zip(other.vector.iter()).map(|(a, b)| a * b).sum())
+        Ok(self
+            .vector
+            .iter()
+            .zip(other.vector.iter())
+            .map(|(a, b)| a * b)
+            .sum())
     }
 }
 
@@ -113,7 +125,8 @@ impl VectorDatabase {
 
     /// Remove embedding
     pub fn remove(&mut self, id: &str) -> Result<(), VectorDbError> {
-        self.embeddings.remove(id)
+        self.embeddings
+            .remove(id)
             .map(|_| ())
             .ok_or_else(|| VectorDbError::VectorNotFound(id.to_string()))
     }
@@ -190,7 +203,7 @@ impl EmbeddingProcessor {
         let vector = (0..self.dimension)
             .map(|i| ((hash as f32) * (i as f32 + 1.0)) % 1.0)
             .collect();
-        
+
         Embedding::new(id, vector)
     }
 
@@ -222,14 +235,18 @@ impl VectorStore {
         }
     }
 
-    pub fn add_text(&mut self, text: &str, metadata: HashMap<String, String>) -> Result<String, VectorDbError> {
+    pub fn add_text(
+        &mut self,
+        text: &str,
+        metadata: HashMap<String, String>,
+    ) -> Result<String, VectorDbError> {
         let processor = EmbeddingProcessor::new(self.dimension);
         let mut embedding = processor.embed_text(text);
-        
+
         for (key, value) in metadata {
             embedding = embedding.with_metadata(key, value);
         }
-        
+
         let id = embedding.id.clone();
         self.db.insert(embedding)?;
         Ok(id)
@@ -305,7 +322,7 @@ mod tests {
         let mut db = VectorDatabase::new(3);
         let embedding = Embedding::new("test".to_string(), vec![1.0, 0.0, 0.0]);
         db.insert(embedding).unwrap();
-        
+
         let query = Embedding::new("query".to_string(), vec![1.0, 0.0, 0.0]);
         let results = db.search(&query, 1);
         assert_eq!(results.len(), 1);

@@ -1949,7 +1949,10 @@ impl ReactAgent {
     }
 
     /// Set the model provider for Planner and Supervisor LLM integration.
-    pub fn set_model_provider_for_planning(&self, provider: Arc<dyn agenticos_contracts::ModelProvider>) {
+    pub fn set_model_provider_for_planning(
+        &self,
+        provider: Arc<dyn agenticos_contracts::ModelProvider>,
+    ) {
         self.inner.lock().unwrap().model_provider = Some(provider);
     }
 
@@ -2873,7 +2876,10 @@ impl ReactAgent {
 
         // Delegate to subagent if supervisor is configured
         if let Some(supervisor) = &supervisor {
-            if let Some(subagent_name) = supervisor.decide_subagent(input, model_provider.as_ref()).await {
+            if let Some(subagent_name) = supervisor
+                .decide_subagent(input, model_provider.as_ref())
+                .await
+            {
                 let _ = subagent_name;
             }
         }
@@ -4077,16 +4083,20 @@ impl Planner {
             match provider.execute(request).await {
                 Ok(response) => {
                     // Try to parse LLM response as JSON array of steps
-                    if let Ok(steps_json) = serde_json::from_str::<serde_json::Value>(&response.output) {
+                    if let Ok(steps_json) =
+                        serde_json::from_str::<serde_json::Value>(&response.output)
+                    {
                         if let Some(steps_array) = steps_json.as_array() {
                             let steps: Vec<PlanStep> = steps_array
                                 .iter()
                                 .filter_map(|step| {
-                                    let description = step.get("description")
+                                    let description = step
+                                        .get("description")
                                         .and_then(|d| d.as_str())
                                         .unwrap_or("Unknown step")
                                         .to_string();
-                                    let tool = step.get("tool")
+                                    let tool = step
+                                        .get("tool")
                                         .and_then(|t| t.as_str())
                                         .map(|s| s.to_string());
                                     let tool_args = step.get("tool_args").cloned();
@@ -4151,7 +4161,8 @@ impl Planner {
     ) -> Plan {
         // Try to use LLM for re-planning if provider is available
         if let Some(provider) = model_provider {
-            let current_state = plan.steps
+            let current_state = plan
+                .steps
                 .iter()
                 .map(|s| format!("{}: {:?}", s.description, s.status))
                 .collect::<Vec<_>>()
@@ -4178,20 +4189,25 @@ impl Planner {
             match provider.execute(request).await {
                 Ok(response) => {
                     // Try to parse LLM response as JSON array of steps
-                    if let Ok(steps_json) = serde_json::from_str::<serde_json::Value>(&response.output) {
+                    if let Ok(steps_json) =
+                        serde_json::from_str::<serde_json::Value>(&response.output)
+                    {
                         if let Some(steps_array) = steps_json.as_array() {
                             let steps: Vec<PlanStep> = steps_array
                                 .iter()
                                 .filter_map(|step| {
-                                    let description = step.get("description")
+                                    let description = step
+                                        .get("description")
                                         .and_then(|d| d.as_str())
                                         .unwrap_or("Unknown step")
                                         .to_string();
-                                    let tool = step.get("tool")
+                                    let tool = step
+                                        .get("tool")
                                         .and_then(|t| t.as_str())
                                         .map(|s| s.to_string());
                                     let tool_args = step.get("tool_args").cloned();
-                                    let status_str = step.get("status")
+                                    let status_str = step
+                                        .get("status")
                                         .and_then(|s| s.as_str())
                                         .unwrap_or("Pending");
                                     let status = match status_str {

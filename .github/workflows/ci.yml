@@ -106,4 +106,4 @@ jobs:
           test -f protocols/schemas/event-envelope.schema.json
           test -f reference/manifests/implementation-state.json
           test -f reference/manifests/mit-repositories.json
-          echo "Rust architecture foundation: PASS"
+          echo "Rust architecture foundation: PASS — canonical layout verification enabled"

@@ -204,7 +204,7 @@ export const evaluationRuns: ReadonlyArray<[string, string, string, string]> = [
   ['RUN-EVAL-079', 'DeepSeek', '43 / 48', '5m 48s'],
 ]
 
-export const notifications = [
+export export const notifications: ReadonlyArray<[string, string, string, string, boolean]> = [
   ['Approval requested', 'Background agent wants permission to modify provider routing.', '2m', 'high', false],
   ['Run completed', 'Frontend regression scan finished with 0 critical findings.', '11m', 'info', false],
   ['Checkpoint captured', 'CP-028 is ready for restore preview.', '31m', 'info', true],
@@ -221,3 +221,11 @@ export const securityPolicies: ReadonlyArray<[string, string, boolean]> = [
   ['Telemetry minimization', 'Do not persist local preview telemetry', true],
 ]
 
+
+
+export const tasks: ReadonlyArray<[string, string, string, string, string]> = [
+  ['TASK-104', 'Complete frontend architecture', 'Builder', 'In progress', 'P1'],
+  ['TASK-103', 'Review provider fallback UX', 'Reviewer', 'Ready', 'P1'],
+  ['TASK-102', 'Build browser verification plan', 'Researcher', 'Blocked', 'P2'],
+  ['TASK-101', 'Prepare release evidence', 'Release Bot', 'Queued', 'P2'],
+]

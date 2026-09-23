@@ -65,6 +65,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [temperature, setTemperature] = useState('0.3')
   const [responseFormat, setResponseFormat] = useState(responseFormats[0])
   const [slashOpen, setSlashOpen] = useState(false)
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0)
   const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
@@ -86,6 +87,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
+  useEffect(() => { setSlashSelectedIndex(0) }, [draft])
 
   useEffect(() => {
     textareaRef.current?.focus()

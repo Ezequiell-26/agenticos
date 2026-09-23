@@ -85,6 +85,7 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 | Cost & Usage | FinalControlSuite | tokens, quotas, budgets | preview |
 | Collaboration & Review Center | CollaborationReviewCenter | review threads, checks, approvals, handoffs | preview |
 | Design System Studio | DesignSystemStudio | components, tokens, states, density, accessibility foundations | preview |
+| Frontend Coverage Studio | FrontendCoverageStudio | full surface inventory, ownership, platform-mode and verification contract audit | preview |
 
 ## UX / continuity
 

@@ -4,6 +4,10 @@ export type RailMode =
   | 'chat'
   | 'files'
   | 'runs'
+  | 'approvals'
+  | 'observability'
+  | 'agents'
+  | 'prompts'
   | 'providers'
   | 'skills'
   | 'tools'
@@ -23,6 +27,10 @@ const items: Array<{ id: RailMode; label: string; icon: IconName; group: 'build'
   { id: 'files', label: 'Files & Editor', icon: 'folder', group: 'build' },
   { id: 'terminal', label: 'Terminal', icon: 'terminal', group: 'build' },
   { id: 'runs', label: 'Runs', icon: 'activity', group: 'operate' },
+  { id: 'approvals', label: 'Approvals', icon: 'shield', group: 'operate' },
+  { id: 'observability', label: 'Observability', icon: 'activity', group: 'operate' },
+  { id: 'agents', label: 'Agent Profiles', icon: 'bot', group: 'operate' },
+  { id: 'prompts', label: 'Prompt Lab', icon: 'spark', group: 'build' },
   { id: 'workflows', label: 'Workflows', icon: 'clock', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', icon: 'archive', group: 'operate' },
   { id: 'providers', label: 'Providers & Models', icon: 'bot', group: 'operate' },

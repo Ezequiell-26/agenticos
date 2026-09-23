@@ -764,3 +764,29 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 @media (prefers-reduced-motion: reduce) {
   .switch span { transition:none; }
 }
+
+/* Persistent shell personalization driven by the shared UI preference bridge. */
+.app-shell { grid-template-columns:64px var(--agenticos-sidebar-width,270px) minmax(560px,1fr) var(--agenticos-inspector-width,320px); }
+:root[data-agenticos-sidebar="hidden"] .app-shell { grid-template-columns:64px minmax(560px,1fr) var(--agenticos-inspector-width,320px); }
+:root[data-agenticos-sidebar="hidden"][data-agenticos-inspector="hidden"] .app-shell { grid-template-columns:64px minmax(560px,1fr); }
+:root[data-agenticos-sidebar="visible"][data-agenticos-inspector="hidden"] .app-shell { grid-template-columns:64px var(--agenticos-sidebar-width,270px) minmax(560px,1fr); }
+:root[data-agenticos-sidebar="hidden"] .workspace-sidebar,
+:root[data-agenticos-inspector="hidden"] .agent-panel { display:none !important; }
+:root[data-agenticos-statusbar="hidden"] .workspace-main { grid-template-rows:62px minmax(0,1fr) 0; }
+:root[data-agenticos-statusbar="hidden"] .status-bar { display:none !important; }
+:root[data-agenticos-dock="visible"] .workspace-dock { display:grid; }
+:root[data-agenticos-dock="hidden"] .workspace-dock { display:none; }
+:root[data-agenticos-rail="expanded"] .activity-rail__items { gap:8px; }
+:root[data-agenticos-rail="expanded"] .rail-button { width:44px; height:44px; border-radius:12px; }
+:root[data-agenticos-tooltips="hidden"] .rail-tooltip { display:none !important; }
+:root[data-agenticos-hover-preview="hidden"] .surface-focusable:hover { transform:none !important; }
+:root[data-agenticos-theme="midnight"] body,
+:root[data-agenticos-theme="midnight"] .app-shell { background:#05070c !important; }
+:root[data-agenticos-theme="midnight"] .workspace-sidebar,
+:root[data-agenticos-theme="midnight"] .activity-rail,
+:root[data-agenticos-theme="midnight"] .workspace-main { background:#070a10 !important; }
+:root[data-agenticos-theme="high-contrast"] button:focus-visible,
+:root[data-agenticos-theme="high-contrast"] input:focus-visible,
+:root[data-agenticos-theme="high-contrast"] textarea:focus-visible,
+:root[data-agenticos-theme="high-contrast"] select:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.settings-inline-note { display:block; margin:1px 3px 4px; color:#4f4f4f; font-size:7px; line-height:1.45; }

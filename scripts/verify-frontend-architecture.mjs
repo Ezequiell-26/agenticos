@@ -42,4 +42,53 @@ if (!navigationSource.includes("export const navigationItems") || !navigationSou
   process.exit(1);
 }
 
-console.log("FRONTEND ARCHITECTURE: PASS — frontend contract, platform registry and persistent playbooks are present.");
+
+const appSource = readFileSync("crates/presentation/desktop/frontend/src/App.tsx", "utf8");
+const platformSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx",
+  "utf8",
+);
+const studioSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/StudioSurface.tsx",
+  "utf8",
+);
+const navigationItems = [...navigationSource.matchAll(/id:\s*'([^']+)'/g)].map((match) => match[1]);
+const exemptModes = new Set(["chat", "settings"]);
+const unresolvedModes = navigationItems.filter((id) => {
+  if (exemptModes.has(id)) return false;
+  return ![appSource, platformSource, studioSource].some((source) =>
+    source.includes("mode === '" + id + "'"),
+  );
+});
+
+if (unresolvedModes.length > 0) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — navigation modes without a visual route: " +
+      unresolvedModes.join(", "),
+  );
+  process.exit(1);
+}
+
+const legacyChat = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/ChatInterface.tsx",
+  "utf8",
+);
+if (legacyChat.includes("fetch(") || legacyChat.includes("/api/agent/")) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — compatibility chat must use the service boundary, not direct HTTP.",
+  );
+  process.exit(1);
+}
+
+for (const file of [
+  "crates/presentation/desktop/frontend/src/components/AppErrorBoundary.tsx",
+  "crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx",
+  "crates/presentation/desktop/frontend/src/workspace-enhancements.css",
+]) {
+  if (!existsSync(file)) {
+    console.error("FRONTEND ARCHITECTURE: FAIL — required shell capability missing " + file);
+    process.exit(1);
+  }
+}
+
+console.log("FRONTEND ARCHITECTURE: PASS — frontend contract, route coverage, runtime boundaries and shell safeguards are present.");

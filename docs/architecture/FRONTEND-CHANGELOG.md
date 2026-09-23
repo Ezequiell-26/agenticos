@@ -814,3 +814,15 @@ Verification status:
 ## 2026-09-24 — Frontend build hardening follow-up
 - Corrected malformed literal `\\n` sequences that were present in three TypeScript sources and caused `tsc` parse failures.
 - Frontend production verification remains gated on the isolated GitHub Actions build; no passing result is claimed until the workflow executes successfully.
+
+## Frontend routing resilience — 2026-09-24
+
+- Scope: frontend-only routing correctness and lazy-surface resilience.
+- Branch/PR: `feature/frontend-routing-hardening-2026-09-24`.
+- User-visible effect: dedicated Browser, MCP, Computer Use, Credentials, Imports, Sessions and Evaluations surfaces are no longer shadowed by the generic completeness router; lazy-loaded platform failures now render an isolated retry state instead of escaping the feature boundary.
+- Modified: `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx`, `crates/presentation/desktop/frontend/src/workspace-enhancements.css`.
+- Architecture decision: route-specific surfaces must be evaluated before generic grouped fallbacks; lazy loading is protected by an error boundary so one feature cannot take down the platform surface.
+- Verification evidence: static source inspection confirms the route precedence fix and isolated error boundary; fresh production build and browser verification remain unobserved.
+- Unverified checks: GitHub Actions build result, browser/Tauri verification, accessibility audit.
+- Rollback point: branch base `main`; no history rewrite or destructive deletion.
+- Next step: merge the routing hardening PR only after the frontend verification workflow provides a fresh result.

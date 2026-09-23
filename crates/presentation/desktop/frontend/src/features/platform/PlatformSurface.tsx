@@ -7,6 +7,7 @@ import GitDiffCenter from '../git/GitDiffCenter'
 import EnvironmentBuilder from '../environments/EnvironmentBuilder'
 import AutomationBuilder from '../automations/AutomationBuilder'
 import CredentialManager from '../credentials/CredentialManager'
+import ChannelGatewayManager from '../channels/ChannelGatewayManager'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -387,9 +388,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'channels') return (
     <Shell>
-      {renderHeader('Gateway', 'Channels & Gateway', 'One agent session can be exposed to multiple messaging and delivery surfaces.', <button className="studio-button" type="button" onClick={() => notify('Gateway configuration opened in preview')}><Icon name="settings" size={14} /> Configure gateway</button>)}
-      <div className="channel-grid">{channels.map(([name, type, state, detail]) => <div className="platform-card channel-card" key={name}><div className="channel-card__icon"><Icon name={name === 'Desktop' ? 'layout' : 'message'} size={17} /></div><div><strong>{name}</strong><span>{type}</span><small>{detail}</small></div><span className={`state-pill state-pill--${state === 'Connected' ? 'active' : 'pending'}`}>{state}</span><button className="studio-button" type="button" onClick={() => notify(`${name} configuration staged in preview`)}>{state === 'Connected' ? 'Manage' : 'Connect'}</button></div>)}</div>
-      <Panel title="Gateway capabilities"><div className="capability-grid"><Tag label="session continuity" /><Tag label="voice memo" /><Tag label="scheduled delivery" /><Tag label="mentions" /><Tag label="thread routing" /><Tag label="attachments" /></div></Panel>
+      <ChannelGatewayManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

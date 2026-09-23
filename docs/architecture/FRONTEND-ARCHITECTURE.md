@@ -378,3 +378,9 @@ Both remain presentation-only until runtime contracts are connected.
 `features/channels/ChannelGatewayManager.tsx` now owns the detailed Channels & Gateway presentation surface. It covers channel capability toggles, gateway routing preview, delivery policy, session routing and safe connection actions.
 
 No gateway transport, authentication secret or runtime delivery implementation was added.
+
+## Research Workbench (2026-09-24)
+
+`features/research/ResearchWorkbench.tsx` now owns the Research surface. It covers bounded research batches, source provenance, trajectory inspection and evidence-backed synthesis/export previews.
+
+Research execution, web transport and source collection remain outside the frontend boundary.

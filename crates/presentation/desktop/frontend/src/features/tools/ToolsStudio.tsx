@@ -47,7 +47,6 @@ const toolCatalog = [
   { name: 'kanban', description: 'Operate structured task-board workflows.', risk: 'Medium', category: 'Work management', enabled: false },
   { name: 'desktop_preview', description: 'Preview desktop application state for agent verification.', risk: 'Medium', category: 'Desktop GUI', enabled: false },
 ]
-]
 
 const schemas = [
   ['filesystem.read', 'path: string', 'Workspace file content'],

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
-import { UI_PREFERENCES_STORAGE_KEY, applyUiLayoutPreferences, emitUiPreferencesChanged } from '../../services/ui-preferences'
+import { UI_PREFERENCES_STORAGE_KEY, applyUiPreferences, emitUiPreferencesChanged } from '../../services/ui-preferences'
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
@@ -492,7 +492,7 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
     document.documentElement.dataset.agenticosDensity = settings.density.toLowerCase()
     document.documentElement.style.setProperty('--agenticos-ui-scale', String(settings.uiScale / 100))
     document.documentElement.style.setProperty('--agenticos-font-size', settings.fontSize + 'px')
-    applyUiLayoutPreferences(settings)
+    applyUiPreferences(settings)
   }, [settings])
 
   useEffect(() => {
@@ -584,7 +584,7 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
   function save() {
     try {
       window.localStorage.setItem(UI_PREFERENCES_STORAGE_KEY, JSON.stringify({ settings, profiles, activeProfileId }))
-      applyUiLayoutPreferences(settings)
+      applyUiPreferences(settings)
       emitUiPreferencesChanged()
       setDirty(false)
       notify('Configuration saved locally')

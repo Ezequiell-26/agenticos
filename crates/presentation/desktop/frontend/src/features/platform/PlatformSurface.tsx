@@ -6,6 +6,7 @@ import HookManager from '../hooks/HookManager'
 import GitDiffCenter from '../git/GitDiffCenter'
 import EnvironmentBuilder from '../environments/EnvironmentBuilder'
 import AutomationBuilder from '../automations/AutomationBuilder'
+import CredentialManager from '../credentials/CredentialManager'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -225,8 +226,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'credentials') return (
     <Shell>
-      {renderHeader('Secrets boundary', 'Credentials', 'Connection metadata and setup state without rendering API keys or secret values.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Credential setup opened in preview')}><Icon name="shield" size={14} /> Add credential</button>)}
-      <div className="credential-layout"><div className="credential-list">{credentials.map(([name, role, state, detail]) => <button type="button" key={name} className={`credential-row ${selectedCredential === name ? 'credential-row--active' : ''}`} onClick={() => setSelectedCredential(name)}><div><strong>{name}</strong><span>{role}</span><small>{detail}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div><Panel title={selectedCredential}><div className="platform-grid platform-grid--2"><Metric label="Secret value" value="Hidden" /><Metric label="Storage" value="External" /><Metric label="Rotation" value="Managed" /><Metric label="Exposure" value="Never rendered" /></div><div className="callout"><Icon name="shield" size={14} /><span>Credentials stay outside presentation state. This screen is intentionally metadata-only.</span></div></Panel></div>
+      <CredentialManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

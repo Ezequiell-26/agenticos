@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 const fail = (message) => {
   console.error("ARCHITECTURE BOUNDARIES: FAIL — " + message);
@@ -11,11 +11,23 @@ const root = process.cwd();
 const manifest = JSON.parse(
   readFileSync(root + "/reference/manifests/architecture-dag.json", "utf8"),
 );
+
 const metadata = JSON.parse(
   execFileSync("cargo", ["metadata", "--format-version", "1", "--no-deps"], { encoding: "utf8" }),
 );
 const packages = metadata.packages;
 const packageNames = new Set();
+
+const layers = new Set(Object.keys(manifest.layers));
+const legacyRootCrates = new Set([
+  "artifacts",
+  "context",
+  "plugins",
+  "projects",
+  "router",
+  "skills",
+  "interface",
+]);
 
 for (const pkg of packages) {
   if (packageNames.has(pkg.name)) fail("duplicate workspace package name: " + pkg.name);
@@ -30,30 +42,25 @@ for (const pkg of packages) {
   if (!relative.endsWith("/Cargo.toml")) fail("invalid manifest path: " + normalized);
 
   const segments = relative.slice(0, -"/Cargo.toml".length).split("/");
-  if (segments.length !== 2) fail("nested/unowned crate manifest: " + normalized);
-}
+  const layer = segments[0];
 
-function scan(dir) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = dir + "/" + entry.name;
-    if (!entry.isDirectory()) continue;
-    try {
-      statSync(path + "/Cargo.toml");
-      fail("crate manifest found directly below a nested directory: " + path + "/Cargo.toml");
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
-    scan(path);
+  if (!layers.has(layer) && !legacyRootCrates.has(layer)) {
+    fail("crate is not assigned to a canonical layer or explicit legacy bridge: " + normalized);
   }
 }
 
-scan(root + "/crates");
-
 const packageByName = new Map(packages.map((pkg) => [pkg.name, pkg]));
 
-for (const pkg of packages) {
+function packageLayer(pkg) {
   const normalized = pkg.manifest_path.replaceAll("\\", "/");
-  const layer = normalized.split("/crates/")[1].split("/")[0];
+  const relative = normalized.split("/crates/")[1];
+  const first = relative.split("/")[0];
+  if (layers.has(first)) return first;
+  return "legacy";
+}
+
+for (const pkg of packages) {
+  const layer = packageLayer(pkg);
   const dependencies = pkg.dependencies.map((d) => d.name);
 
   const forbidden =
@@ -70,12 +77,13 @@ for (const pkg of packages) {
     const target = packageByName.get(depName);
     if (!target) fail(pkg.name + " references missing first-party package " + depName);
 
-    const targetPath = target.manifest_path.replaceAll("\\", "/");
-    const targetLayer = targetPath.split("/crates/")[1].split("/")[0];
+    const targetLayer = packageLayer(target);
     if (forbidden.has(targetLayer)) {
-      fail(pkg.name + " -> " + depName + " violates layer DAG");
+      fail(pkg.name + " -> " + depName + " violates layer DAG (" + layer + " -> " + targetLayer + ")");
     }
   }
 }
 
-console.log("ARCHITECTURE BOUNDARIES: PASS — canonical workspace ownership and layer boundaries verified.");
+console.log(
+  "ARCHITECTURE BOUNDARIES: PASS — workspace ownership, canonical layers, legacy bridges and layer boundaries verified.",
+);

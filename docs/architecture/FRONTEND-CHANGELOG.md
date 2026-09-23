@@ -1122,3 +1122,13 @@ Verification status:
 - State Matrix previews now disable primary/retry actions for permission and approval-blocked states instead of presenting them as executable.
 - Added state selection semantics and a live preview region so state transitions are explicit to keyboard and assistive-technology users.
 - Kept all state actions presentation-only and aligned with the matrix's existing fail-closed UX contract.
+
+
+## 2026-09-24 — AI engineering command center expansion
+
+- Expanded the existing Developer Workspace into a multi-surface AI engineering command center instead of introducing another top-level route.
+- Added presentation states for parallel agents, isolated worktrees, visual/browser design mode, screenshot/evidence capture, agentic review, security findings, context engineering, compaction, automations, skills, environment targets, and unified activity.
+- Added explicit autonomy, sandbox and approval-gate controls as frontend state.
+- Updated navigation metadata and the frontend capability matrix to reflect the expanded Developer Workspace.
+- The feature set is deliberately adapter-ready: runtime execution, real browser automation, remote environments, model providers, Git mutation, credentials and automation triggers remain outside this presentation slice.
+- Current feature inspiration was cross-checked against 2026 capabilities documented by OpenAI Codex, Cursor, Claude Code, GitHub Copilot and OpenHands. citeturn316532search0turn316532search3turn283938search3turn283938search5turn316532search11turn316532search5

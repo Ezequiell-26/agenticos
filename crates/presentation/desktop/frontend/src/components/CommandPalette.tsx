@@ -103,9 +103,10 @@ export default function CommandPalette({
         if (focusable.length === 0) return
         const current = document.activeElement
         const index = focusable.indexOf(current as HTMLElement)
+        const safeIndex = index >= 0 ? index : (event.shiftKey ? 0 : focusable.length - 1)
         const next = event.shiftKey
-          ? focusable[(index - 1 + focusable.length) % focusable.length]
-          : focusable[(index + 1) % focusable.length]
+          ? focusable[(safeIndex - 1 + focusable.length) % focusable.length]
+          : focusable[(safeIndex + 1) % focusable.length]
         event.preventDefault()
         next?.focus()
         return

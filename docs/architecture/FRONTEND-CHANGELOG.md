@@ -1052,3 +1052,13 @@ Verification status:
 - Fixed the Focus Mode keyboard handler so its Escape recovery observes the current focus state instead of a stale initial closure.
 - Added a polite live-region label to the runtime status chip so state changes are exposed to assistive technology.
 - No runtime service or persistence behavior changed.
+
+## 2026-09-24 — Global Search accessibility hardening
+
+- Added combobox/listbox semantics and active-option linkage to Universal Search for keyboard and assistive-technology navigation.
+- Preserved the existing presentation-only search behavior and navigation routing.
+
+## 2026-09-24 — Quality Workbench syntax repair
+
+- Removed the extra closing wrapper that kept Quality Workbench from compiling under TypeScript/Vite.
+- This repairs the known frontend build blocker without changing the workbench feature model.

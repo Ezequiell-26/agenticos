@@ -144,3 +144,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Workspace Navigator | NavigationCenter | full feature catalog, sections, favorites and recent surfaces | preview |
+
+
+| Quality Workbench | QualityWorkbench | diagnostics, tests, coverage, quick fixes and release evidence | preview |

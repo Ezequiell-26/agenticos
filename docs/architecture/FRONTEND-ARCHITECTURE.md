@@ -295,3 +295,16 @@ The Control Center models capabilities documented by current agent IDE/runtime p
 - Presentation preferences remain local and typed; backend behavior stays behind `services/runtime` contracts.
 - No credentials or secret values are allowed in React configuration state or portable UI exports.
 
+### IDE configuration coverage
+
+The optimized Control Center additionally exposes presentation controls for:
+
+- Editor: font, tabs, wrapping, minimap, breadcrumbs, semantic highlighting and save actions.
+- Completion: inline suggestions, Tab completion, completion model and latency target.
+- VCS: review panel, agent-change staging, generated commit messages, branch diffs and conflict resolution.
+- Verification: completion checks, configurable verification command and artifact preview/attachment.
+- Long-running work: retained goals, in-run steering and loop/check cadence.
+- Remote sessions: enablement preference and machine identity metadata.
+
+These are high-level controls. The detailed Hermes-inspired catalog remains available through Deep Configuration so the frontend has one entry point without duplicating state models.
+

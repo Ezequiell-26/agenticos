@@ -1797,3 +1797,30 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .app-shell--focus .workspace-dock {
   display: none;
 }
+
+
+/* Interaction hardening — keyboard focus, selected rows and command-layer clarity. */
+.command-palette:focus-visible { outline:none; }
+.command-palette button:focus-visible,
+.command-palette input:focus-visible,
+.quick-actions-menu button:focus-visible,
+.conversation-menu button:focus-visible,
+.conversation-menu-button:focus-visible,
+.conversation-main-button:focus-visible {
+  outline:2px solid #8a8a8a;
+  outline-offset:1px;
+}
+.command-palette .palette-item[aria-selected="true"] { scroll-margin-block:8px; }
+.workspace-dock__tab[aria-selected="true"] { color:#f2f2f2; }
+.dock-problem-row--active {
+  border-color:#303030;
+  background:#181818;
+  box-shadow:inset 2px 0 #dcdcdc;
+}
+.dock-problem-row--active .dock-problem-copy strong { color:#f0f0f0; }
+.conversation-main-button[aria-current="page"] .conversation-row__copy strong { color:#f3f3f3; }
+.conversation-menu-button[aria-expanded="true"] {
+  border-color:#303030;
+  background:#171717;
+  color:#eee;
+}

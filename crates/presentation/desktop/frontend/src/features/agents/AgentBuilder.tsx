@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
 
 type BuilderTab = 'Identity' | 'Model' | 'Instructions' | 'Capabilities' | 'Policies' | 'Test & Release'
@@ -429,11 +429,11 @@ export default function AgentBuilder({ onAction }: { onAction: (message: string)
   )
 }
 
-function BuilderSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function BuilderSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return <section className="agent-builder__section"><header><div><span className="eyebrow">Configuration</span><h3>{title}</h3><p>{description}</p></div></header><div className="agent-builder__section-body">{children}</div></section>
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="agent-builder__field"><span>{label}</span>{children}</label>
 }
 

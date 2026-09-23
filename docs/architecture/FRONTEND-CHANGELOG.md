@@ -1148,3 +1148,11 @@ Verification status:
 - Removed unused state/helpers and reconciled duplicate platform routes without reducing the registered feature catalog.
 - Rechecked PlatformSurface route coverage: all declared PlatformMode values have a corresponding handler.
 - Fresh frontend verification is running on the latest code head; no pass/fail claim is made until GitHub reports the result.
+
+
+## 2026-09-24 — Design Mode interaction expansion
+
+- Added multi-element visual targeting to Developer Workspace Design Mode.
+- Added queued voice-design instruction state so a developer can prepare the next visual change without leaving the design workflow.
+- The visual brief now requires at least one selected target and carries the selected-element scope into the staged action label.
+- This remains a presentation contract until browser/computer-use adapters provide real element selection, voice capture and code mutation.

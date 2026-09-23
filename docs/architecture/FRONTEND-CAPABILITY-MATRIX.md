@@ -159,3 +159,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Intelligence Control Center | IntelligenceControlCenter | context, knowledge, memory, research, prompts, evaluations and token optimization | preview |
+
+
+| Project Control Center | ProjectControlCenter | project identity, workspace, tasks, Git, environments and direct workspace entry points | preview |

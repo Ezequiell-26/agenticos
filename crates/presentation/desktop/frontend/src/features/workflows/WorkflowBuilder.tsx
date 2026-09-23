@@ -36,6 +36,9 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
   const [steps, setSteps] = useState(initialSteps)
   const [selectedId, setSelectedId] = useState('s2')
   const [enabled, setEnabled] = useState(true)
+  const [simulation, setSimulation] = useState(false)
+  const [retryPolicy, setRetryPolicy] = useState<'Fail closed'|'Bounded retry'|'Resume from checkpoint'>('Fail closed')
+  const [variables, setVariables] = useState(['WORKSPACE','TASK_SCOPE','MODEL_PROFILE'])
 
   const selected = steps.find((step) => step.id === selectedId) ?? steps[0]
 
@@ -83,7 +86,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
           <div className="workflow-builder__toolbar-actions">
             <button className="studio-button" type="button" onClick={() => moveSelected(-1)}><Icon name="arrow-up" size={13} /> Up</button>
             <button className="studio-button" type="button" onClick={() => moveSelected(1)}><Icon name="arrow-down" size={13} /> Down</button>
-            <button className={enabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setEnabled((value) => !value)}>{enabled ? 'Pause' : 'Enable'}</button>
+            <button className={simulation ? 'studio-button studio-button--active' : 'studio-button'} type="button" aria-pressed={simulation} onClick={()=>setSimulation(v=>!v)}><Icon name="play" size={13}/> {simulation ? 'Simulation on' : 'Simulate'}</button><button className={enabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setEnabled((value) => !value)}>{enabled ? 'Pause' : 'Enable'}</button>
           </div>
         </div>
         <div className="workflow-builder__flow">
@@ -109,7 +112,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
         }}>{Object.entries(kindLabels).map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></label>
         <label className="workflow-field"><span>Step name</span><input defaultValue={selected.title} onChange={(event) => setSteps((current) => current.map((step) => step.id === selected.id ? { ...step, title: event.target.value } : step))} /></label>
         <label className="workflow-field"><span>Instruction</span><textarea defaultValue={selected.detail} onChange={(event) => setSteps((current) => current.map((step) => step.id === selected.id ? { ...step, detail: event.target.value } : step))} /></label>
-        <div className="workflow-inspector-group"><span>Runtime policy</span><div><span>Context</span><strong>Explicit</strong></div><div><span>Failure</span><strong>Fail closed</strong></div><div><span>Approval</span><strong>{selected.kind === 'approval' ? 'Required' : 'Policy based'}</strong></div></div>
+        <div className="workflow-inspector-group"><span>Runtime policy</span><div><span>Context</span><strong>Explicit</strong></div><div><span>Failure</span><select value={retryPolicy} onChange={e=>setRetryPolicy(e.target.value as typeof retryPolicy)}><option>Fail closed</option><option>Bounded retry</option><option>Resume from checkpoint</option></select></div><div><span>Approval</span><strong>{selected.kind === 'approval' ? 'Required' : 'Policy based'}</strong></div><div><span>Simulation</span><strong>{simulation ? 'Dry run enabled' : 'Execution path'}</strong></div></div><div className="workflow-variables"><div><span className="eyebrow">Runtime variables</span><strong>{variables.length} scoped variables</strong></div>{variables.map(variable=><button type="button" key={variable} onClick={()=>onAction('Workflow variable '+variable+' opened in preview')}><Icon name="code" size={11}/>{variable}</button>)}<button type="button" onClick={()=>{const next='VAR_'+String(variables.length+1);setVariables(v=>[...v,next]);onAction('Workflow variable added in preview')}}>+ Add variable</button></div>
         <div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction('Step test opened in preview')}><Icon name="play" size={13} /> Test step</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Workflow validation passed in preview')}><Icon name="check" size={13} /> Validate</button></div>
       </aside>
     </div>

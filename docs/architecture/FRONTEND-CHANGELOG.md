@@ -938,3 +938,10 @@ Verification status:
 
 - Added Collaboration & Review Center for findings, review threads, verification gates and human approval previews.
 - Added Design System Studio for reusable component states, visual tokens, density, focus and accessibility foundations.
+
+
+## Frontend Coverage Studio — 2026-09-24
+
+- Added a live structural inventory driven by the navigation registry.
+- Explicitly identifies App-shell, legacy StudioSurface and PlatformSurface ownership so no route appears missing just because it is not a dedicated conditional inside PlatformSurface.
+- Adds search, owner filters, per-surface runtime-boundary metadata and completion-contract inspection.

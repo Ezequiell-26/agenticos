@@ -37,6 +37,7 @@ const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) =
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
 const SessionReplayStudio = lazy(() => import('./SessionReplayStudio').then((module) => ({ default: module.SessionReplayStudio })))
 const EvidenceArtifactInspector = lazy(() => import('./EvidenceArtifactInspector').then((module) => ({ default: module.EvidenceArtifactInspector })))
+const FrontendCoverageStudio = lazy(() => import('./FrontendCoverageStudio').then((module) => ({ default: module.FrontendCoverageStudio })))
 const CollaborationReviewCenter = lazy(() => import('./CollaborationReviewCenter').then((module) => ({ default: module.CollaborationReviewCenter })))
 const DesignSystemStudio = lazy(() => import('./DesignSystemStudio').then((module) => ({ default: module.DesignSystemStudio })))
 const AgentArena = lazy(() => import('./AgentArena').then((module) => ({ default: module.AgentArena })))
@@ -57,6 +58,7 @@ import './EvidenceArtifactInspector.css'
 import './EnvironmentLab.css'
 import './AgentArena.css'
 import './CollaborationReviewCenter.css'
+import './FrontendCoverageStudio.css'
 import './DesignSystemStudio.css'
 import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
@@ -149,6 +151,8 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
       <Toast message={notice} />
     </Shell>
   )
+
+  if (mode === 'frontend-coverage') return (<Shell><FrontendCoverageStudio onAction={notify} /><Toast message={notice} /></Shell>)
 
   if (mode === 'collaboration-review') return (<Shell><CollaborationReviewCenter onAction={notify} /><Toast message={notice} /></Shell>)
 

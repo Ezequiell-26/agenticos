@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 
-type ArtifactTab = 'Preview' | 'Metadata' | 'Versions' | 'Lineage'
+type ArtifactTab = 'Preview' | 'Metadata' | 'Versions' | 'Lineage' | 'Diff' | 'Integrity'
 
 const artifactData = [
   { name: 'agenticos-command-center.png', type: 'Image', size: '2.8 MB', status: 'Ready', run: 'RUN-042', version: 'v4', updated: '2m ago' },
@@ -60,6 +60,8 @@ export default function ArtifactViewer({ selected, onSelect, onAction }: { selec
           )}
           {tab === 'Metadata' && <div className="artifact-meta-grid"><Metric label="Type" value={current.type} /><Metric label="Size" value={current.size} /><Metric label="Run" value={current.run} /><Metric label="Version" value={current.version} /><Metric label="Status" value={current.status} /><Metric label="Updated" value={current.updated} /><Metric label="Checksum" value="sha256 · preview" /><Metric label="Source" value="Agent workspace" /></div>}
           {tab === 'Versions' && <div className="artifact-version-list">{['v4 · current · 2m ago','v3 · previous · 12m ago','v2 · archived · 31m ago'].map((version, index) => <button key={version} type="button" onClick={() => onAction('Artifact ' + version.split(' · ')[0] + ' opened in preview')}><span>{version.split(' · ')[0]}</span><div><strong>{version.split(' · ')[1]}</strong><small>{version.split(' · ')[2]}</small></div><Icon name={index === 0 ? 'check' : 'chevron-right'} size={13} /></button>)}</div>}
+          {tab === 'Diff' && <div className="artifact-diff"><div><span className="eyebrow">Version comparison</span><strong>{current.version} → previous</strong><small>12 changed lines · 2 metadata changes · no secret material</small></div><pre>{'+ added evidence reference\n- draft-only status\n+ verified handoff marker'}</pre><button className="studio-button studio-button--active" type="button" onClick={()=>onAction('Artifact diff review opened in preview')}>Review diff</button></div>}
+          {tab === 'Integrity' && <div className="artifact-integrity"><div><span>Checksum</span><strong>sha256 · verified preview</strong></div><div><span>Source run</span><strong>{current.run}</strong></div><div><span>Provenance</span><strong>Run → Agent step → Artifact → Delivery</strong></div><div><span>Policy</span><strong>Workspace-scoped</strong></div><div><span>Retention</span><strong>30 days · preview</strong></div><div><span>Trust</span><strong>Pending runtime attestation</strong></div></div>}
           {tab === 'Lineage' && <div className="artifact-lineage"><div><span>Source run</span><strong>{current.run}</strong></div><div className="lineage-arrow">→</div><div><span>Agent step</span><strong>Prepare handoff</strong></div><div className="lineage-arrow">→</div><div><span>Artifact</span><strong>{current.version}</strong></div><div className="lineage-arrow">→</div><div><span>Delivery</span><strong>Ready for handoff</strong></div></div>}
         </div>
       </div>

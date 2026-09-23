@@ -645,3 +645,9 @@ No credentials or transport behavior were introduced.
 Moved the detailed Context and Runs surfaces into dedicated feature components. Context Inspector now exposes explicit source selection, budget and compaction controls; Run Timeline adds run filtering plus Timeline / Tools / Changes inspection.
 
 The dispatcher components now route into these feature boundaries instead of carrying the detailed surface state themselves. No backend behavior was introduced.
+
+### 2026-09-24 — MCP Manager
+
+Created `features/mcp/McpManager.tsx` and routed the existing MCP navigation surface through it. Added server search, tool/resource inspection, auth readiness, masked secret state and policy controls with responsive styling.
+
+The feature is presentation-only and introduces no runtime transport or credential handling.

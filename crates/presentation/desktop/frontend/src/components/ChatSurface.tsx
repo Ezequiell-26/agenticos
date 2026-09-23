@@ -20,6 +20,15 @@ const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
 const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
+const promptHistoryKey = 'agenticos.prompt-history.v1'
+
+function readPromptHistory(): string[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(promptHistoryKey) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 5) : []
+  } catch { return [] }
+}
+
 const slashCommands = [
   ['/plan', 'Create a step-by-step plan without editing.'],
   ['/review', 'Review the current workspace for issues.'],
@@ -69,7 +78,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
-  const [promptHistory, setPromptHistory] = useState<string[]>([])
+  const [promptHistory, setPromptHistory] = useState<string[]>(() => readPromptHistory())
   const [toolsOpen, setToolsOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [webAccess, setWebAccess] = useState(false)
@@ -81,6 +90,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const sessionMenuRef = useRef<HTMLDivElement>(null)
+  const promptHistoryRef = useRef<HTMLDivElement>(null)
   const [promptHistoryOpen, setPromptHistoryOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -101,6 +111,10 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [draft, sessionId])
 
   useEffect(() => {
+    try { window.localStorage.setItem(promptHistoryKey, JSON.stringify(promptHistory.slice(0, 5))) } catch { /* optional prompt history persistence */ }
+  }, [promptHistory])
+
+  useEffect(() => {
     if (!sessionMenuOpen) return
     const onPointerDown = (event: PointerEvent) => {
       if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
@@ -115,6 +129,22 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [sessionMenuOpen])
+
+  useEffect(() => {
+    if (!promptHistoryOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!promptHistoryRef.current?.contains(event.target as Node)) setPromptHistoryOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPromptHistoryOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [promptHistoryOpen])
 
   useEffect(() => {
     if (!notice) return
@@ -245,7 +275,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       </header>
 
       {advancedOpen && (
-        <div className="chat-control-stack">
+        <div className="chat-control-stack" id="agent-advanced-controls">
           <AgentModeStrip mode={agentMode} onAction={setNotice} onChange={setAgentMode} />
         <div className="chat-control-bar">
           <label><span>Agent</span><select value={agent} onChange={(event) => setAgent(event.target.value)}>{agents.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -305,7 +335,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           {slashOpen && <div className="slash-command-menu" id="slash-command-results" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description], index) => <button id={'slash-option-' + index} type="button" key={command} role="option" aria-selected={index === slashSelectedIndex} className={index === slashSelectedIndex ? 'slash-command--active' : ''} onMouseEnter={() => setSlashSelectedIndex(index)} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
-            <div className="composer-tools">
+            <div className="composer-tools" id="composer-tools-menu" role="menu">
               <button type="button" className={webAccess ? 'composer-tool--active' : ''} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={13} /> Web access</button>
               <button type="button" className={deepMode ? 'composer-tool--active' : ''} onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={13} /> Deep reasoning</button>
               <button type="button" className={codeMode ? 'composer-tool--active' : ''} onClick={() => setCodeMode((value) => !value)}><Icon name="code" size={13} /> Code mode</button>
@@ -319,7 +349,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" aria-label="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
               <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" aria-label="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
-              <div className="prompt-history-wrap">
+              <div className="prompt-history-wrap" ref={promptHistoryRef}>
                 <button className={`composer-icon ${promptHistoryOpen ? 'composer-icon--active' : ''}`} type="button" title="Recent prompts" aria-label="Recent prompts" aria-expanded={promptHistoryOpen} onClick={() => setPromptHistoryOpen((value) => !value)} disabled={promptHistory.length === 0}><Icon name="history" size={15} /></button>
                 {promptHistoryOpen && promptHistory.length > 0 && (
                   <div className="prompt-history-menu" role="menu" aria-label="Recent prompts">
@@ -329,8 +359,8 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
                 )}
               </div>
               <button className="composer-icon" type="button" title="Clear composer" aria-label="Clear composer" onClick={clearComposer}><Icon name="x" size={15} /></button>
-              <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
-              <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
+              <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" aria-expanded={toolsOpen} aria-controls="composer-tools-menu" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
+              <button className="composer-icon" type="button" title="Agent controls" aria-expanded={advancedOpen} aria-controls="agent-advanced-controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
               <span className="context-chip"><Icon name="folder" size={12} /> {contextScope}</span>
               <span className="context-chip"><Icon name="code" size={12} /> {tokenEstimate.toLocaleString()} est. tokens</span>
               <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>

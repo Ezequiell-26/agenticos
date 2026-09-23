@@ -28,6 +28,10 @@ const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module)
 const PromptLab = lazy(() => import('./PromptLab').then((module) => ({ default: module.PromptLab })))
 const AgentControlPlane = lazy(() => import('./AgentControlPlane').then((module) => ({ default: module.AgentControlPlane })))
 const RunControlCenter = lazy(() => import('./RunControlCenter'))
+const MemoryStudio = lazy(() => import('./MemoryStudio'))
+const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
+const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
+
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -81,6 +85,30 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'memory') return (
+    <Shell>
+      {renderHeader('Persistent context', 'Memory Studio', 'Inspect semantic, episodic and workspace memory with provenance, retention and conflict policies.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <MemoryStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'tools') return (
+    <Shell>
+      {renderHeader('Capability governance', 'Tool Policy Studio', 'Define tool profiles, scopes, risk levels, approvals and fail-closed execution boundaries.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <ToolPolicyStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'workflows') return (
+    <Shell>
+      {renderHeader('Agent orchestration', 'Workflow Studio', 'Compose bounded graphs with agents, subagents, conditions, parallel branches, human gates and recovery.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <WorkflowStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'approvals') return (
     <ApprovalCenter onAction={notify} />

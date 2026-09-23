@@ -772,3 +772,11 @@ Verification status:
 - Unverified: fresh TypeScript/Vite production build, GitHub Actions completion, browser/Tauri visual verification and accessibility audit.
 - Rollback: revert this feature branch/PR to its main base; no history rewrite or destructive deletion.
 - Next step: run fresh frontend verification, then continue the remaining UX/accessibility hardening pass.
+
+## 2026-09-24 — Memory, Tool Policy and Workflow control surfaces
+- Added MemoryStudio for semantic/episodic/workspace memory inspection, provenance, TTL, importance, conflict resolution and write safeguards.
+- Added ToolPolicyStudio for tool registry, operation/risk/scope policies, approval requirements, profiles and fail-closed preview behavior.
+- Added WorkflowStudio for graph-based orchestration, agent/subagent nodes, conditions, parallel branches, human gates, bounded retries and checkpoint recovery previews.
+- Exposed memory, tools and workflows as lazy platform modes.
+- Kept all three surfaces presentation-only; no runtime, credential, filesystem or network mutation was introduced.
+- Verification pending: fresh TypeScript/Vite build, browser/Tauri visual QA and accessibility audit.

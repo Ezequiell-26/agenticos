@@ -36,7 +36,9 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [tab, setTab] = useState<ProviderTab>('Overview')
   const [selected, setSelected] = useState(providers[0].name)
   const [query, setQuery] = useState('')
-  const [compare, setCompare] = useState<string[]>([])\n  const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])\n  const [maskMetadata, setMaskMetadata] = useState(true)
+  const [compare, setCompare] = useState<string[]>([])
+  const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])
+  const [maskMetadata, setMaskMetadata] = useState(true)
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])

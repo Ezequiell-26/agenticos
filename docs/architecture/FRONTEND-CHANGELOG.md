@@ -879,3 +879,11 @@ Verification status:
 - Preserved the frontend/backend boundary: React remains transport-oriented and does not own credentials or provider logic.
 - Verification status: implementation/source inspection completed; fresh Rust workspace build, tests, desktop launch and live provider request remain unobserved until CI or local execution produces evidence.
 - Next backend slice: multi-provider registry/routing, durable run commands, tool policy enforcement, events/checkpoints and streaming.
+
+
+## Knowledge Studio — 2026-09-24
+
+- Added a dedicated Knowledge Studio frontend surface for source indexing, memory governance, retrieval controls and provenance.
+- Added source freshness/chunk metadata, hybrid retrieval/reranking controls, memory write safeguards and citation previews.
+- Added responsive layout and lazy-loaded platform routing.
+- All ingestion/retrieval actions remain presentation-only until connected to the backend knowledge runtime.

@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import ContextInspector from '../context/ContextInspector'
 import McpManager from '../mcp/McpManager'
+import HookManager from '../hooks/HookManager'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -282,8 +283,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'hooks') return (
     <Shell>
-      {renderHeader('Lifecycle control', 'Hooks & Policies', 'Event-driven middleware for run, tool, error and handoff lifecycle boundaries.', <button className="studio-button" type="button" onClick={() => notify('Hook editor opened in preview')}><Icon name="plus" size={14} /> New hook</button>)}
-      <div className="hook-layout"><div className="hook-list">{hooks.map(([name, detail, group, enabled]) => <button type="button" key={name} className={`hook-row ${selectedHook === name ? 'hook-row--active' : ''}`} onClick={() => setSelectedHook(name)}><div><strong>{name}</strong><span>{detail}</span></div><small>{group}</small><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div><Panel title={selectedHook}><div className="strategy-stack"><div><span>Order</span><strong>Deterministic</strong></div><div><span>Failure behavior</span><strong>Fail closed</strong></div><div><span>Context</span><strong>Explicit inputs</strong></div><div><span>Persistence</span><strong>Audit reference</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Hook trace opened in preview')}>Inspect trace</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Hook saved in preview')}><Icon name="check" size={14} /> Save hook</button></div></Panel></div>
+      <HookManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

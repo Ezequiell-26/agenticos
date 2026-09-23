@@ -1,13 +1,17 @@
-import { navigationItems, platformModes, type RailMode } from './navigation'
+import { navigationItems, platformModes, primaryRailIds, type NavigationGroup, type RailMode } from './navigation'
 
 export type NavigationAuditIssueCode =
   | 'duplicate-navigation-id'
   | 'platform-mode-without-navigation-item'
+  | 'duplicate-navigation-label'
+  | 'navigation-item-without-detail'
 
 export interface NavigationAuditReport {
   ok: boolean
   navigationCount: number
   platformCount: number
+  primaryRailCount: number
+  groupCounts: Record<NavigationGroup, number>
   issues: NavigationAuditIssue[]
 }
 
@@ -20,6 +24,8 @@ export interface NavigationAuditReport {
 export function auditNavigationRegistry(): NavigationAuditReport {
   const issues: NavigationAuditIssue[] = []
   const ids = new Set<string>()
+  const labels = new Set<string>()
+  const groupCounts: Record<NavigationGroup, number> = { build: 0, operate: 0, configure: 0, integrate: 0 }
 
   for (const item of navigationItems) {
     if (ids.has(item.id)) {
@@ -30,6 +36,14 @@ export function auditNavigationRegistry(): NavigationAuditReport {
       })
     }
     ids.add(item.id)
+    groupCounts[item.group] += 1
+    if (labels.has(item.label)) {
+      issues.push({ code: 'duplicate-navigation-label', mode: item.id, detail: `Navigation label "${item.label}" is reused.` })
+    }
+    labels.add(item.label)
+    if (!item.detail.trim()) {
+      issues.push({ code: 'navigation-item-without-detail', mode: item.id, detail: 'Navigation item must provide a non-empty description.' })
+    }
   }
 
   const navigationIdSet = new Set<RailMode>(navigationItems.map((item) => item.id))
@@ -48,6 +62,8 @@ export function auditNavigationRegistry(): NavigationAuditReport {
     ok: issues.length === 0,
     navigationCount: navigationItems.length,
     platformCount: platformModes.size,
+    primaryRailCount: [...primaryRailIds].filter((id) => navigationIdSet.has(id)).length,
+    groupCounts,
     issues,
   }
 }

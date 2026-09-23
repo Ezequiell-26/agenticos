@@ -147,3 +147,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Quality Workbench | QualityWorkbench | diagnostics, tests, coverage, quick fixes and release evidence | preview |
+
+
+| Provider & Model Control Center | ModelControlCenter | providers, models, routing, fallback, capabilities and usage | preview |

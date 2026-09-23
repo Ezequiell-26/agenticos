@@ -961,3 +961,10 @@ Verification status:
 - Added a centralized quality workspace for diagnostics, tests, coverage, quick fixes and release evidence.
 - Added explicit distinction between source findings, test expectations and runtime verification evidence.
 - Connected the quality surface to the shared navigation taxonomy.
+
+
+## Provider & Model Control Center — 2026-09-24
+
+- Added a unified model plane for providers, model inventory, routing policy, fallback strategy, capabilities and usage guards.
+- Kept provider credentials and authoritative health outside presentation state.
+- Connected the model plane to the shared navigation taxonomy so routing and provider UX live together.

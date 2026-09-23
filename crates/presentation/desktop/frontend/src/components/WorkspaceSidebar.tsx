@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 
@@ -29,6 +29,23 @@ export default function WorkspaceSidebar({
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(null)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -108,13 +125,13 @@ export default function WorkspaceSidebar({
                   </div>
                 ) : (
                   <>
-                    <button className="conversation-main-button" onClick={() => onSelectConversation(conversation.id)} type="button">
+                    <button aria-current={activeConversation === conversation.id ? 'page' : undefined} className="conversation-main-button" onClick={() => onSelectConversation(conversation.id)} type="button">
                       <div className="conversation-row__icon"><Icon name={conversation.pinned ? 'archive' : 'message'} size={15} /></div>
                       <div className="conversation-row__copy"><strong>{conversation.title}</strong><span>{conversation.preview}</span></div>
                       <time>{new Date(conversation.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}</time>
                     </button>
-                    <div className="conversation-menu-wrap">
-                      <button className="conversation-menu-button" type="button" aria-label={'Actions for ' + conversation.title} title="Conversation actions" onClick={() => setMenuOpen((current) => current === conversation.id ? null : conversation.id)}>
+                    <div className="conversation-menu-wrap" ref={menuOpen === conversation.id ? menuRef : undefined}>
+                      <button className="conversation-menu-button" type="button" aria-label={'Actions for ' + conversation.title} aria-haspopup="menu" aria-expanded={menuOpen === conversation.id} title="Conversation actions" onClick={() => setMenuOpen((current) => current === conversation.id ? null : conversation.id)}>
                         <Icon name="more" size={13} />
                       </button>
                       {menuOpen === conversation.id && (

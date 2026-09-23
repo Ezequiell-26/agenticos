@@ -334,3 +334,9 @@ No credentials, network calls, runtime authorization, model transport or persist
 The Subagents workspace now routes through `features/subagents/SubagentBuilder.tsx`, while `SubagentFleet.tsx` is preserved as a compatibility dispatcher.
 
 The visual builder covers delegated task definition, context isolation, model/toolset selection, memory scope, handoff format, recursive delegation, workspace/network access, approval requirements, run state and handoff timeline. All state is local presentation state; runtime authorization and execution remain outside the frontend boundary.
+
+## Provider Account Center (2026-09-24)
+
+The Providers & Models surface now includes an Accounts tab for safe connection metadata: provider/account identity, authentication type, model count, quota preview, routing role, capability tags and connection/model refresh actions. Secrets are represented as masked/external metadata only.
+
+The presentation layer does not store or expose API keys, OAuth tokens or provider transport state. Runtime-owned provider contracts remain the future integration boundary.

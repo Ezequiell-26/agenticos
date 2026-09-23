@@ -9,7 +9,6 @@ use agenticos_providers::{
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread;
-use std::time::Duration;
 
 fn provider(id: &str, models: &[&str]) -> ProviderEntry {
     ProviderEntry {
@@ -314,6 +313,4 @@ async fn http_model_provider_executes_against_a_deterministic_local_provider() {
         .metadata
         .as_deref()
         .is_some_and(|value| value.contains("local-test")));
-
-    thread::sleep(Duration::from_millis(1));
 }

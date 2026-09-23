@@ -121,7 +121,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   ]
 
   return (
-    <div className="studio-shell developer-workspace-pro">
+    <div className="studio-shell developer-workspace-pro" data-ai-workspace="developer-command-center" data-design-mode={designModeEnabled ? "on" : "off"}>
       <header className="platform-header developer-workspace-pro__hero">
         <div>
           <span className="eyebrow">AI engineering command center</span>

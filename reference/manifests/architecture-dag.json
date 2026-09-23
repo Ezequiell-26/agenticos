@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "canonical_workspace": {
+    "layers": {
+      "domain": ["contracts", "brain"],
+      "application": ["agents", "execution", "scheduler", "workflows", "projects", "skills"],
+      "infrastructure": ["kernel", "runtime", "providers", "tools", "memory", "context", "protocols", "source-forge", "observability", "evaluation", "security", "sandbox", "adapters", "artifacts", "plugins", "router", "mcp"],
+      "presentation": ["cli", "gateway", "desktop", "api-server"],
+      "utilities": ["concurrency-stress", "crypto", "math", "time-utils", "http-client", "async-utils", "cache", "compression", "rate-limiting", "vector-database", "websockets", "file-watcher", "text-search", "event-bus", "state-management", "configuration", "streaming", "notifications", "resilience"]
+    }
+  },
+  "rules": {
+    "one_manifest_per_crate": true,
+    "one_first_party_owner_per_package": true,
+    "domain_cannot_depend_on_application": true,
+    "domain_cannot_depend_on_infrastructure": true,
+    "domain_cannot_depend_on_presentation": true,
+    "application_cannot_depend_on_presentation": true,
+    "utilities_cannot_depend_on_domain": true,
+    "utilities_cannot_depend_on_application": true,
+    "utilities_cannot_depend_on_presentation": true,
+    "kernel_cannot_depend_on_concrete_providers_tools_mcp_or_surfaces": true
+  },
+  "workspace_inheritance_policy": {
+    "required_when_declared": [
+      "tokio", "serde", "serde_json", "thiserror", "anyhow", "async-trait",
+      "tracing", "tracing-subscriber", "futures", "uuid", "chrono", "reqwest",
+      "sqlx", "semver", "serde_yaml", "dotenv", "rand", "async-stream", "clap"
+    ]
+  },
+  "external_source_policy": {
+    "mit_or_compatible_license_required_for_canonical_code": true,
+    "provenance_required": true,
+    "accepted_modes": ["vendored", "adapter", "isolated-process", "knowledge-source"]
+  }
+}

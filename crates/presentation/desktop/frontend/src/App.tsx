@@ -114,6 +114,7 @@ function App() {
   }
 
   function handleRun() {
+    setMode('runs')
     setRunning(true)
     setStatus((current) => ({ ...current, state: 'planning' }))
   }
@@ -153,7 +154,7 @@ function App() {
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (
-            <ChatSurface disabled={false} messages={messages} onSend={handleSend} onStop={handleStop} running={running} sessionId={sessionId} />
+            <ChatSurface disabled={false} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
           ) : (
             <WorkspaceOverview mode={mode} />
           )}

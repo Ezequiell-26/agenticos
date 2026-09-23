@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
-import Icon from './Icon'
+import Icon, { type IconName } from './Icon'
 
 interface CommandPaletteProps {
   open: boolean
@@ -15,7 +15,7 @@ interface Command {
   id: string
   label: string
   detail: string
-  icon: Parameters<typeof Icon>[0]['name']
+  icon: IconName
   action: () => void
 }
 
@@ -45,21 +45,26 @@ export default function CommandPalette({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
-  const commands = useMemo<Command[]>(() => [
-    { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', action: onCreateConversation },
-    { id: 'chat', label: 'Open Command Center', detail: 'Return to the primary agent workspace', icon: 'message', action: () => onSelectMode('chat') },
-    { id: 'files', label: 'Open workspace explorer', detail: 'Files and project context', icon: 'folder', action: () => onSelectMode('files') },
-    { id: 'runs', label: 'Open agent runs', detail: 'Execution and verification timeline', icon: 'activity', action: () => onSelectMode('runs') },
-    { id: 'providers', label: 'Open providers', detail: 'Models, quotas and runtime health', icon: 'bot', action: () => onSelectMode('providers') },
-    { id: 'settings', label: 'Open settings', detail: 'Runtime and workspace controls', icon: 'settings', action: () => onSelectMode('settings') },
-    ...conversations.slice(0, 5).map((conversation) => ({
+  const commands = useMemo<Command[]>(() => {
+    const navigation: Command[] = [
+      { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', action: onCreateConversation },
+      { id: 'chat', label: 'Open Command Center', detail: 'Return to the primary agent workspace', icon: 'message', action: () => onSelectMode('chat') },
+      { id: 'files', label: 'Open workspace explorer', detail: 'Files and project context', icon: 'folder', action: () => onSelectMode('files') },
+      { id: 'runs', label: 'Open agent runs', detail: 'Execution and verification timeline', icon: 'activity', action: () => onSelectMode('runs') },
+      { id: 'providers', label: 'Open providers', detail: 'Models, quotas and runtime health', icon: 'bot', action: () => onSelectMode('providers') },
+      { id: 'settings', label: 'Open settings', detail: 'Runtime and workspace controls', icon: 'settings', action: () => onSelectMode('settings') },
+    ]
+
+    const conversationCommands: Command[] = conversations.slice(0, 5).map((conversation) => ({
       id: `conversation-${conversation.id}`,
       label: conversation.title,
       detail: conversation.preview,
       icon: conversation.pinned ? 'archive' : 'history',
       action: () => onSelectConversation(conversation.id),
-    })),
-  ], [conversations, onCreateConversation, onSelectConversation, onSelectMode])
+    }))
+
+    return [...navigation, ...conversationCommands]
+  }, [conversations, onCreateConversation, onSelectConversation, onSelectMode])
 
   const filtered = commands.filter((command) => {
     const value = `${command.label} ${command.detail}`.toLowerCase()
@@ -87,7 +92,7 @@ export default function CommandPalette({
             </button>
           ))}
         </div>
-        <div className="palette-footer"><span>Navigate with keyboard</span><kbd>ESC</kbd><span>Close</span></div>
+        <div className="palette-footer"><span>Press</span><kbd>ESC</kbd><span>to close</span></div>
       </section>
     </div>
   )

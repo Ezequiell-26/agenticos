@@ -9,6 +9,7 @@ interface ChatSurfaceProps {
   running: boolean
   onSend: (message: string) => Promise<void>
   onStop: () => void
+  onOpenPalette: () => void
 }
 
 function MessageBubble({ message }: { message: ChatMessage }) {
@@ -40,6 +41,7 @@ export default function ChatSurface({
   running,
   onSend,
   onStop,
+  onOpenPalette,
 }: ChatSurfaceProps) {
   const [draft, setDraft] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -72,8 +74,8 @@ export default function ChatSurface({
           <div><strong>Agent session</strong><span>Private runtime workspace</span></div>
         </div>
         <div className="chat-header__actions">
-          <button className="soft-button" type="button" title="Conversation history"><Icon name="history" size={15} />History</button>
-          <button className="icon-button" type="button" title="More options" aria-label="More options"><Icon name="more" size={17} /></button>
+          <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
+          <button className="icon-button" aria-label="Open command palette" title="Open command palette" onClick={onOpenPalette} type="button"><Icon name="command" size={17} /></button>
         </div>
       </header>
 
@@ -96,7 +98,7 @@ export default function ChatSurface({
             {running && (
               <div className="message-row">
                 <div className="message-avatar"><Icon name="bot" size={15} /></div>
-                <div className="message-bubble message-bubble--typing"><span /><span /><span /></div>
+                <div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div>
               </div>
             )}
           </div>
@@ -117,10 +119,7 @@ export default function ChatSurface({
             value={draft}
           />
           <div className="composer-toolbar">
-            <div className="composer-actions">
-              <button className="composer-icon" type="button" title="Attach file" aria-label="Attach file"><Icon name="paperclip" size={16} /></button>
-              <span className="composer-hint">Enter to send · Shift+Enter for newline</span>
-            </div>
+            <span className="composer-hint">Enter to send · Shift+Enter for newline</span>
             {running ? (
               <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button>
             ) : (

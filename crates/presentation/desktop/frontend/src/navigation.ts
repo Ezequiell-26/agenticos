@@ -84,7 +84,7 @@ export const navigationItems: NavigationItem[] = [
 
 export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'mcp' | 'security'>
 
-export const platformModes = new Set<PlatformMode>([
+export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
   'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'mcp', 'security',
 ])

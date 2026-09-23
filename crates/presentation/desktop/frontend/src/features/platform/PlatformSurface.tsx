@@ -32,6 +32,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   const [selectedEvaluation, setSelectedEvaluation] = useState(evaluationSuites[0][0])
   const [notificationsRead, setNotificationsRead] = useState(() => new Set(notifications.filter((item) => item[4]).map((item) => item[0])))
   const [wakeEnabled, setWakeEnabled] = useState(true)
+  const [selectedTask, setSelectedTask] = useState(tasks[0][0])
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -83,6 +84,15 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
     <Shell>
       {renderHeader('Hands-free control', 'Wake Word & Presence', 'Manage microphone readiness, hotword activation and voice-session behavior as explicit local UI state.', <button className={wakeEnabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setWakeEnabled((value) => !value)}><Icon name="mic" size={14} /> {wakeEnabled ? 'Wake enabled' : 'Wake disabled'}</button>)}
       <div className="wake-layout"><Panel title="Presence"><div className="wake-orb"><Icon name="mic" size={28} /></div><strong className="wake-title">{wakeEnabled ? 'Listening for activation' : 'Microphone idle'}</strong><span className="wake-description">Local UI preview only. No microphone stream is opened by this component.</span><div className="platform-grid platform-grid--2"><Metric label="Wake phrase" value="Hey AgentiCOS" /><Metric label="Sensitivity" value="Balanced" /><Metric label="Device" value="Default microphone" /><Metric label="Mode" value={wakeEnabled ? 'Standby' : 'Off'} /></div></Panel><Panel title="Voice handoff"><div className="strategy-stack"><div><span>Activation</span><strong>Wake word → session</strong></div><div><span>Response</span><strong>Text + TTS preview</strong></div><div><span>Privacy</span><strong>On-device gate preferred</strong></div><div><span>Fallback</span><strong>Push-to-talk</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Voice preferences opened in preview')}>Voice settings</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Push-to-talk staged in preview')}>Test push-to-talk</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+
+  if (mode === 'tasks') return (
+    <Shell>
+      {renderHeader('Execution planning', 'Tasks', 'Track objectives, dependencies, owners and handoff state before they become agent runs.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New task opened in preview')}><Icon name="plus" size={14} /> New task</button>)}
+      <div className="task-layout"><div className="task-list">{tasks.map(([id, title, owner, state, priority]) => <button type="button" key={id} className={`task-row ${selectedTask === id ? 'task-row--active' : ''}`} onClick={() => setSelectedTask(id)}><span className="task-priority">{priority}</span><div><strong>{title}</strong><span>{id} · {owner}</span></div><span className={state === 'In progress' ? 'state-pill state-pill--active' : state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedTask}><div className="task-detail"><span className="eyebrow">Objective</span><h2>Complete frontend architecture</h2><p>Keep UI capabilities explicit, split by domain and preserve the runtime boundary.</p></div><div className="task-dependencies"><div><strong>Dependencies</strong><span>TASK-103 · review findings</span><span>TASK-102 · verification plan</span></div><div><strong>Handoff</strong><span>→ Builder</span><span>→ Reviewer</span></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Task plan opened in preview')}>Open plan</button><button className="studio-button" type="button" onClick={() => notify('Task run preview opened')}>Preview run</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Task checkpoint staged in preview')}><Icon name="git" size={14} /> Checkpoint</button></div></Panel></div>
       <Toast message={notice} />
     </Shell>
   )

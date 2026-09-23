@@ -3,6 +3,7 @@ export type RailMode =
   | 'files'
   | 'terminal'
   | 'runs'
+  | 'tasks'
   | 'approvals'
   | 'observability'
   | 'agents'
@@ -75,6 +76,7 @@ export const navigationItems: NavigationItem[] = [
   { id: 'rules', label: 'Rules & Instructions', detail: 'Project rules, AGENTS.md and agent identity', icon: 'shield', group: 'build' },
 
   { id: 'runs', label: 'Runs', detail: 'Execution lifecycle, verification and recovery', icon: 'activity', group: 'operate' },
+  { id: 'tasks', label: 'Tasks', detail: 'Objectives, dependencies, status and agent handoffs', icon: 'check', group: 'operate' },
   { id: 'background', label: 'Background Agents', detail: 'Long-running isolated agent tasks and worktrees', icon: 'cloud', group: 'operate' },
   { id: 'reviews', label: 'Reviews & Bugbot', detail: 'Diff review, findings and automated checks', icon: 'check', group: 'operate' },
   { id: 'checkpoints', label: 'Checkpoints', detail: 'Snapshots, diffs, rollback and restore previews', icon: 'git', group: 'operate' },

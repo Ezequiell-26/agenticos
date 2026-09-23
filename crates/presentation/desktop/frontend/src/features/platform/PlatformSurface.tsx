@@ -8,6 +8,7 @@ import EnvironmentBuilder from '../environments/EnvironmentBuilder'
 import AutomationBuilder from '../automations/AutomationBuilder'
 import CredentialManager from '../credentials/CredentialManager'
 import ChannelGatewayManager from '../channels/ChannelGatewayManager'
+import ResearchWorkbench from '../research/ResearchWorkbench'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -411,8 +412,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'research') return (
     <Shell>
-      {renderHeader('Research operations', 'Research', 'Batch-oriented research, source collection, trajectory inspection and export.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New research batch opened in preview')}><Icon name="plus" size={14} /> New batch</button>)}
-      <div className="research-layout"><div className="batch-list">{researchBatches.map(([id, title, inputs, state]) => <button type="button" key={id} className={`batch-row ${researchBatch === id ? 'batch-row--active' : ''}`} onClick={() => setResearchBatch(id)}><div><strong>{title}</strong><span>{id} · {inputs}</span></div><span className={`state-pill state-pill--${state === 'Complete' ? 'completed' : 'pending'}`}>{state}</span></button>)}</div><Panel title={researchBatch}><Metric label="Inputs" value="24" /><Metric label="Parallel workers" value="6" /><Metric label="Sources collected" value="128" /><Metric label="Trajectories" value="24" /><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Source browser opened in preview')}>Inspect sources</button><button className="studio-button" type="button" onClick={() => notify('Trajectory viewer opened in preview')}>View trajectories</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Research export prepared in preview')}><Icon name="arrow-down" size={14} /> Export</button></div></Panel></div>
+      <ResearchWorkbench onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

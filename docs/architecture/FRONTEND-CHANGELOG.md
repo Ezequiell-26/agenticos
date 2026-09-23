@@ -282,3 +282,13 @@ The current repository already contains an early desktop UI from existing commit
 - Verification state: current CI is the authoritative gate; browser/Tauri/accessibility verification remains separate.
 - Rollback point: f4e66960c5fcf728b9f4cae59802e4f8c905fe2e.
 - Next step: validate the complete capability surface in CI and then browser-level smoke coverage.
+
+
+## Capability catalog completion pass — 2026-09-24
+
+- Scope: frontend-only completion of the Cursor/Hermes capability catalog.
+- Navigation registry now exposes 59 user-facing surfaces across Build, Operate, Configure and Integrate.
+- Added/remapped visual domains: Canvas, Commands, Subagents, Cloud Agents, Computer Use, Operations Center, Kanban, Marketplace, Home Assistant and Social Search.
+- Expanded the gateway presentation to include the major Hermes messaging/client families plus Cursor remote clients and engineering triggers.
+- Expanded Cursor skill coverage and Hermes tool catalog coverage, while keeping external credentials and runtime execution behind explicit backend boundaries.
+- Verification state: latest GitHub Actions run remains authoritative; no claim of full runtime parity or live external integration is made by the frontend.

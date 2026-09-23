@@ -106,14 +106,32 @@ export default function GlobalSearch({
       <section className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
         <div className="global-search__head">
           <Icon name="search" size={17} />
-          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anything in AgentiCOS…" aria-label="Search anything in AgentiCOS" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search anything in AgentiCOS…"
+            aria-label="Search anything in AgentiCOS"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="global-search-results"
+            aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${filtered[selectedIndex].id}` : undefined}
+          />
           <span className="global-search__hint">Quick search</span>
           <button type="button" className="icon-button" aria-label="Close search" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div className="global-search__meta">{filtered.length} result{filtered.length === 1 ? '' : 's'} · navigation, settings, sessions and platform surfaces</div>
-        <div className="global-search__list">
+        <div id="global-search-results" className="global-search__list" role="listbox" aria-label="Search results">
           {filtered.map((item, index) => (
-            <button type="button" key={item.id} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
+            <button
+  type="button"
+  id={`global-search-result-${item.id}`}
+  role="option"
+  aria-selected={index === selectedIndex}
+  key={item.id}
+  className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'}
+  onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}
+>
               <span className="global-search__icon"><Icon name={item.icon} size={14} /></span>
               <span><strong>{item.label}</strong><small>{item.detail}</small></span>
               <em>{item.group}</em>

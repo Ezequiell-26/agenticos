@@ -3,14 +3,6 @@ import { navigationItems, platformModes, type PlatformMode, type RailMode } from
 export type NavigationAuditIssueCode =
   | 'duplicate-navigation-id'
   | 'platform-mode-without-navigation-item'
-  | 'navigation-platform-mode-without-platform-registry'
-  | 'platform-registry-entry-outside-platform-type'
-
-export interface NavigationAuditIssue {
-  code: NavigationAuditIssueCode
-  mode: string
-  detail: string
-}
 
 export interface NavigationAuditReport {
   ok: boolean
@@ -48,18 +40,6 @@ export function auditNavigationRegistry(): NavigationAuditReport {
         code: 'platform-mode-without-navigation-item',
         mode,
         detail: 'A platform mode is registered without navigation metadata.',
-      })
-    }
-  }
-
-  const platformRegistry = new Set<PlatformMode>(platformModes as ReadonlySet<PlatformMode>)
-
-  for (const item of navigationItems) {
-    if (platformRegistry.has(item.id as PlatformMode) && !platformModes.has(item.id)) {
-      issues.push({
-        code: 'navigation-platform-mode-without-platform-registry',
-        mode: item.id,
-        detail: 'A platform-capable navigation item is not registered in platformModes.',
       })
     }
   }

@@ -1,6 +1,6 @@
 //! Resource Governor - Resource management and optimization
 
-use super::{BrainError};
+use super::BrainError;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 

@@ -894,3 +894,10 @@ Verification status:
 - Added a developer-focused workspace for file exploration, symbol navigation, search, code preview, safe edit actions, diff review and checkpoints.
 - Added branch/working-tree/context status indicators and responsive layout.
 - Kept all code-edit, terminal and Git actions presentation-only until their backend capabilities are connected.
+
+
+## Git Control Center — 2026-09-24
+
+- Added repository control surface for working-tree changes, branches, commit history, checkpoints and safe Git actions.
+- Added protected-branch, pre-commit, approval and rollback indicators.
+- All Git mutations remain presentation-only until connected to the repository backend.

@@ -435,3 +435,6 @@ function StudioHeader({ eyebrow, title, subtitle, actions }: { eyebrow: string; 
   return <header className="studio-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{subtitle}</p></div><div className="studio-header__actions">{actions}</div></header>
 }
 
+function Toast({ message }: { message: string }) {
+  return <div className="studio-toast"><Icon name="check" size={14} /><span>{message}</span></div>
+}

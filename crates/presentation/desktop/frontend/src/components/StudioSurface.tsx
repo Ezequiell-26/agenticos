@@ -345,6 +345,88 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     </section>
   )
 
+  if (mode === 'approvals') {
+    const approvalItems = [
+      ['APP-018', 'Write frontend architecture docs', 'Low risk', 'Pending'],
+      ['APP-017', 'Modify provider routing', 'High risk', 'Pending'],
+      ['APP-016', 'Run terminal command', 'Critical', 'Approved'],
+      ['APP-015', 'Create generated artifact', 'Medium risk', 'Approved'],
+    ]
+    return (
+      <section className="studio-surface">
+        <StudioHeader eyebrow="Control plane" title="Approvals" subtitle="Review queued actions, policy context and execution permissions before they become real runtime operations." actions={<button className="studio-button" type="button" onClick={() => notify('Approval queue refreshed')}><Icon name="history" size={14} /> Refresh</button>} />
+        <div className="approval-layout">
+          <div className="approval-list">
+            {approvalItems.map(([id, title, risk, state]) => (
+              <button type="button" key={id} className={`approval-row ${state === 'Pending' ? 'approval-row--pending' : ''}`} onClick={() => notify(`${id} selected`)}>
+                <div className="approval-icon"><Icon name={risk === 'Critical' ? 'shield' : 'tool'} size={15} /></div>
+                <div className="approval-copy"><strong>{title}</strong><span>{id} · {risk}</span></div>
+                <span className={`state-pill state-pill--${state.toLowerCase()}`}>{state}</span>
+              </button>
+            ))}
+          </div>
+          <div className="approval-detail">
+            <div className="detail-header"><div><span className="eyebrow">Request preview</span><h2>APP-018</h2></div><span className="state-pill state-pill--active">Pending</span></div>
+            <div className="approval-summary"><span>Requested action</span><strong>Write frontend architecture docs</strong><small>Changes 2 files · estimated 1 mutation · no secrets</small></div>
+            <div className="approval-context"><div><span>Scope</span><strong>Frontend docs</strong></div><div><span>Risk</span><strong>Low</strong></div><div><span>Rollback</span><strong>Available</strong></div></div>
+            <div className="approval-actions"><button className="studio-button" type="button" onClick={() => notify('Request rejected in preview')}>Reject</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Request approved in preview')}><Icon name="check" size={14} /> Approve</button></div>
+          </div>
+        </div>
+        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+      </section>
+    )
+  }
+
+  if (mode === 'observability') {
+    const events = ['tool.call · filesystem · 42 ms', 'provider.route · primary · 118 ms', 'run.step · verification · queued', 'memory.read · project · 8 ms', 'guardrail.check · passed · 2 ms']
+    return (
+      <section className="studio-surface">
+        <StudioHeader eyebrow="Telemetry" title="Observability" subtitle="Runtime-inspired dashboards for latency, events, token flow and agent activity." actions={<><button className="studio-button" type="button" onClick={() => notify('Telemetry window paused in preview')}><Icon name="stop" size={14} /> Pause</button><button className="studio-button" type="button" onClick={() => notify('Telemetry refreshed')}><Icon name="history" size={14} /> Refresh</button></>} />
+        <div className="telemetry-grid">
+          <div className="telemetry-card"><span>Requests / min</span><strong>48</strong><div className="spark-bars">{[35,52,41,69,58,84,66,77,55,91,73,88].map((height, index) => <i style={{ height: `${height}%` }} key={index} />)}</div></div>
+          <div className="telemetry-card"><span>P95 latency</span><strong>428 ms</strong><div className="latency-track"><span style={{ width:'64%' }} /></div><small>vs. 612 ms previous window</small></div>
+          <div className="telemetry-card"><span>Token flow</span><strong>92.4k</strong><div className="telemetry-mini-row"><span>Input</span><strong>61.8k</strong></div><div className="telemetry-mini-row"><span>Output</span><strong>30.6k</strong></div></div>
+          <div className="telemetry-card"><span>Tool success</span><strong>98.7%</strong><div className="latency-track"><span style={{ width:'98.7%' }} /></div><small>18 calls · 0 retries</small></div>
+        </div>
+        <div className="event-stream"><div className="surface-block__heading"><span>Event stream</span><span className="mono-text">live preview</span></div>{events.map((event, index) => <div className="event-row" key={event}><span className="event-index">0{index+1}</span><span>{event}</span><span className="status-dot status-dot--live" /></div>)}</div>
+        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+      </section>
+    )
+  }
+
+  if (mode === 'agents') {
+    const profiles = [
+      ['Builder', 'Implementation specialist', 'Qwen3 Coder', '18 tools', true],
+      ['Reviewer', 'Quality and regression analyst', 'GPT-OSS 120B', '11 tools', false],
+      ['Researcher', 'Evidence and source specialist', 'DeepSeek', '9 tools', false],
+    ]
+    return (
+      <section className="studio-surface">
+        <StudioHeader eyebrow="Agent control" title="Agent Profiles" subtitle="Design multiple specialist agents with distinct models, capabilities, behavior and operating modes." actions={<button className="studio-button" type="button" onClick={() => notify('New agent profile opened in preview')}><Icon name="plus" size={14} /> New agent</button>} />
+        <div className="agent-profile-grid">{profiles.map(([name, detail, model, toolsCount, active]) => <button type="button" key={name} className={`agent-profile-card ${active ? 'agent-profile-card--active' : ''}`} onClick={() => notify(`${name} selected`)}><div className="agent-profile-card__top"><div className="agent-profile-avatar"><Icon name="bot" size={18} /></div><div><strong>{name}</strong><span>{detail}</span></div><span className={`status-dot ${active ? 'status-dot--live' : 'status-dot--offline'}`} /></div><div className="agent-profile-card__meta"><span>{model}</span><span>{toolsCount}</span></div><div className="agent-profile-card__tags"><small>Planning</small><small>Tools</small><small>Verification</small></div></button>)}</div>
+        <div className="profile-editor"><div><span className="eyebrow">Active profile</span><h2>Builder</h2><p>Focused implementation mode with guarded mutations and verification-first execution.</p></div><div className="profile-controls"><label>Creativity <input type="range" min="0" max="100" defaultValue="35" /></label><label>Tool budget <input type="range" min="0" max="100" defaultValue="72" /></label><label>Autonomy <input type="range" min="0" max="100" defaultValue="58" /></label></div></div>
+      </section>
+    )
+  }
+
+  if (mode === 'prompts') {
+    const promptGroups = [
+      ['Code review', 'Analyze a diff for correctness, regressions and missing tests.', 'Engineering'],
+      ['Architecture', 'Design the next implementation slice with no rework.', 'Planning'],
+      ['Research', 'Compare options using evidence and explicit uncertainty.', 'Research'],
+      ['UI critique', 'Audit a screen for hierarchy, density and interaction quality.', 'Design'],
+      ['Debug', 'Find the narrowest reproducible cause and propose a verified fix.', 'Engineering'],
+      ['Release', 'Prepare a release checklist with build, test and rollback evidence.', 'DevOps'],
+    ]
+    return (
+      <section className="studio-surface">
+        <StudioHeader eyebrow="Prompt engineering" title="Prompt Lab" subtitle="Reusable prompts, variables, versioning and preview execution." actions={<button className="studio-button" type="button" onClick={() => notify('New prompt created in preview')}><Icon name="plus" size={14} /> New prompt</button>} />
+        <div className="prompt-layout"><div className="prompt-list">{promptGroups.map(([name, text, category]) => <button type="button" className="prompt-row" key={name} onClick={() => notify(`${name} loaded`)}><div className="prompt-row__icon"><Icon name="spark" size={14} /></div><div><strong>{name}</strong><span>{text}</span></div><small>{category}</small></button>)}</div><div className="prompt-editor"><div className="prompt-toolbar"><span className="mono-text">prompt://code-review/v4</span><span className="state-pill state-pill--completed">Saved</span></div><textarea defaultValue={'Review the current change set.\\n\\nGoals:\\n- identify regressions\\n- verify tests\\n- produce actionable fixes\\n\\nContext: {{workspace}}\\nDiff: {{diff}}'} aria-label="Prompt editor" /><div className="variable-row"><span>{{workspace}}</span><span>{{diff}}</span><span>{{constraints}}</span><button className="studio-button" type="button" onClick={() => notify('Prompt preview executed')}>Preview</button></div></div></div>
+        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+      </section>
+    )
+  }
+
   return (
     <section className={`studio-surface ${settings.compact ? 'studio-surface--compact' : ''} `}>
       <StudioHeader eyebrow="Control plane" title="Settings" subtitle="Appearance, behavior, editor, terminal, agent and safety preferences." actions={<button className="studio-button" type="button" onClick={() => notify('Settings restored to preview defaults')}><Icon name="history" size={14} /> Reset</button>} />

@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/brain", "crates/contracts", "crates/kernel", "crates/runtime", "crates/execution",
-  "crates/scheduler", "crates/providers", "crates/router", "crates/tools",
-  "crates/sandbox", "crates/context", "crates/memory", "crates/skills",
-  "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
-  "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
-  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
-  "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto",
-  "crates/math", "crates/time-utils", "crates/http-client", "crates/async-utils",
-  "crates/cache", "crates/compression", "crates/rate-limiting", "crates/vector-database",
-  "crates/websockets", "crates/file-watcher", "crates/text-search", "crates/event-bus",
-  "crates/state-management", "crates/configuration", "crates/streaming", "crates/notifications"
+  "crates/domain/contracts", "crates/domain/brain",
+  "crates/application/execution", "crates/application/workflows", "crates/application/scheduler", "crates/application/agents",
+  "crates/infrastructure/kernel", "crates/infrastructure/runtime", "crates/infrastructure/providers", "crates/infrastructure/tools",
+  "crates/infrastructure/memory", "crates/infrastructure/protocols", "crates/infrastructure/sandbox", "crates/infrastructure/source-forge",
+  "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters",
+  "crates/presentation/cli", "crates/presentation/gateway", "crates/presentation/desktop", "crates/presentation/api-server",
+  "crates/utilities/concurrency-stress", "crates/utilities/crypto", "crates/utilities/math", "crates/utilities/time-utils",
+  "crates/utilities/http-client", "crates/utilities/async-utils", "crates/utilities/cache", "crates/utilities/compression",
+  "crates/utilities/rate-limiting", "crates/utilities/vector-database", "crates/utilities/websockets", "crates/utilities/file-watcher",
+  "crates/utilities/text-search", "crates/utilities/event-bus", "crates/utilities/state-management", "crates/utilities/configuration",
+  "crates/utilities/streaming", "crates/utilities/notifications"
 ]
 
 [workspace.package]

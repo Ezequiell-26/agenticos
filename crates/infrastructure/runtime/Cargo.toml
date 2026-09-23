@@ -1,0 +1,12 @@
+[package]
+name = "agenticos-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+agenticos-contracts = { path = "../../domain/contracts" }
+agenticos-kernel = { path = "../../infrastructure/kernel" }
+
+[lints]
+workspace = true

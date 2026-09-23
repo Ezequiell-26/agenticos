@@ -55,4 +55,6 @@ Architecture-affecting changes must pass:
 - clippy with warnings denied;
 - dependency duplicate inspection.
 
+The canonical layout has now been normalized on the architecture branch; implementation completeness remains governed by the active vertical-slice state manifest.
+
 A verified architecture slice does not imply that future capabilities are already implemented.

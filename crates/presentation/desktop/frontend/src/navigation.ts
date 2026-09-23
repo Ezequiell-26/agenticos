@@ -82,11 +82,13 @@ export const navigationItems: NavigationItem[] = [
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
-export const platformModes = new Set<RailMode>([
+export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'mcp' | 'security'>
+
+export const platformModes = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
   'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'mcp', 'security',
 ])
 
-export function isPlatformMode(mode: RailMode): mode is RailMode {
+export function isPlatformMode(mode: RailMode): mode is PlatformMode {
   return platformModes.has(mode)
 }

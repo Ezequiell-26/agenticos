@@ -1779,3 +1779,21 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .legacy-chat-interface__body textarea:focus { border-color: #444; }
 .legacy-chat-interface__response { padding: 14px; border: 1px solid #202020; border-radius: 10px; background: #0d0d0d; }
 .legacy-chat-interface__response p { margin: 8px 0 0; color: #aaa; white-space: pre-wrap; line-height: 1.6; }
+
+.app-shell--focus {
+  grid-template-columns: minmax(0, 1fr);
+}
+.app-shell--focus .activity-rail,
+.app-shell--focus .workspace-sidebar,
+.app-shell--focus .agent-panel {
+  display: none;
+}
+.app-shell--focus .workspace-main {
+  min-width: 0;
+}
+.app-shell--focus .workspace-main__content {
+  width: 100%;
+}
+.app-shell--focus .workspace-dock {
+  display: none;
+}

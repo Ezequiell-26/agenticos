@@ -1022,3 +1022,10 @@ Verification status:
 - Added one-click composer reset for draft text, attachments and command-menu state.
 - Kept all runtime execution, provider routing and credentials behind the existing service boundary.
 - No new navigation mode was introduced; the capability stays inside Command Center to avoid feature fragmentation.
+
+## 2026-09-24 — Focus mode for workspace shell
+
+- Added a temporary Focus/Zen mode to the application shell with `Ctrl+Shift+F` and `Escape` recovery.
+- Focus mode hides the activity rail, workspace sidebar, agent inspector and bottom dock so chat/editor surfaces can use the full window.
+- The mode is presentation-only and does not alter runtime state or persisted project data.
+- Added an explicit topbar control with `aria-pressed` state and keyboard shortcut labeling.

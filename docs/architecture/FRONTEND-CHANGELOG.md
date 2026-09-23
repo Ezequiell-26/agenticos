@@ -866,3 +866,16 @@ Verification status:
 - Unverified checks: fresh Vite production build, browser/Tauri verification, accessibility audit, and GitHub workflow result for this branch.
 - Rollback point: `05bad5894fbc8a14bf6a2c8cb9292c64c0480a80`.
 - Next step: open the architecture hardening PR and inspect its changed-file set before merge.
+
+
+## Backend runtime vertical slice — 2026-09-24
+
+- Scope: first real backend/runtime connection after the frontend control-plane work.
+- Added a Rust/Actix API runtime with persistent SQLite conversation memory and session-isolated `ReactAgent` instances.
+- Replaced placeholder chat behavior with a real OpenAI-compatible provider boundary. Missing credentials now produce an explicit configuration error instead of a fake response.
+- Added conversation history and FTS5 search endpoints plus structured health/status/tool endpoints.
+- Added a standalone API-server binary and embedded API-server startup in the Tauri desktop process.
+- Added `.env.example` documentation for endpoint, model, credential, persistence and bind configuration.
+- Preserved the frontend/backend boundary: React remains transport-oriented and does not own credentials or provider logic.
+- Verification status: implementation/source inspection completed; fresh Rust workspace build, tests, desktop launch and live provider request remain unobserved until CI or local execution produces evidence.
+- Next backend slice: multi-provider registry/routing, durable run commands, tool policy enforcement, events/checkpoints and streaming.

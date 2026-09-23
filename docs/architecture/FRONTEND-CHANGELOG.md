@@ -826,3 +826,12 @@ Verification status:
 - Unverified checks: GitHub Actions build result, browser/Tauri verification, accessibility audit.
 - Rollback point: branch base `main`; no history rewrite or destructive deletion.
 - Next step: merge the routing hardening PR only after the frontend verification workflow provides a fresh result.
+
+
+## 2026-09-24 — Frontend routing and surface-boundary hardening
+
+- Repaired the SurfaceErrorBoundary source block in `PlatformSurface.tsx`: literal escaped newline/quote sequences were normalized into valid TypeScript syntax.
+- Wrapped the lazy platform surface in the error boundary so render failures stay isolated and expose a retry action instead of taking down the workspace surface.
+- Added `approvals` and `observability` to `platformModes` so the dedicated Approval Center and Final Control Suite routes are reachable instead of falling through to the legacy StudioSurface.
+- Kept the frontend-only boundary intact: no runtime, provider, credential, network or execution integration was added.
+- Verification status: source-level audit completed; GitHub Actions build result for the resulting commit must still be observed before claiming production-build verification.

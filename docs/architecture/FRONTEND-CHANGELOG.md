@@ -457,3 +457,23 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: TypeScript/Vite production build, GitHub Actions, browser interaction, Tauri/Windows rendering and accessibility audit.
 - Rollback point: a72d7e332379694b15149492e0b16ae226438186.
 - Next step: validate the reorganized settings feature and preference bridge in CI and browser verification before merging.
+
+## Frontend customization architecture hardening — 2026-09-24
+
+- Scope: corrective pass after CI surfaced two strict TypeScript errors in the customization stack.
+- Fixed:
+  - aligned NavigationItem.icon with the complete shared IconName registry;
+  - initialized new profile metadata fields for every newly created profile.
+- Architecture documentation:
+  - documented the settings feature boundary and shared UI preference bridge in FRONTEND-ARCHITECTURE.md.
+- Modified:
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-ARCHITECTURE.md
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Verification evidence: CI run 793 completed its repository continuity/state/architecture/frontend contract checks successfully and failed only in the nested Vite TypeScript build on the two reported issues; both concrete causes were patched.
+- Unverified checks: new branch CI after the fixes, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: 4a25b5e48658184e2c6a849edc214da5e3803d66.
+- Next step: inspect the post-fix CI run and correct only any newly reported concrete failures.

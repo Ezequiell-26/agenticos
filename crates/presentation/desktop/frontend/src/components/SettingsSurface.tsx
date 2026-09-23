@@ -366,13 +366,10 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   useEffect(() => {
     document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
     document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
-    document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
-    document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
     document.documentElement.dataset.agenticosDensity = settings.density.toLowerCase()
     document.documentElement.style.setProperty('--agenticos-ui-scale', String(settings.uiScale / 100))
     document.documentElement.style.setProperty('--agenticos-font-size', settings.fontSize + 'px')
     applyUiLayoutPreferences(settings)
-  }, [settings])
   }, [settings])
 
   useEffect(() => {

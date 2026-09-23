@@ -407,3 +407,18 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: TypeScript/Vite build, GitHub Actions conclusion, browser visual verification, Windows/Tauri rendering, and live runtime persistence.
 - Rollback point: f1227d42b1dd18b89e4cf6c02b3ecde276dcabe3.
 - Next step: validate the settings studio through branch CI and browser-level verification before merging the combined frontend polish.
+
+## Hermes-style configuration hardening — 2026-09-24
+
+- Scope: corrective frontend pass on the new configuration studio.
+- User-visible effect: removed remaining static control rows so model aliases, fallback chains, custom endpoint, delegation model/provider/endpoint, clarification timeout, tool-call visibility, per-platform toolset presets, local STT model, automation policy/concurrency/notifications and approval mode are editable and represented in the portable snapshot.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: all previous settings domains, profile isolation model, theme personalization, raw JSON editor and secret-free export.
+- Verification evidence: source audit found zero remaining `onChange={() => undefined}` handlers in SettingsSurface and zero React namespace references after the type import correction.
+- Unverified checks: TypeScript/Vite build, GitHub Actions, browser/Tauri rendering and live runtime persistence.
+- Rollback point: 947645a1635dd8a05ac2a0896f52c78491af6545.
+- Next step: run the settings studio through CI and browser verification before merging the frontend branch.

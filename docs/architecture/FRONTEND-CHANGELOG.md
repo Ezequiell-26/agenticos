@@ -369,3 +369,41 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: branch CI/build, browser screenshot verification, Windows/Tauri rendering, full accessibility audit and live runtime integration.
 - Rollback point: 079762e7fab4ab6f3fea9cba3be914c40ec2399f.
 - Next step: run branch CI and inspect the real frontend build before merging the visual polish into main.
+
+## Hermes-style configuration studio — 2026-09-24
+
+- Scope: frontend-only configuration and personalization expansion; no runtime contracts, provider credentials or backend routes were introduced.
+- User-visible effect: replaced the previous small settings form with a full configuration studio covering core profile selection, model/provider routing, agent behavior, tools/toolsets, terminal/sandbox, context/memory, compression/cache, display/theme, voice/media, gateway/channels, MCP, automation, security/privacy and advanced/raw configuration.
+- Customization:
+  - named profile creation, switching, local deletion with explicit confirmation and active-profile metadata;
+  - persistent local preferences with unsaved/saved state;
+  - import/export of secret-free portable JSON configuration snapshots;
+  - raw JSON editor with apply/refresh controls;
+  - live document-level theme, accent, density, UI scale and font-size hooks;
+  - searchable configuration domains.
+- Hermes-inspired configuration domains represented from the current public configuration model:
+  - configuration precedence and environment placeholders;
+  - model/provider/default model and auxiliary model routing;
+  - reasoning effort, tool-use enforcement, iteration budget and delegation;
+  - per-platform toolset concepts;
+  - terminal backends and resource limits;
+  - persistent memory, user profile memory, session recall and context pressure;
+  - compression threshold, target ratio, protected recent messages and summary model;
+  - display progress levels, streaming, reasoning, cost, resume display and skins;
+  - TTS/STT/vision/web/media providers;
+  - API server, gateway streaming and messaging platforms;
+  - MCP discovery/server registry;
+  - cron, wake/presence and background-run preferences;
+  - checkpoints, PII/secrets redaction, network/shell/git guards and fail-closed mode.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: 59 registered navigation surfaces, Rust runtime, typed runtime/service boundary, visual icon system, local/preview semantics and sequential Step 25 implementation state.
+- Architecture decision: Settings remains a presentation-layer configuration editor. Secrets are intentionally excluded from React state and portable exports; eventual runtime persistence must be implemented through typed service contracts.
+- Verification evidence: source-level review confirms the settings domains, profile state, JSON import/export path, live personalization attributes and responsive layout are wired through the canonical SettingsSurface.
+- Unverified checks: TypeScript/Vite build, GitHub Actions conclusion, browser visual verification, Windows/Tauri rendering, and live runtime persistence.
+- Rollback point: f1227d42b1dd18b89e4cf6c02b3ecde276dcabe3.
+- Next step: validate the settings studio through branch CI and browser-level verification before merging the combined frontend polish.

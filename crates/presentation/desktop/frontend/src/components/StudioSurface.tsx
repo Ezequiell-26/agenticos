@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
+import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
 
@@ -427,17 +428,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     )
   }
 
-  return (
-    <section className={`studio-surface ${settings.compact ? 'studio-surface--compact' : ''} `}>
-      <StudioHeader eyebrow="Control plane" title="Settings" subtitle="Appearance, behavior, editor, terminal, agent and safety preferences." actions={<button className="studio-button" type="button" onClick={() => notify('Settings restored to preview defaults')}><Icon name="history" size={14} /> Reset</button>} />
-      <div className="settings-layout"><div className="settings-nav">{['General', 'Appearance', 'Editor', 'Terminal', 'Agent', 'Safety'].map((item, index) => <button className={index === 0 ? 'settings-nav__active' : ''} type="button" key={item}>{item}</button>)}</div><div className="settings-content">
-        <SettingGroup title="General"><SettingToggle label="Autosave" detail="Persist editor drafts locally while you work." enabled={settings.autosave} onChange={() => setSettings((current) => ({ ...current, autosave: !current.autosave }))} /><SettingToggle label="Notifications" detail="Show task completion and runtime alerts." enabled={settings.notifications} onChange={() => setSettings((current) => ({ ...current, notifications: !current.notifications }))} /></SettingGroup>
-        <SettingGroup title="Appearance"><SettingToggle label="Compact density" detail="Reduce spacing for dense engineering workflows." enabled={settings.compact} onChange={() => setSettings((current) => ({ ...current, compact: !current.compact }))} /><SettingToggle label="Motion" detail="Use subtle interface transitions and feedback." enabled={settings.motion} onChange={() => setSettings((current) => ({ ...current, motion: !current.motion }))} /></SettingGroup>
-        <SettingGroup title="Safety"><SettingToggle label="Fail-closed mode" detail="Keep destructive actions behind explicit confirmation." enabled={settings.safe} onChange={() => setSettings((current) => ({ ...current, safe: !current.safe }))} /><div className="safety-callout"><Icon name="shield" size={16} /><div><strong>Destructive actions require confirmation</strong><span>Visual state can be simulated; real permissions remain outside this presentation layer.</span></div></div></SettingGroup>
-      </div></div>
-      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
-    </section>
-  )
+  return <SettingsSurface notify={notify} />
+
 }
 
 function StudioHeader({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle: string; actions?: ReactNode }) {

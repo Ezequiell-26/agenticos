@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
-import type { PlatformMode } from '../../navigation'
+import type { PlatformMode, RailMode } from '../../navigation'
 const ContextInspector = lazy(() => import('../context/ContextInspector'))
 const McpManager = lazy(() => import('../mcp/McpManager'))
 const HookManager = lazy(() => import('../hooks/HookManager'))
@@ -78,10 +78,10 @@ import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
-import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
+function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
@@ -89,7 +89,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
   const [voiceMode, setVoiceMode] = useState(true)
-  const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
   const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
@@ -487,26 +486,9 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     </Shell>
   )
 
-  if (mode === 'plugins') return (
-    <Shell>
-      {renderHeader('Extension plane', 'Plugins', 'Discover packaged capabilities, inspect their tool surface and toggle local availability.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin browser opened in preview')}><Icon name="plus" size={14} /> Add plugin</button>)}
-      <div className="plugin-grid">{plugins.map(([name, detail, tools, category, enabled]) => <button type="button" key={name} className={`platform-card plugin-card ${enabled ? 'platform-card--active' : ''}`} onClick={() => setSelectedPlugin(name)}><div className="plugin-card__icon"><Icon name="tool" size={17} /></div><div><strong>{name}</strong><span>{detail}</span><small>{category} · {tools}</small></div><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div>
-      <Panel title={selectedPlugin}><div className="platform-grid platform-grid--2"><Metric label="Capability scope" value="Explicit" /><Metric label="Credentials" value="External" /><Metric label="Updates" value="Review" /><Metric label="Source trust" value="Pinned" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Plugin manifest opened in preview')}>Inspect manifest</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin toggle staged in preview')}>Enable / disable</button></div></Panel>
-      <Toast message={notice} />
-    </Shell>
-  )
-
   if (mode === 'hooks') return (
     <Shell>
       <HookManager onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'execution') return (
-    <Shell>
-      {renderHeader('Code execution', 'Execution Lab', 'Reproducible execution previews with language, environment, dependencies, stdin and captured output.', <button className="studio-button" type="button" onClick={() => notify('Execution sandbox reset in preview')}><Icon name="history" size={14} /> Reset</button>)}
-      <div className="execution-layout"><Panel title="Program"><div className="execution-toolbar"><span className="mono-text">sandbox · no live execution</span><select className="settings-input" defaultValue="Python"><option>Python</option><option>Node.js</option><option>Rust</option><option>Shell</option></select></div><textarea className="execution-editor" defaultValue={'print("AgentiCOS execution preview")\nfor i in range(3):\n    print(i)'} aria-label="Execution editor" /><div className="platform-actions"><button className="studio-button studio-button--active" type="button" onClick={() => notify('Execution staged in preview')}><Icon name="play" size={14} /> Run preview</button><button className="studio-button" type="button" onClick={() => notify('Dependencies configuration opened in preview')}>Dependencies</button></div></Panel><Panel title="Output"><pre className="execution-output">$ sandbox\nAgentiCOS execution preview\n0\n1\n2\n\nexit: 0 (preview)</pre><div className="callout"><Icon name="shield" size={14} /><span>Execution UI never runs code in the browser. A future runtime contract must provide the sandbox and policy boundary.</span></div></Panel></div>
       <Toast message={notice} />
     </Shell>
   )
@@ -678,7 +660,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { ha
   }
 }
 
-function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
+function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   return (
     <SurfaceErrorBoundary>
       <Suspense fallback={

@@ -63,3 +63,29 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: Windows/Tauri runtime, live backend availability, browser visual state, production CSP/Tauri permissions.
 - Rollback point: `3e9e9358f438c1e028eb350921ae072b86696083`.
 - Next step: run frontend typecheck/build and interactive browser verification for the Command Center branch.
+
+
+## Command Center follow-up — 2026-09-24
+
+- Authorized purpose: continue the premium frontend after merging the Command Center slice into main.
+- Commit/PR: PR #20 merged as 988cc8b3a3c18089a22367147e5239ad13f7b28; follow-up hardening commits were applied directly to main.
+- User-visible effect: added usable Files, Runs, Providers and Settings surfaces; persisted the last UI mode/session locally; added keyboard navigation to the command palette; exposed truthful runtime online/offline status; refined responsive provider layout and focus states.
+- Created:
+  - crates/presentation/desktop/frontend/src/components/FileExplorer.tsx;
+  - crates/presentation/desktop/frontend/src/components/ProviderDashboard.tsx;
+  - crates/presentation/desktop/frontend/src/components/RunTimeline.tsx.
+- Modified:
+  - crates/presentation/desktop/frontend/src/App.tsx;
+  - crates/presentation/desktop/frontend/src/components/WorkspaceOverview.tsx;
+  - crates/presentation/desktop/frontend/src/components/WorkspaceSidebar.tsx;
+  - crates/presentation/desktop/frontend/src/components/AgentPanel.tsx;
+  - crates/presentation/desktop/frontend/src/components/CommandPalette.tsx;
+  - crates/presentation/desktop/frontend/src/index.css;
+  - .github/workflows/ci.yml.
+- Deleted: none.
+- Preserved: existing legacy frontend components, runtime contracts, Rust runtime, provider implementation and historical evidence.
+- Architecture decision: UI persistence is limited to non-sensitive presentation state. Provider credentials, model discovery, telemetry and run execution remain runtime-owned. Preview surfaces are explicitly labeled until live contracts exist.
+- Verification evidence: GitHub accepted all direct main writes; frontend CI was strengthened to run nested npm ci and the real Vite production build.
+- Unverified checks: latest main CI result after these changes, browser visual verification, Windows/Tauri runtime verification, live backend integration for provider/run surfaces.
+- Rollback point: 988cc8b3a3c18089a22367147e5239ad13f7b28.
+- Next step: evaluate the latest main CI run and record evidence without advancing Step 25 verification state.

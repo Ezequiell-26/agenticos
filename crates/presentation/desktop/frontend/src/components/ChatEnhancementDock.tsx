@@ -40,7 +40,6 @@ const commands = [
   ['/browser', 'Open browser control'],
   ['/voice', 'Start voice workflow'],
   ['/gateway', 'Inspect messaging gateway'],
-  ['/compact', 'Compact the active context before continuing'],
   ['/run-everything', 'Configure automatic execution preview'],
 ]
 

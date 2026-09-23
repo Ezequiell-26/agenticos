@@ -335,3 +335,11 @@ The current repository already contains an early desktop UI from existing commit
 - Fixed Settings persistence typing by declaring the stored `defaultMode` preference alongside the other settings fields.
 - Fixed Subagent Fleet selection typing by deriving the selected ID from the immutable subagent registry instead of narrowing state to the first item.
 - Purpose: restore the nested Vite/TypeScript build after CI surfaced concrete type errors; no runtime transport or backend contracts changed.
+
+## 2026-09-24 — Frontend dead-surface cleanup
+
+- Removed five unreferenced legacy components: `AgentStatus`, `ConversationHistory`, `FileExplorer`, `ProviderDashboard` and `RunTimeline`.
+- Preserved `ChatInterface` because it remains a compatibility artifact required by the architecture verifier.
+- Preserved `ChatEnhancementDock` because `ChatSurface` still consumes it.
+- Removed the duplicate `/compact` command entry to avoid duplicate React list keys and conflicting command rows.
+- Purpose: keep one authoritative implementation per active product surface and prevent stale component copies from accumulating.

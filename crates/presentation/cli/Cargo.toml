@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
+agenticos-brain = { path = "../../domain/brain" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-execution = { path = "../../application/execution" }
 agenticos-providers = { path = "../../infrastructure/providers" }

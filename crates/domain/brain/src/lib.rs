@@ -17,6 +17,8 @@ pub mod resource_governor;
 pub mod knowledge_base;
 pub mod reasoning_engine;
 
+pub use capability_registry::{CapabilityRegistry, RegistryConfig, RegistryStats};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -92,7 +94,7 @@ pub struct Capability {
 }
 
 /// Capability status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum CapabilityStatus {
     Discovered,
     Validating,

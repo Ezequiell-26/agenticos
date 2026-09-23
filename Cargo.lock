@@ -243,6 +243,7 @@ dependencies = [
 name = "agenticos-cli"
 version = "0.1.0"
 dependencies = [
+ "agenticos-brain",
  "agenticos-contracts",
  "agenticos-execution",
  "agenticos-kernel",
@@ -307,6 +308,7 @@ dependencies = [
 name = "agenticos-kernel"
 version = "0.1.0"
 dependencies = [
+ "agenticos-brain",
  "agenticos-contracts",
  "agenticos-sandbox",
  "async-stream",

@@ -157,12 +157,14 @@ async fn main() -> Result<()> {
         agenticos_kernel::InMemoryConfig::default(),
     ));
     let capability_issuer = Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+    let capability_registry = Arc::new(agenticos_brain::CapabilityRegistry::default());
     let runtime = Arc::new(KernelRuntime::new(
         event_store,
         snapshot_store,
         logger,
         config,
         capability_issuer,
+        capability_registry,
     ));
 
     // Initialize feature flag store
@@ -418,7 +420,7 @@ async fn handle_chat_mode(_runtime: Arc<KernelRuntime>, _verbose: bool) -> Resul
 You optimize for truth, clarity, and usefulness over politeness theater.
 You use the ReAct pattern: Thought → Action → Observation → repeat."#;
 
-    let mut agent = ReactAgent::new(identity.to_string());
+    let agent = ReactAgent::new(identity.to_string());
 
     // Add skills to catalog with YAML frontmatter
     let git_skill_md = r#"---

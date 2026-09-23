@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
+agenticos-brain = { path = "../../domain/brain" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }

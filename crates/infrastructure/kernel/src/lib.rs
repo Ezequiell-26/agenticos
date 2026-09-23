@@ -450,6 +450,8 @@ pub struct KernelRuntime {
     pub config: Arc<RwLock<dyn ConfigLayer>>,
     /// Capability issuer.
     pub capability_issuer: Arc<dyn CapabilityIssuer>,
+    /// Brain capability registry for dynamic capability management.
+    pub capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
 }
 
 impl std::fmt::Debug for KernelRuntime {
@@ -461,6 +463,7 @@ impl std::fmt::Debug for KernelRuntime {
             .field("logger", &"<Logger>")
             .field("config", &"<ConfigLayer>")
             .field("capability_issuer", &"<CapabilityIssuer>")
+            .field("capability_registry", &"<CapabilityRegistry>")
             .finish()
     }
 }
@@ -473,6 +476,7 @@ impl KernelRuntime {
         logger: Arc<dyn Logger>,
         config: Arc<RwLock<dyn ConfigLayer>>,
         capability_issuer: Arc<dyn CapabilityIssuer>,
+        capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
     ) -> Self {
         Self {
             event_store,
@@ -481,6 +485,7 @@ impl KernelRuntime {
             logger,
             config,
             capability_issuer,
+            capability_registry,
         }
     }
 
@@ -495,6 +500,7 @@ impl KernelRuntime {
             Arc::new(InMemoryLogger::new(LogLevel::Info)),
             Arc::new(RwLock::new(InMemoryConfig::default())),
             Arc::new(InMemoryCapabilityIssuer::new()),
+            Arc::new(agenticos_brain::CapabilityRegistry::default()),
         )
     }
 

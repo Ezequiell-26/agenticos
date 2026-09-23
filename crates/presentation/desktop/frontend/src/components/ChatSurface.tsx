@@ -247,7 +247,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
         </div>
       )}
 
-      <div className="chat-content">
+      <div className="chat-content" aria-busy={running}>
         {messages.length === 0 ? (
           <div className="chat-empty">
             <div className="empty-orb"><Icon name="spark" size={22} /></div>
@@ -285,7 +285,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
       <footer className="composer-wrap">
         <div className="composer-shell">
-          {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description]) => <button type="button" key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
+          {slashOpen && <div className="slash-command-menu" id="slash-command-results" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description], index) => <button id={'slash-option-' + index} type="button" key={command} role="option" aria-selected={index === slashSelectedIndex} className={index === slashSelectedIndex ? 'slash-command--active' : ''} onMouseEnter={() => setSlashSelectedIndex(index)} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
             <div className="composer-tools">
@@ -297,7 +297,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             </div>
           )}
           <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <textarea ref={textareaRef} aria-label="Message AgentiCOS" aria-autocomplete={slashOpen ? 'list' : undefined} aria-controls={slashOpen ? 'slash-command-results' : undefined} aria-expanded={slashOpen || undefined} aria-activedescendant={slashOpen && slashMatches.length ? 'slash-option-' + slashSelectedIndex : undefined} className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" aria-label="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
@@ -322,7 +322,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             {running ? <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button> : <button className="send-button" disabled={!canSend} onClick={() => void submit()} type="button"><Icon name="send" size={15} />Send</button>}
           </div>
         </div>
-        {notice && <div className="composer-notice">{notice}</div>}
+        {notice && <div className="composer-notice" role="status" aria-live="polite">{notice}</div>}
       </footer>
       <AgentRunDrawer open={runDrawerOpen} running={running} onAction={setNotice} onClose={() => setRunDrawerOpen(false)} />
     </section>

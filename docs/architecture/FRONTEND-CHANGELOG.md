@@ -174,3 +174,16 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: final CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit and real backend contract integration for new surfaces.
 - Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
 - Next step: inspect the latest CI result and use browser-level verification on the new navigation and highest-value platform views before introducing live contracts.
+
+
+## Platform build hardening — 2026-09-24
+
+- Scope: repair and verification hardening after the Cursor + Hermes platform expansion.
+- Commit: `5f29373c3dd800c8deb60ee3b7163f646b762533`.
+- User-visible effect: completed the missing platform icon primitive, connected the chat enhancement dock import correctly, repaired the preview typing model for heterogeneous UI records, and removed a malformed serialized newline from the chat composer.
+- Modified: `ChatSurface.tsx`, `Icon.tsx`, `StudioSurface.tsx`, `PlatformSurface.tsx`, `navigation.ts`.
+- Architecture decision: preview data collections use explicit readonly tuple types where needed, and the platform type guard uses a readonly set over the complete RailMode domain.
+- Verification evidence: GitHub Actions run `#690` reports the **TypeScript/frontend build step as success**, including `npm run build --prefix crates/presentation/desktop/frontend`; Rust verification was still running when recorded.
+- Unverified checks: final overall CI conclusion, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
+- Next step: complete the final CI run and then perform browser-level verification for navigation and agent workspace flows.

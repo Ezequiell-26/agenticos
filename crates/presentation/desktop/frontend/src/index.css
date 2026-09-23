@@ -1158,3 +1158,36 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .permission-mini-list { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
 .permission-mini-list span { display:flex; justify-content:space-between; gap:5px; padding:7px; border:1px solid #1f1f1f; border-radius:6px; color:#5f5f5f; font-size:6px; }
 .permission-mini-list strong { color:#8e8e8e; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+.change-review-panel { position:absolute; inset:12px 12px 38px auto; z-index:115; width:min(760px,calc(100% - 24px)); display:grid; grid-template-rows:auto auto minmax(0,1fr) auto auto; overflow:hidden; border:1px solid #2a2a2a; border-radius:12px; background:#0b0b0b; box-shadow:0 22px 55px rgba(0,0,0,.48); }
+.change-review-panel__head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:13px; border-bottom:1px solid #202020; }
+.change-review-panel__head > div { display:flex; flex-direction:column; gap:4px; }
+.change-review-panel__head strong { color:#c2c2c2; font-size:10px; }
+.change-review-panel__head small { color:#555; font-size:7px; line-height:1.45; }
+.change-review-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:8px; border-bottom:1px solid #1d1d1d; }
+.change-review-summary > div { padding:7px; border:1px solid #1f1f1f; border-radius:7px; background:#101010; }
+.change-review-summary span { display:block; color:#555; font-size:6px; text-transform:uppercase; letter-spacing:.08em; }
+.change-review-summary strong { display:block; margin-top:4px; color:#aaa; font:11px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.change-review-body { display:grid; grid-template-columns:220px minmax(0,1fr); min-height:0; overflow:hidden; }
+.change-review-files,.change-review-hunks { min-height:0; overflow:auto; padding:9px; }
+.change-review-files { border-right:1px solid #1d1d1d; }
+.change-review-file { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px; border:1px solid transparent; border-radius:7px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.change-review-file:hover,.change-review-file--active { border-color:#252525; background:#141414; }
+.change-review-file > div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.change-review-file strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#999; font:7px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.change-review-file span,.change-review-file small { color:#555; font-size:6px; }
+.change-hunk { padding:9px; margin-bottom:6px; border:1px solid #202020; border-radius:8px; background:#101010; }
+.change-hunk__top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.change-hunk__top > div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.change-hunk__top strong { color:#aaa; font-size:8px; }
+.change-hunk__top span:not(.state-pill) { color:#555; font-size:6px; }
+.change-hunk p { margin:7px 0; color:#666; font-size:7px; line-height:1.45; }
+.change-hunk pre { overflow:auto; margin:0; padding:8px; border:1px solid #1c1c1c; border-radius:6px; background:#090909; color:#696969; font:7px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.change-hunk__actions { display:flex; justify-content:flex-end; gap:4px; padding-top:6px; }
+.change-comment { display:flex; align-items:flex-start; gap:6px; margin-top:6px; padding:7px; border:1px solid #232323; border-radius:6px; color:#777; font-size:6px; line-height:1.4; }
+.review-empty { padding:25px 10px; color:#555; text-align:center; font-size:7px; }
+.change-review-comment { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px; padding:8px; border-top:1px solid #1d1d1d; background:#0d0d0d; }
+.change-review-comment input { min-width:0; height:29px; padding:0 8px; border:1px solid #232323; border-radius:7px; outline:0; background:#101010; color:#aaa; font-size:7px; }
+.change-review-panel__foot { display:flex; gap:5px; padding:8px; border-top:1px solid #202020; }
+.change-review-panel__foot .studio-button { flex:1; justify-content:center; }
+@media (max-width:760px) { .change-review-panel { inset:8px; width:auto; } .change-review-body { grid-template-columns:1fr; } .change-review-files { max-height:150px; border-right:0; border-bottom:1px solid #1d1d1d; } }

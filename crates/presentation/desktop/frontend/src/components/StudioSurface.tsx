@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
+import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -138,6 +139,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   const [selectedFile, setSelectedFile] = useState(files[0].path)
   const [openTabs, setOpenTabs] = useState([files[0].path])
   const [showDiff, setShowDiff] = useState(false)
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false)
   const [editorValue, setEditorValue] = useState(codeByFile[files[0].label])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [selectedProvider, setSelectedProvider] = useState(providers[0].name)
@@ -215,6 +217,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
         <>
           <button className="studio-button" type="button" onClick={() => notify('New file dialog opened in preview')}><Icon name="plus" size={14} /> New file</button>
           <button className={`studio-button ${showDiff ? 'studio-button--active' : ''}`} type="button" onClick={() => setShowDiff((value) => !value)}><Icon name="git" size={14} /> Diff</button>
+          <button className={`studio-button ${reviewPanelOpen ? 'studio-button--active' : ''}`} type="button" onClick={() => setReviewPanelOpen((value) => !value)}><Icon name="shield" size={14} /> Review</button>
           <button className="studio-button" type="button" onClick={() => notify('Saved to local preview state')}><Icon name="check" size={14} /> Save</button>
         </>
       } />

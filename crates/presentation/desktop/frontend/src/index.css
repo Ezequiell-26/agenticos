@@ -232,3 +232,10 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .provider-row { grid-template-columns:1fr 80px 70px 28px; }
   .provider-row > span:nth-of-type(2) { display:none; }
 }
+
+.palette-item--active, .palette-item:focus-visible { background:#171717; color:#eee; outline:0; }
+.palette-item--active .palette-item__icon, .palette-item:focus-visible .palette-item__icon { border-color:#383838; background:#151515; }
+@media (max-width: 900px) {
+  .provider-row { grid-template-columns:1fr 28px; }
+  .provider-row > span { display:none; }
+}

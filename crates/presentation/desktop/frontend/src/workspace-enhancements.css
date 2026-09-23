@@ -1156,3 +1156,21 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 @media (max-width: 520px) {
   .workspace-preset-picker { grid-template-columns:1fr; }
 }
+
+.global-search { width:min(860px, calc(100vw - 36px)); max-height:min(720px, calc(100vh - 80px)); overflow:hidden; border:1px solid #2a2a2a; border-radius:12px; background:#0d0d0d; box-shadow:0 20px 60px rgba(0,0,0,.45); }
+.global-search__head { min-height:50px; display:flex; align-items:center; gap:9px; padding:0 13px; border-bottom:1px solid #202020; color:#777; }
+.global-search__head input { flex:1; min-width:0; border:0; outline:0; background:transparent; color:#eee; font-size:13px; }
+.global-search__head kbd,.global-search__foot kbd { padding:2px 5px; border:1px solid #292929; border-radius:4px; background:#151515; color:#666; font-size:8px; }
+.global-search__meta { padding:7px 13px; border-bottom:1px solid #181818; color:#4f4f4f; font-size:8px; }
+.global-search__list { max-height:570px; overflow:auto; padding:5px; }
+.global-search__row { width:100%; display:grid; grid-template-columns:30px minmax(0,1fr) 90px 18px; gap:9px; align-items:center; padding:8px; border:1px solid transparent; border-radius:8px; background:transparent; color:#777; text-align:left; cursor:pointer; }
+.global-search__row:hover,.global-search__row--active { border-color:#272727; background:#151515; color:#e4e4e4; }
+.global-search__icon { width:26px; height:26px; display:grid; place-items:center; border:1px solid #252525; border-radius:7px; background:#111; color:#777; }
+.global-search__row > span:nth-child(2) { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.global-search__row strong { color:inherit; font-size:10px; font-weight:600; }
+.global-search__row small { color:#555; font-size:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.global-search__row em { color:#555; font-style:normal; font-size:7px; text-transform:uppercase; letter-spacing:.07em; text-align:right; }
+.global-search__row > svg { color:#555; }
+.global-search__empty { padding:34px 12px; color:#555; text-align:center; font-size:9px; }
+.global-search__foot { min-height:30px; display:flex; align-items:center; justify-content:flex-end; gap:13px; padding:0 12px; border-top:1px solid #1d1d1d; background:#101010; color:#555; font-size:8px; }
+.global-search__foot span { display:flex; align-items:center; gap:4px; }

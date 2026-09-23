@@ -329,11 +329,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
   }
 
   function save() {
-    setStore((current) => {
-      const next = saveSettingsStore(CONTROL_CENTER_STORAGE_KEY, current, `Saved ${current.activeScope} configuration`)
-      setSavedStore(next)
-      return next
-    })
+    const next = saveSettingsStore(CONTROL_CENTER_STORAGE_KEY, store, `Saved ${store.activeScope} configuration`)
+    setStore(next)
+    setSavedStore(next)
     setDirty(false)
     notify(`Saved ${state.scope} configuration`)
   }

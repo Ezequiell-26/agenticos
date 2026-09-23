@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "canonical_workspace": {
+    "root": "Cargo.toml",
+    "source_roots": ["crates/<domain>/"],
+    "forbidden_duplicate_roots": [
+      "crates/interface/",
+      "crates/runtime/sandbox/",
+      "crates/runtime/security/",
+      "crates/adapters/gateway/",
+      "crates/adapters/protocols/",
+      "crates/adapters/router/",
+      "crates/adapters/source-forge/",
+      "crates/kernel/agents/",
+      "crates/kernel/artifacts/",
+      "crates/kernel/evaluation/",
+      "crates/kernel/execution/",
+      "crates/kernel/memory/",
+      "crates/kernel/observability/",
+      "crates/kernel/plugins/",
+      "crates/kernel/projects/",
+      "crates/kernel/rate-limiting/",
+      "crates/kernel/resilience/",
+      "crates/kernel/scheduler/",
+      "crates/kernel/skills/",
+      "crates/kernel/workflows/"
+    ]
+  },
+  "critical_boundaries": [
+    {
+      "crate": "agenticos-contracts",
+      "allowed_first_party": []
+    },
+    {
+      "crate": "agenticos-brain",
+      "allowed_first_party": ["agenticos-contracts"]
+    },
+    {
+      "crate": "agenticos-adapters",
+      "allowed_first_party": ["agenticos-contracts"]
+    },
+    {
+      "crate": "agenticos-mcp",
+      "allowed_first_party": ["agenticos-contracts"]
+    },
+    {
+      "crate": "agenticos-kernel",
+      "forbidden_first_party": [
+        "agenticos-brain",
+        "agenticos-providers",
+        "agenticos-tools",
+        "agenticos-mcp",
+        "agenticos-runtime",
+        "agenticos-adapters",
+        "agenticos-cli",
+        "agenticos-desktop",
+        "agenticos-api-server"
+      ]
+    }
+  ],
+  "workspace_inheritance_policy": {
+    "required_for_core_external_dependencies": [
+      "async-trait",
+      "serde",
+      "serde_json",
+      "tokio",
+      "reqwest",
+      "chrono",
+      "uuid",
+      "thiserror",
+      "anyhow",
+      "tracing",
+      "tracing-subscriber",
+      "futures",
+      "sqlx"
+    ],
+    "core_crates": [
+      "agenticos-contracts",
+      "agenticos-brain",
+      "agenticos-adapters",
+      "agenticos-kernel",
+      "agenticos-runtime",
+      "agenticos-execution",
+      "agenticos-providers",
+      "agenticos-tools",
+      "agenticos-mcp",
+      "agenticos-memory",
+      "agenticos-context",
+      "agenticos-source-forge",
+      "agenticos-protocols",
+      "agenticos-observability"
+    ]
+  },
+  "duplicate_policy": "Each first-party crate/package name has exactly one canonical workspace path."
+}

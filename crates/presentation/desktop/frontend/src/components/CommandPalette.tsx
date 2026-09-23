@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
-import type { RailMode } from './ActivityRail'
+import type { RailMode } from '../navigation'
+import { navigationItems } from '../navigation'
 import Icon, { type IconName } from './Icon'
 
 interface CommandPaletteProps {
@@ -20,24 +21,6 @@ interface Command {
   shortcut?: string
   action: () => void
 }
-
-const navigation: Array<{ id: RailMode; label: string; detail: string; icon: IconName }> = [
-  { id: 'chat', label: 'Command Center', detail: 'AI workspace and agent chat', icon: 'message' },
-  { id: 'files', label: 'Files & Editor', detail: 'Explorer, tabs, code, diff and inspector', icon: 'folder' },
-  { id: 'terminal', label: 'Terminal', detail: 'Integrated shell and command history', icon: 'terminal' },
-  { id: 'runs', label: 'Runs', detail: 'Execution, verification and recovery', icon: 'activity' },
-  { id: 'approvals', label: 'Approvals', detail: 'Review pending actions and policy decisions', icon: 'shield' },
-  { id: 'observability', label: 'Observability', detail: 'Metrics, events, latency and agent telemetry', icon: 'activity' },
-  { id: 'agents', label: 'Agent Profiles', detail: 'Models, behavior and operating modes', icon: 'bot' },
-  { id: 'prompts', label: 'Prompt Lab', detail: 'Prompt library, templates and variables', icon: 'spark' },
-  { id: 'workflows', label: 'Workflows', detail: 'Reusable agent automations and schedules', icon: 'clock' },
-  { id: 'artifacts', label: 'Artifacts', detail: 'Outputs, previews and generated files', icon: 'archive' },
-  { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog and quotas', icon: 'bot' },
-  { id: 'skills', label: 'Skills', detail: 'Installable agent capabilities', icon: 'spark' },
-  { id: 'tools', label: 'Tools', detail: 'Tool registry and permissions', icon: 'tool' },
-  { id: 'memory', label: 'Memory', detail: 'Workspace, project and agent memory', icon: 'history' },
-  { id: 'settings', label: 'Settings', detail: 'Appearance, behavior and safety controls', icon: 'settings' },
-]
 
 export default function CommandPalette({
   open,

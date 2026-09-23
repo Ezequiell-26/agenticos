@@ -36,7 +36,7 @@ const buildIds: ReadonlySet<RailMode> = new Set([
 ])
 
 const intelligenceIds: ReadonlySet<RailMode> = new Set([
-  'providers', 'playground', 'routing', 'token-observatory', 'memory', 'knowledge', 'research', 'evaluations',
+  'providers', 'model-control', 'playground', 'routing', 'token-observatory', 'memory', 'knowledge', 'research', 'evaluations',
   'advanced-context', 'usage', 'learning', 'skills', 'tools', 'toolsets', 'subagents', 'teams', 'agent-arena',
 ])
 

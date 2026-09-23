@@ -352,3 +352,9 @@ Context Inspector covers source inclusion, pin/exclude state, token budget, comp
 `features/mcp/McpManager.tsx` now owns the detailed MCP presentation surface. It covers server discovery/selection, transport and capability metadata, tool inventory, resources/prompts, authentication readiness with masked secrets, and per-operation policy previews.
 
 `PlatformSurface.tsx` remains the dispatcher and no longer carries the MCP-specific selection state. Runtime authorization, credentials, transport and execution remain outside the presentation boundary.
+
+## Hook Manager Surface (2026-09-24)
+
+`features/hooks/HookManager.tsx` now owns the detailed Hooks & Policies presentation surface. It exposes lifecycle event selection, matchers, deterministic ordering, actions, failure strategy, timeout, dry-run mode, lifecycle trace and synthetic test fixtures.
+
+Authorization and middleware execution remain runtime-owned.

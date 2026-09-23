@@ -887,3 +887,10 @@ Verification status:
 - Added source freshness/chunk metadata, hybrid retrieval/reranking controls, memory write safeguards and citation previews.
 - Added responsive layout and lazy-loaded platform routing.
 - All ingestion/retrieval actions remain presentation-only until connected to the backend knowledge runtime.
+
+
+## Developer Workspace — 2026-09-24
+
+- Added a developer-focused workspace for file exploration, symbol navigation, search, code preview, safe edit actions, diff review and checkpoints.
+- Added branch/working-tree/context status indicators and responsive layout.
+- Kept all code-edit, terminal and Git actions presentation-only until their backend capabilities are connected.

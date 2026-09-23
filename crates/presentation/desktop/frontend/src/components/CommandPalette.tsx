@@ -41,6 +41,8 @@ export default function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const dialogRef = useRef<HTMLElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
 
   const commands = useMemo<Command[]>(() => [
     { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
@@ -71,11 +73,20 @@ export default function CommandPalette({
   }, [commands, query])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      restoreFocusRef.current?.focus?.()
+      restoreFocusRef.current = null
+      return
+    }
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setQuery('')
     setSelectedIndex(0)
     itemRefs.current = []
     window.requestAnimationFrame(() => inputRef.current?.focus())
+    return () => {
+      restoreFocusRef.current?.focus?.()
+      restoreFocusRef.current = null
+    }
   }, [open])
 
   useEffect(() => {
@@ -85,27 +96,28 @@ export default function CommandPalette({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Tab') {
+        const root = dialogRef.current
+        if (!root) return
+        const focusable = Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])'))
+        if (focusable.length === 0) return
+        const current = document.activeElement
+        const index = focusable.indexOf(current as HTMLElement)
+        const next = event.shiftKey
+          ? focusable[(index - 1 + focusable.length) % focusable.length]
+          : focusable[(index + 1) % focusable.length]
         event.preventDefault()
-        onClose()
+        next?.focus()
         return
       }
-      if (filtered.length === 0) return
-      if (event.key === 'ArrowDown') {
+      if (event.key === 'Escape') {
         event.preventDefault()
-        setSelectedIndex((index) => (index + 1) % filtered.length)
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
-      } else if (event.key === 'Enter') {
-        event.preventDefault()
-        filtered[selectedIndex]?.action()
         onClose()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [filtered, onClose, open, selectedIndex])
+  }, [onClose, open])
 
   useEffect(() => {
     itemRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' })
@@ -115,20 +127,45 @@ export default function CommandPalette({
 
   return (
     <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={dialogRef} className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
         <div className="palette-search">
           <Icon name="search" size={18} />
           <input
             ref={inputRef}
             aria-label="Search commands"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="command-palette-results"
+            aria-expanded="true"
+            aria-activedescendant={filtered.length ? 'command-palette-option-' + filtered[selectedIndex]?.id : undefined}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (!filtered.length) return
+              if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                setSelectedIndex((index) => (index + 1) % filtered.length)
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
+              } else if (event.key === 'Home') {
+                event.preventDefault()
+                setSelectedIndex(0)
+              } else if (event.key === 'End') {
+                event.preventDefault()
+                setSelectedIndex(filtered.length - 1)
+              } else if (event.key === 'Enter') {
+                event.preventDefault()
+                filtered[selectedIndex]?.action()
+                onClose()
+              }
+            }}
             placeholder="Search commands, views and conversations…"
             value={query}
           />
           <button aria-label="Close command palette" className="icon-button" onClick={onClose} type="button"><Icon name="x" size={16} /></button>
         </div>
 
-        <div className="palette-list" role="listbox" aria-label="Commands and conversations">
+        <div className="palette-list" id="command-palette-results" role="listbox" aria-label="Commands and conversations">
           {filtered.length === 0 ? (
             <div className="palette-empty">No command matches “{query}”.</div>
           ) : filtered.map((command, index) => (
@@ -138,8 +175,10 @@ export default function CommandPalette({
               key={command.id}
               onClick={() => { command.action(); onClose() }}
               ref={(element) => { itemRefs.current[index] = element }}
+              id={'command-palette-option-' + command.id}
               role="option"
               type="button"
+              onMouseEnter={() => setSelectedIndex(index)}
             >
               <span className="palette-item__icon"><Icon name={command.icon} size={16} /></span>
               <span className="palette-item__copy"><strong>{command.label}</strong><small>{command.detail}</small></span>

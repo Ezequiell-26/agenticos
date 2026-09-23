@@ -308,3 +308,22 @@ The optimized Control Center additionally exposes presentation controls for:
 
 These are high-level controls. The detailed Hermes-inspired catalog remains available through Deep Configuration so the frontend has one entry point without duplicating state models.
 
+
+
+## Agent Builder Surface (2026-09-24)
+
+The Agent Profiles route now uses `features/agents/AgentBuilder.tsx` as the primary presentation surface.
+
+The builder is intentionally frontend-only and keeps runtime integration outside the component. It exposes:
+- agent identity, role, description, status and scope;
+- provider, primary model, fallback model, reasoning, temperature and output budget;
+- system instructions, planning mode, verification mode, memory scope and context budget;
+- explicit capability selection for repository, search, Git, verification, web, browser, MCP, memory, subagents, terminal and artifacts;
+- toolset and MCP selection plus browser/terminal/subagent toggles;
+- per-capability Allow / Ask / Deny policy preview;
+- evaluation-suite selection, compatibility preview and Draft / Staged / Published release state;
+- local draft editing, search, create, duplicate, save and test actions.
+
+The surface is reachable from the existing `agents` / Agent Profiles navigation mode. `AgentStudio.tsx` remains preserved for compatibility with older references, while `StudioSurface.tsx` now dispatches Agent Profiles to the richer builder.
+
+No credentials, network calls, runtime authorization, model transport or persistence contract were introduced by this frontend slice.

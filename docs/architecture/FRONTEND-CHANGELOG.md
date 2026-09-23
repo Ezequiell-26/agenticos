@@ -753,3 +753,22 @@ Verification status:
   - `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx`;
   - `crates/presentation/desktop/frontend/src/navigation.ts`.
 - Verification: repository changes committed on branch `feature/frontend-prompt-lab-2026-09-24`; fresh TypeScript/build/browser verification is still pending.
+
+
+## Runtime Control Center — 2026-09-24
+
+- Authorized purpose: deepen the frontend execution control plane before backend integration.
+- Branch: `feature/frontend-runtime-control-2026-09-24`.
+- User-visible effect: added a dedicated Run Control Center for execution trees, node inspection, pause/resume/stop previews, retry budgets, checkpoints, handoffs and artifacts.
+- Created:
+  - `crates/presentation/desktop/frontend/src/features/platform/RunControlCenter.tsx`.
+- Modified:
+  - `crates/presentation/desktop/frontend/src/navigation.ts`;
+  - `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx`;
+  - `crates/presentation/desktop/frontend/src/workspace-enhancements.css`;
+  - this changelog and the operation journal.
+- Architecture decision: execution controls remain presentation-only. No transport, process control, checkpoint persistence, authorization enforcement or runtime mutation was introduced.
+- Verification evidence: static route/component/CSS wiring reviewed; Prompt Lab was also explicitly registered in `platformModes` to prevent navigation classification drift.
+- Unverified: fresh TypeScript/Vite production build, GitHub Actions completion, browser/Tauri visual verification and accessibility audit.
+- Rollback: revert this feature branch/PR to its main base; no history rewrite or destructive deletion.
+- Next step: run fresh frontend verification, then continue the remaining UX/accessibility hardening pass.

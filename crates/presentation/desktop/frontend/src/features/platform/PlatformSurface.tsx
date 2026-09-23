@@ -27,6 +27,7 @@ const ApprovalCenter = lazy(() => import('./ApprovalCenter').then((module) => ({
 const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module) => ({ default: module.PermissionsMatrix })))
 const PromptLab = lazy(() => import('./PromptLab').then((module) => ({ default: module.PromptLab })))
 const AgentControlPlane = lazy(() => import('./AgentControlPlane').then((module) => ({ default: module.AgentControlPlane })))
+const RunControlCenter = lazy(() => import('./RunControlCenter'))
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -97,6 +98,14 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
     <Shell>
       {renderHeader('Agent configuration', 'Agent Control Plane', 'Configure autonomy, policy, budgets, behavior and lifecycle without coupling the frontend to runtime execution.', <span className="state-pill state-pill--pending">Preview</span>)}
       <AgentControlPlane onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'execution') return (
+    <Shell>
+      {renderHeader('Execution control', 'Run Control Center', 'Control execution trees, recovery, checkpoints, handoffs and artifacts without coupling the presentation layer to runtime actions.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <RunControlCenter onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

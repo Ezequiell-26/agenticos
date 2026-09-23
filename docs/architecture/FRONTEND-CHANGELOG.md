@@ -227,3 +227,25 @@ The current repository already contains an early desktop UI from existing commit
 - Coverage: navigation registry contains 49 surfaces and all 49 currently resolve to a frontend surface.
 - Verification: PR checks for TypeScript and Rust are queued as of the branch HEAD; browser CLI verification is unavailable in this environment; Windows/Tauri rendering and live runtime integration remain unverified.
 - Runtime boundary: new interactions remain local/preview until a matching runtime contract is intentionally added.
+
+
+## Frontend interaction hardening — 2026-09-24
+
+- Scope: frontend-only navigation ergonomics, chat recovery and accessibility polish.
+- User-visible effect: reduced the activity rail to a compact primary set while retaining all 49 product surfaces in the launcher/command palette; the currently active secondary surface is still surfaced in the rail.
+- Reliability improvement: failed chat runtime requests now create a visible system message, reset the run state to failed, restore the unsent draft and keep the composer focused for retry.
+- Usability improvement: chat message history auto-scrolls to the latest activity without introducing a new runtime dependency.
+- Accessibility improvement: added explicit focus treatment for the compact rail and quick actions, plus reduced-motion handling.
+- Modified:
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/components/ActivityRail.tsx
+  - crates/presentation/desktop/frontend/src/App.tsx
+  - crates/presentation/desktop/frontend/src/components/ChatSurface.tsx
+  - crates/presentation/desktop/frontend/src/index.css
+  - docs/architecture/FRONTEND-PLATFORM-ARCHITECTURE.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Runtime boundary: no new backend routes, provider calls or runtime contracts were introduced.
+- Verification state: branch build/CI and browser verification remain separate gates; main CI run #728 was still in progress before this branch was created.
+- Rollback point: 8ad7f3864e308109da5ff9ef69c6f8689d03630b.
+- Next step: validate the branch with the repository CI and browser-level smoke checks before merging.

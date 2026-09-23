@@ -8,6 +8,8 @@ import ProviderStudio from '../features/providers/ProviderStudio'
 import MemoryStudio from '../features/memory/MemoryStudio'
 import SkillsStudio from '../features/skills/SkillsStudio'
 import ToolsStudio from '../features/tools/ToolsStudio'
+import AgentStudio from '../features/agents/AgentStudio'
+import PromptStudio from '../features/prompts/PromptStudio'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -346,38 +348,21 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     )
   }
 
-  if (mode === 'agents') {
-    const profiles: ReadonlyArray<[string, string, string, string, boolean]> = [
-      ['Builder', 'Implementation specialist', 'Qwen3 Coder', '18 tools', true],
-      ['Reviewer', 'Quality and regression analyst', 'GPT-OSS 120B', '11 tools', false],
-      ['Researcher', 'Evidence and source specialist', 'DeepSeek', '9 tools', false],
-    ]
-    return (
-      <section className="studio-surface">
-        <StudioHeader eyebrow="Agent control" title="Agent Profiles" subtitle="Design multiple specialist agents with distinct models, capabilities, behavior and operating modes." actions={<button className="studio-button" type="button" onClick={() => notify('New agent profile opened in preview')}><Icon name="plus" size={14} /> New agent</button>} />
-        <div className="agent-profile-grid">{profiles.map(([name, detail, model, toolsCount, active]) => <button type="button" key={name} className={`agent-profile-card ${active ? 'agent-profile-card--active' : ''}`} onClick={() => notify(`${name} selected`)}><div className="agent-profile-card__top"><div className="agent-profile-avatar"><Icon name="bot" size={18} /></div><div><strong>{name}</strong><span>{detail}</span></div><span className={`status-dot ${active ? 'status-dot--live' : 'status-dot--offline'}`} /></div><div className="agent-profile-card__meta"><span>{model}</span><span>{toolsCount}</span></div><div className="agent-profile-card__tags"><small>Planning</small><small>Tools</small><small>Verification</small></div></button>)}</div>
-        <div className="profile-editor"><div><span className="eyebrow">Active profile</span><h2>Builder</h2><p>Focused implementation mode with guarded mutations and verification-first execution.</p></div><div className="profile-controls"><label>Creativity <input type="range" min="0" max="100" defaultValue="35" /></label><label>Tool budget <input type="range" min="0" max="100" defaultValue="72" /></label><label>Autonomy <input type="range" min="0" max="100" defaultValue="58" /></label></div></div>
-      </section>
-    )
-  }
+  if (mode === 'agents') return (
+    <section className="studio-surface">
+      <StudioHeader eyebrow="Agent control" title="Agent Profiles" subtitle="Build specialist agents with explicit models, capabilities, tools, behavior and verification policy." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('New agent profile created in preview')}><Icon name="plus" size={14} /> New agent</button>} />
+      <AgentStudio onAction={notify} />
+      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+    </section>
+  )
 
-  if (mode === 'prompts') {
-    const promptGroups: ReadonlyArray<[string, string, string]> = [
-      ['Code review', 'Analyze a diff for correctness, regressions and missing tests.', 'Engineering'],
-      ['Architecture', 'Design the next implementation slice with no rework.', 'Planning'],
-      ['Research', 'Compare options using evidence and explicit uncertainty.', 'Research'],
-      ['UI critique', 'Audit a screen for hierarchy, density and interaction quality.', 'Design'],
-      ['Debug', 'Find the narrowest reproducible cause and propose a verified fix.', 'Engineering'],
-      ['Release', 'Prepare a release checklist with build, test and rollback evidence.', 'DevOps'],
-    ]
-    return (
-      <section className="studio-surface">
-        <StudioHeader eyebrow="Prompt engineering" title="Prompt Lab" subtitle="Reusable prompts, variables, versioning and preview execution." actions={<button className="studio-button" type="button" onClick={() => notify('New prompt created in preview')}><Icon name="plus" size={14} /> New prompt</button>} />
-        <div className="prompt-layout"><div className="prompt-list">{promptGroups.map(([name, text, category]) => <button type="button" className="prompt-row" key={name} onClick={() => notify(`${name} loaded`)}><div className="prompt-row__icon"><Icon name="spark" size={14} /></div><div><strong>{name}</strong><span>{text}</span></div><small>{category}</small></button>)}</div><div className="prompt-editor"><div className="prompt-toolbar"><span className="mono-text">prompt://code-review/v4</span><span className="state-pill state-pill--completed">Saved</span></div><textarea defaultValue={'Review the current change set.\\n\\nGoals:\\n- identify regressions\\n- verify tests\\n- produce actionable fixes\\n\\nContext: {{workspace}}\\nDiff: {{diff}}'} aria-label="Prompt editor" /><div className="variable-row"><span>{'{{workspace}}'}</span><span>{'{{diff}}'}</span><span>{'{{constraints}}'}</span><button className="studio-button" type="button" onClick={() => notify('Prompt preview executed')}>Preview</button></div></div></div>
-        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
-      </section>
-    )
-  }
+  if (mode === 'prompts') return (
+    <section className="studio-surface">
+      <StudioHeader eyebrow="Prompt engineering" title="Prompt Lab" subtitle="Version prompts, define variables, test outputs and keep reusable instruction packs organized." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('New prompt draft created in preview')}><Icon name="plus" size={14} /> New prompt</button>} />
+      <PromptStudio onAction={notify} />
+      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+    </section>
+  )
 
   return <SettingsSurface notify={notify} />
 

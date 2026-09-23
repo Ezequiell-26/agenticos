@@ -215,3 +215,15 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified: current final CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit and live backend integration.
 - Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
 - Next step: after the current CI gate, run browser-level visual verification against the desktop frontend before adding live runtime contracts.
+
+## Frontend UX phase — 2026-09-24
+
+- Branch: `frontend/ux-phase-next` (PR #21, target `main`).
+- Scope: presentation-only UX expansion; no new backend routes or runtime contracts.
+- Added: richer chat composer with slash commands, draft persistence, response format, reasoning/citation toggles and token budget indicator.
+- Added: dedicated Agent Profiles studio with behavior, tools, policy and evaluation views.
+- Added: dedicated Prompt Lab with library, variables, versions and test views.
+- Added: Security Center, Provider Studio, Browser Workspace, Memory Studio, Skills Studio, Tools Studio, Workflow Builder and Artifact Viewer to the broader product surface map.
+- Coverage: navigation registry contains 49 surfaces and all 49 currently resolve to a frontend surface.
+- Verification: PR checks for TypeScript and Rust are queued as of the branch HEAD; browser CLI verification is unavailable in this environment; Windows/Tauri rendering and live runtime integration remain unverified.
+- Runtime boundary: new interactions remain local/preview until a matching runtime contract is intentionally added.

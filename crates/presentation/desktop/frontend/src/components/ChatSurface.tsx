@@ -19,6 +19,8 @@ const models = ['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local 
 const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
+const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
+const slashCommands = [['/plan', 'Create a step-by-step plan without editing.'], ['/review', 'Review the current workspace for issues.'], ['/debug', 'Diagnose the current problem and isolate the cause.'], ['/research', 'Gather evidence before proposing a change.'], ['/compact', 'Summarize the current conversation into reusable context.']] as const
 
 function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {
   const isUser = message.role === 'user'
@@ -45,6 +47,12 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [effort, setEffort] = useState(effortLevels[2])
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.3')
+  const [responseFormat, setResponseFormat] = useState(responseFormats[0])
+  const [slashOpen, setSlashOpen] = useState(false)
+  const [contextBudget] = useState('72%')
+  const [showReasoning, setShowReasoning] = useState(true)
+  const [showCitations, setShowCitations] = useState(true)
+  const [promptHistory, setPromptHistory] = useState<string[]>([])
   const [toolsOpen, setToolsOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [webAccess, setWebAccess] = useState(false)
@@ -58,11 +66,18 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
+  const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
 
   useEffect(() => {
     textareaRef.current?.focus()
+    setSlashOpen(false)
+    try { const savedDraft = window.localStorage.getItem('agenticos.draft.' + sessionId); setDraft(savedDraft ?? '') } catch { setDraft('') }
   }, [sessionId])
+
+  useEffect(() => {
+    try { if (draft) window.localStorage.setItem('agenticos.draft.' + sessionId, draft); else window.localStorage.removeItem('agenticos.draft.' + sessionId) } catch { /* optional draft persistence */ }
+  }, [draft, sessionId])
 
   useEffect(() => {
     if (!notice) return
@@ -92,11 +107,20 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     const message = draft.trim()
     if (!message || disabled) return
     setDraft('')
+    setSlashOpen(false)
+    setPromptHistory((current) => [message, ...current.filter((item) => item !== message)].slice(0, 5))
     await onSend(message)
   }
 
   function useStarter(prompt: string) {
     setDraft(prompt)
+    setSlashOpen(false)
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  function useSlashCommand(command: string, description: string) {
+    setDraft(command + ' ' + description)
+    setSlashOpen(false)
     window.requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
@@ -134,10 +158,13 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <label><span>Effort</span><select value={effort} onChange={(event) => setEffort(event.target.value)}>{effortLevels.map((item) => <option key={item}>{item}</option>)}</select></label>
           <label><span>Max output</span><select value={maxTokens} onChange={(event) => setMaxTokens(event.target.value)}>{['2048','4096','8192','16384','32768'].map((item) => <option key={item}>{item}</option>)}</select></label>
           <label><span>Temperature</span><select value={temperature} onChange={(event) => setTemperature(event.target.value)}>{['0.0','0.2','0.3','0.5','0.7','1.0'].map((item) => <option key={item}>{item}</option>)}</select></label>
-          <button type="button" className={`control-pill ${deepMode ? 'control-pill--active' : ''}`} onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={12} /> Deep</button>
+          <label><span>Format</span><select value={responseFormat} onChange={(event) => setResponseFormat(event.target.value)}>{responseFormats.map((item) => <option key={item}>{item}</option>)}</select></label>
+          <button type="button" className={`control-pill ${deepMode ? 'control-pill--active' : ''}` onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={12} /> Deep</button>
           <button type="button" className={`control-pill ${codeMode ? 'control-pill--active' : ''}`} onClick={() => setCodeMode((value) => !value)}><Icon name="code" size={12} /> Code</button>
           <button type="button" className={`control-pill ${webAccess ? 'control-pill--active' : ''}`} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={12} /> Web</button>
           <button type="button" className={`control-pill ${rememberContext ? 'control-pill--active' : ''}`} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={12} /> Memory</button>
+          <button type="button" className={`control-pill ${showReasoning ? 'control-pill--active' : ''}`} onClick={() => setShowReasoning((value) => !value)}><Icon name="activity" size={12} /> Reasoning</button>
+          <button type="button" className={`control-pill ${showCitations ? 'control-pill--active' : ''}`} onClick={() => setShowCitations((value) => !value)}><Icon name="archive" size={12} /> Citations</button>
         </div>
         </div>
       )}
@@ -170,6 +197,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
       <footer className="composer-wrap">
         <div className="composer-shell">
+          {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description]) => <button type="button" key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`}>×</button></span>)}</div>}
           {toolsOpen && (
             <div className="composer-tools">
@@ -181,16 +209,18 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             </div>
           )}
           <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
+              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
               <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
               <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
               <span className="context-chip"><Icon name="folder" size={12} /> {contextScope}</span>
               <span className="context-chip"><Icon name="code" size={12} /> {tokenEstimate.toLocaleString()} est. tokens</span>
+              <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
             </div>
-            <span className="composer-hint">{model} · {effort} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'} · Enter to send</span>
+            <span className="composer-hint">{model} · {effort} · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'} · {promptHistory.length} recent prompts</span>
             {running ? <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button> : <button className="send-button" disabled={!canSend} onClick={() => void submit()} type="button"><Icon name="send" size={15} />Send</button>}
           </div>
         </div>

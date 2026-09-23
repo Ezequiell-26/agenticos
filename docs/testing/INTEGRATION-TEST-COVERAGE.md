@@ -3,7 +3,7 @@
 ## Current Test Coverage
 
 ### Test Summary
-- **Total Tests**: 54 tests passing
+- **Baseline test count**: 54 tests before the current provider integration phase
 - **Test Suites**: 25 suites
 - **Coverage Areas**: Kernel, Execution, Providers, Contracts
 
@@ -54,12 +54,16 @@ Based on the scope of integration-test-coverage-vertical-slice-1, the following 
 - [ ] **Gap**: Projection consistency verification
 
 #### 3. Provider Layer
-- [x] HTTP model provider (covered)
-- [x] Circuit breaker (covered)
-- [ ] **Gap**: Provider failover scenarios
-- [ ] **Gap**: Provider health check integration
-- [ ] **Gap**: Provider resilience patterns (retry, timeout)
-- [ ] **Gap**: Multiple provider orchestration
+- [x] HTTP model provider integration through a deterministic local HTTP server
+- [x] Provider failover ordering
+- [x] Disabled auto-failover behavior
+- [x] Provider health state drives fallback selection
+- [x] Retry-policy and quota-state composition
+- [x] Credential/provider isolation
+- [x] Multiple-provider orchestration through registry + catalog + health + fallback + transport
+- [ ] **Remaining gap**: Retry execution/backoff behavior is stored but not yet exercised by a real retry executor
+- [ ] **Remaining gap**: Timeout behavior is not yet exposed by the current HTTP provider contract
+- [ ] **Remaining gap**: Provider error normalization currently maps HTTP errors into ModelResponse rather than ContractError
 
 #### 4. CQRS Operations
 - [x] Command/query separation (covered)
@@ -138,4 +142,8 @@ Based on the scope of integration-test-coverage-vertical-slice-1, the following 
 
 ## Current Status
 
-This document completes the audit phase. The next step is to implement the integration tests according to the plan above, starting with Phase 1: Kernel Runtime Integration Tests.
+Phase 3 provider integration coverage is implemented in crates/infrastructure/providers/tests/provider_plane_integration.rs.
+The suite now covers provider/model registration, ordered failover, disabled failover, health-driven selection, retry/quota state, credential isolation, deterministic HTTP transport, and end-to-end multi-provider orchestration.
+
+The remaining provider gaps are intentionally recorded above rather than being implied as production-complete.
+

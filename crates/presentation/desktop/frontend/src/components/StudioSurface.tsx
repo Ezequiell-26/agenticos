@@ -6,6 +6,8 @@ import ArtifactViewer from '../features/artifacts/ArtifactViewer'
 import WorkflowBuilder from '../features/workflows/WorkflowBuilder'
 import ProviderStudio from '../features/providers/ProviderStudio'
 import MemoryStudio from '../features/memory/MemoryStudio'
+import SkillsStudio from '../features/skills/SkillsStudio'
+import ToolsStudio from '../features/tools/ToolsStudio'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -303,18 +305,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
 
   if (mode === 'skills') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Capability plane" title="Skills" subtitle="Modular agent capabilities with enable/disable state, categories, search and install previews." actions={<button className="studio-button" type="button" onClick={() => notify('Skill marketplace opened in preview')}><Icon name="spark" size={14} /> Browse skills</button>} />
-      <input className="global-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search skills…" />
-      <div className="skill-grid">{skills.filter((skill) => !search || skill.join(' ').toLowerCase().includes(search.toLowerCase())).map(([name, detail, category]) => { const enabled = enabledSkills.has(name); return <div className={`capability-card ${enabled ? 'capability-card--enabled' : ''}`} key={name}><div className="capability-card__icon"><Icon name={category === 'Design' ? 'layout' : category === 'Automation' ? 'activity' : category === 'Research' ? 'search' : 'spark'} size={18} /></div><div className="capability-card__copy"><strong>{name}</strong><span>{detail}</span><small>{category}</small></div><button className={`switch ${enabled ? 'switch--on' : ''}`} type="button" role="switch" aria-checked={enabled} onClick={() => toggleSet(name, setEnabledSkills, enabledSkills)}><span /></button></div> })}</div>
-      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
-    </section>
-  )
-
-  if (mode === 'tools') return (
-    <section className="studio-surface">
-      <StudioHeader eyebrow="Tool plane" title="Tool Registry" subtitle="Visible permissions, risk classes, enable/disable state and execution previews." actions={<button className="studio-button" type="button" onClick={() => notify('Tool registry scanned in preview')}><Icon name="history" size={14} /> Scan registry</button>} />
-      <input className="global-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tools…" />
-      <div className="tool-table">{tools.filter((tool) => !search || tool.join(' ').toLowerCase().includes(search.toLowerCase())).map(([name, description, risk]) => { const enabled = enabledTools.has(name); return <div className="tool-row" key={name}><div className="tool-icon"><Icon name={name === 'terminal' ? 'terminal' : name === 'git' ? 'git' : name === 'browser' ? 'layout' : 'tool'} size={16} /></div><div className="tool-copy"><strong>{name}</strong><span>{description}</span></div><span className={`risk-pill risk-pill--${risk.toLowerCase()}`}>{risk}</span><button className={`switch ${enabled ? 'switch--on' : ''}`} type="button" role="switch" aria-checked={enabled} onClick={() => toggleSet(name, setEnabledTools, enabledTools)}><span /></button></div> })}</div>
+      <StudioHeader eyebrow="Capability plane" title="Skills" subtitle="Discover, inspect, configure and enable reusable agent capabilities." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('Skill marketplace opened in preview')}><Icon name="spark" size={14} /> Browse marketplace</button>} />
+      <SkillsStudio onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

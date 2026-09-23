@@ -4,6 +4,7 @@ import Icon from './Icon'
 import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
 import ArtifactViewer from '../features/artifacts/ArtifactViewer'
 import WorkflowBuilder from '../features/workflows/WorkflowBuilder'
+import ProviderStudio from '../features/providers/ProviderStudio'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -293,9 +294,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
 
   if (mode === 'providers') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Model plane" title="Providers & Models" subtitle="Provider cards, model catalog, route selection, quotas and capacity controls." actions={<button className="studio-button" type="button" onClick={() => notify('Provider catalog refreshed in preview')}><Icon name="history" size={14} /> Refresh</button>} />
-      <div className="provider-grid">{providers.map((provider) => <button type="button" key={provider.name} className={`provider-card ${selectedProvider === provider.name ? 'provider-card--selected' : ''}`} onClick={() => setSelectedProvider(provider.name)}><div className="provider-card__top"><span className="status-dot status-dot--live" /><strong>{provider.name}</strong><span className="mono-text">{provider.latency}</span></div><div className="provider-card__metrics"><div><span>Health</span><strong>{provider.health}</strong></div><div><span>Models</span><strong>{provider.models}</strong></div><div><span>Load</span><strong>{provider.load}%</strong></div></div><div className="progress"><span style={{ width: `${provider.load}%` }} /></div></button>)}</div>
-      <div className="catalog-surface"><div className="catalog-toolbar"><div><span className="eyebrow">Active route</span><strong>{selectedProvider}</strong></div><input className="mini-search catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter models…" /></div><div className="model-table">{[['gpt-oss-120b', 'General', '128k', 'fast'], ['qwen3-coder', 'Code', '256k', 'high'], ['deepseek-chat', 'Reasoning', '64k', 'high'], ['llama-4-maverick', 'Vision', '128k', 'medium'], ['gemma-3-27b', 'General', '128k', 'fast'], ['local-qwen', 'Local', '32k', 'on-demand']].filter((model) => !search || model.join(' ').toLowerCase().includes(search.toLowerCase())).map((model) => <div className="model-row" key={model[0]}><div><strong>{model[0]}</strong><span>{model[1]}</span></div><span className="mono-text">{model[2]}</span><span>{model[3]}</span><button className="icon-button" type="button" onClick={() => notify(`Selected model ${model[0]}`)}><Icon name="chevron-right" size={14} /></button></div>)}</div></div>
+      <StudioHeader eyebrow="Model plane" title="Providers & Models" subtitle="Inspect provider health, models, routing strategy, quotas and fallback behavior in one workspace." actions={<button className="studio-button" type="button" onClick={() => notify('Provider catalog refreshed in preview')}><Icon name="history" size={14} /> Refresh</button>} />
+      <ProviderStudio onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

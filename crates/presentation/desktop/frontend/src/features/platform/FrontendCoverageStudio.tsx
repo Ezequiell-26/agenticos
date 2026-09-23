@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { navigationItems, platformModes, primaryRailIds, type RailMode } from '../../navigation'
+import { appOwnedSurfaceIds, getSurfaceOwner, studioOwnedSurfaceIds } from '../../navigation-audit'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 
-const studioOwned = new Set<RailMode>(['files','terminal','runs','agents','artifacts','settings'])
-const appOwned = new Set<RailMode>(['chat'])
 const categoryLabel: Record<string,string> = { build:'Build', operate:'Operate', configure:'Configure', integrate:'Integrate' }
 
 export function FrontendCoverageStudio({onAction}:{onAction:(message:string)=>void}){
  const [query,setQuery]=useState(''),[owner,setOwner]=useState<'all'|'platform'|'studio'|'app'>('all'),[selected,setSelected]=useState<RailMode>('overview')
- const filtered=useMemo(()=>navigationItems.filter(item=>(owner==='all'||(owner==='platform'&&!studioOwned.has(item.id)&&!appOwned.has(item.id))||(owner==='studio'&&studioOwned.has(item.id))||(owner==='app'&&appOwned.has(item.id)))&&item.id+' '+item.label+' '+item.detail).filter(item=>(item.id+' '+item.label+' '+item.detail).toLowerCase().includes(query.toLowerCase())),[query,owner])
+ const filtered=useMemo(()=>navigationItems.filter(item=>(owner==='all'||(owner==='platform'&&getSurfaceOwner(item.id)==='platform-surface')||(owner==='studio'&&studioOwnedSurfaceIds.has(item.id))||(owner==='app'&&appOwnedSurfaceIds.has(item.id)))&&item.id+' '+item.label+' '+item.detail).filter(item=>(item.id+' '+item.label+' '+item.detail).toLowerCase().includes(query.toLowerCase())),[query,owner])
  const active=navigationItems.find(item=>item.id===selected)??navigationItems[0]
- const ownerOf=(id:RailMode)=>appOwned.has(id)?'App shell':studioOwned.has(id)?'StudioSurface':'PlatformSurface'
- const dedicated=navigationItems.filter(i=>ownerOf(i.id)==='PlatformSurface').length
- const studio=studioOwned.size, app=appOwned.size
+ const ownerOf=(id:RailMode)=>{const owner=getSurfaceOwner(id); return owner==='app-shell'?'App shell':owner==='studio-surface'?'StudioSurface':'PlatformSurface'}
+ const dedicated=navigationItems.filter(i=>getSurfaceOwner(i.id)==='platform-surface').length
+ const studio=studioOwnedSurfaceIds.size, app=appOwnedSurfaceIds.size
  return <div className="coverage-studio"><header className="coverage-studio__hero"><div><span className="eyebrow">Frontend architecture inventory</span><h1>Frontend Coverage Studio</h1><p>Auditable inventory of every navigation surface, its UI owner, capability group and primary-rail exposure. This is the control board for presentation completeness.</p></div><div className="coverage-studio__actions"><Tag label="Source of truth: navigation.ts"/><button className="studio-button studio-button--active" type="button" onClick={()=>onAction('Coverage report export staged in preview')}><Icon name="download" size={13}/>Export report</button></div></header>
  <div className="platform-metrics"><MetricCard label="Navigation surfaces" value={String(navigationItems.length)} sub="Registry entries"/><MetricCard label="Platform surfaces" value={String(dedicated)} sub="Dedicated feature routing"/><MetricCard label="Studio legacy" value={String(studio)} sub="Explicitly owned by StudioSurface"/><MetricCard label="App shell" value={String(app)} sub="Chat + shell ownership"/></div>
  <div className="coverage-studio__toolbar"><div className="coverage-search"><Icon name="search" size={12}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search surfaces…" aria-label="Search frontend surfaces"/></div>{(['all','platform','studio','app'] as const).map(item=><button type="button" key={item} className={owner===item?'studio-button studio-button--active':'studio-button'} onClick={()=>setOwner(item)}>{item}</button>)}</div>

@@ -161,7 +161,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
               <button type="button" className={rememberContext ? 'composer-tool--active' : ''} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={13} /> Remember context</button>
             </div>
           )}
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />\n          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>

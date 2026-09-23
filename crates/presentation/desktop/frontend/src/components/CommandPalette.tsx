@@ -54,7 +54,7 @@ export default function CommandPalette({
 
   const commands = useMemo<Command[]>(() => [
     { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
-    ...navigation.map((item) => ({
+    ...navigationItems.map((item) => ({
       id: item.id,
       label: item.label,
       detail: item.detail,

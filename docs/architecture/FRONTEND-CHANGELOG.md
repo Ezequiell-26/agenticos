@@ -639,3 +639,9 @@ No runtime execution or authorization was added. The existing Subagent route rem
 Expanded `features/providers/ProviderStudio.tsx` with an Accounts tab. It now presents provider/account metadata, safe masked secret state, model counts, quota previews, routing role, capabilities, connection test/refresh/routing actions, and responsive account layouts.
 
 No credentials or transport behavior were introduced.
+
+### 2026-09-24 — Context Inspector and Run Timeline
+
+Moved the detailed Context and Runs surfaces into dedicated feature components. Context Inspector now exposes explicit source selection, budget and compaction controls; Run Timeline adds run filtering plus Timeline / Tools / Changes inspection.
+
+The dispatcher components now route into these feature boundaries instead of carrying the detailed surface state themselves. No backend behavior was introduced.

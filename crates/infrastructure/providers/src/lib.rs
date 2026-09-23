@@ -317,6 +317,10 @@ impl FallbackManager {
     ) -> Option<String> {
         let configs = self.configs.read().await;
         if let Some(config) = configs.get(primary_provider) {
+            if !config.auto_failover {
+                return None;
+            }
+
             let current_index = config
                 .fallback_providers
                 .iter()

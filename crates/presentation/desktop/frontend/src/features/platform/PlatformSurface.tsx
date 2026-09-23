@@ -3,6 +3,15 @@ import type { PlatformMode } from '../../navigation'
 import Icon from '../../components/Icon'
 import BrowserWorkspace from '../browser/BrowserWorkspace'
 import SecurityCenter from '../security/SecurityCenter'
+import CanvasStudio from '../canvas/CanvasStudio'
+import CommandStudio from '../commands/CommandStudio'
+import SubagentFleet from '../subagents/SubagentFleet'
+import CloudAgentsWorkspace from '../cloud/CloudAgentsWorkspace'
+import ComputerUseWorkspace from '../computer/ComputerUseWorkspace'
+import OperationsCenter from '../operations/OperationsCenter'
+import MarketplaceStudio from '../marketplace/MarketplaceStudio'
+import KanbanBoard from '../kanban/KanbanBoard'
+import IntegrationCatalogSurface from '../integrations/IntegrationCatalogSurface'
 import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -62,6 +71,77 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'canvas') return (
+    <Shell>
+      {renderHeader('Visual workspace', 'Canvas', 'Compose interactive artifacts and side-by-side visual workflows without leaving the agent session.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <CanvasStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'commands') return (
+    <Shell>
+      {renderHeader('Reusable workflows', 'Commands', 'Build slash commands and focused workflows with explicit scope, variables and invocation behavior.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <CommandStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'subagents') return (
+    <Shell>
+      {renderHeader('Delegation', 'Subagents', 'Manage specialized agents with isolated context windows, tools, models and handoffs.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Parallel subagents started in preview')}><Icon name="play" size={13} /> Run parallel</button>)}
+      <SubagentFleet onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'cloud') return (
+    <Shell>
+      {renderHeader('Remote execution', 'Cloud Agents', 'Inspect remote agent environments, artifacts and desktop handoff state.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <CloudAgentsWorkspace onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'computer') return (
+    <Shell>
+      {renderHeader('Computer interaction', 'Computer Use', 'Model desktop/browser control, recordings and verification artifacts as a dedicated execution surface.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <ComputerUseWorkspace onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'operations') return (
+    <Shell>
+      {renderHeader('Administration', 'Operations Center', 'Health, doctor, backups, maintenance and support operations with explicit safety boundaries.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <OperationsCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'kanban') return (
+    <Shell>
+      {renderHeader('Work management', 'Kanban', 'Coordinate tasks, ownership and agent handoffs using a visual work board.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <KanbanBoard onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'marketplace') return (
+    <Shell>
+      {renderHeader('Extension ecosystem', 'Marketplace', 'Discover and manage bundled plugins, skills, MCP servers and reusable commands.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <MarketplaceStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'homeassistant' || mode === 'social') return (
+    <Shell>
+      <IntegrationCatalogSurface mode={mode} onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'security') return (
     <Shell>

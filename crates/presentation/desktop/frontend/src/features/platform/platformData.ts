@@ -71,11 +71,29 @@ export const automations = [
 
 export const channels = [
   ['Desktop', 'Native app', 'Connected', 'Local session'],
+  ['Cursor Web', 'Remote agent', 'Preview', 'Agent launch not connected'],
+  ['Cursor Mobile', 'Mobile client', 'Preview', 'Remote control not connected'],
   ['Telegram', 'Gateway', 'Preview', 'Delivery not connected'],
   ['Discord', 'Gateway', 'Preview', 'Delivery not connected'],
   ['Slack', 'Gateway', 'Preview', 'Delivery not connected'],
   ['WhatsApp', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Signal', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Matrix', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Mattermost', 'Gateway', 'Preview', 'Delivery not connected'],
   ['Email', 'Gateway', 'Preview', 'SMTP not connected'],
+  ['SMS', 'Gateway', 'Preview', 'Provider not connected'],
+  ['DingTalk', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Feishu', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['WeCom', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Weixin', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['QQ Bot', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Yuanbao', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['BlueBubbles', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Microsoft Teams', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Google Chat', 'Gateway', 'Preview', 'Delivery not connected'],
+  ['Home Assistant', 'Integration', 'Preview', 'Service not connected'],
+  ['GitHub', 'Agent trigger', 'Preview', 'Webhook not connected'],
+  ['Linear', 'Agent trigger', 'Preview', 'Integration not connected'],
 ]
 
 export const researchBatches = [

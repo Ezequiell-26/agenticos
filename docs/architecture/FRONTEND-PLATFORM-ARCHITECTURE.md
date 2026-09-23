@@ -134,14 +134,14 @@ These domains are frontend product surfaces, not claims of live availability.
 
 ## Product completion surface map
 
-The current frontend registry contains 49 user-facing modes. This is intentionally broader than the minimal chat/editor baseline so the UI can absorb future runtime capabilities without a second information-architecture redesign.
+The current frontend registry contains 59 user-facing modes. This is intentionally broader than the minimal chat/editor baseline so the UI can absorb future runtime capabilities without a second information-architecture redesign.
 
 The user-facing organization is:
 
-- Build: Command Center, Files & Editor, Terminal, Prompt Lab, Projects, Codebase Index, Context, Rules & Instructions.
-- Operate: Runs, Tasks, Background Agents, Reviews & Bugbot, Checkpoints, Approvals, Observability, Agent Profiles, Bots & Teams, Workflows, Automations, Artifacts, Research, Evaluations, Notifications, Sessions, Logs & Traces, Analytics, Batch Processing and Learning Loop.
-- Configure: Providers & Models, Skills, Tools, Memory, Settings, Toolsets, Plugins, Hooks & Policies, Execution Lab, Credentials.
-- Integrate: Channels & Gateway, Browser, Voice & Media, MCP Servers, Environments, Webhooks & Events, Imports & Migrations, Media Studio, Wake Word & Presence, Source Integrations and Security Center.
+- Build: Command Center, Files & Editor, Terminal, Prompt Lab, Projects, Codebase Index, Context, Rules & Instructions, Canvas, Commands.
+- Operate: Runs, Tasks, Background Agents, Subagents, Cloud Agents, Computer Use, Operations Center, Kanban, Reviews & Bugbot, Checkpoints, Approvals, Observability, Agent Profiles, Bots & Teams, Workflows, Automations, Artifacts, Research, Evaluations, Notifications, Sessions, Logs & Traces, Analytics, Batch Processing and Learning Loop.
+- Configure: Providers & Models, Skills, Tools, Memory, Settings, Toolsets, Plugins, Hooks & Policies, Execution Lab, Credentials, Marketplace.
+- Integrate: Channels & Gateway, Browser, Voice & Media, MCP Servers, Environments, Webhooks & Events, Imports & Migrations, Media Studio, Wake Word & Presence, Source Integrations, Security Center, Home Assistant and Social Search.
 
 This surface map is visual product structure only. It does not imply that any listed runtime integration is connected.
 
@@ -156,3 +156,51 @@ discover capability
   -> inspect artifacts / evidence
   -> return to session or fork
 ```
+
+
+## Navigation ergonomics and chat reliability
+
+The activity rail intentionally exposes a compact primary set of high-frequency surfaces. The full 49-mode registry remains available through the AgentiCOS launcher and command palette. When a secondary surface is active, that surface is temporarily surfaced in the rail so the current location remains visible.
+
+The chat surface follows a fail-recovery rule: a runtime rejection produces a visible system error, restores the unsent draft in the composer, returns the run state to failed, and leaves the user able to retry without reconstructing the message manually. Message history also keeps the latest activity in view through controlled auto-scroll.
+
+Accessibility behavior includes visible keyboard focus treatment and a reduced-motion mode for preference-aware environments.
+
+
+## Cursor + Hermes capability coverage matrix — 2026-09-24
+
+The frontend now models the major documented capability families from current Cursor and Hermes product documentation.
+
+| Capability family | Frontend surface |
+| --- | --- |
+| Cursor Agent, Plan/Ask/Debug workflows | Command Center + Agent Mode Strip |
+| Cursor Projects and larger coordinated work | Projects + Tasks + Kanban |
+| Cursor codebase indexing and explicit context | Codebase Index + Context |
+| Cursor Rules / AGENTS.md style instructions | Rules & Instructions |
+| Cursor checkpoints | Checkpoints + Security recovery |
+| Cursor Bugbot / review workflows | Reviews & Bugbot |
+| Cursor Browser with screenshots, console and network | Browser + Computer Use |
+| Cursor Image generation / Canvas artifacts | Media Studio + Canvas |
+| Cursor Skills / Commands / Hooks / Plugins | Skills + Commands + Hooks + Marketplace |
+| Cursor MCP / Subagents | MCP Servers + Subagents |
+| Cursor Cloud Agents / isolated environments / remote desktop | Cloud Agents + Environments |
+| Hermes tools and toolsets | Tools + Toolsets |
+| Hermes persistent memory and session search | Memory + Sessions + Context |
+| Hermes context files and @ references | Rules & Instructions + Chat Context Dock |
+| Hermes checkpoints / rollback | Checkpoints |
+| Hermes scheduled tasks / cron | Automations + Commands |
+| Hermes delegation / parallel subagents | Subagents + Background Agents |
+| Hermes web/browser/vision/image/TTS/video capabilities | Browser + Voice & Media + Media Studio + Tools |
+| Hermes messaging gateway | Channels & Gateway |
+| Hermes MCP integrations | MCP Servers |
+| Hermes learning loop / skills | Learning Loop + Skills |
+| Hermes administration dashboard | Operations Center |
+| Hermes backup/restore/security operations | Operations Center + Security Center |
+| Hermes desktop GUI/computer tools | Computer Use |
+| Hermes kanban/tool-driven task management | Kanban |
+| Hermes Home Assistant integration | Home Assistant |
+| Hermes social/X search capability | Social Search |
+
+These surfaces are product/UI representations. They do not claim the corresponding external service, credential, cloud environment or runtime tool is connected until a matching Rust service contract exists.
+
+Reference basis: Cursor documents Agent, Cloud Agents, Browser, Skills, Customize/Plugins/MCP/Subagents/Hooks, Bugbot and current agent workflows; Hermes documents tools/toolsets, skills, memory, context, checkpoints, cron, delegation, browser, MCP, gateway, desktop dashboard, multimodal tools and learning-oriented workflows.

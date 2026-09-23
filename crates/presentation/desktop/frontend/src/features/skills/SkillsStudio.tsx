@@ -12,6 +12,23 @@ const skillCatalog = [
   { name: 'UI Designer', detail: 'Compose layouts, interactions and product critique.', category: 'Design', version: '1.6.2', installed: false, updated: '1d ago' },
   { name: 'Test Engineer', detail: 'Create deterministic tests and verification plans.', category: 'Quality', version: '1.9.1', installed: true, updated: 'Today' },
   { name: 'Data Operator', detail: 'Transform datasets and produce structured outputs.', category: 'Data', version: '1.2.5', installed: false, updated: '6d ago' },
+  { name: '/automate', detail: 'Create scheduled and event-triggered automations.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/autopilot', detail: 'Monitor a pull request and handle follow-up work.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/canvas', detail: 'Create interactive React artifacts alongside chat.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/create-hook', detail: 'Create lifecycle hooks and update hook configuration.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/create-rule', detail: 'Create scoped rules for user, project or team behavior.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/create-skill', detail: 'Create portable Agent Skill packages with SKILL.md.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/create-subagent', detail: 'Create focused subagents with models and tool access.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/review-bugbot', detail: 'Review changes for bugs, security and regressions.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/review-security', detail: 'Run security-focused review workflows.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/loop', detail: 'Repeat a prompt or skill on a defined interval.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/cursor-blame', detail: 'Investigate AI-authored changes and the prompts behind them.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/migrate-to-skills', detail: 'Convert eligible rules and slash commands into skills.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/sdk', detail: 'Build applications and integrations with the Cursor SDK.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/split-to-prs', detail: 'Split a large change into smaller pull requests.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/statusline', detail: 'Configure the agent status line presentation.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/update-cli-config', detail: 'Update Cursor CLI configuration.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/update-cursor-settings', detail: 'Find and update Cursor or VS Code settings.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
 ]
 
 export default function SkillsStudio({ onAction }: { onAction: (message: string) => void }) {

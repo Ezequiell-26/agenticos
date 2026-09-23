@@ -20,7 +20,23 @@ const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
 const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
-const slashCommands = [['/plan', 'Create a step-by-step plan without editing.'], ['/review', 'Review the current workspace for issues.'], ['/debug', 'Diagnose the current problem and isolate the cause.'], ['/research', 'Gather evidence before proposing a change.'], ['/compact', 'Summarize the current conversation into reusable context.']] as const
+const slashCommands = [
+  ['/plan', 'Create a step-by-step plan without editing.'],
+  ['/review', 'Review the current workspace for issues.'],
+  ['/debug', 'Diagnose the current problem and isolate the cause.'],
+  ['/research', 'Gather evidence before proposing a change.'],
+  ['/compact', 'Summarize the current conversation into reusable context.'],
+  ['/delegate', 'Delegate a subtask to a specialist agent.'],
+  ['/rollback', 'Open checkpoint restore controls.'],
+  ['/memory', 'Inspect or capture persistent memory.'],
+  ['/session-search', 'Search previous sessions.'],
+  ['/cron', 'Manage scheduled tasks.'],
+  ['/skills', 'Browse procedural skills.'],
+  ['/tools', 'Inspect tools and toolsets.'],
+  ['/mcp', 'Inspect MCP servers.'],
+  ['/browser', 'Open browser control.'],
+  ['/gateway', 'Inspect messaging gateway.'],
+] as const
 
 function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {
   const isUser = message.role === 'user'
@@ -64,6 +80,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
@@ -84,6 +101,10 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     const timer = window.setTimeout(() => setNotice(''), 1900)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: running ? 'smooth' : 'auto', block: 'end' })
+  }, [messages, running])
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -109,7 +130,13 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     setDraft('')
     setSlashOpen(false)
     setPromptHistory((current) => [message, ...current.filter((item) => item !== message)].slice(0, 5))
-    await onSend(message)
+    try {
+      await onSend(message)
+    } catch {
+      setDraft(message)
+      setNotice('Request failed. Your message was restored.')
+      window.requestAnimationFrame(() => textareaRef.current?.focus())
+    }
   }
 
   function useStarter(prompt: string) {
@@ -159,7 +186,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <label><span>Max output</span><select value={maxTokens} onChange={(event) => setMaxTokens(event.target.value)}>{['2048','4096','8192','16384','32768'].map((item) => <option key={item}>{item}</option>)}</select></label>
           <label><span>Temperature</span><select value={temperature} onChange={(event) => setTemperature(event.target.value)}>{['0.0','0.2','0.3','0.5','0.7','1.0'].map((item) => <option key={item}>{item}</option>)}</select></label>
           <label><span>Format</span><select value={responseFormat} onChange={(event) => setResponseFormat(event.target.value)}>{responseFormats.map((item) => <option key={item}>{item}</option>)}</select></label>
-          <button type="button" className={`control-pill ${deepMode ? 'control-pill--active' : ''}` onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={12} /> Deep</button>
+          <button type="button" className={`control-pill ${deepMode ? 'control-pill--active' : ''}`} onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={12} /> Deep</button>
           <button type="button" className={`control-pill ${codeMode ? 'control-pill--active' : ''}`} onClick={() => setCodeMode((value) => !value)}><Icon name="code" size={12} /> Code</button>
           <button type="button" className={`control-pill ${webAccess ? 'control-pill--active' : ''}`} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={12} /> Web</button>
           <button type="button" className={`control-pill ${rememberContext ? 'control-pill--active' : ''}`} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={12} /> Memory</button>
@@ -191,6 +218,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <div className="message-stack">
             {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} />)}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
+            <div ref={messagesEndRef} aria-hidden="true" />
           </div>
         )}
       </div>

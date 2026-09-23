@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Icon from './Icon'
-import { navigationItems, type RailMode } from '../navigation'
+import { navigationItems, primaryRailIds, type RailMode } from '../navigation'
 import NavigationLauncher from './NavigationLauncher'
 
 export type { RailMode } from '../navigation'
@@ -12,17 +12,26 @@ interface ActivityRailProps {
 
 export default function ActivityRail({ active, onChange }: ActivityRailProps) {
   const [launcherOpen, setLauncherOpen] = useState(false)
+  const primaryItems = navigationItems.filter((item) => primaryRailIds.has(item.id))
+  const activeItem = navigationItems.find((item) => item.id === active)
+  const visibleItems = activeItem && !primaryRailIds.has(active) ? [activeItem, ...primaryItems] : primaryItems
   let previousGroup: string | undefined
 
   return (
     <nav className="activity-rail" aria-label="Primary navigation">
       <div className="activity-brand">
-        <button className={launcherOpen ? 'brand-mark brand-mark--active' : 'brand-mark'} type="button" aria-label="Open all AgentiCOS features" aria-expanded={launcherOpen} onClick={() => setLauncherOpen((value) => !value)}>A</button>
+        <button
+          className={launcherOpen ? 'brand-mark brand-mark--active' : 'brand-mark'}
+          type="button"
+          aria-label="Open all AgentiCOS features"
+          aria-expanded={launcherOpen}
+          onClick={() => setLauncherOpen((value) => !value)}
+        >A</button>
         {launcherOpen && <NavigationLauncher active={active} onChange={(mode) => { onChange(mode); setLauncherOpen(false) }} onClose={() => setLauncherOpen(false)} />}
       </div>
 
       <div className="activity-rail__items">
-        {navigationItems.map((item) => {
+        {visibleItems.map((item) => {
           const showDivider = previousGroup !== undefined && previousGroup !== item.group
           previousGroup = item.group
 
@@ -50,13 +59,14 @@ export default function ActivityRail({ active, onChange }: ActivityRailProps) {
 
       <div className="activity-rail__bottom">
         <button
-          className={`rail-button rail-button--muted ${active === 'security' ? 'rail-button--active' : ''}`}
-          aria-label="Security Center"
-          title="Security Center"
-          onClick={() => onChange('security')}
+          className={launcherOpen ? 'rail-button rail-button--muted rail-button--active' : 'rail-button rail-button--muted'}
+          aria-label="Open all features"
+          aria-expanded={launcherOpen}
+          title="All features"
+          onClick={() => setLauncherOpen((value) => !value)}
           type="button"
         >
-          <Icon name="shield" size={18} />
+          <Icon name="command" size={17} />
         </button>
       </div>
     </nav>

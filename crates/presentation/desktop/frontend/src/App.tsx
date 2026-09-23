@@ -140,10 +140,26 @@ function App() {
     setRunning(true)
     setStatus((current) => ({ ...current, state: 'executing' }))
 
-    const response = await runtime.chat.sendMessage(sessionId, message)
-    setMessages((current) => [...current, response])
-    setRunning(false)
-    setStatus((current) => ({ ...current, state: response.role === 'system' ? 'failed' : 'completed' }))
+    try {
+      const response = await runtime.chat.sendMessage(sessionId, message)
+      setMessages((current) => [...current, response])
+      setStatus((current) => ({ ...current, state: response.role === 'system' ? 'failed' : 'completed' }))
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'The runtime could not complete the request.'
+      setMessages((current) => [
+        ...current,
+        {
+          id: `system-error-${Date.now()}`,
+          role: 'system',
+          content: `Request failed: ${detail}`,
+          timestamp: Date.now(),
+        },
+      ])
+      setStatus((current) => ({ ...current, state: 'failed' }))
+      throw error
+    } finally {
+      setRunning(false)
+    }
   }
 
   function handleCreateConversation() {

@@ -3,7 +3,7 @@ import Icon from '../../components/Icon'
 
 type SecurityTab = 'Overview' | 'Policies' | 'Audit' | 'Sessions' | 'Recovery'
 
-const policyRows = [
+const policyRows: ReadonlyArray<readonly [string, string, boolean]> = [
   ['Fail-closed execution', 'Sensitive actions stop until approved', true],
   ['Secret redaction', 'Credential values never render in presentation state', true],
   ['Workspace sandbox', 'File and shell scope follows the selected workspace', true],
@@ -11,7 +11,7 @@ const policyRows = [
   ['Destructive confirmation', 'Delete/reset/force operations require a human step', true],
 ]
 
-const auditRows = [
+const auditRows: ReadonlyArray<readonly [string, string, string, string]> = [
   ['16:31:02', 'policy.check', 'pass', 'write policy evaluated'],
   ['16:31:04', 'credential.access', 'blocked', 'secret value remained hidden'],
   ['16:31:06', 'tool.approval', 'approved', 'terminal execution request'],
@@ -19,7 +19,7 @@ const auditRows = [
   ['16:31:12', 'handoff', 'pass', 'artifact package sealed'],
 ]
 
-const sessions = [
+const sessions: ReadonlyArray<readonly [string, string, string, string]> = [
   ['Current desktop', 'Local', 'Active now', 'Trusted'],
   ['Automation preview', 'Workflow', '8m ago', 'Isolated'],
   ['Browser preview', 'Web session', '14m ago', 'Ephemeral'],

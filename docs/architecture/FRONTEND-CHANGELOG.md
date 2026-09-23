@@ -227,6 +227,71 @@ The current repository already contains an early desktop UI from existing commit
 - Coverage: navigation registry contains 49 surfaces and all 49 currently resolve to a frontend surface.
 - Verification: PR checks for TypeScript and Rust are queued as of the branch HEAD; browser CLI verification is unavailable in this environment; Windows/Tauri rendering and live runtime integration remain unverified.
 - Runtime boundary: new interactions remain local/preview until a matching runtime contract is intentionally added.
+
+
+## Frontend interaction hardening — 2026-09-24
+
+- Scope: frontend-only navigation ergonomics, chat recovery and accessibility polish.
+- User-visible effect: reduced the activity rail to a compact primary set while retaining all 49 product surfaces in the launcher/command palette; the currently active secondary surface is still surfaced in the rail.
+- Reliability improvement: failed chat runtime requests now create a visible system message, reset the run state to failed, restore the unsent draft and keep the composer focused for retry.
+- Usability improvement: chat message history auto-scrolls to the latest activity without introducing a new runtime dependency.
+- Accessibility improvement: added explicit focus treatment for the compact rail and quick actions, plus reduced-motion handling.
+- Modified:
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/components/ActivityRail.tsx
+  - crates/presentation/desktop/frontend/src/App.tsx
+  - crates/presentation/desktop/frontend/src/components/ChatSurface.tsx
+  - crates/presentation/desktop/frontend/src/index.css
+  - docs/architecture/FRONTEND-PLATFORM-ARCHITECTURE.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Runtime boundary: no new backend routes, provider calls or runtime contracts were introduced.
+- Verification state: branch build/CI and browser verification remain separate gates; main CI run #728 was still in progress before this branch was created.
+- Rollback point: 8ad7f3864e308109da5ff9ef69c6f8689d03630b.
+- Next step: validate the branch with the repository CI and browser-level smoke checks before merging.
+
+
+## Cursor + Hermes complete capability surface pass — 2026-09-24
+
+- Scope: frontend-only expansion based on current public Cursor and Hermes capability families.
+- Added first-class visual surfaces for Canvas, reusable Commands, isolated Subagents, Cloud Agents, Computer Use, Operations Center, Kanban and Marketplace.
+- Added explicit integration surfaces for Home Assistant and Social/X Search.
+- Expanded the Skills catalog with current Cursor built-in workflow skills such as automate, autopilot, canvas, create-hook, create-rule, create-skill, create-subagent, review-bugbot, review-security and loop.
+- Expanded the Tools catalog with Hermes-style web, browser, terminal/process, memory/session search, delegation, cron, skills management, multimodal, computer-use, social, messaging, Home Assistant, Spotify, Discord, Kanban and desktop GUI families.
+- Expanded chat slash-command affordances for delegation, rollback, memory, session search, cron, skills, tools, MCP, browser and gateway workflows.
+- Modified:
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx
+  - crates/presentation/desktop/frontend/src/features/canvas/CanvasStudio.tsx
+  - crates/presentation/desktop/frontend/src/features/commands/CommandStudio.tsx
+  - crates/presentation/desktop/frontend/src/features/subagents/SubagentFleet.tsx
+  - crates/presentation/desktop/frontend/src/features/cloud/CloudAgentsWorkspace.tsx
+  - crates/presentation/desktop/frontend/src/features/computer/ComputerUseWorkspace.tsx
+  - crates/presentation/desktop/frontend/src/features/operations/OperationsCenter.tsx
+  - crates/presentation/desktop/frontend/src/features/marketplace/MarketplaceStudio.tsx
+  - crates/presentation/desktop/frontend/src/features/kanban/KanbanBoard.tsx
+  - crates/presentation/desktop/frontend/src/features/integrations/IntegrationCatalogSurface.tsx
+  - crates/presentation/desktop/frontend/src/features/skills/SkillsStudio.tsx
+  - crates/presentation/desktop/frontend/src/features/tools/ToolsStudio.tsx
+  - crates/presentation/desktop/frontend/src/components/ChatEnhancementDock.tsx
+  - crates/presentation/desktop/frontend/src/components/ChatSurface.tsx
+  - crates/presentation/desktop/frontend/src/index.css
+  - docs/architecture/FRONTEND-PLATFORM-ARCHITECTURE.md
+- Deleted: none.
+- Runtime boundary: all newly surfaced capabilities remain presentation-local/preview; no backend routes, provider secrets or external credentials were invented.
+- Verification state: current CI is the authoritative gate; browser/Tauri/accessibility verification remains separate.
+- Rollback point: f4e66960c5fcf728b9f4cae59802e4f8c905fe2e.
+- Next step: validate the complete capability surface in CI and then browser-level smoke coverage.
+
+
+## Capability catalog completion pass — 2026-09-24
+
+- Scope: frontend-only completion of the Cursor/Hermes capability catalog.
+- Navigation registry now exposes 59 user-facing surfaces across Build, Operate, Configure and Integrate.
+- Added/remapped visual domains: Canvas, Commands, Subagents, Cloud Agents, Computer Use, Operations Center, Kanban, Marketplace, Home Assistant and Social Search.
+- Expanded the gateway presentation to include the major Hermes messaging/client families plus Cursor remote clients and engineering triggers.
+- Expanded Cursor skill coverage and Hermes tool catalog coverage, while keeping external credentials and runtime execution behind explicit backend boundaries.
+- Verification state: latest GitHub Actions run remains authoritative; no claim of full runtime parity or live external integration is made by the frontend.
 ## Workspace orchestration dock — 2026-09-24
 
 - Scope: frontend-only desktop workspace refinement; no Rust/backend contracts changed.
@@ -241,7 +306,7 @@ The current repository already contains an early desktop UI from existing commit
 - Deleted: none.
 - Preserved: Rust runtime, existing runtime service contracts, existing navigation/features, current implementation-state manifest and historical frontend evidence.
 - Architecture decision: the dock is a presentation-layer composition surface and keeps terminal/problem/timeline data explicitly local/preview until matching runtime services exist.
-- Verification evidence: source-level integration checks completed for imports, state wiring, keyboard shortcut and dock render path; GitHub Actions will provide the next TypeScript/build evidence.
+- Verification evidence: source-level integration checks completed for imports, state wiring, keyboard shortcut and dock render path; CI will validate the integrated tree.
 - Unverified checks: browser visual verification, Windows/Tauri rendering, accessibility audit and live backend integration.
-- Rollback point: previous main commit before this operation.
-- Next step: inspect the GitHub Actions result for the new frontend commits, then perform browser-level visual verification when a runnable local/deployed frontend is available.
+- Rollback point: `b638e6d7d31b510707fd89e9a577e36043d512a2`.
+- Next step: inspect the integrated CI/build result, then perform browser-level visual verification when a runnable frontend is available.

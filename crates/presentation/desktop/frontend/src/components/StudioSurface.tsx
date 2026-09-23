@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
-import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
 import ArtifactViewer from '../features/artifacts/ArtifactViewer'
 import WorkflowBuilder from '../features/workflows/WorkflowBuilder'
 import ProviderStudio from '../features/providers/ProviderStudio'

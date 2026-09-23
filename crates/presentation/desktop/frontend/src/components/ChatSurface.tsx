@@ -20,7 +20,23 @@ const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
 const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
-const slashCommands = [['/plan', 'Create a step-by-step plan without editing.'], ['/review', 'Review the current workspace for issues.'], ['/debug', 'Diagnose the current problem and isolate the cause.'], ['/research', 'Gather evidence before proposing a change.'], ['/compact', 'Summarize the current conversation into reusable context.']] as const
+const slashCommands = [
+  ['/plan', 'Create a step-by-step plan without editing.'],
+  ['/review', 'Review the current workspace for issues.'],
+  ['/debug', 'Diagnose the current problem and isolate the cause.'],
+  ['/research', 'Gather evidence before proposing a change.'],
+  ['/compact', 'Summarize the current conversation into reusable context.'],
+  ['/delegate', 'Delegate a subtask to a specialist agent.'],
+  ['/rollback', 'Open checkpoint restore controls.'],
+  ['/memory', 'Inspect or capture persistent memory.'],
+  ['/session-search', 'Search previous sessions.'],
+  ['/cron', 'Manage scheduled tasks.'],
+  ['/skills', 'Browse procedural skills.'],
+  ['/tools', 'Inspect tools and toolsets.'],
+  ['/mcp', 'Inspect MCP servers.'],
+  ['/browser', 'Open browser control.'],
+  ['/gateway', 'Inspect messaging gateway.'],
+] as const
 
 function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {
   const isUser = message.role === 'user'

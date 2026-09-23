@@ -1131,4 +1131,4 @@ Verification status:
 - Added explicit autonomy, sandbox and approval-gate controls as frontend state.
 - Updated navigation metadata and the frontend capability matrix to reflect the expanded Developer Workspace.
 - The feature set is deliberately adapter-ready: runtime execution, real browser automation, remote environments, model providers, Git mutation, credentials and automation triggers remain outside this presentation slice.
-- Current feature inspiration was cross-checked against 2026 capabilities documented by OpenAI Codex, Cursor, Claude Code, GitHub Copilot and OpenHands. citeturn316532search0turn316532search3turn283938search3turn283938search5turn316532search11turn316532search5
+- Current feature inspiration was cross-checked against 2026 capabilities documented by OpenAI Codex, Cursor, Claude Code, GitHub Copilot and OpenHands.

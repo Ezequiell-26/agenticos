@@ -147,7 +147,6 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   const [workflowRunning, setWorkflowRunning] = useState<string | null>(null)
   const [terminalLines, setTerminalLines] = useState(terminalWelcome)
   const [terminalInput, setTerminalInput] = useState('')
-  const [settings, setSettings] = useState({ safe: true, compact: false, motion: true, notifications: true, autosave: true })
   const [runFilter, setRunFilter] = useState<'All' | 'Active' | 'Completed'>('All')
   const [selectedRun, setSelectedRun] = useState('RUN-042')
   const [artifactSelected, setArtifactSelected] = useState(artifacts[0][0])
@@ -436,14 +435,3 @@ function StudioHeader({ eyebrow, title, subtitle, actions }: { eyebrow: string; 
   return <header className="studio-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{subtitle}</p></div><div className="studio-header__actions">{actions}</div></header>
 }
 
-function SettingGroup({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="setting-group"><div className="setting-group__header"><span>{title}</span><Icon name="settings" size={14} /></div>{children}</section>
-}
-
-function SettingToggle({ label, detail, enabled, onChange }: { label: string; detail: string; enabled: boolean; onChange: () => void }) {
-  return <div className="setting-toggle-row"><div><strong>{label}</strong><span>{detail}</span></div><button className={`switch ${enabled ? 'switch--on' : ''}`} role="switch" aria-checked={enabled} type="button" onClick={onChange}><span /></button></div>
-}
-
-function Toast({ message }: { message: string }) {
-  return <div className="studio-toast"><Icon name="check" size={14} /><span>{message}</span></div>
-}

@@ -37,6 +37,9 @@ const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) =
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
 const SessionReplayStudio = lazy(() => import('./SessionReplayStudio').then((module) => ({ default: module.SessionReplayStudio })))
 const EvidenceArtifactInspector = lazy(() => import('./EvidenceArtifactInspector').then((module) => ({ default: module.EvidenceArtifactInspector })))
+const AgentArena = lazy(() => import('./AgentArena').then((module) => ({ default: module.AgentArena })))
+const FrontendStateMatrix = lazy(() => import('./FrontendStateMatrix').then((module) => ({ default: module.FrontendStateMatrix })))
+const VisualAccessibilityLab = lazy(() => import('./VisualAccessibilityLab').then((module) => ({ default: module.VisualAccessibilityLab })))
 const EnvironmentLab = lazy(() => import('./EnvironmentLab').then((module) => ({ default: module.EnvironmentLab })))
 const TaskExecutionCenter = lazy(() => import('./TaskExecutionCenter').then((module) => ({ default: module.TaskExecutionCenter })))
 const AgentMissionControl = lazy(() => import('./AgentMissionControl').then((module) => ({ default: module.AgentMissionControl })))
@@ -50,6 +53,9 @@ import './TaskExecutionCenter.css'
 import './SessionReplayStudio.css'
 import './EvidenceArtifactInspector.css'
 import './EnvironmentLab.css'
+import './AgentArena.css'
+import './FrontendStateMatrix.css'
+import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
@@ -139,6 +145,12 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
       <Toast message={notice} />
     </Shell>
   )
+
+  if (mode === 'agent-arena') return (<Shell><AgentArena onAction={notify} /><Toast message={notice} /></Shell>)
+
+  if (mode === 'frontend-state-matrix') return (<Shell><FrontendStateMatrix onAction={notify} /><Toast message={notice} /></Shell>)
+
+  if (mode === 'visual-accessibility-lab') return (<Shell><VisualAccessibilityLab onAction={notify} /><Toast message={notice} /></Shell>)
 
   if (mode === 'session-replay') return (<Shell><SessionReplayStudio onAction={notify} /><Toast message={notice} /></Shell>)
 

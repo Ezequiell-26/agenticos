@@ -916,3 +916,11 @@ Verification status:
 - Added a unified execution workspace for task queue state, terminal sessions, process/resource state, approvals, event logs and evidence-oriented controls.
 - Connected the surface to the same typed navigation and lazy-loading architecture used by other platform modules.
 - Kept command execution, process control, delegation and artifact mutation explicitly presentation-only until runtime adapters are connected.
+
+
+## Session, Evidence & Environment Suite — 2026-09-24
+
+- Added Session Replay Studio for branching, replay, comparison, event filtering and restore previews.
+- Added Evidence & Artifact Inspector for screenshots, videos, logs, diffs, test reports, handoffs and provenance chains.
+- Added Environment Lab for local/worktree/cloud/SSH targets, network policy, runtime setup, snapshots and lifecycle states.
+- Added FRONTEND-CAPABILITY-MATRIX.md as the canonical inventory of frontend surfaces and backend connection status.

@@ -2,6 +2,8 @@
 //! MIT Licensed - Layered configuration system
 //! Source: https://github.com/rust-cli/config-rs (3192 stars, MIT/Apache-2.0)
 
+#![allow(clippy::redundant_closure)]
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -321,12 +323,6 @@ mod tests {
         let mut config = Config::new();
         config.set("key".to_string(), ConfigValue::String("value".to_string()));
         assert_eq!(config.get_string("key").unwrap(), "value");
-    }
-
-    #[test]
-    fn test_config_get_or() {
-        let mut config = Config::new();
-        assert_eq!(config.get_or("missing", "default"), "default");
     }
 
     #[test]

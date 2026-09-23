@@ -1,14 +1,18 @@
 //! Knowledge Base - Persistent, indexed knowledge storage
 
+#![allow(missing_docs)]
+
 use super::{BrainError, ProvenanceEvidence};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Knowledge Base
+#[allow(missing_debug_implementations)]
 pub struct KnowledgeBase {
     storage: Arc<dyn KnowledgeStorage>,
     index: Arc<RwLock<KnowledgeIndex>>,
+    #[allow(dead_code)]
     config: KnowledgeConfig,
 }
 
@@ -21,6 +25,7 @@ pub trait KnowledgeStorage: Send + Sync {
 }
 
 /// Knowledge index
+#[derive(Debug)]
 pub struct KnowledgeIndex {
     entries: HashMap<String, Vec<KnowledgeEntry>>,
 }
@@ -105,14 +110,12 @@ impl KnowledgeIndex {
     fn index_entry(&mut self, entry: KnowledgeEntry) {
         // Placeholder: simple indexing by language
         let language = entry.metadata.language.clone();
-        self.entries
-            .entry(language)
-            .or_insert_with(Vec::new)
-            .push(entry);
+        self.entries.entry(language).or_default().push(entry);
     }
 }
 
 /// In-memory knowledge storage for testing
+#[derive(Debug)]
 pub struct InMemoryKnowledgeStorage {
     entries: Arc<RwLock<HashMap<String, KnowledgeEntry>>>,
 }

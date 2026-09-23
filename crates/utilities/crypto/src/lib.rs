@@ -2,6 +2,8 @@
 //! MIT/Apache-2.0 Licensed - Pure Rust cryptography with zero default deps
 //! Source: https://github.com/loadingalias/rscrypto (35 stars, MIT/Apache-2.0)
 
+#![allow(clippy::should_implement_trait, clippy::manual_range_contains)]
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]

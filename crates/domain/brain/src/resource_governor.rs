@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Resource Governor
+#[derive(Debug)]
 pub struct ResourceGovernor {
     ram_limiter: Arc<RamLimiter>,
     cpu_limiter: Arc<CpuLimiter>,
@@ -15,18 +16,21 @@ pub struct ResourceGovernor {
 }
 
 /// RAM limiter
+#[derive(Debug)]
 pub struct RamLimiter {
     max_mb: u64,
     current_mb: Arc<AtomicU64>,
 }
 
 /// CPU limiter
+#[derive(Debug)]
 pub struct CpuLimiter {
     max_percent: f64,
     current_percent: Arc<AtomicU64>, // Store as integer percentage (0-100)
 }
 
 /// Token budget
+#[derive(Debug)]
 pub struct TokenBudget {
     max_tokens_per_request: u64,
     max_tokens_per_session: u64,
@@ -35,28 +39,36 @@ pub struct TokenBudget {
 }
 
 /// Token optimizer
+#[derive(Debug)]
 pub struct TokenOptimizer {
     deduplicator: ContextDeduplicator,
     compressor: ContextCompressor,
+    #[allow(dead_code)]
     ranker: ContextRanker,
 }
 
 /// Context deduplicator
+#[derive(Debug)]
 pub struct ContextDeduplicator {
     seen_contexts: Arc<RwLock<HashMap<u64, u64>>>,
 }
 
 /// Context compressor
+#[derive(Debug)]
 pub struct ContextCompressor {
+    #[allow(dead_code)]
     compression_ratio: f64,
 }
 
 /// Context ranker
+#[derive(Debug)]
 pub struct ContextRanker {
+    #[allow(dead_code)]
     max_items: usize,
 }
 
 /// Cache manager
+#[derive(Debug)]
 pub struct CacheManager {
     max_size_mb: u64,
     current_size_mb: Arc<AtomicU64>,
@@ -183,10 +195,15 @@ impl ResourceGovernor {
 
 /// Governor configuration
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct GovernorConfig {
+    #[allow(missing_docs)]
     pub max_ram_mb: u64,
+    #[allow(missing_docs)]
     pub max_cpu_percent: f64,
+    #[allow(missing_docs)]
     pub max_tokens_per_session: u64,
+    #[allow(missing_docs)]
     pub max_cache_mb: u64,
 }
 
@@ -261,8 +278,7 @@ impl TokenOptimizer {
     pub fn estimate_savings(&self, context: &str) -> f64 {
         let original_len = context.len();
         let estimated_compressed = (original_len as f64 * 0.7) as usize;
-        let savings = 1.0 - (estimated_compressed as f64 / original_len as f64);
-        savings
+        1.0 - (estimated_compressed as f64 / original_len as f64)
     }
 }
 
@@ -282,8 +298,8 @@ impl ContextDeduplicator {
 
         for line in &lines {
             let line_hash = self.hash_line(line);
-            if !seen.contains_key(&line_hash) {
-                seen.insert(line_hash, 1);
+            if let std::collections::hash_map::Entry::Vacant(e) = seen.entry(line_hash) {
+                e.insert(1);
                 unique_lines.push(*line);
             }
             hash = hash.wrapping_add(line_hash);
@@ -424,25 +440,37 @@ impl Default for ResourceGovernor {
 
 /// Resource request
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ResourceRequest {
+    #[allow(missing_docs)]
     pub ram_mb: u64,
+    #[allow(missing_docs)]
     pub cpu_percent: f64,
+    #[allow(missing_docs)]
     pub tokens: u64,
 }
 
 /// Resource usage
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ResourceUsage {
+    #[allow(missing_docs)]
     pub ram_mb: u64,
+    #[allow(missing_docs)]
     pub cpu_ms: u64,
+    #[allow(missing_docs)]
     pub tokens: u64,
 }
 
 /// Resource state
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ResourceState {
+    #[allow(missing_docs)]
     pub ram_mb: u64,
+    #[allow(missing_docs)]
     pub cpu_percent: f64,
+    #[allow(missing_docs)]
     pub tokens_used: u64,
 }
 
@@ -520,9 +548,9 @@ mod tests {
         let governor = ResourceGovernor::default();
         let context = "Line 1\nLine 2\nLine 1\nLine 3";
 
-        let result = governor.optimize_context(context).await;
-        assert!(result.is_ok());
-        let optimized = result.unwrap();
+        let _result = governor.optimize_context(context).await;
+        assert!(_result.is_ok());
+        let optimized = _result.unwrap();
         // Deduplication should remove duplicate "Line 1"
         assert!(!optimized.contains("Line 1\nLine 1"));
     }
@@ -549,14 +577,14 @@ mod tests {
         for i in 0..110 {
             let key = format!("key_{}", i);
             let data = vec![i as u8; 10 * 1024 * 1024]; // 10 MB each
-            let result = governor.cache_put(key, data, 10).await;
+            let _result = governor.cache_put(key, data, 10).await;
             // Some items should fail due to eviction
         }
 
         // Evict should remove some items
         let evicted = governor.cache_evict().await.unwrap();
         // We expect eviction to happen
-        assert!(evicted >= 0);
+        assert!(evicted > 0);
     }
 
     #[tokio::test]

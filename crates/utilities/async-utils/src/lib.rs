@@ -2,6 +2,8 @@
 //! MIT/Apache-2.0 Licensed - Structured concurrency operations for async Rust
 //! Source: https://github.com/yoshuawuyts/futures-concurrency (500 stars, MIT/Apache-2.0)
 
+#![allow(clippy::redundant_async_block)]
+
 use futures::future::{join_all, select_all};
 use std::future::Future;
 use thiserror::Error;
@@ -259,6 +261,7 @@ mod tests {
         value * 2
     }
 
+    #[allow(dead_code)]
     async fn async_operation_with_result(value: u32) -> Result<u32, String> {
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         if value > 100 {

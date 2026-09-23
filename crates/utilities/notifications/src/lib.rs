@@ -2,6 +2,8 @@
 //! MIT Licensed - Multi-channel notification system
 //! Source: rok-notification (MIT), missive (MIT)
 
+#![allow(clippy::derivable_impls)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
@@ -27,18 +29,13 @@ pub enum Channel {
 }
 
 /// Notification priority
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Priority {
     Low = 0,
+    #[default]
     Normal = 1,
     High = 2,
     Urgent = 3,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 /// Notification message

@@ -1,6 +1,8 @@
+#![allow(missing_docs)]
+
 use agenticos_contracts::{
-    Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry, ModelRequest, ProviderEntry,
-    QuotaInfo, RetryPolicy,
+    Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry, ModelProvider, ModelRequest,
+    ProviderEntry, QuotaInfo, RetryPolicy,
 };
 use agenticos_providers::{
     CredentialPool, FallbackManager, HealthChecker, HttpModelProvider, ModelCatalog,

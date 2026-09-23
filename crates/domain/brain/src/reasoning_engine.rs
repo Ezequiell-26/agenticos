@@ -1,32 +1,45 @@
 //! Reasoning & Planning Engine - Multi-step reasoning, planning, capability selection
 
+#![allow(missing_docs)]
+
 use super::{BrainError, CapabilityId};
 use std::sync::Arc;
 
 /// Reasoning & Planning Engine
+#[derive(Debug)]
 pub struct ReasoningEngine {
+    #[allow(dead_code)]
     planner: Arc<Planner>,
+    #[allow(dead_code)]
     evaluator: Arc<Evaluator>,
+    #[allow(dead_code)]
     selector: Arc<CapabilitySelector>,
 }
 
 /// Planner for multi-step reasoning
+#[derive(Debug)]
 pub struct Planner {
+    #[allow(dead_code)]
     max_steps: usize,
 }
 
 /// Evaluator for evaluating plans
+#[derive(Debug)]
 pub struct Evaluator {
+    #[allow(dead_code)]
     enable_learning: bool,
 }
 
 /// Capability selector
+#[derive(Debug)]
 pub struct CapabilitySelector {
+    #[allow(dead_code)]
     strategy: SelectionStrategy,
 }
 
 /// Selection strategy
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum SelectionStrategy {
     Greedy,
     Balanced,
@@ -35,26 +48,39 @@ pub enum SelectionStrategy {
 
 /// Reasoning plan
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ReasoningPlan {
+    #[allow(missing_docs)]
     pub steps: Vec<PlanStep>,
+    #[allow(missing_docs)]
     pub estimated_cost: PlanCost,
+    #[allow(missing_docs)]
     pub confidence: f64,
 }
 
 /// Plan step
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct PlanStep {
+    #[allow(missing_docs)]
     pub id: String,
+    #[allow(missing_docs)]
     pub action: String,
+    #[allow(missing_docs)]
     pub required_capabilities: Vec<CapabilityId>,
+    #[allow(missing_docs)]
     pub estimated_tokens: u64,
 }
 
 /// Plan cost
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct PlanCost {
+    #[allow(missing_docs)]
     pub tokens: u64,
+    #[allow(missing_docs)]
     pub monetary: f64,
+    #[allow(missing_docs)]
     pub time_seconds: u64,
 }
 
@@ -108,9 +134,13 @@ impl ReasoningEngine {
 
 /// Engine configuration
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct EngineConfig {
+    #[allow(missing_docs)]
     pub max_steps: usize,
+    #[allow(missing_docs)]
     pub enable_learning: bool,
+    #[allow(missing_docs)]
     pub selection_strategy: SelectionStrategy,
 }
 
@@ -126,18 +156,27 @@ impl Default for EngineConfig {
 
 /// Evaluation result
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct EvaluationResult {
+    #[allow(missing_docs)]
     pub score: f64,
+    #[allow(missing_docs)]
     pub risk_assessment: RiskAssessment,
+    #[allow(missing_docs)]
     pub recommendations: Vec<String>,
 }
 
 /// Risk assessment
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct RiskAssessment {
+    #[allow(missing_docs)]
     pub low_risk: bool,
+    #[allow(missing_docs)]
     pub medium_risk: bool,
+    #[allow(missing_docs)]
     pub high_risk: bool,
+    #[allow(missing_docs)]
     pub details: Vec<String>,
 }
 

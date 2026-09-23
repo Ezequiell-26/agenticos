@@ -2,6 +2,8 @@
 //! MIT Licensed - Low-latency cyclic dataflow computational model
 //! Source: https://github.com/timelydataflow/timely-dataflow (3625 stars, MIT)
 
+#![allow(clippy::type_complexity)]
+
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::mpsc;

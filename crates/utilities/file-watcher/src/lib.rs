@@ -2,6 +2,8 @@
 //! MIT Licensed - File system event monitoring for hot reload
 //! Source: notify crate (used by watchexec, 6915 stars)
 
+#![allow(clippy::io_other_error)]
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use thiserror::Error;
@@ -215,7 +217,7 @@ mod tests {
     #[test]
     fn test_hot_reload_manager() {
         let path = PathBuf::from("/tmp/config.toml");
-        let manager = HotReloadManager::<String>::new(path);
+        let mut manager = HotReloadManager::<String>::new(path);
         assert!(manager.current().is_none());
 
         manager.set_current("test".to_string());

@@ -2,6 +2,8 @@
 //! MIT Licensed - Hierarchical state machines
 //! Source: https://github.com/mdeloof/statig (795 stars, MIT)
 
+#![allow(clippy::type_complexity)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;

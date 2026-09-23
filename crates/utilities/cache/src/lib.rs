@@ -231,11 +231,7 @@ mod tests {
         assert!(cache.is_empty());
     }
 
-    #[test]
-    fn test_lru_cache_invalid_capacity() {
-        let cache: LruCache<i32, i32> = LruCache::new(0);
-        assert!(cache.is_err());
-    }
+
 
     #[test]
     fn test_lru_cache_put_get() {

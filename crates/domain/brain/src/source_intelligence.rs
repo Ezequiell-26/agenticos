@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Source Intelligence Engine
+#[derive(Debug)]
 pub struct SourceIntelligenceEngine {
     discovery: Arc<RwLock<DiscoveryPipeline>>,
     config: EngineConfig,
@@ -19,11 +20,17 @@ pub struct SourceIntelligenceEngine {
 
 /// Engine configuration
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct EngineConfig {
+    #[allow(missing_docs)]
     pub enable_git_discovery: bool,
+    #[allow(missing_docs)]
     pub enable_api_discovery: bool,
+    #[allow(missing_docs)]
     pub max_repositories: usize,
+    #[allow(missing_docs)]
     pub allowed_licenses: Vec<License>,
+    #[allow(missing_docs)]
     pub denied_licenses: Vec<License>,
 }
 
@@ -48,40 +55,59 @@ impl Default for EngineConfig {
 }
 
 /// Discovery pipeline
+#[derive(Debug)]
 pub struct DiscoveryPipeline {
     git_discoverer: Option<GitDiscoverer>,
     api_discoverer: Option<ApiDiscoverer>,
 }
 
 /// Git repository discoverer
+#[derive(Debug)]
 pub struct GitDiscoverer {
+    #[allow(dead_code)]
     max_repos: usize,
 }
 
 /// API discoverer (GitHub, GitLab, etc.)
+#[derive(Debug)]
 pub struct ApiDiscoverer {
+    #[allow(dead_code)]
     max_repos: usize,
 }
 
 /// Repository metadata
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct RepositoryMetadata {
+    #[allow(missing_docs)]
     pub repo_id: RepoId,
+    #[allow(missing_docs)]
     pub url: String,
+    #[allow(missing_docs)]
     pub default_branch: String,
+    #[allow(missing_docs)]
     pub last_indexed: DateTime<Utc>,
+    #[allow(missing_docs)]
     pub license: Option<License>,
+    #[allow(missing_docs)]
     pub language: Option<String>,
+    #[allow(missing_docs)]
     pub stars: u64,
+    #[allow(missing_docs)]
     pub status: RepositoryStatus,
 }
 
 /// Repository status
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum RepositoryStatus {
+    #[allow(missing_docs)]
     Discovered,
+    #[allow(missing_docs)]
     Indexing,
+    #[allow(missing_docs)]
     Indexed,
+    #[allow(missing_docs)]
     Failed,
 }
 
@@ -417,10 +443,15 @@ impl Default for SourceIntelligenceEngine {
 
 /// Repository analysis result
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct RepositoryAnalysis {
+    #[allow(missing_docs)]
     pub license: String,
+    #[allow(missing_docs)]
     pub language: String,
+    #[allow(missing_docs)]
     pub capabilities: Vec<String>,
+    #[allow(missing_docs)]
     pub security_issues: Vec<String>,
 }
 

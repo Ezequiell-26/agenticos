@@ -2,6 +2,8 @@
 //! MIT/Apache-2.0 Licensed - Date and time library for Rust
 //! Source: https://github.com/chronotope/chrono (33,288 dependents, MIT/Apache-2.0)
 
+#![allow(clippy::len_zero)]
+
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use thiserror::Error;
 

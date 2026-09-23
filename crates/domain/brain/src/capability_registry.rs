@@ -1,11 +1,14 @@
 //! Capability Registry - Dynamic capability discovery and management
 
+#![allow(missing_docs)]
+
 use super::{BrainError, Capability, CapabilityId, CapabilityOrigin, CapabilityStatus, License};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Capability Registry - Central registry for all capabilities
+#[derive(Debug)]
 pub struct CapabilityRegistry {
     capabilities: Arc<RwLock<HashMap<CapabilityId, Capability>>>,
     /// Index by type (derived from origin)

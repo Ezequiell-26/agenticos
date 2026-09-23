@@ -2,6 +2,14 @@
 //! MIT Licensed - Full-text search and indexing
 //! Source: Meilisearch (59169 stars, MIT), Tantivy patterns
 
+#![allow(
+    clippy::single_char_add_str,
+    clippy::for_kv_map,
+    clippy::manual_retain,
+    clippy::len_without_is_empty,
+    clippy::needless_range_loop
+)]
+
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 

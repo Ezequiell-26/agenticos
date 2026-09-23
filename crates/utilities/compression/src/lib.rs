@@ -2,6 +2,8 @@
 //! MIT Licensed - Zstandard compression format implementation
 //! Source: https://github.com/KillingSpark/zstd-rs (437 stars, MIT)
 
+#![allow(clippy::manual_is_multiple_of, clippy::derivable_impls)]
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]

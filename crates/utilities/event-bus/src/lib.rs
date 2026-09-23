@@ -2,6 +2,8 @@
 //! MIT Licensed - Lock-free pub/sub event bus
 //! Source: tokio-events (MIT), eventador-rs (24 stars, MIT)
 
+#![allow(clippy::type_complexity, clippy::len_without_is_empty)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

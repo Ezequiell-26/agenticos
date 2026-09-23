@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 //! AgentiCOS Brain - Central intelligence platform
 //!
@@ -59,14 +59,19 @@ pub type License = String;
 
 /// Capability origin type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum CapabilityOrigin {
     /// Code integrated directly into core
+    #[allow(missing_docs)]
     IntegratedCode { repo: RepoId, commit: CommitHash },
     /// Adapted through plugin adapter
+    #[allow(missing_docs)]
     AdaptedPlugin { repo: RepoId, adapter: CapabilityId },
     /// Runs in isolated process
+    #[allow(missing_docs)]
     IsolatedProcess { repo: RepoId, sandbox: CapabilityId },
     /// Knowledge source (indexed, not executed)
+    #[allow(missing_docs)]
     KnowledgeSource { repo: RepoId, indexed: bool },
 }
 

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
-import { Panel, Metric, Tag, Shell } from './PlatformPrimitives'
-
+import { Panel, Metric, Tag, Shell } from './PlatformPrimitives'\nimport './FrontendCompletenessStudio.css'\n
 export type CompletenessMode =
   | 'evaluations'
   | 'skills'

@@ -43,6 +43,8 @@ export type RailMode =
   | 'knowledge'
   | 'developer-workspace'
   | 'git-control'
+  | 'agent-mission'
+  | 'task-execution'
   | 'security'
   | 'sessions'
   | 'logs'
@@ -96,6 +98,8 @@ export interface NavigationItem {
 }
 
 export const navigationItems: NavigationItem[] = [
+  { id: 'task-execution', label: 'Task Execution Center', detail: 'Tasks, terminal sessions, processes, approvals, event logs and evidence', icon: 'terminal', group: 'operate' },
+  { id: 'agent-mission', label: 'Agent Mission Control', detail: 'Unified task launch, mode, model, context, tools, worktree and verification orchestration', icon: 'play', group: 'build' },
   { id: 'overview', label: 'Workspace Overview', detail: 'Project health, active work, approvals and recent agent activity', icon: 'home', group: 'build' },
   { id: 'chat', label: 'Command Center', detail: 'Agent chat, context, commands and session control', icon: 'home', group: 'build' },
   { id: 'files', label: 'Files & Editor', detail: 'Explorer, editor, tabs, diff and inspector', icon: 'file-code', group: 'build' },
@@ -187,11 +191,11 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
   'browser', 'mcp', 'security', 'permissions', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows' | 'teams' | 'advanced-context' | 'usage' | 'release' | 'customization' | 'help' | 'recovery' | 'observability' | 'approvals'>
+export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'knowledge' | 'developer-workspace' | 'git-control' | 'agent-mission' | 'task-execution' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows' | 'teams' | 'advanced-context' | 'usage' | 'release' | 'customization' | 'help' | 'recovery' | 'observability' | 'approvals'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'overview', 'agent-control', 'prompts', 'permissions', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'knowledge', 'developer-workspace', 'git-control', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows', 'teams', 'advanced-context', 'usage', 'observability', 'release', 'customization', 'help', 'recovery', 'approvals',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'knowledge', 'developer-workspace', 'git-control', 'agent-mission', 'task-execution', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows', 'teams', 'advanced-context', 'usage', 'observability', 'release', 'customization', 'help', 'recovery', 'approvals',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

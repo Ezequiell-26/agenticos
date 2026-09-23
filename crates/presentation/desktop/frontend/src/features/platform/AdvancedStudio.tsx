@@ -34,8 +34,8 @@ const audit = [
 ] as const
 
 export function AdvancedStudio({ mode, onAction }: ActionProps & { mode: 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' }) {
-  const [modelA, setModelA] = useState<(typeof models)[number][0]>(models[0][0])
-  const [modelB, setModelB] = useState<(typeof models)[number][0]>(models[1][0])
+  const [modelA, setModelA] = useState<string>(models[0][0])
+  const [modelB, setModelB] = useState<string>(models[1][0])
   const [selectedRoute, setSelectedRoute] = useState<(typeof routes)[number][0]>(routes[0][0])
   const [budget, setBudget] = useState(70)
   const [activeVersion, setActiveVersion] = useState<(typeof versions)[number][0]>(versions[0][0])

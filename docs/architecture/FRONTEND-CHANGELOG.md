@@ -651,3 +651,9 @@ The dispatcher components now route into these feature boundaries instead of car
 Created `features/mcp/McpManager.tsx` and routed the existing MCP navigation surface through it. Added server search, tool/resource inspection, auth readiness, masked secret state and policy controls with responsive styling.
 
 The feature is presentation-only and introduces no runtime transport or credential handling.
+
+### 2026-09-24 — Hook Manager
+
+Created `features/hooks/HookManager.tsx` and routed Hooks & Policies through the dedicated feature boundary. Added configuration, lifecycle trace and test-bench views with responsive/reduced-motion styling.
+
+No runtime middleware or authorization behavior was introduced.

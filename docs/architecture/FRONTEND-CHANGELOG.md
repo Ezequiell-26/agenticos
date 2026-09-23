@@ -975,3 +975,10 @@ Verification status:
 - Added a unified integration surface for MCP, Browser, Channels, Sources, Credentials, Webhooks and Environments.
 - Added integration-level network policy, secret-handling, inbound-event and external-publication guards.
 - Kept authoritative connections and secret values outside presentation state.
+
+
+## Governance Control Center — 2026-09-24
+
+- Added a unified safety/release plane for permissions, approvals, security posture, hooks, audit timeline and release gates.
+- Added explicit fail-closed presentation states and evidence requirements.
+- Consolidated governance navigation without removing the dedicated detailed surfaces underneath it.

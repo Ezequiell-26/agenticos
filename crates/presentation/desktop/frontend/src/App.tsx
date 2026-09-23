@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import ActivityRail from './components/ActivityRail'
+import ActivityRail, { type RailMode } from './components/ActivityRail'
 import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
@@ -9,8 +9,6 @@ import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import { runtime } from './services/runtime'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
-
-type RailMode = 'chat' | 'files' | 'runs' | 'providers' | 'settings'
 
 const now = Date.now()
 
@@ -37,7 +35,7 @@ const fallbackStatus: AgentStatusSnapshot = {
 
 const modeStorageKey = 'agenticos.ui.mode'
 const sessionStorageKey = 'agenticos.ui.session'
-const railModes: RailMode[] = ['chat', 'files', 'runs', 'providers', 'settings']
+const railModes: RailMode[] = ['chat', 'files', 'runs', 'providers', 'skills', 'tools', 'memory', 'workflows', 'artifacts', 'terminal', 'settings']
 
 function readStoredMode(): RailMode {
   try {

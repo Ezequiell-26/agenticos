@@ -626,3 +626,10 @@ Verification for this slice:
 - shared icon names restricted to the repository-owned icon registry;
 - responsive and reduced-motion styling added;
 - fresh TypeScript/Vite CI, browser/Tauri verification and accessibility audit remain pending.
+
+
+### 2026-09-24 — Complete visual Subagent Builder
+
+Added `features/subagents/SubagentBuilder.tsx` and routed `SubagentFleet.tsx` through the new builder. The surface now covers task ownership, isolated context budgets, bounded turns, model/toolset selection, memory scope, handoff format, recursive delegation, safety toggles, approval requirements and run/handoff inspection.
+
+No runtime execution or authorization was added. The existing Subagent route remains lazy-loaded through the platform surface.

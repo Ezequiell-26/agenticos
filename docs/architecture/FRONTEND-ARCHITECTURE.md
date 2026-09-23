@@ -267,3 +267,31 @@ Global presentation customization is centralized in:
 - `src/components/SettingsSurface.tsx` — thin compatibility wrapper for existing shell composition.
 
 The bridge is presentation-only. It may control UI geometry, theme and interaction preferences, but it must not store provider secrets or become a second runtime state system.
+
+## Unified Control Plane
+
+The frontend has two intentional configuration layers:
+
+1. `src/features/settings/SettingsControlCenter.tsx` is the optimized entry point. It exposes high-frequency controls grouped by domain and scope, and renders only the selected domain.
+2. `src/features/settings/SettingsStudio.tsx` remains the deep catalog for detailed runtime-inspired configuration. It is reached from the Control Center rather than duplicated.
+
+The Control Center models capabilities documented by current agent IDE/runtime products without claiming backend parity until a typed AgentiCOS contract exists. It includes:
+
+- Global / Project / Session / Agent configuration scopes.
+- Agent modes, model routing, fast/auxiliary model concepts, fallback, tool budgets and parallel subagents.
+- Codebase indexing, semantic search, file watching, context sources, memory and compression.
+- Auto-review/allowlist/request-review/always-proceed semantics, terminal sandboxing, workspace boundaries, network policy, checkpoints and diff review.
+- Browser agent, browser backends, Chrome DevTools, recordings and persistence.
+- Rules, skills, plugins, MCP, custom agents, inheritance and lifecycle hooks.
+- Cloud/background agents, isolated worktrees, artifacts, remote control, automations and notifications.
+- Theme, density, reduced motion, compact chrome, terminal splitting and hover previews.
+- Privacy, telemetry, cost and usage-warning preferences.
+
+### Performance contract
+
+- Heavy non-chat workspace surfaces are lazy-loaded by `WorkspaceOverview.tsx`.
+- Only the selected Control Center settings domain is mounted.
+- Long histories, tool registries, artifact collections and codebase results should use pagination or virtualization in their owning feature surface.
+- Presentation preferences remain local and typed; backend behavior stays behind `services/runtime` contracts.
+- No credentials or secret values are allowed in React configuration state or portable UI exports.
+

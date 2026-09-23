@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
-import SettingsStudio from './SettingsStudio'
 import EffectivePermissionMatrix from '../security/EffectivePermissionMatrix'
+const SettingsStudio = lazy(() => import('./SettingsStudio'))
 const CustomizeManager = lazy(() => import('./CustomizeManager'))
 const KeymapEditor = lazy(() => import('./KeymapEditor'))
 const CapabilityRegistry = lazy(() => import('../runtime/CapabilityRegistry'))
+const SetupChecklist = lazy(() => import('./SetupChecklist'))
+const ScopeResolverPreview = lazy(() => import('./ScopeResolverPreview'))
 import {
   type SettingsScope,
   type SettingsStore,
@@ -494,8 +496,14 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Select label="Active mode" value={state.activeMode} options={modes} onChange={(value) => update('activeMode', value)} />
                 <Text label="Custom agent instructions" value={state.customInstructions} onChange={(value) => update('customInstructions', value)} placeholder="Optional workspace-specific guidance…" />
               </ControlSection>
+              <ControlSection title="First-run setup" detail="High-signal setup state before deep configuration.">
+                <LazyPanel><SetupChecklist /></LazyPanel>
+              </ControlSection>
               <ControlSection title="Runtime capabilities" detail="The frontend adapts to what the runtime actually exposes.">
                 <LazyPanel><CapabilityRegistry /></LazyPanel>
+              </ControlSection>
+              <ControlSection title="Effective configuration" detail="Preview how Global, Project, Agent and Session values resolve.">
+                <LazyPanel><ScopeResolverPreview /></LazyPanel>
               </ControlSection>
             </ControlPage>
           )}

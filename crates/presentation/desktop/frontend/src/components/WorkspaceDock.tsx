@@ -85,7 +85,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
           <span className="dock-context"><Icon name="folder" size={12} /> {mode}</span>
           <span className="dock-context"><span className={running ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /> {runStateLabel}</span>
           <button className="icon-button" type="button" aria-label={maximized ? 'Restore dock size' : 'Maximize dock'} title={maximized ? 'Restore dock' : 'Maximize dock'} onClick={() => setMaximized((value) => !value)}>
-            <Icon name="layout" size={14} />
+            <Icon name={maximized ? 'minimize' : 'maximize'} size={14} />
           </button>
           <button className="icon-button" type="button" aria-label="Close bottom dock" title="Close dock" onClick={onClose}>
             <Icon name="x" size={14} />

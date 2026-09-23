@@ -132,3 +132,19 @@ The current repository already contains an early desktop UI from existing commit
 - Rollback point: `4c035ecac4cff82cb08ff07790d20c22afb70099`.
 - Next step: continue with richer workspace interactions and visual regression coverage.
 
+## Configuration + Chat controls expansion — 2026-09-24
+
+- Scope: frontend-only, maximizing visible configuration and chat tooling without requiring backend contracts.
+- Created: `crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx`.
+- Modified: `StudioSurface.tsx`, `ChatSurface.tsx`, `ActivityRail.tsx`, `App.tsx`, `WorkspaceSidebar.tsx`, and `index.css`.
+- Configuration sections added: General, Appearance, Editor, Chat, Agent, Tools, Safety, Context, Notifications, Privacy, Keyboard and Advanced.
+- Configuration controls added: theme, density, font size, language, default model, default agent, context strategy, autosave, notifications, sound, motion, transparency, line numbers, word wrap, format-on-save, minimap, streaming, web-by-default, memory/draft persistence, creativity, autonomy, tool budget, tool visibility, confirmation policy, telemetry, crash reports, keymap, safety mode and advanced runtime/UI indicators.
+- Chat controls added: agent selector, model selector, context scope, effort level, max output, temperature, Deep/Code/Web/Memory toggles, attachment strip, token estimate, tool picker, controls panel, richer starter prompts and response actions.
+- Functionality is local/preview state and does not claim runtime permissions, provider telemetry or live model capability.
+- Deleted: none.
+- Preserved: existing chat integration, runtime service boundary, Product Studio surfaces and repository history.
+- Verification evidence: GitHub accepted the frontend commits on `main`; CI run 676 was triggered from the cleanup commit.
+- Unverified checks: latest CI conclusion, browser visual verification, Tauri/Windows rendering, accessibility audit.
+- Rollback point: `60e0bdac13fe8ac5072a891abf4b0271fc67e215`.
+- Next step: continue frontend-only work with richer side panels, previews, command surfaces and visual regression coverage.
+

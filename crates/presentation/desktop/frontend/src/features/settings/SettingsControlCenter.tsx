@@ -7,6 +7,7 @@ const KeymapEditor = lazy(() => import('./KeymapEditor'))
 const CapabilityRegistry = lazy(() => import('../runtime/CapabilityRegistry'))
 const SetupChecklist = lazy(() => import('./SetupChecklist'))
 const ScopeResolverPreview = lazy(() => import('./ScopeResolverPreview'))
+const ThemeStudio = lazy(() => import('./ThemeStudio'))
 import {
   type SettingsScope,
   type SettingsStore,
@@ -722,6 +723,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
 
           {section === 'interface' && (
             <ControlPage title="Interface & Performance" description="Visual customization without trading away responsiveness. Rendering is scoped so only the current configuration domain is mounted.">
+              <ControlSection title="Theme Studio">
+                <LazyPanel><ThemeStudio /></LazyPanel>
+              </ControlSection>
               <ControlSection title="Appearance">
                 <Select label="Theme" value={state.theme} options={themes} onChange={(value) => update('theme', value)} />
                 <Select label="Density" value={state.density} options={densities} onChange={(value) => update('density', value)} />

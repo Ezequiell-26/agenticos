@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 
-type Tab='overview'|'mcp'|'browser'|'channels'|'sources'|'credentials'|'webhooks'|'environments'
+type Tab='overview'|'mcp'|'browser'|'channels'|'sources'|'credentials'|'webhooks'|'environments'|'agents'
 const tabs:Array<[Tab,string,string]>=[
  ['overview','Overview','Connection inventory and policy status'],
  ['mcp','MCP','Tool servers and transports'],
@@ -12,6 +12,7 @@ const tabs:Array<[Tab,string,string]>=[
  ['credentials','Credentials','Masked connection metadata'],
  ['webhooks','Webhooks','Inbound events and delivery'],
  ['environments','Environments','Local, worktree, cloud and SSH'],
+ ['agents','Agent Clients','External agents, ACP handoff and capability scopes'],
 ]
 const items=[
  ['MCP Filesystem','MCP','Connected','12 tools'],
@@ -49,6 +50,9 @@ export function IntegrationControlCenter({onAction}:{onAction:(message:string)=>
   {tab==='credentials'&&<Panel title="Credential metadata"><div className="credential-list">{creds.map(c=><div key={c[0]}><span className="credential-icon"><Icon name="shield" size={13}/></span><span><strong>{c[0]}</strong><small>{c[1]}</small></span><Tag label={c[2]}/><code>{c[3]}</code></div>)}</div><div className="integration-guard">Secrets are not rendered, copied or returned by this surface.</div></Panel>}
 
   {tab==='webhooks'&&<Panel title="Inbound events"><div className="webhook-list">{hooks.map(h=><div key={h[0]}><span><strong>{h[0]}</strong><small>{h[1]}</small></span><Tag label={h[2]}/><button className="studio-button" type="button" onClick={()=>act('Inspect '+h[0])}>Inspect</button></div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Replay webhook delivery')}>Replay</button><button className="studio-button studio-button--active" type="button" onClick={()=>act('Create webhook')}>Create</button></div></Panel>}
+
+
+  {tab==='agents'&&<div className="integration-control__grid"><Panel title="Agent clients"><div className="integration-list">{[['Codex','ACP','Compatible agent client','Preview'],['Claude Code','ACP','Compatible agent client','Preview'],['Gemini CLI','ACP','Compatible agent client','Preview'],['AgentiCOS Remote','Native','AgentiCOS orchestrator','Ready']].map(([name,transport,detail,state])=><div className="integration-row" key={name}><span className="integration-row__icon"><Icon name="bot" size={13}/></span><span><strong>{name}</strong><small>{transport} · {detail}</small></span><Tag label={state}/></div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Discover agent clients')}>Discover</button><button className="studio-button" type="button" onClick={()=>act('Open agent client permissions')}>Permissions</button><button className="studio-button studio-button--active" type="button" onClick={()=>act('Start agent handoff')}>Handoff</button></div></Panel><Panel title="Client contract"><div className="integration-policy"><div><span>Context</span><strong>Scoped</strong></div><div><span>Tools</span><strong>Explicit allowlist</strong></div><div><span>Secrets</span><strong>Never forwarded by UI</strong></div><div><span>Artifacts</span><strong>Linked</strong></div><div><span>Review</span><strong>Required</strong></div><div><span>Failure mode</span><strong>Fail-closed</strong></div></div><div className="integration-guard">External agent clients are presented as interoperable targets; transport negotiation and actual ACP handoff remain runtime responsibilities.</div></Panel></div>}
 
   {tab==='environments'&&<Panel title="Environment targets"><div className="environment-mini-grid">{['Local Desktop','Mission Worktree','Cloud Agent VM','Remote SSH'].map((name,i)=><div key={name}><Icon name={i===0?'home':i===1?'branch':i===2?'cloud':'network'} size={14}/><strong>{name}</strong><small>{i===3?'SSH policy-gated':i===2?'Ephemeral remote':'Ready'}</small><Tag label={i<2?'Ready':'Preview'}/><button className="studio-button" type="button" onClick={()=>act('Open '+name)}>Open</button></div>)}</div></Panel>}
 

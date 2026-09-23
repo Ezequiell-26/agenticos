@@ -97,7 +97,7 @@ const tools = [
   ['diff', 'Diff and patch engine', 'Medium'],
 ]
 
-const memories = [
+const memories: ReadonlyArray<[string, string, string, boolean]> = [
   ['Architecture rules', 'Never bypass the Rust runtime boundary for secrets or provider credentials.', 'Project', true],
   ['Frontend principle', 'Prefer reversible, incremental UI work with clear visual states.', 'Workspace', true],
   ['Current focus', 'Premium desktop Command Center with a professional black/white system.', 'Agent', false],
@@ -395,7 +395,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   }
 
   if (mode === 'agents') {
-    const profiles = [
+    const profiles: ReadonlyArray<[string, string, string, string, boolean]> = [
       ['Builder', 'Implementation specialist', 'Qwen3 Coder', '18 tools', true],
       ['Reviewer', 'Quality and regression analyst', 'GPT-OSS 120B', '11 tools', false],
       ['Researcher', 'Evidence and source specialist', 'DeepSeek', '9 tools', false],
@@ -410,7 +410,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   }
 
   if (mode === 'prompts') {
-    const promptGroups = [
+    const promptGroups: ReadonlyArray<[string, string, string]> = [
       ['Code review', 'Analyze a diff for correctness, regressions and missing tests.', 'Engineering'],
       ['Architecture', 'Design the next implementation slice with no rework.', 'Planning'],
       ['Research', 'Compare options using evidence and explicit uncertainty.', 'Research'],
@@ -421,7 +421,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     return (
       <section className="studio-surface">
         <StudioHeader eyebrow="Prompt engineering" title="Prompt Lab" subtitle="Reusable prompts, variables, versioning and preview execution." actions={<button className="studio-button" type="button" onClick={() => notify('New prompt created in preview')}><Icon name="plus" size={14} /> New prompt</button>} />
-        <div className="prompt-layout"><div className="prompt-list">{promptGroups.map(([name, text, category]) => <button type="button" className="prompt-row" key={name} onClick={() => notify(`${name} loaded`)}><div className="prompt-row__icon"><Icon name="spark" size={14} /></div><div><strong>{name}</strong><span>{text}</span></div><small>{category}</small></button>)}</div><div className="prompt-editor"><div className="prompt-toolbar"><span className="mono-text">prompt://code-review/v4</span><span className="state-pill state-pill--completed">Saved</span></div><textarea defaultValue={'Review the current change set.\\n\\nGoals:\\n- identify regressions\\n- verify tests\\n- produce actionable fixes\\n\\nContext: {{workspace}}\\nDiff: {{diff}}'} aria-label="Prompt editor" /><div className="variable-row"><span>{{workspace}}</span><span>{{diff}}</span><span>{{constraints}}</span><button className="studio-button" type="button" onClick={() => notify('Prompt preview executed')}>Preview</button></div></div></div>
+        <div className="prompt-layout"><div className="prompt-list">{promptGroups.map(([name, text, category]) => <button type="button" className="prompt-row" key={name} onClick={() => notify(`${name} loaded`)}><div className="prompt-row__icon"><Icon name="spark" size={14} /></div><div><strong>{name}</strong><span>{text}</span></div><small>{category}</small></button>)}</div><div className="prompt-editor"><div className="prompt-toolbar"><span className="mono-text">prompt://code-review/v4</span><span className="state-pill state-pill--completed">Saved</span></div><textarea defaultValue={'Review the current change set.\\n\\nGoals:\\n- identify regressions\\n- verify tests\\n- produce actionable fixes\\n\\nContext: {{workspace}}\\nDiff: {{diff}}'} aria-label="Prompt editor" /><div className="variable-row"><span>{'{{workspace}}'}</span><span>{'{{diff}}'}</span><span>{'{{constraints}}'}</span><button className="studio-button" type="button" onClick={() => notify('Prompt preview executed')}>Preview</button></div></div></div>
         {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
       </section>
     )

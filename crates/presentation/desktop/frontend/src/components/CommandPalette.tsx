@@ -28,11 +28,15 @@ export default function CommandPalette({
   onSelectMode,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
     if (!open) return
     setQuery('')
+    setSelectedIndex(0)
+    itemRefs.current = []
     window.requestAnimationFrame(() => inputRef.current?.focus())
   }, [open])
 
@@ -71,11 +75,42 @@ export default function CommandPalette({
     return value.includes(query.toLowerCase())
   })
 
-  if (!open) return null
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [query])
 
-  return (
-    <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (filtered.length === 0) return
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSelectedIndex((index) => (index + 1) % filtered.length)
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSelectedIndex((index) => (index - 1        <div className="palette-list" role="listbox" aria-label="Commands and conversations">
+          {filtered.length === 0 ? (
+            <div className="palette-empty">No commands or conversations match “{query}”.</div>
+          ) : filtered.map((command, index) => (
+            <button
+              aria-selected={index === selectedIndex}
+              className={`palette-item ${index === selectedIndex ? 'palette-item--active' : ''}`}
+              key={command.id}
+              onClick={() => { command.action(); onClose() }}
+              ref={(element) => { itemRefs.current[index] = element }}
+              role="option"
+              type="button"
+            >
+              <span className="palette-item__icon"><Icon name={command.icon} size={16} /></span>
+              <span className="palette-item__copy"><strong>{command.label}</strong><small>{command.detail}</small></span>
+              <Icon name="chevron-right" size={14} />
+            </button>
+          ))}
+        </div>\n"dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
         <div className="palette-search">
           <Icon name="search" size={18} />
           <input ref={inputRef} aria-label="Search commands" onChange={(event) => setQuery(event.target.value)} placeholder="Search commands and conversations…" value={query} />

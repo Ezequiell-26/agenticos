@@ -148,3 +148,29 @@ The current repository already contains an early desktop UI from existing commit
 - Rollback point: `60e0bdac13fe8ac5072a891abf4b0271fc67e215`.
 - Next step: continue frontend-only work with richer side panels, previews, command surfaces and visual regression coverage.
 
+
+
+## Cursor + Hermes frontend platform integration — 2026-09-24
+
+- Scope: frontend-only integration of documented Cursor/Hermes-style product capabilities into the existing AgentiCOS desktop experience.
+- User-visible effect: expanded navigation from the existing Studio views into a complete agent workspace covering project orchestration, codebase indexing, explicit context packs, rules/instructions, background agents, review/Bugbot workflows, checkpoints, specialist bot teams, automations, gateway channels, browser control, voice/media, research batches, MCP servers and a dedicated security center.
+- Created:
+  - `crates/presentation/desktop/frontend/src/navigation.ts` as the single navigation/type registry.
+  - `crates/presentation/desktop/frontend/src/components/ChatEnhancementDock.tsx` for context references, slash-style commands, background/checkpoint/branch actions and response-format controls.
+  - `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx` as the feature-oriented platform surface for the newly added domains.
+  - `docs/architecture/FRONTEND-PLATFORM-ARCHITECTURE.md` as the durable structure/contract map.
+- Modified:
+  - `App.tsx`, `ActivityRail.tsx`, `CommandPalette.tsx`, `WorkspaceOverview.tsx`, `ChatSurface.tsx`, `Icon.tsx`, `index.css`.
+- Architecture decision:
+  - navigation metadata is centralized to prevent drift between rail, command palette and application state;
+  - new product domains live under `features/platform` rather than expanding the existing Studio monolith;
+  - presentation-only controls are explicitly preview/local and do not claim live backend permissions, model telemetry, cloud execution or messaging delivery;
+  - existing runtime service contracts remain the only live integration path.
+- Reference basis: current public Cursor documentation/product material on Agent/Cloud Agents, codebase indexing, Rules, agent security and memories; current public Hermes documentation on tools/toolsets, skills, persistent memory, context files, checkpoints, cron, delegation, browser, voice, MCP and multi-platform gateway.
+- Verification evidence:
+  - frontend code committed to `main` in `8b8d134ec1a50d3f60f1cbc82ae5edbd329962f7`;
+  - platform type-guard hardening committed in `9379aa4cd577f200dafbc9e919a1809b9245c22d`;
+  - GitHub Actions run `#681` is the current CI run for `main` and was `in_progress` when this entry was recorded.
+- Unverified checks: final CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit and real backend contract integration for new surfaces.
+- Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
+- Next step: inspect the latest CI result and use browser-level verification on the new navigation and highest-value platform views before introducing live contracts.

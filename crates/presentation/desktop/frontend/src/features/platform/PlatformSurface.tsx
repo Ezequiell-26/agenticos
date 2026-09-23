@@ -25,7 +25,7 @@ const indexEntries = [
   ['FRONTEND-ARCHITECTURE.md', 'docs', 'High relevance', '6 matches'],
 ]
 
-const contextSources = [
+const contextSources: ReadonlyArray<[string, string, string, boolean]> = [
   ['Workspace files', 'Source tree + project manifests', '42.8k', true],
   ['Open files', 'Currently active editor tabs', '8.4k', true],
   ['Git diff', 'Uncommitted or selected changes', '5.1k', true],
@@ -44,7 +44,7 @@ const ruleSources = [
   ['Workspace policy', 'Local safety and verification policy', 'Always'],
 ]
 
-const backgroundJobs = [
+const backgroundJobs: ReadonlyArray<[string, string, string, string, string, string]> = [
   ['CLOUD-042', 'Implement provider failover UI', 'Builder', 'working', '12m', 'worktree/cloud-042'],
   ['CLOUD-039', 'Review frontend regression risk', 'Reviewer', 'waiting', '7m', 'worktree/cloud-039'],
   ['CLOUD-031', 'Research free-tier provider options', 'Researcher', 'complete', '23m', 'worktree/cloud-031'],
@@ -101,7 +101,7 @@ const mcpServers = [
   ['database', 'External data source', '8 tools', 'Disabled'],
 ]
 
-const securityPolicies = [
+const securityPolicies: ReadonlyArray<[string, string, boolean]> = [
   ['Fail-closed execution', 'Sensitive actions stop until explicitly approved', true],
   ['Workspace sandbox', 'Commands are scoped to the selected workspace', true],
   ['Network approval', 'Outbound network access requires policy permission', true],
@@ -188,7 +188,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   if (mode === 'background') return (
     <Shell>
       {renderHeader('Long-running execution', 'Background Agents', 'Cloud-style isolated agents with worktrees, logs, artifacts and handoff status.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New background task staged in preview')}><Icon name="cloud" size={14} /> New background task</button>)}
-      <div className="background-layout"><div className="job-list">{backgroundJobs.map(([id, title, agent, state, age, worktree]) => <button type="button" key={id} className={`job-row ${selectedJob === id ? 'job-row--active' : ''}`} onClick={() => setSelectedJob(id)}><span className="job-icon"><Icon name="cloud" size={15} /></span><div><strong>{title}</strong><span>{id} · {agent}</span></div><small>{age}</small><span className={`state-pill state-pill--${state === 'working' ? 'active' : state === 'complete' ? 'completed' : 'pending'}`}>{state}</span></button>)}</div><Panel title={selectedJob}><div className="agent-run-banner"><Icon name="bot" size={18} /><div><strong>Isolated workspace</strong><span>worktree/{selectedJob.toLowerCase()} · sandboxed preview</span></div><span className="status-dot status-dot--live" /></div><div className="run-step-list">{['Plan task', 'Inspect repository', 'Edit files', 'Run tests', 'Collect artifacts', 'Prepare handoff'].map((step, index) => <div key={step} className="run-step"><span>0{index+1}</span><div><strong>{step}</strong><small>{index < 3 ? 'completed' : index === 3 ? 'running' : 'queued'}</small></div>{index < 3 ? <Icon name="check" size={13} /> : <span className="status-dot status-dot--offline" />}</div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Agent paused in preview')}><Icon name="stop" size={14} /> Pause</button><button className="studio-button" type="button" onClick={() => notify('Agent logs opened in preview')}>View logs</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Agent handoff opened in preview')}>Inspect handoff</button></div></Panel></div>
+      <div className="background-layout"><div className="job-list">{backgroundJobs.map(([id, title, agent, state, age, worktree]) => <button type="button" key={id} className={`job-row ${selectedJob === id ? 'job-row--active' : ''}`} onClick={() => setSelectedJob(id)}><span className="job-icon"><Icon name="cloud" size={15} /></span><div><strong>{title}</strong><span>{id} · {agent} · {worktree}</span></div><small>{age}</small><span className={`state-pill state-pill--${state === 'working' ? 'active' : state === 'complete' ? 'completed' : 'pending'}`}>{state}</span></button>)}</div><Panel title={selectedJob}><div className="agent-run-banner"><Icon name="bot" size={18} /><div><strong>Isolated workspace</strong><span>worktree/{selectedJob.toLowerCase()} · sandboxed preview</span></div><span className="status-dot status-dot--live" /></div><div className="run-step-list">{['Plan task', 'Inspect repository', 'Edit files', 'Run tests', 'Collect artifacts', 'Prepare handoff'].map((step, index) => <div key={step} className="run-step"><span>0{index+1}</span><div><strong>{step}</strong><small>{index < 3 ? 'completed' : index === 3 ? 'running' : 'queued'}</small></div>{index < 3 ? <Icon name="check" size={13} /> : <span className="status-dot status-dot--offline" />}</div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Agent paused in preview')}><Icon name="stop" size={14} /> Pause</button><button className="studio-button" type="button" onClick={() => notify('Agent logs opened in preview')}>View logs</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Agent handoff opened in preview')}>Inspect handoff</button></div></Panel></div>
       <Toast message={notice} />
     </Shell>
   )

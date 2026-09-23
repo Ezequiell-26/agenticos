@@ -17,7 +17,7 @@ export default function StatusBar({ status, messageCount }: StatusBarProps) {
       </div>
       <div className="status-bar__right">
         <span className="status-item"><Icon name="message" size={13} /> {messageCount} messages</span>
-        <span className="status-item"><Icon name="shield" size={13} /> Guardrails active</span>
+        <span className="status-item"><Icon name="lock" size={13} /> Guardrails active</span>
         <span className="status-item"><Icon name="code" size={13} /> TypeScript</span>
       </div>
     </footer>

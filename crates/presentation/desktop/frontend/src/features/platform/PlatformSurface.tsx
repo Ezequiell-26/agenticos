@@ -25,6 +25,7 @@ const AdvancedStudio = lazy(() => import('./AdvancedStudio').then((module) => ({
 const WorkspaceOverview = lazy(() => import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })))
 const ApprovalCenter = lazy(() => import('./ApprovalCenter').then((module) => ({ default: module.ApprovalCenter })))
 const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module) => ({ default: module.PermissionsMatrix })))
+const PromptLab = lazy(() => import('./PromptLab').then((module) => ({ default: module.PromptLab })))
 const AgentControlPlane = lazy(() => import('./AgentControlPlane').then((module) => ({ default: module.AgentControlPlane })))
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
@@ -82,6 +83,14 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'approvals') return (
     <ApprovalCenter onAction={notify} />
+  )
+
+  if (mode === 'prompts') return (
+    <Shell>
+      {renderHeader('Prompt engineering', 'Prompt Lab', 'Version prompts, variables, layered instructions, tests, diffs and release safeguards.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <PromptLab onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
   )
 
   if (mode === 'agent-control') return (

@@ -799,3 +799,13 @@ Verification status:
 - Architecture decision: this slice remains presentation-only. No provider calls, secret storage, runtime authorization, process execution or persistence was fabricated.
 - Verification status: fresh TypeScript/Vite build, browser/Tauri verification, accessibility audit and GitHub Actions result remain pending.
 - Rollback: revert this feature branch/PR to its main base; no history rewrite or destructive deletion.
+
+
+## 2026-09-24 — Frontend QA & Hardening Control Surface
+
+- Added `FrontendQAHarness` as a dedicated presentation-only verification surface.
+- Added release gates for route coverage, lazy loading, loading/empty/error/offline states, accessibility, responsive layout, runtime boundary, typed action contracts, visual consistency, duplicate-route audit and real build/browser verification.
+- Added explicit local states: Ready, Needs hardening and Not verified. The UI does not claim an unexecuted verification is passed.
+- Registered the `qa` route before the broader completeness suite so the dedicated QA surface is actually reachable.
+- Verification status: code was added through the GitHub branch/PR workflow; fresh TypeScript/Vite build, browser/Tauri verification and accessibility execution remain pending.
+- No runtime, provider, secret, filesystem or network behavior was introduced.

@@ -33,6 +33,7 @@ const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
 const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
 const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStudio').then((module) => ({ default: module.FrontendCompletenessStudio })))
 const FinalControlSuite = lazy(() => import('./FinalControlSuite').then((module) => ({ default: module.FinalControlSuite })))
+const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
 import './FinalControlSuite.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
@@ -75,7 +76,16 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
     )
   }
 
-  if (mode === 'evaluations' || mode === 'skills' || mode === 'mcp' || mode === 'providers' || mode === 'browser' || mode === 'computer' || mode === 'credentials' || mode === 'plugins' || mode === 'imports' || mode === 'sessions' || mode === 'onboarding' || mode === 'qa') {
+  if (mode === 'qa') {
+    return (
+      <Shell>
+        <FrontendQAHarness onAction={notify} />
+        <Toast message={notice} />
+      </Shell>
+    )
+  }
+
+  if (mode === 'evaluations' || mode === 'skills' || mode === 'mcp' || mode === 'providers' || mode === 'browser' || mode === 'computer' || mode === 'credentials' || mode === 'plugins' || mode === 'imports' || mode === 'sessions' || mode === 'onboarding') {
     return (
       <Shell>
         <FrontendCompletenessStudio mode={mode} onAction={notify} />

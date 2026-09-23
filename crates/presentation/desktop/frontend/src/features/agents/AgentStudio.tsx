@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
 
 type AgentTab = 'Overview' | 'Behavior' | 'Tools' | 'Policies' | 'Tests'
@@ -59,5 +59,5 @@ export default function AgentStudio({ onAction }: { onAction: (message: string) 
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="agent-control-card"><span>{label}</span><strong>{value}</strong></div> }
 function Range({ label, value }: { label: string; value: string }) { return <label className="agent-range"><span>{label}<strong>{value}%</strong></span><input type="range" min="0" max="100" defaultValue={value} /></label> }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="agent-field"><span>{label}</span>{children}</label> }
+function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="agent-field"><span>{label}</span>{children}</label> }
 function Row({ name, value }: { name: string; value: string }) { return <div className="agent-policy-row"><span>{name}</span><strong>{value}</strong></div> }

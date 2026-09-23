@@ -89,6 +89,8 @@ export default function GlobalSearch({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      const isSearchField = target instanceof HTMLInputElement
       if (event.key === 'Tab') {
         const root = dialogRef.current
         if (!root) return
@@ -103,19 +105,19 @@ export default function GlobalSearch({
       } else if (event.key === 'Escape') {
         event.preventDefault()
         onClose()
-      } else if (event.key === 'ArrowDown' && filtered.length) {
+      } else if (isSearchField && event.key === 'ArrowDown' && filtered.length) {
         event.preventDefault()
         setSelectedIndex((index) => (index + 1) % filtered.length)
-      } else if (event.key === 'ArrowUp' && filtered.length) {
+      } else if (isSearchField && event.key === 'ArrowUp' && filtered.length) {
         event.preventDefault()
         setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
-      } else if (event.key === 'Home' && filtered.length) {
+      } else if (isSearchField && event.key === 'Home' && filtered.length) {
         event.preventDefault()
         setSelectedIndex(0)
-      } else if (event.key === 'End' && filtered.length) {
+      } else if (isSearchField && event.key === 'End' && filtered.length) {
         event.preventDefault()
         setSelectedIndex(filtered.length - 1)
-      } else if (event.key === 'Enter' && filtered.length) {
+      } else if (isSearchField && event.key === 'Enter' && filtered.length) {
         event.preventDefault()
         const item = filtered[selectedIndex]
         if (item?.mode) onSelectMode(item.mode)

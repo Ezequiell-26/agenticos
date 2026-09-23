@@ -35,6 +35,9 @@ const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStud
 const FinalControlSuite = lazy(() => import('./FinalControlSuite').then((module) => ({ default: module.FinalControlSuite })))
 const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) => ({ default: module.GitControlCenter })))
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
+const SessionReplayStudio = lazy(() => import('./SessionReplayStudio').then((module) => ({ default: module.SessionReplayStudio })))
+const EvidenceArtifactInspector = lazy(() => import('./EvidenceArtifactInspector').then((module) => ({ default: module.EvidenceArtifactInspector })))
+const EnvironmentLab = lazy(() => import('./EnvironmentLab').then((module) => ({ default: module.EnvironmentLab })))
 const TaskExecutionCenter = lazy(() => import('./TaskExecutionCenter').then((module) => ({ default: module.TaskExecutionCenter })))
 const AgentMissionControl = lazy(() => import('./AgentMissionControl').then((module) => ({ default: module.AgentMissionControl })))
 const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => ({ default: module.KnowledgeStudio })))
@@ -44,6 +47,9 @@ import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
 import './AgentMissionControl.css'
 import './TaskExecutionCenter.css'
+import './SessionReplayStudio.css'
+import './EvidenceArtifactInspector.css'
+import './EnvironmentLab.css'
 import './GitControlCenter.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
@@ -133,6 +139,12 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
       <Toast message={notice} />
     </Shell>
   )
+
+  if (mode === 'session-replay') return (<Shell><SessionReplayStudio onAction={notify} /><Toast message={notice} /></Shell>)
+
+  if (mode === 'evidence-inspector') return (<Shell><EvidenceArtifactInspector onAction={notify} /><Toast message={notice} /></Shell>)
+
+  if (mode === 'environment-lab') return (<Shell><EnvironmentLab onAction={notify} /><Toast message={notice} /></Shell>)
 
   if (mode === 'task-execution') return (
     <Shell>

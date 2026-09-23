@@ -105,7 +105,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
             <form className="dock-terminal__input" onSubmit={(event) => { event.preventDefault(); runPreviewCommand() }}>
               <span>$</span>
               <input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} aria-label="Terminal command" placeholder="Type a preview command…" />
-              <button className="icon-button" type="button" aria-label="Clear terminal preview" title="Clear terminal" onClick={() => setTerminalLines([])}><Icon name="trash" size={13} /></button><kbd>Enter</kbd>
+              <button className="icon-button" type="button" aria-label="Clear terminal preview" title="Clear terminal" onClick={() => setTerminalLines([])}><Icon name="x" size={13} /></button><kbd>Enter</kbd>
             </form>
           </div>
         )}

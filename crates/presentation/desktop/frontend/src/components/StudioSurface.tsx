@@ -5,6 +5,7 @@ import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
 import ArtifactViewer from '../features/artifacts/ArtifactViewer'
 import WorkflowBuilder from '../features/workflows/WorkflowBuilder'
 import ProviderStudio from '../features/providers/ProviderStudio'
+import MemoryStudio from '../features/memory/MemoryStudio'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -320,8 +321,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
 
   if (mode === 'memory') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Context plane" title="Memory" subtitle="Search, inspect, pin and organize workspace, project and agent context." actions={<button className="studio-button" type="button" onClick={() => notify('New memory item opened in preview')}><Icon name="plus" size={14} /> Add memory</button>} />
-      <div className="split-surface"><div className="list-pane"><input className="mini-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search memory…" /><div className="entity-list">{memories.filter((item) => !search || item.join(' ').toLowerCase().includes(search.toLowerCase())).map((item) => <button type="button" className={`entity-row ${memoryPinned.has(item[0]) ? 'entity-row--pinned' : ''}`} key={item[0]} onClick={() => setMemoryPinned((current) => { const next = new Set(current); next.has(item[0]) ? next.delete(item[0]) : next.add(item[0]); return next })}><div className="entity-row__main"><strong>{item[0]}</strong><span>{item[2]}</span></div><Icon name={memoryPinned.has(item[0]) ? 'archive' : 'history'} size={14} /></button>)}</div></div><div className="detail-pane memory-detail"><div className="empty-orb"><Icon name="history" size={20} /></div><span className="eyebrow">Context management</span><h2>Keep useful knowledge close.</h2><p>Pin high-value context, group by scope and keep the active agent surface focused.</p><div className="memory-stats"><div><strong>{memories.length}</strong><span>items</span></div><div><strong>{memoryPinned.size}</strong><span>pinned</span></div><div><strong>3</strong><span>scopes</span></div></div></div></div>
+      <StudioHeader eyebrow="Context plane" title="Memory" subtitle="Search, inspect and curate reusable knowledge before it enters an agent context pack." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('New memory item created in preview')}><Icon name="plus" size={14} /> Add memory</button>} />
+      <MemoryStudio onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

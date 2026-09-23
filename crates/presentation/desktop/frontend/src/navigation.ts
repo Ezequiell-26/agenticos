@@ -9,6 +9,7 @@ export type RailMode =
   | 'permissions'
   | 'observability'
   | 'agents'
+  | 'agent-control'
   | 'prompts'
   | 'workflows'
   | 'artifacts'
@@ -111,6 +112,7 @@ export const navigationItems: NavigationItem[] = [
   { id: 'permissions', label: 'Permissions Matrix', detail: 'Agent capabilities, resource scope and authorization boundaries', icon: 'shield', group: 'integrate' },
   { id: 'observability', label: 'Observability', detail: 'Run metrics, events and latency views', icon: 'activity', group: 'operate' },
   { id: 'agents', label: 'Agent Profiles', detail: 'Specialist agents, models and budgets', icon: 'bot', group: 'operate' },
+  { id: 'agent-control', label: 'Agent Control Plane', detail: 'Autonomy, policy, budgets, behavior and lifecycle controls', icon: 'sliders', group: 'configure' },
   { id: 'bots', label: 'Bots & Teams', detail: 'Named specialist bots, routines and mentions', icon: 'bot', group: 'operate' },
   { id: 'workflows', label: 'Workflows', detail: 'Reusable process definitions and step graphs', icon: 'clock', group: 'operate' },
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
@@ -166,7 +168,7 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
 export type PlatformMode = Extract<RailMode, 'overview' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
-  'overview', 'permissions', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
+  'overview', 'agent-control', 'permissions', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
   'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'playground', 'routing', 'token-observatory', 'versions', 'audit',
 ])
 

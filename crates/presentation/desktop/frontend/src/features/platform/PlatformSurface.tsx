@@ -25,6 +25,7 @@ const AdvancedStudio = lazy(() => import('./AdvancedStudio').then((module) => ({
 const WorkspaceOverview = lazy(() => import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })))
 const ApprovalCenter = lazy(() => import('./ApprovalCenter').then((module) => ({ default: module.ApprovalCenter })))
 const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module) => ({ default: module.PermissionsMatrix })))
+const AgentControlPlane = lazy(() => import('./AgentControlPlane').then((module) => ({ default: module.AgentControlPlane })))
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -81,6 +82,14 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'approvals') return (
     <ApprovalCenter onAction={notify} />
+  )
+
+  if (mode === 'agent-control') return (
+    <Shell>
+      {renderHeader('Agent configuration', 'Agent Control Plane', 'Configure autonomy, policy, budgets, behavior and lifecycle without coupling the frontend to runtime execution.', <span className="state-pill state-pill--pending">Preview</span>)}
+      <AgentControlPlane onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
   )
 
   if (mode === 'permissions') return (

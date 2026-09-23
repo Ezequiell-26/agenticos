@@ -720,3 +720,21 @@ Verification status:
 - Added Permissions Matrix with actor/resource/operation/scope inspection and policy comparison controls.
 - Kept all actions presentation-only; no runtime authorization is granted by the UI.
 - Verification status: build/browser/CI evidence pending.
+
+
+## Agent Control Plane — 2026-09-24
+
+- Scope: frontend-only agent configuration depth; backend/runtime integration intentionally deferred.
+- User-visible effect: added a dedicated Agent Control Plane for specialist fleet selection, autonomy/policy controls, context and execution budgets, failure/handoff behavior, execution contracts and agent lifecycle.
+- Created:
+  - `crates/presentation/desktop/frontend/src/features/platform/AgentControlPlane.tsx`;
+  - `crates/presentation/desktop/frontend/src/features/platform/AgentControlPlane.css`.
+- Modified:
+  - `crates/presentation/desktop/frontend/src/navigation.ts`;
+  - `crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx`.
+- Architecture decision: agent configuration is represented as a presentation contract first; runtime authorization, tool execution, budget enforcement and deployment remain backend-owned.
+- Safety decision: destructive/network/secret-sensitive behavior is represented as policy state only; no credentials or runtime permissions are introduced.
+- Verification evidence: repository writes completed on branch `feature/frontend-agent-control-plane-2026-09-24`; fresh build/browser verification remains pending.
+- Unverified checks: TypeScript/Vite production build, GitHub Actions conclusion, browser/Tauri visual verification, accessibility audit.
+- Rollback point: branch base `main` before this slice; no history rewrite or destructive deletion.
+- Next step: deepen Prompt Lab and task/agent execution surfaces, then run a fresh frontend build and browser verification.

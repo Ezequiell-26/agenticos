@@ -35,11 +35,13 @@ const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStud
 const FinalControlSuite = lazy(() => import('./FinalControlSuite').then((module) => ({ default: module.FinalControlSuite })))
 const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) => ({ default: module.GitControlCenter })))
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
+const AgentMissionControl = lazy(() => import('./AgentMissionControl').then((module) => ({ default: module.AgentMissionControl })))
 const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => ({ default: module.KnowledgeStudio })))
 const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
 import './FinalControlSuite.css'
 import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
+import './AgentMissionControl.css'
 import './GitControlCenter.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
@@ -126,6 +128,13 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   if (mode === 'git-control') return (
     <Shell>
       <GitControlCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'agent-mission') return (
+    <Shell>
+      <AgentMissionControl onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

@@ -1304,7 +1304,7 @@
     {
       "id": "integration-test-implementation-phase-3",
       "number": 25,
-      "status": "pending",
+      "status": "in_progress",
       "scope": [
         "implement provider layer integration tests",
         "add tests for provider failover",
@@ -1330,7 +1330,9 @@
       "verification_evidence": [],
       "unlocks": [
         "project-status-summary-vertical-slice-1"
-      ]
+      ],
+      "started_at": "2026-09-23",
+      "operation_id": "step-25-provider-integration-tests-2026-09-23"
     },
     {
       "id": "project-status-summary-vertical-slice-1",
@@ -2789,6 +2791,12 @@
       "from": "product-surfaces-cli-vertical-slice-1:verified",
       "to": "runtime-integration-vertical-slice-1:pending",
       "reason": "Reconciled the current main state after detecting a duplicate top-level steps key and stale human-readable state. The next authorized slice targets the documented integration gaps without rewriting verified history."
+    },
+    {
+      "from": "integration-test-implementation-phase-3:pending",
+      "to": "integration-test-implementation-phase-3:in_progress",
+      "reason": "Step 24 is verified and the authorized provider integration-test slice has started.",
+      "rollback_point": "a278008b536ef4da7cf18a67191291446dd7a8a5"
     }
   ],
   "reconciliation": {

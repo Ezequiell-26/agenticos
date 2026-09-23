@@ -41,7 +41,7 @@ const intelligenceIds: ReadonlySet<RailMode> = new Set([
 ])
 
 const governanceIds: ReadonlySet<RailMode> = new Set([
-  'permissions', 'approvals', 'security', 'qa', 'frontend-state-matrix', 'visual-accessibility-lab', 'collaboration-review',
+  'permissions', 'approvals', 'security', 'qa', 'quality-workbench', 'frontend-state-matrix', 'visual-accessibility-lab', 'collaboration-review',
   'release', 'audit', 'recovery', 'checkpoints', 'reviews', 'observability', 'logs', 'evidence-inspector', 'versions',
 ])
 

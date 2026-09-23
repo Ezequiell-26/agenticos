@@ -33,12 +33,14 @@ const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
 const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
 const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStudio').then((module) => ({ default: module.FrontendCompletenessStudio })))
 const FinalControlSuite = lazy(() => import('./FinalControlSuite').then((module) => ({ default: module.FinalControlSuite })))
+const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) => ({ default: module.GitControlCenter })))
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
 const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => ({ default: module.KnowledgeStudio })))
 const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
 import './FinalControlSuite.css'
 import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
+import './GitControlCenter.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
@@ -120,6 +122,13 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'git-control') return (
+    <Shell>
+      <GitControlCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'developer-workspace') return (
     <Shell>

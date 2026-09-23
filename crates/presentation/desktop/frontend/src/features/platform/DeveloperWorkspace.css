@@ -132,3 +132,13 @@
 .developer-test-icon { width:18px; height:18px; display:grid; place-items:center; border:1px solid #202020; border-radius:5px; color:#666; background:#111; }
 @media(max-width:1180px) { .developer-next-edit-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:760px) { .developer-bottom-grid { grid-template-columns:1fr; } .developer-next-edit-list { grid-template-columns:1fr; } }
+
+.developer-design-targets,.developer-voice-queue { display:grid; gap:7px; margin-top:8px; padding:9px; border:1px solid #202020; border-radius:8px; background:#0d0d0d; }
+.developer-design-targets > div:first-child,.developer-voice-queue > div:first-child { display:flex; flex-direction:column; gap:3px; }
+.developer-design-targets small,.developer-voice-queue small { color:#555; font-size:6px; line-height:1.45; }
+.developer-target-list { display:flex; flex-wrap:wrap; gap:5px; }
+.developer-target { padding:6px 8px; border:1px solid #222; border-radius:999px; background:#111; color:#666; font-size:6px; cursor:pointer; }
+.developer-target:hover,.developer-target--active { border-color:#343434; background:#191919; color:#eee; }
+.developer-voice-queue { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+.developer-voice-list { grid-column:1/-1; display:grid; gap:4px; }
+.developer-voice-list span { padding:6px 8px; border:1px solid #1d1d1d; border-radius:6px; background:#101010; color:#777; font-size:6px; }

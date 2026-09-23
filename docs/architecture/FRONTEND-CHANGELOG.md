@@ -600,4 +600,14 @@ Verification status:
 - The matrix derives from the selected frontend policy controls so the user can see the consequence of a setting change before runtime integration.
 - The preview is explicitly non-authoritative; runtime policy enforcement remains behind typed contracts.
 - The component is isolated under the security feature boundary and only mounted inside the selected Execution & Security domain.
+## 2026-09-24 — Complete frontend control surfaces + navigation performance
 
+- Added lazy-loaded Customize Manager for Agents, Skills, Rules, Commands, Hooks, MCP, Plugins and Toolsets with filtering, scope metadata, enable/disable state and permission summaries.
+- Added a Keymap Editor with profile presets, command filtering, inline rebinding and conflict detection.
+- Added a Capability Registry surface showing Available / Requires setup / Unavailable / Disabled states.
+- Added Setup Checklist for first-run readiness and a Scope Resolver Preview for Global / Project / Agent / Session effective configuration.
+- Added Theme Studio with token-level color editing, radius controls, presets and live preview.
+- Added Workspace Preset Picker for Coding, Agent Ops, Research and Focus layouts.
+- Added Universal Search (Ctrl/Cmd+Shift+F) alongside Command Palette (Ctrl/Cmd+K) so navigation and search remain separate interaction systems.
+- Converted platform feature modules to independent lazy chunks; the current dispatcher lazy-loads 11 heavy feature modules.
+- Kept all new functionality presentation-only and preserved runtime/service boundaries.

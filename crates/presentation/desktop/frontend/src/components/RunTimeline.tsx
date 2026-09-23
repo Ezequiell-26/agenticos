@@ -1,9 +1,9 @@
 import Icon from './Icon'
 
 const steps = [
-  ['planning', 'Plan generated', 'Scope and constraints resolved', 'done'],
-  ['executing', 'Execution', 'Provider + tools active', 'active'],
-  ['verifying', 'Verification', 'Waiting for runtime evidence', 'pending'],
+  ['planning', 'Planning', 'Resolve scope, constraints and required approvals'],
+  ['executing', 'Execution', 'Run approved tools through the runtime'],
+  ['verifying', 'Verification', 'Record evidence before a step can advance'],
 ] as const
 
 export default function RunTimeline() {
@@ -13,17 +13,17 @@ export default function RunTimeline() {
         <div>
           <span className="eyebrow">Operations</span>
           <h1>Agent runs</h1>
-          <p>Follow the lifecycle of a run without collapsing execution into a single loading state.</p>
+          <p>Lifecycle view for controlled agent execution. This surface is a design preview until a live run contract is exposed by the runtime.</p>
         </div>
-        <span className="runtime-chip"><span className="status-dot status-dot--live" /> live view</span>
+        <span className="runtime-chip"><span className="status-dot status-dot--offline" /> preview</span>
       </div>
 
       <div className="run-card">
-        <div className="run-card__header"><span className="mono-text">RUN-LOCAL-001</span><span>Active session</span></div>
+        <div className="run-card__header"><span className="mono-text">RUN PREVIEW</span><span>No live run selected</span></div>
         <div className="timeline">
-          {steps.map(([state, title, detail, status], index) => (
+          {steps.map(([state, title, detail], index) => (
             <div className="timeline-row" key={state}>
-              <div className={`timeline-marker timeline-marker--${status}`}>{status === 'done' ? <Icon name="check" size={13} /> : status === 'active' ? <Icon name="play" size={12} /> : <span />}</div>
+              <div className="timeline-marker timeline-marker--pending">{index === 0 ? <Icon name="play" size={12} /> : <span />}</div>
               <div className="timeline-copy"><div><strong>{title}</strong><span className="mono-text">{state}</span></div><small>{detail}</small></div>
               {index < steps.length - 1 && <div className="timeline-line" />}
             </div>

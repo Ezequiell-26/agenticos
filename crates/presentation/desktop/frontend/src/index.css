@@ -924,3 +924,11 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .agent-run-drawer { width:100%; }
   .agent-run-drawer__metrics { grid-template-columns:repeat(2,1fr); }
 }
+
+.app-shell--sidebar-collapsed { grid-template-columns:64px minmax(0,1fr) 320px; }
+.app-shell--sidebar-collapsed .workspace-sidebar { display:none; }
+.app-shell--agent-collapsed { grid-template-columns:64px 270px minmax(0,1fr); }
+.app-shell--agent-collapsed .agent-panel { display:none; }
+.app-shell--sidebar-collapsed.app-shell--agent-collapsed { grid-template-columns:64px minmax(0,1fr); }
+.topbar__group { color:#4f4f4f; font:7px ui-monospace,SFMono-Regular,Menlo,monospace; text-transform:uppercase; letter-spacing:.12em; padding-left:3px; }
+@media (max-width: 900px) { .topbar__group { display:none; } }

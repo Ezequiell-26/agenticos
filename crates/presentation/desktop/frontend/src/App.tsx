@@ -69,6 +69,8 @@ function App() {
   const [status, setStatus] = useState<AgentStatusSnapshot>(fallbackStatus)
   const [running, setRunning] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
+  const [agentPanelOpen, setAgentPanelOpen] = useState(true)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -95,6 +97,16 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setPaletteOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        setLeftPanelOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        setAgentPanelOpen((open) => !open)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -156,7 +168,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell" data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
+    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <ActivityRail active={mode} onChange={setMode} />
       <WorkspaceSidebar
         activeConversation={sessionId}
@@ -171,9 +183,11 @@ function App() {
         <header className="topbar">
           <div className="topbar__title">
             <span className="eyebrow">AgentiCOS</span>
+            <span className="topbar__group">{navigationItems.find((item) => item.id === mode)?.group ?? 'build'}</span>
             <h1>{visibleTitle}</h1>
           </div>
           <div className="topbar__right">
+            <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
             <span className="runtime-chip">
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
               {status.state}
@@ -195,7 +209,7 @@ function App() {
         <StatusBar messageCount={messages.length} status={status} />
       </main>
 
-      <AgentPanel onRun={handleRun} onStop={handleStop} running={running} status={status} />
+      {agentPanelOpen && <AgentPanel onRun={handleRun} onStop={handleStop} running={running} status={status} />}
 
       <CommandPalette
         conversations={conversations}

@@ -346,3 +346,9 @@ The presentation layer does not store or expose API keys, OAuth tokens or provid
 `features/context/ContextInspector.tsx` and `features/runs/RunTimeline.tsx` now own the detailed presentation for context composition and agent execution history.
 
 Context Inspector covers source inclusion, pin/exclude state, token budget, compaction strategy, prompt/memory/code breakdown and handoff preview. Run Timeline covers run filtering, selection, lifecycle events, tool activity and change inspection. Both surfaces are local presentation state and preserve runtime-owned enforcement/execution boundaries.
+
+## MCP Manager Surface (2026-09-24)
+
+`features/mcp/McpManager.tsx` now owns the detailed MCP presentation surface. It covers server discovery/selection, transport and capability metadata, tool inventory, resources/prompts, authentication readiness with masked secrets, and per-operation policy previews.
+
+`PlatformSurface.tsx` remains the dispatcher and no longer carries the MCP-specific selection state. Runtime authorization, credentials, transport and execution remain outside the presentation boundary.

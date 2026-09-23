@@ -499,3 +499,20 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: post-pass GitHub Actions result, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: a314febfce604ad16fe41509790c489b01b6e755.
 - Next step: inspect the post-pass CI result and continue from verified evidence only.
+
+## Full UI preference persistence — 2026-09-24
+
+- Scope: frontend reliability correction for persistent customization.
+- Fixed: the shared preference bridge now carries both layout and visual preferences, so the App restores theme, accent, density, UI scale and font size at startup together with panel geometry.
+- Live behavior: Settings applies unsaved visual changes immediately through the shared bridge; App subscribes to the same preference event so shell layout updates without navigation away from Settings.
+- Modified:
+  - crates/presentation/desktop/frontend/src/services/ui-preferences.ts
+  - crates/presentation/desktop/frontend/src/components/App.tsx
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Verification evidence: source-level wiring confirms one shared storage key, one full preference reader/applicator, App startup restoration and live preference subscription.
+- Unverified checks: latest CI/build after the persistence correction, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: 209bdf9abb8e471ed4207d5d9adecb7920890ebb.
+- Next step: inspect the newest CI result and fix only concrete failures.

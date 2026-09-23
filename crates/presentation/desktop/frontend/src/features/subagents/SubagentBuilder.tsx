@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
 
 type Tab = 'Task' | 'Context' | 'Delegation' | 'Safety' | 'Run'
@@ -231,11 +231,11 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   )
 }
 
-function BuilderSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function BuilderSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return <section className="subagent-builder__section"><header><span className="eyebrow">Subagent configuration</span><h3>{title}</h3><p>{description}</p></header><div className="subagent-builder__section-body">{children}</div></section>
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="subagent-builder__field"><span>{label}</span>{children}</label>
 }
 

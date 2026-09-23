@@ -1,67 +1,67 @@
 import { useState } from 'react'
+import type { ChatMessage } from '../types/runtime'
 
 interface ChatInterfaceProps {
   sessionId: string
-  apiUrl: string
+  onSend: (sessionId: string, message: string) => Promise<ChatMessage>
 }
 
-function ChatInterface({ sessionId, apiUrl }: ChatInterfaceProps) {
+function ChatInterface({ sessionId, onSend }: ChatInterfaceProps) {
   const [message, setMessage] = useState('')
   const [response, setResponse] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const sendMessage = async () => {
-    if (!message.trim()) return
+    const trimmed = message.trim()
+    if (!trimmed || isLoading) return
 
     setIsLoading(true)
     try {
-      const res = await fetch(`${apiUrl}/api/agent/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-        }),
-      })
-
-      const data = await res.json()
-      setResponse(data.response || 'No response')
+      const result = await onSend(sessionId, trimmed)
+      setResponse(result.content)
       setMessage('')
     } catch (error) {
-      setResponse(`Error: ${error}`)
+      const detail = error instanceof Error ? error.message : 'The request could not be completed.'
+      setResponse('Request failed: ' + detail)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4">
-      <h2 className="text-xl font-semibold mb-4">Chat Interface</h2>
-      <div className="space-y-4">
+    <section className="legacy-chat-interface" aria-label="Chat interface">
+      <div className="legacy-chat-interface__header">
+        <div>
+          <span className="eyebrow">Compatibility surface</span>
+          <h2>Chat interface</h2>
+        </div>
+        <span className="state-pill state-pill--pending">Service-owned</span>
+      </div>
+      <div className="legacy-chat-interface__body">
         <textarea
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type your message..."
-          className="w-full h-32 p-2 bg-gray-700 rounded text-white resize-none"
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder="Type a message…"
           disabled={isLoading}
+          aria-label="Message"
+          rows={4}
         />
         <button
-          onClick={sendMessage}
+          type="button"
+          onClick={() => void sendMessage()}
           disabled={isLoading || !message.trim()}
-          className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 disabled:bg-gray-600"
+          className="studio-button studio-button--active"
         >
-          {isLoading ? 'Sending...' : 'Send'}
+          {isLoading ? 'Sending…' : 'Send'}
         </button>
         {response && (
-          <div className="mt-4 p-4 bg-gray-700 rounded">
-            <h3 className="font-semibold mb-2">Response:</h3>
-            <p className="whitespace-pre-wrap">{response}</p>
+          <div className="legacy-chat-interface__response">
+            <span className="eyebrow">Response</span>
+            <p>{response}</p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 

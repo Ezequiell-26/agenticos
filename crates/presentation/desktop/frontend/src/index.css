@@ -1063,3 +1063,26 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .task-dependencies strong { color:#777; font-size:7px; text-transform:uppercase; letter-spacing:.08em; }
 .task-dependencies span { color:#5b5b5b; font-size:7px; }
 @media (max-width: 1100px) { .task-layout { grid-template-columns:1fr; } }
+
+.sidebar-search { display:grid; grid-template-columns:16px minmax(0,1fr) auto; align-items:center; gap:7px; width:calc(100% - 24px); margin:0 12px 8px; padding:8px 9px; border:1px solid #222; border-radius:8px; background:#0a0a0a; color:#666; }
+.sidebar-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#aaa; font-size:8px; }
+.sidebar-search input::placeholder { color:#4f4f4f; }
+.sidebar-filters { display:flex; gap:4px; padding:0 12px 9px; }
+.sidebar-filter { flex:1; height:24px; display:flex; align-items:center; justify-content:center; gap:4px; border:1px solid transparent; border-radius:6px; background:transparent; color:#555; font-size:7px; cursor:pointer; }
+.sidebar-filter:hover,.sidebar-filter--active { border-color:#232323; background:#111; color:#aaa; }
+.sidebar-filter span { min-width:14px; padding:2px 4px; border-radius:999px; background:#191919; color:#555; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.workspace-switcher { cursor:pointer; width:calc(100% - 24px); margin:0 12px 12px; }
+.workspace-switcher:hover { border-color:#303030; background:#131313; }
+.conversation-row { position:relative; display:grid; grid-template-columns:minmax(0,1fr) 24px; align-items:stretch; padding:0; }
+.conversation-main-button { min-width:0; display:grid; grid-template-columns:24px minmax(0,1fr) auto; gap:8px; width:100%; padding:8px 4px 8px 8px; border-radius:8px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.conversation-row:hover .conversation-main-button,.conversation-row--active .conversation-main-button { background:#151515; }
+.conversation-menu-wrap { position:relative; display:flex; align-items:center; padding-right:3px; }
+.conversation-menu-button { width:22px; height:22px; display:grid; place-items:center; border-radius:6px; background:transparent; color:#4f4f4f; cursor:pointer; opacity:0; }
+.conversation-row:hover .conversation-menu-button,.conversation-menu-button:focus-visible { opacity:1; }
+.conversation-menu-button:hover { background:#1a1a1a; color:#aaa; }
+.conversation-menu { position:absolute; top:25px; right:3px; z-index:140; width:150px; padding:5px; border:1px solid #282828; border-radius:8px; background:#0d0d0d; box-shadow:0 15px 30px rgba(0,0,0,.4); }
+.conversation-menu button { display:flex; align-items:center; gap:7px; width:100%; padding:7px; border-radius:6px; background:transparent; color:#686868; text-align:left; font-size:8px; cursor:pointer; }
+.conversation-menu button:hover { background:#161616; color:#bdbdbd; }
+.conversation-rename { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) 24px; gap:4px; padding:5px; }
+.conversation-rename input { min-width:0; height:27px; padding:0 8px; border:1px solid #303030; border-radius:6px; outline:0; background:#101010; color:#aaa; font-size:8px; }
+.conversation-rename button { width:24px; height:27px; display:grid; place-items:center; border:1px solid #2c2c2c; border-radius:6px; background:#171717; color:#aaa; cursor:pointer; }

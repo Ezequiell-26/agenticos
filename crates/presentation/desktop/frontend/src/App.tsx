@@ -157,6 +157,15 @@ function App() {
     setPaletteOpen(false)
   }
 
+  function handleConversationAction(id: string, action: 'pin' | 'rename' | 'archive', value?: string) {
+    if (action === 'pin') { setConversations((current) => current.map((conversation) => conversation.id === id ? { ...conversation, pinned: !conversation.pinned } : conversation)); return }
+    if (action === 'rename' && value) { setConversations((current) => current.map((conversation) => conversation.id === id ? { ...conversation, title: value } : conversation)); return }
+    if (action === 'archive') {
+      setConversations((current) => current.filter((conversation) => conversation.id !== id))
+      if (sessionId === id) { setSessionId('default'); setMode('chat'); setMessages(starterMessages) }
+    }
+  }
+
   function handleRun() {
     setMode('runs')
     setRunning(false)
@@ -176,6 +185,7 @@ function App() {
         onCreateConversation={handleCreateConversation}
         onOpenSearch={() => setPaletteOpen(true)}
         onSelectConversation={handleSelectConversation}
+        onConversationAction={handleConversationAction}
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
 

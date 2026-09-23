@@ -1,5 +1,9 @@
+
+import { useMemo, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
+
+type SidebarFilter = 'All' | 'Pinned' | 'Recent'
 
 interface WorkspaceSidebarProps {
   conversations: ConversationSummary[]
@@ -7,6 +11,7 @@ interface WorkspaceSidebarProps {
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
   onOpenSearch: () => void
+  onConversationAction?: (id: string, action: 'pin' | 'rename' | 'archive', value?: string) => void
   runtimeConnected: boolean
 }
 
@@ -16,8 +21,40 @@ export default function WorkspaceSidebar({
   onSelectConversation,
   onCreateConversation,
   onOpenSearch,
+  onConversationAction,
   runtimeConnected,
 }: WorkspaceSidebarProps) {
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<SidebarFilter>('All')
+  const [menuOpen, setMenuOpen] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return conversations
+      .filter((conversation) => {
+        if (filter === 'Pinned') return Boolean(conversation.pinned)
+        if (filter === 'Recent') return Date.now() - conversation.timestamp < 1000 * 60 * 60 * 24 * 7
+        return true
+      })
+      .filter((conversation) => !normalized || (conversation.title + ' ' + conversation.preview).toLowerCase().includes(normalized))
+      .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.timestamp - a.timestamp)
+  }, [conversations, filter, query])
+
+  function beginRename(conversation: ConversationSummary) {
+    setMenuOpen(null)
+    setEditingId(conversation.id)
+    setEditingTitle(conversation.title)
+  }
+
+  function commitRename(id: string) {
+    const title = editingTitle.trim()
+    if (title) onConversationAction?.(id, 'rename', title)
+    setEditingId(null)
+    setEditingTitle('')
+  }
+
   return (
     <aside className="workspace-sidebar">
       <div className="workspace-sidebar__header">
@@ -30,47 +67,67 @@ export default function WorkspaceSidebar({
         </button>
       </div>
 
-      <div className="workspace-switcher">
+      <button className="workspace-switcher" type="button" onClick={onOpenSearch} aria-label="Open workspace launcher">
         <div className="workspace-avatar">A</div>
         <div className="workspace-switcher__copy">
           <strong>AgentiCOS</strong>
-          <span>Personal workspace</span>
+          <span>Personal workspace · 1 project</span>
         </div>
         <Icon name="chevron-right" size={15} />
+      </button>
+
+      <div className="sidebar-search">
+        <Icon name="search" size={14} />
+        <input aria-label="Filter conversations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter conversations…" />
+        <kbd>⌘K</kbd>
       </div>
 
-      <button className="search-field" onClick={onOpenSearch} type="button">
-        <Icon name="search" size={15} />
-        <span>Search workspace</span>
-        <kbd>⌘K</kbd>
-      </button>
+      <div className="sidebar-filters" role="tablist" aria-label="Conversation filters">
+        {(['All', 'Pinned', 'Recent'] as SidebarFilter[]).map((item) => (
+          <button key={item} type="button" role="tab" aria-selected={filter === item} className={filter === item ? 'sidebar-filter sidebar-filter--active' : 'sidebar-filter'} onClick={() => setFilter(item)}>
+            {item}{item === 'Pinned' && <span>{conversations.filter((conversation) => conversation.pinned).length}</span>}
+          </button>
+        ))}
+      </div>
 
       <div className="sidebar-section">
         <div className="sidebar-section__title">
           <span>Conversations</span>
-          <span className="count-pill">{conversations.length}</span>
+          <span className="count-pill">{filtered.length}</span>
         </div>
-
         <div className="conversation-list">
-          {conversations.length === 0 ? (
-            <div className="sidebar-empty">No saved conversations yet.</div>
+          {filtered.length === 0 ? (
+            <div className="sidebar-empty">{query ? 'No conversations match “' + query + '”.' : 'No conversations in this filter.'}</div>
           ) : (
-            conversations.map((conversation) => (
-              <button
-                className={`conversation-row ${activeConversation === conversation.id ? 'conversation-row--active' : ''}`}
-                key={conversation.id}
-                onClick={() => onSelectConversation(conversation.id)}
-                type="button"
-              >
-                <div className="conversation-row__icon">
-                  <Icon name={conversation.pinned ? 'archive' : 'message'} size={15} />
-                </div>
-                <div className="conversation-row__copy">
-                  <strong>{conversation.title}</strong>
-                  <span>{conversation.preview}</span>
-                </div>
-                <time>{new Date(conversation.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-              </button>
+            filtered.map((conversation) => (
+              <div className={activeConversation === conversation.id ? 'conversation-row conversation-row--active' : 'conversation-row'} key={conversation.id}>
+                {editingId === conversation.id ? (
+                  <div className="conversation-rename">
+                    <input autoFocus aria-label="Rename conversation" value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') commitRename(conversation.id); if (event.key === 'Escape') setEditingId(null) }} />
+                    <button type="button" onClick={() => commitRename(conversation.id)} aria-label="Save conversation name"><Icon name="check" size={13} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <button className="conversation-main-button" onClick={() => onSelectConversation(conversation.id)} type="button">
+                      <div className="conversation-row__icon"><Icon name={conversation.pinned ? 'archive' : 'message'} size={15} /></div>
+                      <div className="conversation-row__copy"><strong>{conversation.title}</strong><span>{conversation.preview}</span></div>
+                      <time>{new Date(conversation.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}</time>
+                    </button>
+                    <div className="conversation-menu-wrap">
+                      <button className="conversation-menu-button" type="button" aria-label={'Actions for ' + conversation.title} title="Conversation actions" onClick={() => setMenuOpen((current) => current === conversation.id ? null : conversation.id)}>
+                        <Icon name="more" size={13} />
+                      </button>
+                      {menuOpen === conversation.id && (
+                        <div className="conversation-menu" role="menu">
+                          <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'pin') }}><Icon name="archive" size={13} /><span>{conversation.pinned ? 'Unpin' : 'Pin'}</span></button>
+                          <button type="button" role="menuitem" onClick={() => beginRename(conversation)}><Icon name="code" size={13} /><span>Rename</span></button>
+                          <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'archive') }}><Icon name="archive" size={13} /><span>Archive</span></button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             ))
           )}
         </div>
@@ -78,7 +135,7 @@ export default function WorkspaceSidebar({
 
       <div className="sidebar-footer">
         <div className="mini-status">
-          <span className={`status-dot ${runtimeConnected ? 'status-dot--live' : 'status-dot--offline'}`} />
+          <span className={runtimeConnected ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} />
           <span>{runtimeConnected ? 'Runtime online' : 'Runtime offline'}</span>
         </div>
         <button className="sidebar-footer__action" title="Command palette" aria-label="Command palette" type="button" onClick={onOpenSearch}>

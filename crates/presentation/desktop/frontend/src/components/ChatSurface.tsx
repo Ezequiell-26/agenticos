@@ -110,6 +110,29 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [messages, running])
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (slashOpen && slashMatches.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSlashSelectedIndex((index) => (index + 1) % slashMatches.length)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSlashSelectedIndex((index) => (index - 1 + slashMatches.length) % slashMatches.length)
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setSlashOpen(false)
+        return
+      }
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        const match = slashMatches[slashSelectedIndex]
+        if (match) useSlashCommand(match[0], match[1])
+        return
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       if (canSend) void submit()

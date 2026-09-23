@@ -37,6 +37,7 @@ const GitControlCenter = lazy(() => import('./GitControlCenter').then((module) =
 const DeveloperWorkspace = lazy(() => import('./DeveloperWorkspace').then((module) => ({ default: module.DeveloperWorkspace })))
 const SessionReplayStudio = lazy(() => import('./SessionReplayStudio').then((module) => ({ default: module.SessionReplayStudio })))
 const EvidenceArtifactInspector = lazy(() => import('./EvidenceArtifactInspector').then((module) => ({ default: module.EvidenceArtifactInspector })))
+const NavigationCenter = lazy(() => import('./NavigationCenter').then((module) => ({ default: module.NavigationCenter })))
 const FrontendCoverageStudio = lazy(() => import('./FrontendCoverageStudio').then((module) => ({ default: module.FrontendCoverageStudio })))
 const CollaborationReviewCenter = lazy(() => import('./CollaborationReviewCenter').then((module) => ({ default: module.CollaborationReviewCenter })))
 const DesignSystemStudio = lazy(() => import('./DesignSystemStudio').then((module) => ({ default: module.DesignSystemStudio })))
@@ -59,6 +60,7 @@ import './EnvironmentLab.css'
 import './AgentArena.css'
 import './CollaborationReviewCenter.css'
 import './FrontendCoverageStudio.css'
+import './NavigationCenter.css'
 import './DesignSystemStudio.css'
 import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
@@ -67,7 +69,7 @@ import './GitControlCenter.css'
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
+function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
@@ -151,6 +153,8 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
       <Toast message={notice} />
     </Shell>
   )
+
+  if (mode === 'navigation-center') return (<Shell><NavigationCenter active={mode} onChange={(nextMode) => onNavigate?.(nextMode)} /><Toast message={notice} /></Shell>)
 
   if (mode === 'frontend-coverage') return (<Shell><FrontendCoverageStudio onAction={notify} /><Toast message={notice} /></Shell>)
 
@@ -650,7 +654,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { ha
   }
 }
 
-function PlatformSurface({ mode }: { mode: PlatformMode }) {
+function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
   return (
     <SurfaceErrorBoundary>
       <Suspense fallback={
@@ -659,7 +663,7 @@ function PlatformSurface({ mode }: { mode: PlatformMode }) {
         <div><strong>Loading workspace feature</strong><small>The selected tool is being loaded on demand.</small></div>
       </section>
     }>
-        <PlatformSurfaceContent mode={mode} />
+        <PlatformSurfaceContent mode={mode} onNavigate={onNavigate} />
       </Suspense>
     </SurfaceErrorBoundary>
   )

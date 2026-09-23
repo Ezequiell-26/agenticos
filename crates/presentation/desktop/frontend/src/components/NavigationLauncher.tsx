@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from './Icon'
-import { navigationItems, type NavigationGroup, type RailMode } from '../navigation'
+import { navigationItems, type RailMode } from '../navigation'
+import { navigationSections, getNavigationSection } from '../navigation-taxonomy'
 
 interface NavigationLauncherProps {
   active: RailMode
@@ -8,14 +9,7 @@ interface NavigationLauncherProps {
   onClose: () => void
 }
 
-const groups: NavigationGroup[] = ['build', 'operate', 'configure', 'integrate']
-
-const labels: Record<NavigationGroup, string> = {
-  build: 'Build',
-  operate: 'Operate',
-  configure: 'Configure',
-  integrate: 'Integrate',
-}
+const sectionOrder = navigationSections.map((section) => section.id)
 
 export default function NavigationLauncher({ active, onChange, onClose }: NavigationLauncherProps) {
   const [query, setQuery] = useState('')
@@ -37,12 +31,13 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
         <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search features…" aria-label="Search features" />
       </div>
       <div className="navigation-launcher__body">
-        {groups.map((group) => {
-          const items = filtered.filter((item) => item.group === group)
-          if (items.length === 0) return null
+        {sectionOrder.map((sectionId) => {
+          const meta = navigationSections.find((item) => item.id === sectionId)
+          const items = filtered.filter((item) => getNavigationSection(item.id) === sectionId)
+          if (!meta || items.length === 0) return null
           return (
-            <section key={group} className="navigation-launcher__group">
-              <div className="navigation-launcher__group-title">{labels[group]}</div>
+            <section key={sectionId} className="navigation-launcher__group">
+              <div className="navigation-launcher__group-title"><strong>{meta.label}</strong><small>{meta.detail}</small></div>
               {items.map((item) => (
                 <button key={item.id} type="button" className={active === item.id ? 'navigation-launcher__item navigation-launcher__item--active' : 'navigation-launcher__item'} onClick={() => onChange(item.id)}>
                   <span className="navigation-launcher__item-icon"><Icon name={item.icon} size={14} /></span>

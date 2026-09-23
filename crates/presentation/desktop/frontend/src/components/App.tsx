@@ -255,7 +255,7 @@ function App() {
           {mode === 'chat' ? (
             <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
           ) : (
-            <WorkspaceOverview mode={mode} />
+            <WorkspaceOverview mode={mode} onNavigate={setMode} />
           )}
         </div>
 

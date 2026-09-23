@@ -1761,3 +1761,21 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .cloud-agent-artifacts { grid-template-columns:1fr; }
   .computer-screen__body { grid-template-columns:85px 1fr; }
 }
+
+/* Shell recovery + compatibility surface */
+.app-error-boundary { width: min(720px, calc(100vw - 48px)); min-height: 100vh; margin: 0 auto; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; padding: 48px 0; color: #eee; }
+.app-error-boundary__mark { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #333; border-radius: 12px; background: #151515; color: #ddd; }
+.app-error-boundary h1 { margin: 0; max-width: 650px; font-size: clamp(24px, 4vw, 38px); letter-spacing: -.035em; line-height: 1.08; }
+.app-error-boundary p { max-width: 620px; margin: 0; color: #767676; font-size: 13px; line-height: 1.7; }
+.app-error-boundary__detail { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #242424; border-radius: 10px; background: #0d0d0d; }
+.app-error-boundary__detail span { color: #5f5f5f; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .1em; }
+.app-error-boundary__detail strong { overflow: auto; color: #aaa; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
+.app-error-boundary__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.legacy-chat-interface { min-height: 100%; padding: 28px; background: #090909; color: #ddd; }
+.legacy-chat-interface__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.legacy-chat-interface__header h2 { margin: 4px 0 0; font-size: 18px; letter-spacing: -.02em; }
+.legacy-chat-interface__body { max-width: 720px; display: grid; gap: 10px; }
+.legacy-chat-interface__body textarea { width: 100%; resize: vertical; border: 1px solid #242424; border-radius: 10px; padding: 12px; outline: none; background: #0f0f0f; color: #e7e7e7; }
+.legacy-chat-interface__body textarea:focus { border-color: #444; }
+.legacy-chat-interface__response { padding: 14px; border: 1px solid #202020; border-radius: 10px; background: #0d0d0d; }
+.legacy-chat-interface__response p { margin: 8px 0 0; color: #aaa; white-space: pre-wrap; line-height: 1.6; }

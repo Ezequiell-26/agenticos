@@ -34,6 +34,12 @@ interface SettingsState {
   defaultModel: string
   defaultProvider: string
   defaultAgent: string
+  modelAlias: string
+  fallbackChain: string
+  customEndpoint: string
+  cliToolsetPreset: string
+  messagingToolsetPreset: string
+  showToolCalls: boolean
   persistModel: boolean
   reasoningEffort: string
   toolUseEnforcement: string
@@ -85,6 +91,7 @@ interface SettingsState {
   ttsVoice: string
   ttsModel: string
   sttProvider: string
+  sttLocalModel: string
   visionProvider: string
   visionModel: string
   visionTimeout: number
@@ -111,6 +118,7 @@ interface SettingsState {
   shellConfirmation: boolean
   gitForceGuard: boolean
   safeMode: boolean
+  approvalMode: string
   checkpointsEnabled: boolean
   maxSnapshots: number
   mcpAutoDiscover: boolean
@@ -118,9 +126,15 @@ interface SettingsState {
   mcpServers: string[]
   cronEnabled: boolean
   wakeEnabled: boolean
+  backgroundAgents: boolean
+  schedulePolicy: string
+  scheduleConcurrency: number
+  completionNotifications: boolean
   clearOnExit: boolean
   debugMode: boolean
   experimentalFeatures: boolean
+  soulFile: string
+  contextFilePriority: string
 }
 
 interface SettingsSurfaceProps {
@@ -141,6 +155,12 @@ const defaults: SettingsState = {
   defaultModel: 'Auto route',
   defaultProvider: 'Automatic',
   defaultAgent: 'Builder',
+  modelAlias: 'fast → qwen3-coder',
+  fallbackChain: 'Auto → OpenRouter → Nous → local',
+  customEndpoint: '',
+  cliToolsetPreset: 'hermes-cli',
+  messagingToolsetPreset: 'hermes-telegram',
+  showToolCalls: true,
   persistModel: true,
   reasoningEffort: 'medium',
   toolUseEnforcement: 'auto',
@@ -192,6 +212,7 @@ const defaults: SettingsState = {
   ttsVoice: 'en-US-AriaNeural',
   ttsModel: 'default',
   sttProvider: 'local',
+  sttLocalModel: 'base',
   visionProvider: 'auto',
   visionModel: 'Auto vision model',
   visionTimeout: 30,
@@ -218,6 +239,7 @@ const defaults: SettingsState = {
   shellConfirmation: true,
   gitForceGuard: true,
   safeMode: true,
+  approvalMode: 'smart',
   checkpointsEnabled: true,
   maxSnapshots: 50,
   mcpAutoDiscover: true,
@@ -225,9 +247,15 @@ const defaults: SettingsState = {
   mcpServers: ['filesystem', 'github', 'browser'],
   cronEnabled: true,
   wakeEnabled: false,
+  backgroundAgents: true,
+  schedulePolicy: 'bounded',
+  scheduleConcurrency: 4,
+  completionNotifications: true,
   clearOnExit: false,
   debugMode: false,
   experimentalFeatures: false,
+  soulFile: 'SOUL.md',
+  contextFilePriority: '.hermes.md → AGENTS.md → CLAUDE.md → .cursorrules',
 }
 
 const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName; group: string }> = [
@@ -534,9 +562,9 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <ToggleRow label="Persist model switches" detail="Keep model/provider choices as profile defaults." enabled={settings.persistModel} onChange={() => update('persistModel', !settings.persistModel)} />
               </SettingSection>
               <SettingSection title="Aliases & fallback">
-                <TextField label="Model alias" value="fast → qwen3-coder" onChange={() => undefined} />
-                <TextField label="Fallback chain" value="Auto → OpenRouter → Nous → local" onChange={() => undefined} />
-                <TextField label="Custom endpoint" value="https://localhost:1234/v1" onChange={() => undefined} />
+                <TextField label="Model alias" value={settings.modelAlias} onChange={(v) => update('modelAlias', v)} />
+                <TextField label="Fallback chain" value={settings.fallbackChain} onChange={(v) => update('fallbackChain', v)} />
+                <TextField label="Custom endpoint" value={settings.customEndpoint} onChange={(v) => update('customEndpoint', v)} placeholder="https://host/v1" />
                 <InfoBanner icon="network" title="Credential boundary" text="API keys, OAuth tokens and passwords are never rendered as editable secret text in this surface." />
               </SettingSection>
               <SettingSection title="Auxiliary models">
@@ -571,10 +599,10 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
           {section === 'tools' && (
             <SettingsPage title="Tools & Toolsets" description="Build custom tool access per platform instead of treating every tool as globally enabled.">
               <SettingSection title="Tool behavior">
-                <ToggleRow label="Show tool calls" detail="Display tool lifecycle activity in chat and run views." enabled={true} onChange={() => undefined} />
+                <ToggleRow label="Show tool calls" detail="Display tool lifecycle activity in chat and run views." enabled={settings.showToolCalls} onChange={() => update('showToolCalls', !settings.showToolCalls)} />
                 <ToggleRow label="Auto-approve read-only tools" detail="Keep safe reads frictionless while preserving write confirmation." enabled={settings.safeMode} onChange={() => update('safeMode', !settings.safeMode)} />
-                <SelectField label="CLI toolset preset" value="hermes-cli" onChange={() => undefined} options={toolsetPresets} />
-                <SelectField label="Messaging toolset preset" value="hermes-telegram" onChange={() => undefined} options={toolsetPresets} />
+                <SelectField label="CLI toolset preset" value={settings.cliToolsetPreset} onChange={(v) => update('cliToolsetPreset', v)} options={toolsetPresets} />
+                <SelectField label="Messaging toolset preset" value={settings.messagingToolsetPreset} onChange={(v) => update('messagingToolsetPreset', v)} options={toolsetPresets} />
               </SettingSection>
               <SettingSection title="Per-platform toolsets">
                 <div className="settings-chip-grid">
@@ -682,7 +710,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
               </SettingSection>
               <SettingSection title="Speech to text">
                 <SelectField label="STT provider" value={settings.sttProvider} onChange={(v) => update('sttProvider', v)} options={['local', 'groq', 'openai']} />
-                <SelectField label="Local STT model" value="base" onChange={() => undefined} options={['tiny', 'base', 'small', 'medium', 'large-v3']} />
+                <SelectField label="Local STT model" value={settings.sttLocalModel} onChange={(v) => update('sttLocalModel', v)} options={['tiny', 'base', 'small', 'medium', 'large-v3']} />
               </SettingSection>
               <SettingSection title="Vision & web">
                 <SelectField label="Vision provider" value={settings.visionProvider} onChange={(v) => update('visionProvider', v)} options={['auto', 'openrouter', 'nous', 'codex', 'main', 'custom']} />
@@ -737,12 +765,12 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
               <SettingSection title="Schedules">
                 <ToggleRow label="Cron jobs" detail="Enable the presentation control for recurring scheduled runs." enabled={settings.cronEnabled} onChange={() => update('cronEnabled', !settings.cronEnabled)} />
                 <ToggleRow label="Wake word / presence" detail="Expose hands-free activation controls." enabled={settings.wakeEnabled} onChange={() => update('wakeEnabled', !settings.wakeEnabled)} />
-                <ToggleRow label="Background agents" detail="Allow long-running runs to remain visible after leaving the current view." enabled={true} onChange={() => undefined} />
+                <ToggleRow label="Background agents" detail="Allow long-running runs to remain visible after leaving the current view." enabled={settings.backgroundAgents} onChange={() => update('backgroundAgents', !settings.backgroundAgents)} />
               </SettingSection>
               <SettingSection title="Automation defaults">
-                <SelectField label="Default schedule policy" value="bounded" onChange={() => undefined} options={['bounded', 'manual approval', 'always confirm', 'autonomous safe']} />
-                <NumberField label="Max scheduled concurrency" value={4} onChange={() => undefined} suffix="runs" min={1} max={32} />
-                <ToggleRow label="Notify on completion" detail="Send a notification when a background run finishes." enabled={true} onChange={() => undefined} />
+                <SelectField label="Default schedule policy" value={settings.schedulePolicy} onChange={(v) => update('schedulePolicy', v)} options={['bounded', 'manual approval', 'always confirm', 'autonomous safe']} />
+                <NumberField label="Max scheduled concurrency" value={settings.scheduleConcurrency} onChange={(v) => update('scheduleConcurrency', v)} suffix="runs" min={1} max={32} />
+                <ToggleRow label="Notify on completion" detail="Send a notification when a background run finishes." enabled={settings.completionNotifications} onChange={() => update('completionNotifications', !settings.completionNotifications)} />
               </SettingSection>
             </SettingsPage>
           )}
@@ -751,6 +779,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
             <SettingsPage title="Security & Privacy" description="Make the safety boundary explicit. Presentation controls never grant runtime privileges.">
               <SettingSection title="Safety">
                 <ToggleRow label="Fail-closed mode" detail="Block privileged UI actions when an authorization state is missing." enabled={settings.safeMode} onChange={() => update('safeMode', !settings.safeMode)} />
+                <SelectField label="Approval mode" value={settings.approvalMode} onChange={(v) => update('approvalMode', v)} options={['off', 'smart', 'always', 'manual']} />
                 <ToggleRow label="Network guard" detail="Keep outbound network capabilities behind explicit policy." enabled={settings.networkGuard} onChange={() => update('networkGuard', !settings.networkGuard)} />
                 <ToggleRow label="Shell confirmation" detail="Require confirmation before presenting high-risk shell execution as permitted." enabled={settings.shellConfirmation} onChange={() => update('shellConfirmation', !settings.shellConfirmation)} />
                 <ToggleRow label="Git force guard" detail="Surface force push/reset workflows as blocked until reviewed." enabled={settings.gitForceGuard} onChange={() => update('gitForceGuard', !settings.gitForceGuard)} />
@@ -781,6 +810,8 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
               <SettingSection title="Diagnostics">
                 <ToggleRow label="Debug mode" detail="Expose additional UI diagnostics and structured state metadata." enabled={settings.debugMode} onChange={() => update('debugMode', !settings.debugMode)} />
                 <ToggleRow label="Experimental features" detail="Show experimental frontend surfaces before backend contracts are connected." enabled={settings.experimentalFeatures} onChange={() => update('experimentalFeatures', !settings.experimentalFeatures)} />
+                <TextField label="Primary identity file" value={settings.soulFile} onChange={(v) => update('soulFile', v)} />
+                <TextField label="Context file precedence" value={settings.contextFilePriority} onChange={(v) => update('contextFilePriority', v)} />
                 <div className="advanced-grid"><div><span>Config schema</span><strong>Hermes-inspired v2</strong></div><div><span>Persistence</span><strong>Local preview</strong></div><div><span>Secret store</span><strong>Runtime-owned</strong></div><div><span>Runtime bridge</span><strong>Typed service boundary</strong></div></div>
               </SettingSection>
             </SettingsPage>
@@ -799,6 +830,9 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
     model: {
       provider: settings.defaultProvider,
       default: settings.defaultModel,
+      alias: settings.modelAlias,
+      fallback_chain: settings.fallbackChain,
+      custom_endpoint: settings.customEndpoint,
       persist_switch: settings.persistModel,
     },
     agent: {
@@ -808,9 +842,14 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       autonomy: settings.autonomy,
       tool_budget: settings.toolBudget,
       max_parallel_agents: settings.maxParallelAgents,
+      soul_file: settings.soulFile,
+      context_file_priority: settings.contextFilePriority,
     },
     tools: {
       progress: settings.toolProgress,
+      show_calls: settings.showToolCalls,
+      cli_preset: settings.cliToolsetPreset,
+      messaging_preset: settings.messagingToolsetPreset,
       presets: toolsetPresets,
     },
     terminal: {
@@ -856,7 +895,7 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
     },
     voice: {
       tts: { provider: settings.ttsProvider, voice: settings.ttsVoice, model: settings.ttsModel },
-      stt: { provider: settings.sttProvider },
+      stt: { provider: settings.sttProvider, local_model: settings.sttLocalModel },
       vision: { provider: settings.visionProvider, model: settings.visionModel, timeout: settings.visionTimeout },
     },
     web: {
@@ -892,9 +931,14 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
     automation: {
       cron_enabled: settings.cronEnabled,
       wake_enabled: settings.wakeEnabled,
+      background_agents: settings.backgroundAgents,
+      schedule_policy: settings.schedulePolicy,
+      schedule_concurrency: settings.scheduleConcurrency,
+      completion_notifications: settings.completionNotifications,
     },
     security: {
       safe_mode: settings.safeMode,
+      approval_mode: settings.approvalMode,
       redact_pii: settings.redactPii,
       network_guard: settings.networkGuard,
       shell_confirmation: settings.shellConfirmation,

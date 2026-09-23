@@ -29,5 +29,7 @@ jobs:
           node-version: 22
       - name: Install frontend dependencies
         run: npm ci --no-audit --no-fund --prefix crates/presentation/desktop/frontend
+      - name: Validate frontend source formatting
+        run: git diff --check
       - name: TypeScript and Vite production build
         run: npm run build --prefix crates/presentation/desktop/frontend

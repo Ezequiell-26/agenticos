@@ -66,12 +66,14 @@ export interface NavigationItem {
   label: string
   detail: string
   icon:
-    | 'activity' | 'archive' | 'arrow-down' | 'arrow-up' | 'bot' | 'branch' | 'calendar'
-    | 'check' | 'chevron-left' | 'chevron-right' | 'clock' | 'cloud' | 'code'
-    | 'command' | 'copy' | 'folder' | 'git' | 'globe' | 'history' | 'layers'
-    | 'layout' | 'message' | 'mic' | 'more' | 'paperclip' | 'play' | 'plus'
-    | 'search' | 'send' | 'settings' | 'shield' | 'spark' | 'stop' | 'terminal'
-    | 'tool' | 'x'
+    | 'activity' | 'alert' | 'archive' | 'arrow-down' | 'arrow-up' | 'bell' | 'bot'
+    | 'branch' | 'calendar' | 'check' | 'check-circle' | 'chevron-left' | 'chevron-right'
+    | 'clock' | 'cloud' | 'code' | 'command' | 'copy' | 'database' | 'download'
+    | 'external' | 'file' | 'file-code' | 'filter' | 'folder' | 'git' | 'globe' | 'history'
+    | 'home' | 'info' | 'layers' | 'layout' | 'lock' | 'maximize' | 'message' | 'mic'
+    | 'minimize' | 'more' | 'network' | 'paperclip' | 'panel-left' | 'panel-right'
+    | 'play' | 'plus' | 'refresh' | 'search' | 'send' | 'settings' | 'shield' | 'sliders'
+    | 'spark' | 'stop' | 'terminal' | 'tool' | 'upload' | 'users' | 'x'
   group: NavigationGroup
 }
 

@@ -476,3 +476,85 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .composer-icon--active { border-color:#414141 !important; background:#151515 !important; color:#e4e4e4 !important; }
 .context-chip { display:inline-flex; align-items:center; gap:4px; height:25px; padding:0 7px; border:1px solid #202020; border-radius:999px; background:#0e0e0e; color:#5f5f5f; font-size:8px; }
 .composer-notice { position:absolute; right:18px; bottom:8px; padding:6px 8px; border:1px solid #303030; border-radius:7px; background:#151515; color:#aaa; font-size:8px; box-shadow:0 8px 24px rgba(0,0,0,.3); }
+
+.approval-layout { display:grid; grid-template-columns:420px minmax(0,1fr); min-height:470px; overflow:hidden; border:1px solid #202020; border-radius:12px; background:#0d0d0d; }
+.approval-list { padding:7px; border-right:1px solid #1e1e1e; }
+.approval-row { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; width:100%; padding:11px; border:1px solid transparent; border-radius:9px; background:transparent; text-align:left; cursor:pointer; }
+.approval-row:hover { background:#141414; }
+.approval-row--pending { border-color:#272727; background:#111; }
+.approval-icon { width:30px; height:30px; display:grid; place-items:center; border:1px solid #262626; border-radius:8px; background:#151515; color:#888; }
+.approval-copy { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.approval-copy strong { color:#c2c2c2; font-size:10px; }
+.approval-copy span { color:#5a5a5a; font-size:8px; }
+.approval-detail { padding:20px; overflow:auto; }
+.approval-summary { padding:14px; border:1px solid #232323; border-radius:10px; background:#101010; }
+.approval-summary > span { display:block; color:#555; font-size:8px; text-transform:uppercase; letter-spacing:.08em; }
+.approval-summary strong { display:block; margin-top:7px; color:#c5c5c5; font-size:11px; }
+.approval-summary small { display:block; margin-top:5px; color:#5c5c5c; font-size:9px; }
+.approval-context { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:9px; }
+.approval-context div { padding:10px; border:1px solid #202020; border-radius:8px; background:#0d0d0d; }
+.approval-context span { display:block; color:#505050; font-size:8px; text-transform:uppercase; }
+.approval-context strong { display:block; margin-top:5px; color:#aaa; font-size:9px; }
+.approval-actions { display:flex; justify-content:flex-end; gap:7px; margin-top:16px; }
+
+.telemetry-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin-bottom:12px; }
+.telemetry-card { padding:13px; border:1px solid #202020; border-radius:11px; background:#0d0d0d; }
+.telemetry-card > span:first-child { display:block; color:#555; font-size:8px; text-transform:uppercase; letter-spacing:.08em; }
+.telemetry-card > strong { display:block; margin:8px 0 10px; color:#c7c7c7; font-size:18px; letter-spacing:-.03em; }
+.spark-bars { display:flex; align-items:flex-end; gap:3px; height:34px; }
+.spark-bars i { flex:1; min-width:2px; border-radius:2px 2px 0 0; background:#7b7b7b; }
+.latency-track { height:5px; overflow:hidden; border-radius:999px; background:#181818; }
+.latency-track span { display:block; height:100%; border-radius:inherit; background:#c5c5c5; }
+.telemetry-card small { display:block; margin-top:7px; color:#545454; font-size:8px; }
+.telemetry-mini-row { display:flex; justify-content:space-between; padding-top:4px; color:#5b5b5b; font-size:8px; }
+.telemetry-mini-row strong { color:#aaa; font:8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.event-stream { overflow:hidden; border:1px solid #202020; border-radius:11px; background:#0d0d0d; }
+.event-row { display:grid; grid-template-columns:36px minmax(0,1fr) 12px; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #181818; color:#717171; font:9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.event-row:last-child { border-bottom:0; }
+.event-row:hover { background:#121212; color:#aaa; }
+.event-index { color:#414141; }
+
+.agent-profile-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.agent-profile-card { min-width:0; padding:13px; border:1px solid #202020; border-radius:11px; background:#0d0d0d; text-align:left; cursor:pointer; }
+.agent-profile-card:hover { border-color:#383838; background:#111; }
+.agent-profile-card--active { border-color:#5b5b5b; background:#111; }
+.agent-profile-card__top { display:grid; grid-template-columns:34px minmax(0,1fr) 8px; align-items:center; gap:9px; }
+.agent-profile-avatar { width:32px; height:32px; display:grid; place-items:center; border:1px solid #262626; border-radius:9px; background:#151515; color:#929292; }
+.agent-profile-card__top div:nth-child(2) { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.agent-profile-card__top strong { color:#c3c3c3; font-size:10px; }
+.agent-profile-card__top span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#5e5e5e; font-size:8px; }
+.agent-profile-card__meta, .agent-profile-card__tags { display:flex; align-items:center; gap:6px; }
+.agent-profile-card__meta { margin-top:13px; color:#676767; font:8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.agent-profile-card__meta span:last-child { margin-left:auto; }
+.agent-profile-card__tags { margin-top:9px; }
+.agent-profile-card__tags small { padding:4px 6px; border:1px solid #222; border-radius:999px; color:#555; font-size:7px; }
+.profile-editor { display:grid; grid-template-columns:minmax(0,1fr) 340px; align-items:center; gap:24px; margin-top:11px; padding:15px; border:1px solid #202020; border-radius:11px; background:#0d0d0d; }
+.profile-editor h2 { margin:6px 0 6px; font-size:17px; }
+.profile-editor p { max-width:620px; margin:0; color:#626262; font-size:9px; line-height:1.55; }
+.profile-controls { display:flex; flex-direction:column; gap:10px; }
+.profile-controls label { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; color:#666; font-size:8px; text-transform:uppercase; letter-spacing:.08em; }
+.profile-controls input[type=range] { width:100%; accent-color:#bdbdbd; }
+
+.prompt-layout { display:grid; grid-template-columns:430px minmax(0,1fr); min-height:470px; overflow:hidden; border:1px solid #202020; border-radius:12px; background:#0d0d0d; }
+.prompt-list { padding:7px; border-right:1px solid #1e1e1e; overflow:auto; }
+.prompt-row { display:grid; grid-template-columns:30px minmax(0,1fr) auto; align-items:center; gap:8px; width:100%; padding:10px; border:1px solid transparent; border-radius:8px; background:transparent; text-align:left; cursor:pointer; }
+.prompt-row:hover { background:#151515; }
+.prompt-row__icon { width:28px; height:28px; display:grid; place-items:center; border:1px solid #252525; border-radius:7px; background:#111; color:#7c7c7c; }
+.prompt-row > div:nth-child(2) { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.prompt-row strong { color:#bdbdbd; font-size:10px; }
+.prompt-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#595959; font-size:8px; }
+.prompt-row small { color:#4f4f4f; font-size:7px; text-transform:uppercase; }
+.prompt-editor { display:grid; grid-template-rows:38px minmax(0,1fr) 46px; min-height:0; }
+.prompt-toolbar { display:flex; align-items:center; justify-content:space-between; padding:0 10px; border-bottom:1px solid #1e1e1e; }
+.prompt-editor textarea { width:100%; min-height:0; resize:none; padding:15px; border:0; outline:0; background:#090909; color:#c4c4c4; font:10px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.variable-row { display:flex; align-items:center; gap:6px; padding:0 10px; border-top:1px solid #1e1e1e; }
+.variable-row > span { padding:5px 7px; border:1px solid #222; border-radius:6px; background:#111; color:#696969; font:8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.variable-row .studio-button { margin-left:auto; }
+
+@media (max-width: 1050px) {
+  .telemetry-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .approval-layout, .prompt-layout { grid-template-columns:1fr; }
+  .approval-list, .prompt-list { border-right:0; border-bottom:1px solid #1e1e1e; }
+  .profile-editor { grid-template-columns:1fr; }
+  .agent-profile-grid { grid-template-columns:1fr; }
+}

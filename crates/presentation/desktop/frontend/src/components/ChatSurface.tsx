@@ -226,7 +226,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       <footer className="composer-wrap">
         <div className="composer-shell">
           {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description]) => <button type="button" key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
-          {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`}>×</button></span>)}</div>}
+          {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
             <div className="composer-tools">
               <button type="button" className={webAccess ? 'composer-tool--active' : ''} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={13} /> Web access</button>

@@ -3,7 +3,6 @@ import ActivityRail, { type RailMode } from './components/ActivityRail'
 import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
-import GlobalSearch from './components/GlobalSearch'
 import Icon from './components/Icon'
 import QuickActionsMenu from './components/QuickActionsMenu'
 import StatusBar from './components/StatusBar'
@@ -73,7 +72,6 @@ function App() {
   const [status, setStatus] = useState<AgentStatusSnapshot>(fallbackStatus)
   const [running, setRunning] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const initialUiPreferences = useMemo(() => readUiLayoutPreferences(), [])
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
   const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
@@ -116,11 +114,6 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setPaletteOpen((open) => !open)
-        return
-      }
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'f') {
-        event.preventDefault()
-        setGlobalSearchOpen((open) => !open)
         return
       }
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'b') {
@@ -245,7 +238,6 @@ function App() {
             <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
             <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
-            <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} />Search</button>
             <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
               <Icon name="history" size={15} /><span className="notification-badge">2</span>
             </button>
@@ -280,14 +272,6 @@ function App() {
       </main>
 
       {agentPanelOpen && <AgentPanel onRun={handleRun} onStop={handleStop} running={running} status={status} />}
-
-      <GlobalSearch
-        conversations={conversations}
-        onClose={() => setGlobalSearchOpen(false)}
-        onSelectConversation={handleSelectConversation}
-        onSelectMode={(nextMode) => setMode(nextMode)}
-        open={globalSearchOpen}
-      />
 
       <CommandPalette
         conversations={conversations}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 
-type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Quotas'
+type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Quotas' | 'Accounts'
 
 const providers = [
   { name: 'Primary Route', type: 'Gateway', health: 'Healthy', models: 12, latency: '142 ms', load: 68, quota: '68%' },
@@ -18,6 +18,13 @@ const models = [
   ['local-qwen', 'Local', '32k', 'On demand', 'Local Route'],
 ]
 
+const accounts = [
+  ['OpenAI', 'Primary API account', 'API key · stored externally', 'Configured', '12 models', 'Daily 68%', 'Primary'],
+  ['Google', 'Secondary provider', 'API key · stored externally', 'Configured', '8 models', 'Daily 41%', 'Fallback'],
+  ['Groq', 'Fast inference account', 'API key · stored externally', 'Configured', '6 models', 'Daily 22%', 'Fallback'],
+  ['Local runtime', 'Workstation inference', 'No secret', 'Ready', '4 models', 'No quota', 'Local'],
+] as const
+
 const routingRules = [
   ['Code tasks', 'qwen3-coder', 'Primary → Fallback', 'High confidence'],
   ['Research', 'deepseek-chat', 'Fallback → Primary', 'Evidence mode'],
@@ -29,7 +36,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [tab, setTab] = useState<ProviderTab>('Overview')
   const [selected, setSelected] = useState(providers[0].name)
   const [query, setQuery] = useState('')
-  const [compare, setCompare] = useState<string[]>([])
+  const [compare, setCompare] = useState<string[]>([])\n  const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])\n  const [maskMetadata, setMaskMetadata] = useState(true)
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
@@ -53,7 +60,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
         </div>
 
         <div className="provider-studio__tabs" role="tablist" aria-label="Provider details">
-          {(['Overview', 'Models', 'Routing', 'Health', 'Quotas'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
+          {(['Overview', 'Models', 'Routing', 'Health', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
         </div>
 
         <div className="provider-studio__content">
@@ -66,6 +73,46 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
           {tab === 'Health' && <div className="provider-health-grid"><MetricCard label="Success rate" value="99.2%" sub="312 requests preview" /><MetricCard label="P95 latency" value="428 ms" sub="rolling window" /><MetricCard label="Retries" value="7" sub="bounded retry policy" /><MetricCard label="Circuit" value="Closed" sub="healthy state" /><div className="provider-health-chart">{[34,49,42,65,51,77,60,83,67,91,72,80].map((height, index) => <i key={index} style={{ height: height + '%' }} />)}</div></div>}
 
           {tab === 'Quotas' && <div className="provider-quota-grid"><MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" /><MetricCard label="Monthly budget" value="41%" sub="shared account preview" /><MetricCard label="Requests" value="2,184" sub="rolling period" /><MetricCard label="Tokens" value="3.2M" sub="input + output preview" /><div className="provider-quota-bars">{[['Primary',68],['Fallback',41],['Local',22]].map(([name, value]) => <div key={name}><span>{name}</span><div className="progress"><span style={{ width: value + '%' }} /></div><small>{value}%</small></div>)}</div></div>}
+
+          {tab === 'Accounts' && <div className="provider-account-center">
+            <div className="provider-account-toolbar">
+              <div><span className="eyebrow">Connection metadata</span><strong>Accounts & credentials</strong><small>Secrets never render here; only connection state and safe metadata are presented.</small></div>
+              <button className={maskMetadata ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setMaskMetadata((value) => !value)}><Icon name="lock" size={13} /> {maskMetadata ? 'Metadata protected' : 'Metadata visible'}</button>
+            </div>
+            <div className="provider-account-layout">
+              <div className="provider-account-list">
+                {accounts.map(([name, label, auth, state, modelsCount, quota, role]) => <button type="button" key={name} className={selectedAccount === name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(name)}>
+                  <span className="provider-account-icon"><Icon name={name === 'Local runtime' ? 'terminal' : 'network'} size={14} /></span>
+                  <span><strong>{name}</strong><small>{label}</small></span>
+                  <span className={state === 'Configured' || state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span>
+                </button>)}
+                <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Add provider account opened in preview')}><Icon name="plus" size={13} /> Add account</button>
+              </div>
+              <div className="provider-account-detail">
+                <div className="provider-account-detail__head"><div><span className="eyebrow">{accounts.find((item) => item[0] === selectedAccount)?.[6] ?? 'Route'}</span><h3>{selectedAccount}</h3></div><span className="status-dot status-dot--live" /></div>
+                <div className="provider-account-meta">
+                  {(() => {
+                    const account = accounts.find((item) => item[0] === selectedAccount) ?? accounts[0]
+                    return <>
+                      <Metric label="Connection" value={account[3]} />
+                      <Metric label="Auth" value={account[2].split(' · ')[0]} />
+                      <Metric label="Models" value={account[4]} />
+                      <Metric label="Quota" value={account[5]} />
+                      <Metric label="Secret" value={maskMetadata ? '••••••••' : 'Stored externally'} />
+                      <Metric label="Routing role" value={account[6]} />
+                    </>
+                  })()}
+                </div>
+                <div className="provider-account-capabilities"><Tag label="chat" /><Tag label="tools" /><Tag label="streaming" /><Tag label="fallback-aware" /><Tag label="quota-aware" /></div>
+                <div className="platform-actions">
+                  <button className="studio-button" type="button" onClick={() => onAction(selectedAccount + ' connection test staged in preview')}><Icon name="play" size={13} /> Test connection</button>
+                  <button className="studio-button" type="button" onClick={() => onAction(selectedAccount + ' model catalog refresh staged')}><Icon name="refresh" size={13} /> Refresh models</button>
+                  <button className="studio-button studio-button--active" type="button" onClick={() => onAction(selectedAccount + ' routing opened in preview')}><Icon name="settings" size={13} /> Routing</button>
+                </div>
+                <div className="callout"><Icon name="shield" size={14} /><span>Presentation boundary: credentials, OAuth tokens and provider transport stay outside React state.</span></div>
+              </div>
+            </div>
+          </div>}
         </div>
       </section>
     </div>

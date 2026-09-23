@@ -258,3 +258,129 @@ Do not:
 - move the canonical runtime into TypeScript;
 - couple UI features to concrete provider names;
 - commit secrets, tokens or machine-local paths.
+
+### Presentation preference bridge
+
+Global presentation customization is centralized in:
+- `src/services/ui-preferences.ts` — storage key, typed layout preference reader, shell application and change subscription.
+- `src/features/settings/SettingsStudio.tsx` — feature-owned configuration UI.
+- `src/components/SettingsSurface.tsx` — thin compatibility wrapper for existing shell composition.
+
+The bridge is presentation-only. It may control UI geometry, theme and interaction preferences, but it must not store provider secrets or become a second runtime state system.
+
+## Unified Control Plane
+
+The frontend has two intentional configuration layers:
+
+1. `src/features/settings/SettingsControlCenter.tsx` is the optimized entry point. It exposes high-frequency controls grouped by domain and scope, and renders only the selected domain.
+2. `src/features/settings/SettingsStudio.tsx` remains the deep catalog for detailed runtime-inspired configuration. It is reached from the Control Center rather than duplicated.
+
+The Control Center models capabilities documented by current agent IDE/runtime products without claiming backend parity until a typed AgentiCOS contract exists. It includes:
+
+- Global / Project / Session / Agent configuration scopes.
+- Agent modes, model routing, fast/auxiliary model concepts, fallback, tool budgets and parallel subagents.
+- Codebase indexing, semantic search, file watching, context sources, memory and compression.
+- Auto-review/allowlist/request-review/always-proceed semantics, terminal sandboxing, workspace boundaries, network policy, checkpoints and diff review.
+- Browser agent, browser backends, Chrome DevTools, recordings and persistence.
+- Rules, skills, plugins, MCP, custom agents, inheritance and lifecycle hooks.
+- Cloud/background agents, isolated worktrees, artifacts, remote control, automations and notifications.
+- Theme, density, reduced motion, compact chrome, terminal splitting and hover previews.
+- Privacy, telemetry, cost and usage-warning preferences.
+
+### Performance contract
+
+- Heavy non-chat workspace surfaces are lazy-loaded by `WorkspaceOverview.tsx`.
+- Only the selected Control Center settings domain is mounted.
+- Long histories, tool registries, artifact collections and codebase results should use pagination or virtualization in their owning feature surface.
+- Presentation preferences remain local and typed; backend behavior stays behind `services/runtime` contracts.
+- No credentials or secret values are allowed in React configuration state or portable UI exports.
+
+### IDE configuration coverage
+
+The optimized Control Center additionally exposes presentation controls for:
+
+- Editor: font, tabs, wrapping, minimap, breadcrumbs, semantic highlighting and save actions.
+- Completion: inline suggestions, Tab completion, completion model and latency target.
+- VCS: review panel, agent-change staging, generated commit messages, branch diffs and conflict resolution.
+- Verification: completion checks, configurable verification command and artifact preview/attachment.
+- Long-running work: retained goals, in-run steering and loop/check cadence.
+- Remote sessions: enablement preference and machine identity metadata.
+
+These are high-level controls. The detailed Hermes-inspired catalog remains available through Deep Configuration so the frontend has one entry point without duplicating state models.
+
+
+
+## Agent Builder Surface (2026-09-24)
+
+The Agent Profiles route now uses `features/agents/AgentBuilder.tsx` as the primary presentation surface.
+
+The builder is intentionally frontend-only and keeps runtime integration outside the component. It exposes:
+- agent identity, role, description, status and scope;
+- provider, primary model, fallback model, reasoning, temperature and output budget;
+- system instructions, planning mode, verification mode, memory scope and context budget;
+- explicit capability selection for repository, search, Git, verification, web, browser, MCP, memory, subagents, terminal and artifacts;
+- toolset and MCP selection plus browser/terminal/subagent toggles;
+- per-capability Allow / Ask / Deny policy preview;
+- evaluation-suite selection, compatibility preview and Draft / Staged / Published release state;
+- local draft editing, search, create, duplicate, save and test actions.
+
+The surface is reachable from the existing `agents` / Agent Profiles navigation mode. `AgentStudio.tsx` remains preserved for compatibility with older references, while `StudioSurface.tsx` now dispatches Agent Profiles to the richer builder.
+
+No credentials, network calls, runtime authorization, model transport or persistence contract were introduced by this frontend slice.
+
+
+## Subagent Builder Surface (2026-09-24)
+
+The Subagents workspace now routes through `features/subagents/SubagentBuilder.tsx`, while `SubagentFleet.tsx` is preserved as a compatibility dispatcher.
+
+The visual builder covers delegated task definition, context isolation, model/toolset selection, memory scope, handoff format, recursive delegation, workspace/network access, approval requirements, run state and handoff timeline. All state is local presentation state; runtime authorization and execution remain outside the frontend boundary.
+
+## Provider Account Center (2026-09-24)
+
+The Providers & Models surface now includes an Accounts tab for safe connection metadata: provider/account identity, authentication type, model count, quota preview, routing role, capability tags and connection/model refresh actions. Secrets are represented as masked/external metadata only.
+
+The presentation layer does not store or expose API keys, OAuth tokens or provider transport state. Runtime-owned provider contracts remain the future integration boundary.
+
+## Context Inspector and Run Timeline (2026-09-24)
+
+`features/context/ContextInspector.tsx` and `features/runs/RunTimeline.tsx` now own the detailed presentation for context composition and agent execution history.
+
+Context Inspector covers source inclusion, pin/exclude state, token budget, compaction strategy, prompt/memory/code breakdown and handoff preview. Run Timeline covers run filtering, selection, lifecycle events, tool activity and change inspection. Both surfaces are local presentation state and preserve runtime-owned enforcement/execution boundaries.
+
+## MCP Manager Surface (2026-09-24)
+
+`features/mcp/McpManager.tsx` now owns the detailed MCP presentation surface. It covers server discovery/selection, transport and capability metadata, tool inventory, resources/prompts, authentication readiness with masked secrets, and per-operation policy previews.
+
+`PlatformSurface.tsx` remains the dispatcher and no longer carries the MCP-specific selection state. Runtime authorization, credentials, transport and execution remain outside the presentation boundary.
+
+## Hook Manager Surface (2026-09-24)
+
+`features/hooks/HookManager.tsx` now owns the detailed Hooks & Policies presentation surface. It exposes lifecycle event selection, matchers, deterministic ordering, actions, failure strategy, timeout, dry-run mode, lifecycle trace and synthetic test fixtures.
+
+Authorization and middleware execution remain runtime-owned.
+
+## Git Diff Center and Environment Builder (2026-09-24)
+
+`features/git/GitDiffCenter.tsx` now owns the detailed review/staging presentation for changed files, unified diff, review checklist, checkpoint preparation and handoff preview.
+
+`features/environments/EnvironmentBuilder.tsx` now owns reusable environment configuration for local, container and remote envelopes, including resource bounds, network policy, secret boundary, lifecycle and cleanup expectations.
+
+Both remain presentation-only until runtime contracts are connected.
+
+## Automation and Credential Manager Surfaces (2026-09-24)
+
+`features/automations/AutomationBuilder.tsx` now owns schedule/trigger, execution policy and result-delivery presentation.
+
+`features/credentials/CredentialManager.tsx` now owns metadata-only credential presentation, scopes and usage/audit views. Secret values remain masked and external to React state.
+
+## Channel Gateway Manager Surface (2026-09-24)
+
+`features/channels/ChannelGatewayManager.tsx` now owns the detailed Channels & Gateway presentation surface. It covers channel capability toggles, gateway routing preview, delivery policy, session routing and safe connection actions.
+
+No gateway transport, authentication secret or runtime delivery implementation was added.
+
+## Research Workbench (2026-09-24)
+
+`features/research/ResearchWorkbench.tsx` now owns the Research surface. It covers bounded research batches, source provenance, trajectory inspection and evidence-backed synthesis/export previews.
+
+Research execution, web transport and source collection remain outside the frontend boundary.

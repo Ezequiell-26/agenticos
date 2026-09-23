@@ -66,18 +66,20 @@ export interface NavigationItem {
   label: string
   detail: string
   icon:
-    | 'activity' | 'archive' | 'arrow-down' | 'arrow-up' | 'bot' | 'branch' | 'calendar'
-    | 'check' | 'chevron-left' | 'chevron-right' | 'clock' | 'cloud' | 'code'
-    | 'command' | 'copy' | 'folder' | 'git' | 'globe' | 'history' | 'layers'
-    | 'layout' | 'message' | 'mic' | 'more' | 'paperclip' | 'play' | 'plus'
-    | 'search' | 'send' | 'settings' | 'shield' | 'spark' | 'stop' | 'terminal'
-    | 'tool' | 'x'
+    | 'activity' | 'alert' | 'archive' | 'arrow-down' | 'arrow-up' | 'bell' | 'bot'
+    | 'branch' | 'calendar' | 'check' | 'check-circle' | 'chevron-left' | 'chevron-right'
+    | 'clock' | 'cloud' | 'code' | 'command' | 'copy' | 'database' | 'download'
+    | 'external' | 'file' | 'file-code' | 'filter' | 'folder' | 'git' | 'globe' | 'history'
+    | 'home' | 'info' | 'layers' | 'layout' | 'lock' | 'maximize' | 'message' | 'mic'
+    | 'minimize' | 'more' | 'network' | 'paperclip' | 'panel-left' | 'panel-right'
+    | 'play' | 'plus' | 'refresh' | 'search' | 'send' | 'settings' | 'shield' | 'sliders'
+    | 'spark' | 'stop' | 'terminal' | 'tool' | 'upload' | 'users' | 'x'
   group: NavigationGroup
 }
 
 export const navigationItems: NavigationItem[] = [
-  { id: 'chat', label: 'Command Center', detail: 'Agent chat, context, commands and session control', icon: 'message', group: 'build' },
-  { id: 'files', label: 'Files & Editor', detail: 'Explorer, editor, tabs, diff and inspector', icon: 'folder', group: 'build' },
+  { id: 'chat', label: 'Command Center', detail: 'Agent chat, context, commands and session control', icon: 'home', group: 'build' },
+  { id: 'files', label: 'Files & Editor', detail: 'Explorer, editor, tabs, diff and inspector', icon: 'file-code', group: 'build' },
   { id: 'terminal', label: 'Terminal', detail: 'Shell sessions and command execution', icon: 'terminal', group: 'build' },
   { id: 'prompts', label: 'Prompt Lab', detail: 'Reusable prompts, variables and templates', icon: 'spark', group: 'build' },
   { id: 'projects', label: 'Projects', detail: 'Workspace projects, tasks and active branches', icon: 'layers', group: 'build' },
@@ -97,7 +99,7 @@ export const navigationItems: NavigationItem[] = [
   { id: 'kanban', label: 'Kanban', detail: 'Task boards, agent ownership and workflow handoffs', icon: 'layers', group: 'operate' },
   { id: 'reviews', label: 'Reviews & Bugbot', detail: 'Diff review, findings and automated checks', icon: 'check', group: 'operate' },
   { id: 'checkpoints', label: 'Checkpoints', detail: 'Snapshots, diffs, rollback and restore previews', icon: 'git', group: 'operate' },
-  { id: 'approvals', label: 'Approvals', detail: 'Sensitive actions and policy decisions', icon: 'shield', group: 'operate' },
+  { id: 'approvals', label: 'Approvals', detail: 'Sensitive actions and policy decisions', icon: 'lock', group: 'operate' },
   { id: 'observability', label: 'Observability', detail: 'Run metrics, events and latency views', icon: 'activity', group: 'operate' },
   { id: 'agents', label: 'Agent Profiles', detail: 'Specialist agents, models and budgets', icon: 'bot', group: 'operate' },
   { id: 'bots', label: 'Bots & Teams', detail: 'Named specialist bots, routines and mentions', icon: 'bot', group: 'operate' },
@@ -106,18 +108,18 @@ export const navigationItems: NavigationItem[] = [
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
   { id: 'research', label: 'Research', detail: 'Batch tasks, sources, trajectories and exports', icon: 'search', group: 'operate' },
   { id: 'evaluations', label: 'Evaluations', detail: 'Benchmark agents, prompts and model behavior with repeatable suites', icon: 'check', group: 'operate' },
-  { id: 'notifications', label: 'Notifications', detail: 'Approvals, run completions, failures and workspace alerts', icon: 'history', group: 'operate' },
+  { id: 'notifications', label: 'Notifications', detail: 'Approvals, run completions, failures and workspace alerts', icon: 'bell', group: 'operate' },
   { id: 'sessions', label: 'Sessions', detail: 'Conversation history, recall, export and lifecycle control', icon: 'history', group: 'operate' },
   { id: 'logs', label: 'Logs & Traces', detail: 'Structured events, tool output and diagnostic traces', icon: 'activity', group: 'operate' },
   { id: 'analytics', label: 'Analytics', detail: 'Usage, latency, tokens and workspace activity views', icon: 'activity', group: 'operate' },
   { id: 'batch', label: 'Batch Processing', detail: 'Process many inputs with bounded concurrency and results', icon: 'layers', group: 'operate' },
   { id: 'learning', label: 'Learning Loop', detail: 'Capture useful run outcomes and evolve skills locally', icon: 'spark', group: 'operate' },
 
-  { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog, failover and quotas', icon: 'bot', group: 'configure' },
+  { id: 'providers', label: 'Providers & Models', detail: 'Routes, model catalog, failover and quotas', icon: 'network', group: 'configure' },
   { id: 'skills', label: 'Skills', detail: 'Installable procedural capabilities', icon: 'spark', group: 'configure' },
   { id: 'tools', label: 'Tools', detail: 'Tool registry, risk and execution policy', icon: 'tool', group: 'configure' },
-  { id: 'memory', label: 'Memory', detail: 'Persistent memory and cross-session recall', icon: 'history', group: 'configure' },
-  { id: 'settings', label: 'Settings', detail: 'Appearance, behavior, privacy and safety', icon: 'settings', group: 'configure' },
+  { id: 'memory', label: 'Memory', detail: 'Persistent memory and cross-session recall', icon: 'database', group: 'configure' },
+  { id: 'settings', label: 'Settings', detail: 'Appearance, behavior, privacy and safety', icon: 'sliders', group: 'configure' },
   { id: 'toolsets', label: 'Toolsets', detail: 'Activate grouped capabilities without changing individual tool policy', icon: 'layers', group: 'configure' },
   { id: 'credentials', label: 'Credentials', detail: 'Connection metadata without exposing secrets to the UI', icon: 'shield', group: 'configure' },
   { id: 'plugins', label: 'Plugins', detail: 'Extend the product surface with packaged capabilities', icon: 'tool', group: 'configure' },
@@ -128,14 +130,14 @@ export const navigationItems: NavigationItem[] = [
   { id: 'channels', label: 'Channels & Gateway', detail: 'Messaging surfaces, gateway connections and delivery', icon: 'message', group: 'integrate' },
   { id: 'browser', label: 'Browser', detail: 'Navigation, scraping, form actions and sessions', icon: 'globe', group: 'integrate' },
   { id: 'voice', label: 'Voice & Media', detail: 'Voice input, TTS, vision and media tools', icon: 'mic', group: 'integrate' },
-  { id: 'mcp', label: 'MCP Servers', detail: 'External tool servers, OAuth and capabilities', icon: 'tool', group: 'integrate' },
+  { id: 'mcp', label: 'MCP Servers', detail: 'External tool servers, OAuth and capabilities', icon: 'network', group: 'integrate' },
   { id: 'environments', label: 'Environments', detail: 'Development images, setup, network and runtime configuration', icon: 'cloud', group: 'integrate' },
   { id: 'webhooks', label: 'Webhooks & Events', detail: 'Inbound triggers, delivery attempts and endpoint policy', icon: 'globe', group: 'integrate' },
   { id: 'imports', label: 'Imports & Migrations', detail: 'Bring agent rules, skills and sessions from other systems', icon: 'arrow-down', group: 'integrate' },
   { id: 'media', label: 'Media Studio', detail: 'Image generation, vision, TTS and multimodal workflows', icon: 'layout', group: 'integrate' },
   { id: 'wake', label: 'Wake Word & Presence', detail: 'Hands-free activation, microphone presence and session readiness', icon: 'mic', group: 'integrate' },
   { id: 'integrations', label: 'Source Integrations', detail: 'GitHub, GitLab and connected engineering systems', icon: 'git', group: 'integrate' },
-  { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
+  { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'lock', group: 'integrate' },
   { id: 'homeassistant', label: 'Home Assistant', detail: 'Home automation tools and device actions through an integration boundary', icon: 'settings', group: 'integrate' },
   { id: 'social', label: 'Social Search', detail: 'Social/X search and external thread research tools', icon: 'search', group: 'integrate' },
 ]

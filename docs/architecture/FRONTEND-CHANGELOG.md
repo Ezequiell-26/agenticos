@@ -343,3 +343,348 @@ The current repository already contains an early desktop UI from existing commit
 - Preserved `ChatEnhancementDock` because `ChatSurface` still consumes it.
 - Removed the duplicate `/compact` command entry to avoid duplicate React list keys and conflicting command rows.
 - Purpose: keep one authoritative implementation per active product surface and prevent stale component copies from accumulating.
+
+## Visual system + iconography polish — 2026-09-24
+
+- Scope: frontend-only visual quality pass over the existing desktop shell; no runtime contracts or provider behavior changed.
+- User-visible effect: upgraded the monochrome interface with a more disciplined visual hierarchy, refined surface depth, cleaner focus/hover/active states, more consistent controls, polished scrollbars, reduced-motion behavior and stronger desktop shell cohesion.
+- Iconography:
+  - expanded the local SVG icon set with dedicated Home, File Code, Database, Network, Users, Lock, Bell, Bug, Refresh, Sliders, Filter, Maximize, Minimize, Panel, External, Upload, Download, Check Circle, Alert and Info geometry;
+  - increased icon rendering precision and non-scaling stroke behavior;
+  - remapped high-frequency navigation surfaces away from overloaded generic symbols;
+  - replaced the attachment remove glyph and dock sizing glyph with the shared icon system.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/Icon.tsx
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - crates/presentation/desktop/frontend/src/components/ChatSurface.tsx
+  - crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx
+  - crates/presentation/desktop/frontend/src/components/StatusBar.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: Rust runtime, typed service boundary, existing feature surfaces, local/preview state semantics, implementation-state manifest and repository history.
+- Architecture decision: the icon system remains repository-owned and dependency-free; the visual pass does not introduce a second component library or a second token system.
+- Verification evidence: source-level review completed for the changed icon registry, navigation mappings and CSS selectors; no backend route or credential surface was introduced.
+- Unverified checks: branch CI/build, browser screenshot verification, Windows/Tauri rendering, full accessibility audit and live runtime integration.
+- Rollback point: 079762e7fab4ab6f3fea9cba3be914c40ec2399f.
+- Next step: run branch CI and inspect the real frontend build before merging the visual polish into main.
+
+## Hermes-style configuration studio — 2026-09-24
+
+- Scope: frontend-only configuration and personalization expansion; no runtime contracts, provider credentials or backend routes were introduced.
+- User-visible effect: replaced the previous small settings form with a full configuration studio covering core profile selection, model/provider routing, agent behavior, tools/toolsets, terminal/sandbox, context/memory, compression/cache, display/theme, voice/media, gateway/channels, MCP, automation, security/privacy and advanced/raw configuration.
+- Customization:
+  - named profile creation, switching, local deletion with explicit confirmation and active-profile metadata;
+  - persistent local preferences with unsaved/saved state;
+  - import/export of secret-free portable JSON configuration snapshots;
+  - raw JSON editor with apply/refresh controls;
+  - live document-level theme, accent, density, UI scale and font-size hooks;
+  - searchable configuration domains.
+- Hermes-inspired configuration domains represented from the current public configuration model:
+  - configuration precedence and environment placeholders;
+  - model/provider/default model and auxiliary model routing;
+  - reasoning effort, tool-use enforcement, iteration budget and delegation;
+  - per-platform toolset concepts;
+  - terminal backends and resource limits;
+  - persistent memory, user profile memory, session recall and context pressure;
+  - compression threshold, target ratio, protected recent messages and summary model;
+  - display progress levels, streaming, reasoning, cost, resume display and skins;
+  - TTS/STT/vision/web/media providers;
+  - API server, gateway streaming and messaging platforms;
+  - MCP discovery/server registry;
+  - cron, wake/presence and background-run preferences;
+  - checkpoints, PII/secrets redaction, network/shell/git guards and fail-closed mode.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: 59 registered navigation surfaces, Rust runtime, typed runtime/service boundary, visual icon system, local/preview semantics and sequential Step 25 implementation state.
+- Architecture decision: Settings remains a presentation-layer configuration editor. Secrets are intentionally excluded from React state and portable exports; eventual runtime persistence must be implemented through typed service contracts.
+- Verification evidence: source-level review confirms the settings domains, profile state, JSON import/export path, live personalization attributes and responsive layout are wired through the canonical SettingsSurface.
+- Unverified checks: TypeScript/Vite build, GitHub Actions conclusion, browser visual verification, Windows/Tauri rendering, and live runtime persistence.
+- Rollback point: f1227d42b1dd18b89e4cf6c02b3ecde276dcabe3.
+- Next step: validate the settings studio through branch CI and browser-level verification before merging the combined frontend polish.
+
+## Hermes-style configuration hardening — 2026-09-24
+
+- Scope: corrective frontend pass on the new configuration studio.
+- User-visible effect: removed remaining static control rows so model aliases, fallback chains, custom endpoint, delegation model/provider/endpoint, clarification timeout, tool-call visibility, per-platform toolset presets, local STT model, automation policy/concurrency/notifications and approval mode are editable and represented in the portable snapshot.
+- Modified:
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: all previous settings domains, profile isolation model, theme personalization, raw JSON editor and secret-free export.
+- Verification evidence: source audit found zero remaining `onChange={() => undefined}` handlers in SettingsSurface and zero React namespace references after the type import correction.
+- Unverified checks: TypeScript/Vite build, GitHub Actions, browser/Tauri rendering and live runtime persistence.
+- Rollback point: 947645a1635dd8a05ac2a0896f52c78491af6545.
+- Next step: run the settings studio through CI and browser verification before merging the frontend branch.
+
+## Workspace customization bridge + settings feature boundary — 2026-09-24
+
+- Scope: frontend architecture refinement after the Hermes-style configuration expansion.
+- User-visible effect: layout preferences now propagate through a shared UI preference bridge instead of being trapped inside Settings; sidebar visibility, agent inspector visibility, dock visibility, status bar, rail density, tooltips, hover-preview policy and panel widths affect the desktop shell globally.
+- Customization added:
+  - persistent sidebar and inspector widths;
+  - persistent left/right/bottom panel visibility;
+  - persistent activity rail density;
+  - tooltip and hover-preview controls;
+  - notification position preference;
+  - keyboard/profile routing controls;
+  - global disabled-toolset registry;
+  - profile cloning and richer active-profile controls;
+  - per-profile gateway state, skills count and MCP count metadata.
+- Architecture cleanup:
+  - created crates/presentation/desktop/frontend/src/services/ui-preferences.ts as the canonical presentation preference bridge;
+  - moved the full Settings implementation into crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx;
+  - reduced components/SettingsSurface.tsx to a thin compatibility wrapper;
+  - kept the existing shell import stable while aligning the implementation with the feature-slice architecture contract.
+- Modified:
+  - crates/presentation/desktop/frontend/src/services/ui-preferences.ts
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - crates/presentation/desktop/frontend/src/components/App.tsx
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: the complete 59-surface navigation system, Rust runtime/service boundary, profile configuration model, secret-free export, icon system and existing preview semantics.
+- Architecture decision: presentation preferences are now centralized in a typed service module; feature-specific UI remains inside the features/settings boundary while a compatibility wrapper protects existing composition imports.
+- Verification evidence: source audit confirms one Settings implementation, no duplicate Settings implementation tree, centralized preference key/bridge, and shell consumption of the same preference source.
+- Unverified checks: TypeScript/Vite production build, GitHub Actions, browser interaction, Tauri/Windows rendering and accessibility audit.
+- Rollback point: a72d7e332379694b15149492e0b16ae226438186.
+- Next step: validate the reorganized settings feature and preference bridge in CI and browser verification before merging.
+
+## Frontend customization architecture hardening — 2026-09-24
+
+- Scope: corrective pass after CI surfaced two strict TypeScript errors in the customization stack.
+- Fixed:
+  - aligned NavigationItem.icon with the complete shared IconName registry;
+  - initialized new profile metadata fields for every newly created profile.
+- Architecture documentation:
+  - documented the settings feature boundary and shared UI preference bridge in FRONTEND-ARCHITECTURE.md.
+- Modified:
+  - crates/presentation/desktop/frontend/src/navigation.ts
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-ARCHITECTURE.md
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Verification evidence: CI run 793 completed its repository continuity/state/architecture/frontend contract checks successfully and failed only in the nested Vite TypeScript build on the two reported issues; both concrete causes were patched.
+- Unverified checks: new branch CI after the fixes, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: 4a25b5e48658184e2c6a849edc214da5e3803d66.
+- Next step: inspect the post-fix CI run and correct only any newly reported concrete failures.
+
+## Full Hermes configuration coverage pass — 2026-09-24
+
+- Scope: frontend-only expansion to close the remaining documented Hermes configuration domains.
+- Added configuration domains:
+  - Web Search: search/extract backend split, keyless fallback/rescue, Parallel/Exa free/paid tiers, browser provider and timezone.
+  - Browser Automation: inactivity timeout, command timeout, recording, managed persistence, CDP URL and native dialog policy.
+  - Runtime & Liveness: NOFILE limit, result spillover, code execution mode/timeout/call cap, tool-loop thresholds, hard-stop policies, web/subagent loop caps, execution guidance, stall guards and turn liveness.
+  - Terminal refinement: Vercel Sandbox plus temp directory, terminal font, HOME mode, remote sync-back cap, backend images and Docker env forwarding.
+  - Display refinement: focus view, interim gateway updates, warning suppression, commentary, Vim mode, timestamp formatting, turn summary, spinner token flow, prompt bell, file-mutation verification, credits notices and multiline shortcuts.
+- Structural result: Settings is now a feature-owned studio with a thin compatibility wrapper and a shared preference bridge.
+- Verification: 193 SettingsState fields, 193 defaults, 20 configuration domains with matching views and zero undefined onChange handlers.
+- Modified:
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: all previous frontend surfaces, icon system, shell customization bridge, runtime/service boundaries and secret isolation.
+- Reference basis: current Hermes configuration documentation covers these runtime, terminal, tool-loop, display, browser, web and timezone controls. citeturn785892view2turn785892view3turn832737view0turn258108view3turn785892view4turn258108view4
+- Unverified checks: post-pass GitHub Actions result, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: a314febfce604ad16fe41509790c489b01b6e755.
+- Next step: inspect the post-pass CI result and continue from verified evidence only.
+
+## Full UI preference persistence — 2026-09-24
+
+- Scope: frontend reliability correction for persistent customization.
+- Fixed: the shared preference bridge now carries both layout and visual preferences, so the App restores theme, accent, density, UI scale and font size at startup together with panel geometry.
+- Live behavior: Settings applies unsaved visual changes immediately through the shared bridge; App subscribes to the same preference event so shell layout updates without navigation away from Settings.
+- Modified:
+  - crates/presentation/desktop/frontend/src/services/ui-preferences.ts
+  - crates/presentation/desktop/frontend/src/components/App.tsx
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Verification evidence: source-level wiring confirms one shared storage key, one full preference reader/applicator, App startup restoration and live preference subscription.
+- Unverified checks: latest CI/build after the persistence correction, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: 209bdf9abb8e471ed4207d5d9adecb7920890ebb.
+- Next step: inspect the newest CI result and fix only concrete failures.
+
+## Final frontend configuration checkpoint — 2026-09-24
+
+- Current frontend scope now includes the 59 product surfaces plus a 20-domain configuration studio with 193 typed settings fields and matching defaults.
+- Current customization covers profile lifecycle, model/provider routing, agent behavior/delegation, toolsets and global disabled toolsets, terminal/sandbox backends, context/memory, compression, display/skins, layout geometry, voice/media, web search, browser automation, gateway/channels, MCP, automation, runtime/liveness, security/privacy, shortcuts and raw configuration.
+- Shared architecture:
+  - one repository-owned SVG icon registry;
+  - one typed UI preference bridge;
+  - feature-owned SettingsStudio with a thin compatibility wrapper;
+  - shell subscription to persisted preferences;
+  - no secret material in React state or portable exports.
+- CI recovery note: run 793 isolated two TypeScript errors after a feature move; both were corrected before this checkpoint.
+- Unverified: a fresh CI run for this final head, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: df9be7f69ce2cfb5440bdcae1b8cc886f637fcff.
+- Next step: validate this final head through CI and then perform browser-level visual verification when a runnable frontend environment is available.
+
+## 2026-09-24 — Unified control plane + frontend performance pass
+
+- Added `src/features/settings/SettingsControlCenter.tsx` as the top-level settings control plane.
+- The control plane groups modern agent-IDE configuration into nine domains: Overview, AI & Agent, Codebase & Context, Execution & Security, Browser & Web, Customizations, Cloud & Automations, Interface & Performance, and Data & Usage.
+- Added configuration scopes for Global, Project, Session and Agent.
+- Added UI controls for Agent/Plan/Ask/Review/Custom modes, model routing, fast models, failover, autonomy, codebase indexing, context sources, permissions, terminal sandbox, browser backends, Chrome DevTools, MCP, rules, skills, plugins, custom agents, hooks, cloud agents, isolated worktrees, remote control, automations, notifications, theme, density, reduced motion, privacy and cost tracking.
+- Kept the existing `SettingsStudio` as the detailed/deep configuration layer rather than duplicating its 193-field catalog.
+- Converted non-chat workspace surfaces to lazy-loaded modules through `WorkspaceOverview`, reducing initial feature mounting and keeping heavy surfaces off the startup path.
+- Removed a duplicated Security & Privacy domain declaration from `SettingsStudio`.
+- The frontend remains presentation-only: no provider credentials, backend routes or runtime semantics were introduced.
+
+Verification status:
+- Source edits are structurally complete.
+- Fresh TypeScript/Vite CI for the combined head is still required.
+- Browser/Tauri and accessibility verification remain required before merge.
+
+## 2026-09-24 — Agent IDE depth coverage
+
+- Extended the unified Control Center with auxiliary model routing for vision, compression, approvals, browser analysis, image/media and session-title workloads.
+- Added iteration budget and provider service-tier controls to the agent domain.
+- Added vision embedding byte/call budgets to the context domain.
+- Added status-line field selection and platform display override controls.
+- Kept these controls presentation-local and separate from the detailed runtime-inspired settings catalog.
+- Static source audit after this pass: 76 ControlState fields, 76 defaults, zero missing defaults or duplicate fields.
+- Fixed/verified the deep Settings catalog contains a single Security & Privacy domain declaration.
+- Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
+
+## 2026-09-24 — IDE depth: editor, VCS, verification and remote controls
+
+- Extended the Control Center to 10 domains with a dedicated **Editor, Git & Verification** domain.
+- Added editor preferences: font size, tab size, word wrap, minimap, breadcrumbs, semantic highlighting, format/code-actions on save.
+- Added autocomplete preferences: inline suggestions, Tab completion, model selection and suggestion delay.
+- Added VCS preferences: review panel, agent-change staging, generated commit messages, branch diffs and conflict resolver.
+- Added task verification/artifact preferences: verification command, verify-on-completion, artifact preview and auto-attachment.
+- Added long-lived goal controls: goal retention, in-run steering and loop/check interval.
+- Added remote-control presentation settings including a machine nickname; execution remains runtime-owned.
+- Static source audit: 101 ControlState fields, 101 defaults, zero missing/duplicate fields, 10 unique domains, zero unknown icon names.
+- Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
+
+## 2026-09-24 — Scoped settings engine + lightweight editor
+
+- Added `features/settings/settings-engine.ts` as the typed local settings store for high-level Control Center state.
+- Control Center now has real Global / Project / Session / Agent stores instead of treating scope as a display-only toggle.
+- Added explicit draft/commit behavior: changes are local drafts until Save; Discard restores the last committed store.
+- Added local configuration history with up to 20 snapshots and one-click restore from the Control Center.
+- Migrates the previous `agenticos.ui.control-center-v1` flat snapshot into the Project scope when present.
+- Added reusable `features/editor/CodeEditorSurface.tsx` and moved the Files workspace onto that surface.
+- Editor surface remains dependency-light and supports in-file search, match counts, line focus, wrap, optional minimap and Ctrl/Cmd+F / Ctrl/Cmd+S actions.
+- Heavy workspace surfaces remain lazy-loaded.
+- Verification still pending for fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility.
+
+## 2026-09-24 — Configuration architecture hardening + editor modularization
+
+- Consolidated high-level Control Center persistence behind `features/settings/settings-engine.ts`.
+- Control Center scope is now real application state for Global / Project / Session / Agent, with explicit Save/Discard semantics and local history/restore.
+- Avoided React state-updater side effects during persistence, keeping snapshot creation deterministic under Strict Mode.
+- Added `features/editor/CodeEditorSurface.tsx` as the reusable Files workspace editor surface.
+- The editor remains dependency-light and is isolated behind its own feature boundary for future language-server integration.
+- Added compact configuration history UI.
+- Static source audits passed after the hardening pass; runtime/build/browser verification remains pending.
+
+## 2026-09-24 — Effective permission visualization
+
+- Added `features/security/EffectivePermissionMatrix.tsx`.
+- Execution settings now render an explicit preview of effective allow/ask/deny decisions for files, external files, terminal, network, destructive operations, Git and MCP.
+- The matrix derives from the selected frontend policy controls so the user can see the consequence of a setting change before runtime integration.
+- The preview is explicitly non-authoritative; runtime policy enforcement remains behind typed contracts.
+- The component is isolated under the security feature boundary and only mounted inside the selected Execution & Security domain.
+## 2026-09-24 — Complete frontend control surfaces + navigation performance
+
+- Added lazy-loaded Customize Manager for Agents, Skills, Rules, Commands, Hooks, MCP, Plugins and Toolsets with filtering, scope metadata, enable/disable state and permission summaries.
+- Added a Keymap Editor with profile presets, command filtering, inline rebinding and conflict detection.
+- Added a Capability Registry surface showing Available / Requires setup / Unavailable / Disabled states.
+- Added Setup Checklist for first-run readiness and a Scope Resolver Preview for Global / Project / Agent / Session effective configuration.
+- Added Theme Studio with token-level color editing, radius controls, presets and live preview.
+- Added Workspace Preset Picker for Coding, Agent Ops, Research and Focus layouts.
+- Added Universal Search (Ctrl/Cmd+Shift+F) alongside Command Palette (Ctrl/Cmd+K) so navigation and search remain separate interaction systems.
+- Converted platform feature modules to independent lazy chunks; the current dispatcher lazy-loads 11 heavy feature modules.
+- Kept all new functionality presentation-only and preserved runtime/service boundaries.
+
+
+### 2026-09-24 — Complete visual Agent Builder
+
+Added `features/agents/AgentBuilder.tsx` and routed Agent Profiles through it from `components/StudioSurface.tsx`.
+
+The frontend now presents a complete agent-profile editing flow across Identity, Model, Instructions, Capabilities, Policies, and Test & Release. It includes search, local draft state, create/duplicate/save/test actions, model fallback controls, context and memory budgets, explicit capability toggles, policy segmentation, evaluation/release state, and compatibility/readiness views.
+
+The component is presentation-only: no backend route, credential, network transport, authorization enforcement or runtime persistence was invented. `AgentStudio.tsx` is preserved as a compatibility surface.
+
+Verification for this slice:
+- source-level structure and imports inspected;
+- shared icon names restricted to the repository-owned icon registry;
+- responsive and reduced-motion styling added;
+- fresh TypeScript/Vite CI, browser/Tauri verification and accessibility audit remain pending.
+
+
+### 2026-09-24 — Complete visual Subagent Builder
+
+Added `features/subagents/SubagentBuilder.tsx` and routed `SubagentFleet.tsx` through the new builder. The surface now covers task ownership, isolated context budgets, bounded turns, model/toolset selection, memory scope, handoff format, recursive delegation, safety toggles, approval requirements and run/handoff inspection.
+
+No runtime execution or authorization was added. The existing Subagent route remains lazy-loaded through the platform surface.
+
+### 2026-09-24 — Provider Account Center
+
+Expanded `features/providers/ProviderStudio.tsx` with an Accounts tab. It now presents provider/account metadata, safe masked secret state, model counts, quota previews, routing role, capabilities, connection test/refresh/routing actions, and responsive account layouts.
+
+No credentials or transport behavior were introduced.
+
+### 2026-09-24 — Context Inspector and Run Timeline
+
+Moved the detailed Context and Runs surfaces into dedicated feature components. Context Inspector now exposes explicit source selection, budget and compaction controls; Run Timeline adds run filtering plus Timeline / Tools / Changes inspection.
+
+The dispatcher components now route into these feature boundaries instead of carrying the detailed surface state themselves. No backend behavior was introduced.
+
+### 2026-09-24 — MCP Manager
+
+Created `features/mcp/McpManager.tsx` and routed the existing MCP navigation surface through it. Added server search, tool/resource inspection, auth readiness, masked secret state and policy controls with responsive styling.
+
+The feature is presentation-only and introduces no runtime transport or credential handling.
+
+### 2026-09-24 — Hook Manager
+
+Created `features/hooks/HookManager.tsx` and routed Hooks & Policies through the dedicated feature boundary. Added configuration, lifecycle trace and test-bench views with responsive/reduced-motion styling.
+
+No runtime middleware or authorization behavior was introduced.
+
+### 2026-09-24 — Git Diff Center and Environment Builder
+
+Added dedicated feature components for source-control review and environment configuration. The dispatcher now routes Reviews through Git Diff Center and Environments through Environment Builder, reducing inline surface state.
+
+No backend execution, credentials or runtime authorization were introduced.
+
+### 2026-09-24 — Automation and Credential Managers
+
+Added dedicated builders for Automations and Credentials and routed both surfaces through `PlatformSurface`. Added responsive/reduced-motion styling and explicit presentation-only boundaries.
+
+Credentials never expose secret material in the frontend.
+
+### 2026-09-24 — Channel Gateway Manager
+
+Added a dedicated Channel Gateway Manager and routed Channels & Gateway through it. The surface now exposes channel capabilities, gateway routing, delivery controls and session associations with responsive/reduced-motion styling.
+
+Runtime transport and credentials remain outside the frontend boundary.
+
+### 2026-09-24 — Research Workbench
+
+Replaced the shallow Research presentation with a dedicated Research Workbench covering Batch, Sources, Trajectories and Synthesis views, with responsive/reduced-motion styling.
+
+No external search or runtime execution was introduced.
+
+
+### 2026-09-24 — Frontend integrity and lazy-boundary hardening
+
+- Repaired the compatibility App preference imports so it uses the canonical UiLayoutPreferences helpers without stale symbol references.
+- Converted the remaining heavy Platform surfaces (Context, MCP, Hooks, Git/Diff, Environments, Automations, Credentials, Channels and Research) to independent lazy imports, matching the frontend performance contract.
+- Preserved presentation-only behavior: no backend routes, credentials, transport or runtime policy were introduced.

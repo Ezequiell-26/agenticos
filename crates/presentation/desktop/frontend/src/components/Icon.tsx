@@ -37,6 +37,28 @@ export type IconName =
   | 'terminal'
   | 'tool'
   | 'x'
+  | 'home'
+  | 'file'
+  | 'file-code'
+  | 'database'
+  | 'network'
+  | 'users'
+  | 'lock'
+  | 'bell'
+  | 'bug'
+  | 'refresh'
+  | 'sliders'
+  | 'filter'
+  | 'maximize'
+  | 'minimize'
+  | 'panel-left'
+  | 'panel-right'
+  | 'external'
+  | 'download'
+  | 'upload'
+  | 'check-circle'
+  | 'alert'
+  | 'info'
 
 interface IconProps extends SVGProps<SVGSVGElement> {
   name: IconName
@@ -80,11 +102,33 @@ const paths: Record<IconName, string[]> = {
   terminal: ['m5 7 5 5-5 5', 'M12 17h7', 'M4 4h16v16H4z'],
   tool: ['M14 6a4 4 0 1 0 4 4l3 3-3 3-3-3', 'M8 14 3 19'],
   x: ['M6 6l12 12', 'M18 6 6 18'],
+  home: ['M3 11 12 3l9 8', 'M5 10v10h14V10', 'M9 20v-6h6v6'],
+  file: ['M6 3h8l4 4v14H6z', 'M14 3v5h5'],
+  'file-code': ['M6 3h8l4 4v14H6z', 'M14 3v5h5', 'm10 12-2 2 2 2', 'm14 12 2 2-2 2'],
+  database: ['M5 6c0-2 14-2 14 0v12c0 2-14 2-14 0Z', 'M5 6c0 2 14 2 14 0', 'M5 12c0 2 14 2 14 0'],
+  network: ['M4 7a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z', 'M16 5a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z', 'M10 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z', 'M8 7h8', 'M8 8.5l3 7', 'M17 7l-4 9'],
+  users: ['M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2', 'M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M17 3.1a4 4 0 0 1 0 7.8', 'M21 21v-2a4 4 0 0 0-3-3.87'],
+  lock: ['M7 11V8a5 5 0 0 1 10 0v3', 'M5 11h14v10H5z', 'M12 15v3'],
+  bell: ['M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9', 'M10 21h4'],
+  bug: ['M9 8V5', 'M15 8V5', 'M6 10H3', 'M21 10h-3', 'M6 14H3', 'M21 14h-3', 'M7 10h10v7a5 5 0 0 1-10 0Z', 'M8 5l2 3', 'M16 5l-2 3'],
+  refresh: ['M20 11a8 8 0 0 0-13.5-5.8L4 7.5', 'M4 4v3.5h3.5', 'M4 13a8 8 0 0 0 13.5 5.8L20 16.5', 'M20 20v-3.5h-3.5'],
+  sliders: ['M4 6h16', 'M4 12h16', 'M4 18h16', 'M8 4v4', 'M15 10v4', 'M11 16v4'],
+  filter: ['M4 5h16l-6 7v5l-4 2v-7z'],
+  maximize: ['M8 3H3v5', 'M3 3l6 6', 'M16 21h5v-5', 'M21 21l-6-6', 'M16 3h5v5', 'M21 3l-6 6', 'M8 21H3v-5', 'M3 21l6-6'],
+  minimize: ['M5 12h14'],
+  'panel-left': ['M4 4h16v16H4z', 'M9 4v16'],
+  'panel-right': ['M4 4h16v16H4z', 'M15 4v16'],
+  external: ['M14 5h5v5', 'M19 5l-8 8', 'M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
+  download: ['M12 4v11', 'm7 11 5 5 5-5', 'M5 20h14'],
+  upload: ['M12 20V9', 'm7 13 5-5 5 5', 'M5 4h14'],
+  'check-circle': ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'm8 12 2.5 2.5L16 9'],
+  alert: ['M12 3 2.8 20h18.4L12 3Z', 'M12 9v5', 'M12 17h.01'],
+  info: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z', 'M12 10v6', 'M12 7h.01'],
 }
 
 export default function Icon({ name, size = 18, ...props }: IconProps) {
   return (
-    <svg aria-hidden="true" fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24" width={size} {...props}>
+    <svg aria-hidden="true" fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" vectorEffect="non-scaling-stroke" shapeRendering="geometricPrecision" viewBox="0 0 24 24" width={size} {...props}>
       {paths[name].map((path, index) => <path d={path} key={index} />)}
     </svg>
   )

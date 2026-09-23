@@ -1,41 +1,44 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
+const ContextInspector = lazy(() => import('../context/ContextInspector'))
+const McpManager = lazy(() => import('../mcp/McpManager'))
+const HookManager = lazy(() => import('../hooks/HookManager'))
+const GitDiffCenter = lazy(() => import('../git/GitDiffCenter'))
+const EnvironmentBuilder = lazy(() => import('../environments/EnvironmentBuilder'))
+const AutomationBuilder = lazy(() => import('../automations/AutomationBuilder'))
+const CredentialManager = lazy(() => import('../credentials/CredentialManager'))
+const ChannelGatewayManager = lazy(() => import('../channels/ChannelGatewayManager'))
+const ResearchWorkbench = lazy(() => import('../research/ResearchWorkbench'))
 import Icon from '../../components/Icon'
-import BrowserWorkspace from '../browser/BrowserWorkspace'
-import SecurityCenter from '../security/SecurityCenter'
-import CanvasStudio from '../canvas/CanvasStudio'
-import CommandStudio from '../commands/CommandStudio'
-import SubagentFleet from '../subagents/SubagentFleet'
-import CloudAgentsWorkspace from '../cloud/CloudAgentsWorkspace'
-import ComputerUseWorkspace from '../computer/ComputerUseWorkspace'
-import OperationsCenter from '../operations/OperationsCenter'
-import MarketplaceStudio from '../marketplace/MarketplaceStudio'
-import KanbanBoard from '../kanban/KanbanBoard'
-import IntegrationCatalogSurface from '../integrations/IntegrationCatalogSurface'
-import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
+const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
+const CanvasStudio = lazy(() => import('../canvas/CanvasStudio'))
+const CommandStudio = lazy(() => import('../commands/CommandStudio'))
+const SubagentFleet = lazy(() => import('../subagents/SubagentFleet'))
+const CloudAgentsWorkspace = lazy(() => import('../cloud/CloudAgentsWorkspace'))
+const ComputerUseWorkspace = lazy(() => import('../computer/ComputerUseWorkspace'))
+const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
+const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
+const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
+const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
+function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
   const [selectedRule, setSelectedRule] = useState(ruleSources[0][0])
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
-  const [enabledContext, setEnabledContext] = useState(() => new Set(contextSources.filter((item) => item[3]).map((item) => item[0])))
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
-  const [pausedAutomations, setPausedAutomations] = useState(() => new Set(automations.filter((item) => item[3] === 'Paused').map((item) => item[0])))
-  const [selectedMcp, setSelectedMcp] = useState(mcpServers[0][0])
   const [voiceMode, setVoiceMode] = useState(true)
   const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
   const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
-  const [selectedHook, setSelectedHook] = useState(hooks[0][0])
-  const [environment, setEnvironment] = useState(environments[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
   const [selectedSession, setSelectedSession] = useState(sessions[0][0])
   const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
   const [enabledToolsets, setEnabledToolsets] = useState(() => new Set(toolsets.filter((item) => item[3]).map((item) => item[0])))
-  const [selectedCredential, setSelectedCredential] = useState(credentials[0][0])
   const [selectedImport, setSelectedImport] = useState(imports[0][0])
   const [selectedMedia, setSelectedMedia] = useState(mediaItems[0][0])
   const [selectedEvaluation, setSelectedEvaluation] = useState(evaluationSuites[0][0])
@@ -222,8 +225,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'credentials') return (
     <Shell>
-      {renderHeader('Secrets boundary', 'Credentials', 'Connection metadata and setup state without rendering API keys or secret values.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Credential setup opened in preview')}><Icon name="shield" size={14} /> Add credential</button>)}
-      <div className="credential-layout"><div className="credential-list">{credentials.map(([name, role, state, detail]) => <button type="button" key={name} className={`credential-row ${selectedCredential === name ? 'credential-row--active' : ''}`} onClick={() => setSelectedCredential(name)}><div><strong>{name}</strong><span>{role}</span><small>{detail}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div><Panel title={selectedCredential}><div className="platform-grid platform-grid--2"><Metric label="Secret value" value="Hidden" /><Metric label="Storage" value="External" /><Metric label="Rotation" value="Managed" /><Metric label="Exposure" value="Never rendered" /></div><div className="callout"><Icon name="shield" size={14} /><span>Credentials stay outside presentation state. This screen is intentionally metadata-only.</span></div></Panel></div>
+      <CredentialManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -281,8 +283,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'hooks') return (
     <Shell>
-      {renderHeader('Lifecycle control', 'Hooks & Policies', 'Event-driven middleware for run, tool, error and handoff lifecycle boundaries.', <button className="studio-button" type="button" onClick={() => notify('Hook editor opened in preview')}><Icon name="plus" size={14} /> New hook</button>)}
-      <div className="hook-layout"><div className="hook-list">{hooks.map(([name, detail, group, enabled]) => <button type="button" key={name} className={`hook-row ${selectedHook === name ? 'hook-row--active' : ''}`} onClick={() => setSelectedHook(name)}><div><strong>{name}</strong><span>{detail}</span></div><small>{group}</small><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div><Panel title={selectedHook}><div className="strategy-stack"><div><span>Order</span><strong>Deterministic</strong></div><div><span>Failure behavior</span><strong>Fail closed</strong></div><div><span>Context</span><strong>Explicit inputs</strong></div><div><span>Persistence</span><strong>Audit reference</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Hook trace opened in preview')}>Inspect trace</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Hook saved in preview')}><Icon name="check" size={14} /> Save hook</button></div></Panel></div>
+      <HookManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -297,9 +298,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'environments') return (
     <Shell>
-      {renderHeader('Runtime environments', 'Environments', 'Reusable development environments for local, background and future cloud agents.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Environment builder opened in preview')}><Icon name="cloud" size={14} /> New environment</button>)}
-      <div className="environment-grid">{environments.map(([name, type, stack, state]) => <button type="button" key={name} className={`platform-card environment-card ${environment === name ? 'platform-card--active' : ''}`} onClick={() => setEnvironment(name)}><div><strong>{name}</strong><span>{type}</span><small>{stack}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
-      <Panel title={environment}><div className="platform-grid platform-grid--2"><Metric label="Setup" value="Dockerfile / script" /><Metric label="Network" value="Allowlist preview" /><Metric label="Secrets" value="External store" /><Metric label="MCP" value="Explicit allowlist" /></div><div className="callout"><Icon name="shield" size={14} /><span>Environment configuration follows the same explicit isolation model as background agents; no credentials are rendered here.</span></div></Panel>
+      <EnvironmentBuilder onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -333,8 +332,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'context') return (
     <Shell>
-      {renderHeader('Prompt context', 'Context', 'Assemble a predictable context pack before an agent run. Values are presentation-only.', <button className="studio-button" type="button" onClick={() => notify('Context pack saved in preview')}><Icon name="check" size={14} /> Save pack</button>)}
-      <div className="context-layout"><Panel title="Sources">{contextSources.map(([name, detail, tokens]) => <div className="context-source" key={name}><div><strong>{name}</strong><span>{detail}</span></div><span className="mono-text">{tokens}</span><button className={`switch ${enabledContext.has(name) ? 'switch--on' : ''}`} type="button" role="switch" aria-checked={enabledContext.has(name)} onClick={() => toggle(setEnabledContext, enabledContext, name)}><span /></button></div>)}</Panel><Panel title="Budget"><div className="context-budget"><div className="budget-ring"><strong>{enabledContext.size * 8.1}k</strong><span>estimated</span></div><div className="budget-bar"><span style={{ width: `${Math.min(96, enabledContext.size * 11)}%` }} /></div><div className="budget-rows"><Metric label="Sources" value={String(enabledContext.size)} /><Metric label="Reserved output" value="8k" /><Metric label="Remaining" value="41k" /></div></div><div className="callout"><Icon name="archive" size={14} /><span>Hermes-style context references and Cursor-style codebase context can coexist in one explicit pack.</span></div></Panel></div>
+      <ContextInspector onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -357,9 +355,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'reviews') return (
     <Shell>
-      {renderHeader('Quality gate', 'Reviews & Bugbot', 'Automated and human-oriented review surface for diffs, tests, policy findings and fixes.', <><button className="studio-button" type="button" onClick={() => notify('Review scan queued in preview')}><Icon name="history" size={14} /> Scan changes</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Review comment workflow opened in preview')}>Start review</button></>)}
-      <div className="review-summary"><Metric label="Open findings" value="4" /><Metric label="High risk" value="1" /><Metric label="Tests requested" value="2" /><Metric label="Files changed" value="7" /></div>
-      <div className="review-layout"><div className="review-list">{reviewItems.map(([id, title, severity, location]) => <button key={id} type="button" className="review-row" onClick={() => notify(`${id} selected`)}><span className={`severity severity--${severity.toLowerCase()}`}>{severity}</span><div><strong>{title}</strong><span>{id} · {location}</span></div><Icon name="chevron-right" size={14} /></button>)}</div><Panel title="Selected finding"><div className="finding-card"><span className="severity severity--high">High</span><h2>Possible unguarded state mutation</h2><p>The UI should prefer a local reducer or direct state transition instead of nested updates that can obscure render ordering.</p><pre>StudioSurface.tsx:184</pre><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Finding marked resolved in preview')}>Mark resolved</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Fix task created from review in preview')}><Icon name="spark" size={14} /> Create fix task</button></div></div></Panel></div>
+      <GitDiffCenter onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -386,18 +382,14 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'automations') return (
     <Shell>
-      {renderHeader('Schedules & triggers', 'Automations', 'Natural-language or cron-style schedules for recurring agent work.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Automation builder opened in preview')}><Icon name="calendar" size={14} /> New automation</button>)}
-      <div className="automation-table"><div className="automation-head"><span>Name</span><span>Schedule</span><span>Trigger</span><span>Status</span><span /></div>{automations.map(([name, schedule, trigger, state]) => { const paused = pausedAutomations.has(name); return <div className="automation-row" key={name}><div><strong>{name}</strong><span>{paused ? 'paused locally' : 'preview schedule'}</span></div><span>{schedule}</span><span>{trigger}</span><span className={`state-pill state-pill--${paused ? 'pending' : 'active'}`}>{paused ? 'Paused' : state}</span><button className="studio-button" type="button" onClick={() => { toggle(setPausedAutomations, pausedAutomations, name); notify(`${name} toggled in preview`) }}>{paused ? 'Resume' : 'Pause'}</button></div> })}</div>
-      <Panel title="Schedule builder"><div className="schedule-builder"><label>Natural language<input className="settings-input" defaultValue="Run a frontend regression scan every 6 hours." /></label><label>Equivalent cron<input className="settings-input" defaultValue="0 */6 * * *" /></label><label>Delivery<select className="settings-input" defaultValue="Workspace notification"><option>Workspace notification</option><option>Channel delivery</option><option>Artifact only</option></select></label></div></Panel>
+      <AutomationBuilder onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
 
   if (mode === 'channels') return (
     <Shell>
-      {renderHeader('Gateway', 'Channels & Gateway', 'One agent session can be exposed to multiple messaging and delivery surfaces.', <button className="studio-button" type="button" onClick={() => notify('Gateway configuration opened in preview')}><Icon name="settings" size={14} /> Configure gateway</button>)}
-      <div className="channel-grid">{channels.map(([name, type, state, detail]) => <div className="platform-card channel-card" key={name}><div className="channel-card__icon"><Icon name={name === 'Desktop' ? 'layout' : 'message'} size={17} /></div><div><strong>{name}</strong><span>{type}</span><small>{detail}</small></div><span className={`state-pill state-pill--${state === 'Connected' ? 'active' : 'pending'}`}>{state}</span><button className="studio-button" type="button" onClick={() => notify(`${name} configuration staged in preview`)}>{state === 'Connected' ? 'Manage' : 'Connect'}</button></div>)}</div>
-      <Panel title="Gateway capabilities"><div className="capability-grid"><Tag label="session continuity" /><Tag label="voice memo" /><Tag label="scheduled delivery" /><Tag label="mentions" /><Tag label="thread routing" /><Tag label="attachments" /></div></Panel>
+      <ChannelGatewayManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -420,16 +412,14 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'research') return (
     <Shell>
-      {renderHeader('Research operations', 'Research', 'Batch-oriented research, source collection, trajectory inspection and export.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New research batch opened in preview')}><Icon name="plus" size={14} /> New batch</button>)}
-      <div className="research-layout"><div className="batch-list">{researchBatches.map(([id, title, inputs, state]) => <button type="button" key={id} className={`batch-row ${researchBatch === id ? 'batch-row--active' : ''}`} onClick={() => setResearchBatch(id)}><div><strong>{title}</strong><span>{id} · {inputs}</span></div><span className={`state-pill state-pill--${state === 'Complete' ? 'completed' : 'pending'}`}>{state}</span></button>)}</div><Panel title={researchBatch}><Metric label="Inputs" value="24" /><Metric label="Parallel workers" value="6" /><Metric label="Sources collected" value="128" /><Metric label="Trajectories" value="24" /><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Source browser opened in preview')}>Inspect sources</button><button className="studio-button" type="button" onClick={() => notify('Trajectory viewer opened in preview')}>View trajectories</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Research export prepared in preview')}><Icon name="arrow-down" size={14} /> Export</button></div></Panel></div>
+      <ResearchWorkbench onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
 
   if (mode === 'mcp') return (
     <Shell>
-      {renderHeader('Tool gateway', 'MCP Servers', 'Connect external tool servers, inspect capabilities and review authentication state.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('MCP server installer opened in preview')}><Icon name="plus" size={14} /> Add MCP server</button>)}
-      <div className="mcp-layout"><div className="mcp-list">{mcpServers.map(([name, detail, tools, state]) => <button type="button" key={name} className={`mcp-row ${selectedMcp === name ? 'mcp-row--active' : ''}`} onClick={() => setSelectedMcp(name)}><div className="mcp-icon"><Icon name="tool" size={15} /></div><div><strong>{name}</strong><span>{detail}</span></div><small>{tools}</small><span className={`state-pill state-pill--${state === 'Connected' ? 'active' : 'pending'}`}>{state}</span></button>)}</div><Panel title={selectedMcp}><div className="mcp-detail"><Metric label="Transport" value="stdio / HTTP" /><Metric label="Auth" value="OAuth preview" /><Metric label="Tools" value="12" /><Metric label="Policy" value="Approval required" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('OAuth setup opened in preview')}>Authenticate</button><button className="studio-button" type="button" onClick={() => notify('MCP capability list refreshed')}>Refresh capabilities</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('MCP server enabled in preview')}><Icon name="check" size={14} /> Enable server</button></div><div className="callout"><Icon name="shield" size={14} /><span>MCP servers are treated as external capability providers; credentials remain outside presentation state.</span></div></Panel></div>
+      <McpManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -445,4 +435,18 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   )
 }
 
+function PlatformSurface({ mode }: { mode: PlatformMode }) {
+  return (
+    <Suspense fallback={
+      <section className="surface-loading" aria-live="polite">
+        <span className="surface-loading__spinner" />
+        <div><strong>Loading workspace feature</strong><small>The selected tool is being loaded on demand.</small></div>
+      </section>
+    }>
+      <PlatformSurfaceContent mode={mode} />
+    </Suspense>
+  )
+}
+
+export default PlatformSurface
 

@@ -1139,3 +1139,12 @@ Verification status:
 - Expanded Developer Workspace Build with next-edit suggestions, a reversible patch stack and contextual test explorer.
 - The new visual layer makes the Plan → Edit → Test → Review loop explicit without pretending that browser automation or repository mutation is already connected.
 - No new top-level navigation route was introduced; the capabilities remain inside the existing Developer Workspace.
+
+
+## 2026-09-24 — Frontend compiler backlog repair
+
+- Repaired the broader TypeScript backlog exposed after the Developer Workspace expansion, including relative App imports, DOM/React keyboard event type separation, model/task/provider selection state inference, settings scope typing, navigation audit contracts, and dead platform branches.
+- Raised the frontend compiler library target to ES2021 for APIs already used by the UI.
+- Removed unused state/helpers and reconciled duplicate platform routes without reducing the registered feature catalog.
+- Rechecked PlatformSurface route coverage: all declared PlatformMode values have a corresponding handler.
+- Fresh frontend verification is running on the latest code head; no pass/fail claim is made until GitHub reports the result.

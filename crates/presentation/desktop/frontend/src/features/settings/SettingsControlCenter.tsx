@@ -10,6 +10,13 @@ interface ControlState {
   activeMode: string
   defaultModel: string
   fastModel: string
+  auxiliaryProvider: string
+  visionAuxModel: string
+  compressionAuxModel: string
+  approvalAuxModel: string
+  browserAuxModel: string
+  imageAuxModel: string
+  titleAuxModel: string
   reasoning: string
   fallback: string
   autoRun: string
@@ -19,6 +26,8 @@ interface ControlState {
   customInstructions: string
   parallelSubagents: number
   toolBudget: number
+  iterationBudget: number
+  serviceTier: string
   codebaseIndex: boolean
   semanticSearch: boolean
   watchFiles: boolean
@@ -44,6 +53,8 @@ interface ControlState {
   browserRecording: boolean
   chromeDevtools: boolean
   browserPersistence: boolean
+  visionEmbedBytes: number
+  visionMaxCalls: number
   mcpEnabled: boolean
   rulesEnabled: boolean
   skillsEnabled: boolean
@@ -65,6 +76,8 @@ interface ControlState {
   splitTerminal: boolean
   hoverPreviews: boolean
   showDiffReview: boolean
+  statusFields: string
+  platformDisplayOverride: string
   telemetry: boolean
   privacyMode: boolean
   costTracking: boolean
@@ -76,6 +89,13 @@ const defaults: ControlState = {
   activeMode: 'Agent',
   defaultModel: 'Auto route',
   fastModel: 'Fast / low-latency',
+  auxiliaryProvider: 'Automatic',
+  visionAuxModel: 'Auto vision',
+  compressionAuxModel: 'Auto summarizer',
+  approvalAuxModel: 'Auto approval',
+  browserAuxModel: 'Auto browser',
+  imageAuxModel: 'Auto image',
+  titleAuxModel: 'Auto title',
   reasoning: 'Medium',
   fallback: 'Automatic failover',
   autoRun: 'Auto-review',
@@ -85,6 +105,8 @@ const defaults: ControlState = {
   customInstructions: '',
   parallelSubagents: 4,
   toolBudget: 72,
+  iterationBudget: 500,
+  serviceTier: 'Auto',
   codebaseIndex: true,
   semanticSearch: true,
   watchFiles: true,
@@ -110,6 +132,8 @@ const defaults: ControlState = {
   browserRecording: false,
   chromeDevtools: true,
   browserPersistence: false,
+  visionEmbedBytes: 262144,
+  visionMaxCalls: 3,
   mcpEnabled: true,
   rulesEnabled: true,
   skillsEnabled: true,
@@ -131,6 +155,8 @@ const defaults: ControlState = {
   splitTerminal: true,
   hoverPreviews: true,
   showDiffReview: true,
+  statusFields: 'model · context · latency · branch',
+  platformDisplayOverride: 'Inherit global',
   telemetry: false,
   privacyMode: true,
   costTracking: true,
@@ -183,6 +209,10 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
     } catch {
       // Local persistence is optional.
     }
+    const root = document.documentElement
+    root.dataset.agenticosTheme = state.theme.toLowerCase().replace(/\\s+/g, '-')
+    root.dataset.agenticosDensity = state.density.toLowerCase()
+    root.dataset.agenticosReducedMotion = state.reducedMotion ? 'true' : 'false'
   }, [state])
 
   const visibleSections = useMemo(() => {
@@ -325,7 +355,18 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Select label="Fallback strategy" value={state.fallback} options={['Automatic failover', 'Provider priority', 'Pinned model', 'Local-only']} onChange={(value) => update('fallback', value)} />
                 <Range label="Tool budget" value={state.toolBudget} description="Logical budget for tool-heavy turns." onChange={(value) => update('toolBudget', value)} />
               </ControlSection>
+              <ControlSection title="Auxiliary model routing">
+                <Select label="Auxiliary provider" value={state.auxiliaryProvider} options={['Automatic', 'Main model', 'OpenRouter', 'Nous', 'Custom']} onChange={(value) => update('auxiliaryProvider', value)} />
+                <Select label="Vision analysis model" value={state.visionAuxModel} options={models} onChange={(value) => update('visionAuxModel', value)} />
+                <Select label="Compression model" value={state.compressionAuxModel} options={models} onChange={(value) => update('compressionAuxModel', value)} />
+                <Select label="Approval model" value={state.approvalAuxModel} options={models} onChange={(value) => update('approvalAuxModel', value)} />
+                <Select label="Browser analysis model" value={state.browserAuxModel} options={models} onChange={(value) => update('browserAuxModel', value)} />
+                <Select label="Image / media model" value={state.imageAuxModel} options={models} onChange={(value) => update('imageAuxModel', value)} />
+                <Select label="Session title model" value={state.titleAuxModel} options={models} onChange={(value) => update('titleAuxModel', value)} />
+              </ControlSection>
               <ControlSection title="Agent behavior">
+                <Number label="Iteration budget" value={state.iterationBudget} suffix="turns" min={10} max={5000} onChange={(value) => update('iterationBudget', value)} />
+                <Select label="Provider service tier" value={state.serviceTier} options={['Auto', 'Priority', 'Standard', 'Cold']} onChange={(value) => update('serviceTier', value)} />
                 <Number label="Parallel subagents" value={state.parallelSubagents} suffix="agents" min={0} max={32} onChange={(value) => update('parallelSubagents', value)} />
                 <Toggle label="Auto-fix errors" value={state.autoFix} onChange={(value) => update('autoFix', value)} />
                 <Toggle label="Auto-apply edits" value={state.autoApply} onChange={(value) => update('autoApply', value)} />
@@ -357,6 +398,10 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Persistent memory" value={state.memory} onChange={(value) => update('memory', value)} />
                 <Toggle label="Session recall" value={state.sessionRecall} onChange={(value) => update('sessionRecall', value)} />
               </ControlSection>
+              <ControlSection title="Vision embed budget">
+                <Number label="Target embed bytes" value={state.visionEmbedBytes} suffix="bytes" min={65536} max={4194304} onChange={(value) => update('visionEmbedBytes', value)} />
+                <Number label="Max embeds per image" value={state.visionMaxCalls} suffix="calls" min={0} max={100} onChange={(value) => update('visionMaxCalls', value)} />
+              </ControlSection>
               <InfoCallout icon="search" title="Progressive disclosure" text="The shell renders only the selected domain. Large histories, artifact lists and codebase views should use the same lazy/virtual strategy instead of mounting every surface at once." />
             </ControlPage>
           )}
@@ -369,8 +414,13 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Workspace-only file access" value={state.workspaceOnly} onChange={(value) => update('workspaceOnly', value)} />
                 <Toggle label="Review before apply" value={state.reviewBeforeApply} onChange={(value) => update('reviewBeforeApply', value)} />
               </ControlSection>
-              <ControlSection title="Terminal & sandbox">
+              <ControlSection title="Project scope">
+                <Select label="Project permission preset" value={state.permissionMode} options={['Auto-review', 'Allowlist', 'Request review', 'Always proceed']} onChange={(value) => update('permissionMode', value)} />
+                <Select label="Outside-workspace access" value={state.workspaceOnly ? 'Always deny' : 'Ask / allow'} options={['Always deny', 'Ask / allow']} onChange={(value) => update('workspaceOnly', value === 'Always deny')} />
                 <Toggle label="Terminal sandbox" value={state.terminalSandbox} onChange={(value) => update('terminalSandbox', value)} />
+                <Toggle label="Isolated project worktrees" value={state.isolatedWorktrees} onChange={(value) => update('isolatedWorktrees', value)} />
+              </ControlSection>
+              <ControlSection title="Terminal & sandbox">
                 <Number label="Command timeout" value={state.commandTimeout} suffix="seconds" min={5} max={3600} onChange={(value) => update('commandTimeout', value)} />
                 <Toggle label="Checkpointing" value={state.checkpointing} onChange={(value) => update('checkpointing', value)} />
               </ControlSection>
@@ -457,6 +507,8 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Split terminals" value={state.splitTerminal} onChange={(value) => update('splitTerminal', value)} />
                 <Toggle label="Hover previews" value={state.hoverPreviews} onChange={(value) => update('hoverPreviews', value)} />
                 <Toggle label="Review diffs inline" value={state.showDiffReview} onChange={(value) => update('showDiffReview', value)} />
+                <Text label="Status line fields" value={state.statusFields} onChange={(value) => update('statusFields', value)} />
+                <Select label="Platform display override" value={state.platformDisplayOverride} options={['Inherit global', 'CLI', 'Desktop', 'Telegram', 'Discord', 'Slack']} onChange={(value) => update('platformDisplayOverride', value)} />
               </ControlSection>
               <ControlSection title="Performance contract">
                 <InfoLine title="Lazy surfaces" detail="Heavy feature modules should load on navigation, not during shell startup." />

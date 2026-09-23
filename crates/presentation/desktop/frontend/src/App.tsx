@@ -8,6 +8,7 @@ import QuickActionsMenu from './components/QuickActionsMenu'
 import StatusBar from './components/StatusBar'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
+import WorkspaceDock from './components/WorkspaceDock'
 import { navigationItems } from './navigation'
 import { runtime } from './services/runtime'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
@@ -72,6 +73,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [leftPanelOpen, setLeftPanelOpen] = useState(true)
   const [agentPanelOpen, setAgentPanelOpen] = useState(true)
+  const [dockOpen, setDockOpen] = useState(false)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -103,6 +105,11 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'b') {
         event.preventDefault()
         setLeftPanelOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'j') {
+        event.preventDefault()
+        setDockOpen((open) => !open)
         return
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
@@ -199,6 +206,7 @@ function App() {
           </div>
           <div className="topbar__right">
             <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
+            <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
             <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
               <Icon name="history" size={15} /><span className="notification-badge">2</span>
@@ -220,6 +228,15 @@ function App() {
             <WorkspaceOverview mode={mode} />
           )}
         </div>
+
+        <WorkspaceDock
+          messageCount={messages.length}
+          mode={mode}
+          onClose={() => setDockOpen(false)}
+          open={dockOpen}
+          running={running}
+          status={status}
+        />
 
         <StatusBar messageCount={messages.length} status={status} />
       </main>

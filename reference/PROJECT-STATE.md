@@ -7,11 +7,11 @@
 - Repository: `Ezequiell-26/agenticos`
 - Current architecture mode: `sequential-verified / fail-closed`
 - Current authorized implementation step: **Step 25 — `integration-test-implementation-phase-3`**
-- Current step status: `pending`
+- Current step status: `in_progress`
 - Verified contiguous steps: **0–24 (25 steps)**
 - Steps 25 onward are not currently verified.
 - Current main head audited for this reconciliation: `bf3c919149d0c32589742840c27b330ff56587fa`
-- Safe rollback point for this operation: `bf3c919149d0c32589742840c27b330ff56587fa`
+- Safe rollback point for Step 25 implementation: `a278008b536ef4da7cf18a67191291446dd7a8a5`
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
 - Third-party canonical source policy: MIT/compatible license + provenance + exact revision before integration
@@ -67,4 +67,6 @@ Historical verification records are not deleted. Existing evidence for non-conti
 
 ## Next authorized progression
 
-**Exactly one next step:** complete and verify Step 25, `integration-test-implementation-phase-3`. No later implementation step should be marked verified or pre-implemented as a current operation.
+**Current operation:** Step 25, `integration-test-implementation-phase-3`, is in progress. Its acceptance evidence must pass before it can become verified.
+
+**Exactly one next step after verification:** transition Step 25 to `verified` only after every required check has recorded evidence.

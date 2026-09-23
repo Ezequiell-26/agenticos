@@ -3,6 +3,8 @@ import type { PlatformMode } from '../../navigation'
 import ContextInspector from '../context/ContextInspector'
 import McpManager from '../mcp/McpManager'
 import HookManager from '../hooks/HookManager'
+import GitDiffCenter from '../git/GitDiffCenter'
+import EnvironmentBuilder from '../environments/EnvironmentBuilder'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -31,8 +33,6 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
   const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
-  const [selectedHook, setSelectedHook] = useState(hooks[0][0])
-  const [environment, setEnvironment] = useState(environments[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
   const [selectedSession, setSelectedSession] = useState(sessions[0][0])
   const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
@@ -298,9 +298,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'environments') return (
     <Shell>
-      {renderHeader('Runtime environments', 'Environments', 'Reusable development environments for local, background and future cloud agents.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Environment builder opened in preview')}><Icon name="cloud" size={14} /> New environment</button>)}
-      <div className="environment-grid">{environments.map(([name, type, stack, state]) => <button type="button" key={name} className={`platform-card environment-card ${environment === name ? 'platform-card--active' : ''}`} onClick={() => setEnvironment(name)}><div><strong>{name}</strong><span>{type}</span><small>{stack}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
-      <Panel title={environment}><div className="platform-grid platform-grid--2"><Metric label="Setup" value="Dockerfile / script" /><Metric label="Network" value="Allowlist preview" /><Metric label="Secrets" value="External store" /><Metric label="MCP" value="Explicit allowlist" /></div><div className="callout"><Icon name="shield" size={14} /><span>Environment configuration follows the same explicit isolation model as background agents; no credentials are rendered here.</span></div></Panel>
+      <EnvironmentBuilder onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -357,9 +355,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'reviews') return (
     <Shell>
-      {renderHeader('Quality gate', 'Reviews & Bugbot', 'Automated and human-oriented review surface for diffs, tests, policy findings and fixes.', <><button className="studio-button" type="button" onClick={() => notify('Review scan queued in preview')}><Icon name="history" size={14} /> Scan changes</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Review comment workflow opened in preview')}>Start review</button></>)}
-      <div className="review-summary"><Metric label="Open findings" value="4" /><Metric label="High risk" value="1" /><Metric label="Tests requested" value="2" /><Metric label="Files changed" value="7" /></div>
-      <div className="review-layout"><div className="review-list">{reviewItems.map(([id, title, severity, location]) => <button key={id} type="button" className="review-row" onClick={() => notify(`${id} selected`)}><span className={`severity severity--${severity.toLowerCase()}`}>{severity}</span><div><strong>{title}</strong><span>{id} · {location}</span></div><Icon name="chevron-right" size={14} /></button>)}</div><Panel title="Selected finding"><div className="finding-card"><span className="severity severity--high">High</span><h2>Possible unguarded state mutation</h2><p>The UI should prefer a local reducer or direct state transition instead of nested updates that can obscure render ordering.</p><pre>StudioSurface.tsx:184</pre><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Finding marked resolved in preview')}>Mark resolved</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Fix task created from review in preview')}><Icon name="spark" size={14} /> Create fix task</button></div></div></Panel></div>
+      <GitDiffCenter onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

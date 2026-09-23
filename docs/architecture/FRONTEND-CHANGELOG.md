@@ -105,3 +105,16 @@ The current repository already contains an early desktop UI from existing commit
 - Rollback point: `988cc8b3a3c18089a22367147e5239ad13f7b28`.
 - Next step: continue expanding high-value frontend surfaces while keeping all non-connected actions explicitly in preview/local state.
 
+## Chat Surface expansion — 2026-09-24
+
+- Scope: frontend-only interaction and visual polish.
+- User-visible effect: upgraded chat into a richer agent workspace with model selector, attachment chips, composer tools, Web/Deep toggles, context chips, starter prompt grid and response actions.
+- Modified: `crates/presentation/desktop/frontend/src/components/ChatSurface.tsx`, `crates/presentation/desktop/frontend/src/index.css`.
+- Deleted: none.
+- Preserved: chat runtime service boundary and all existing conversation behavior.
+- Architecture decision: all new chat controls use presentation-local state until corresponding runtime contracts are intentionally introduced.
+- Verification evidence: GitHub accepted the targeted frontend commits on `main`; CI was automatically triggered for the latest frontend commit.
+- Unverified checks: latest CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit.
+- Rollback point: `4c035ecac4cff82cb08ff07790d20c22afb70099`.
+- Next step: continue the frontend with richer approvals, observability and agent-control surfaces.
+

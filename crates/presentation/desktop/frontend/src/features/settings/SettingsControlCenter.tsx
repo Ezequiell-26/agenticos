@@ -311,13 +311,15 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
       return
     }
 
+    const persistedKey = key as keyof PersistedControlState
+    const persistedValue = value as PersistedControlState[typeof persistedKey]
     setStore((current) => ({
       ...current,
       scopes: {
         ...current.scopes,
         [current.activeScope]: {
           ...current.scopes[current.activeScope],
-          [key]: value,
+          [persistedKey]: persistedValue,
         },
       },
     }))

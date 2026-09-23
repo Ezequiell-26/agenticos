@@ -66,6 +66,13 @@ export type RailMode =
   | 'token-observatory'
   | 'versions'
   | 'audit'
+  | 'teams'
+  | 'advanced-context'
+  | 'usage'
+  | 'release'
+  | 'customization'
+  | 'help'
+  | 'recovery'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 
@@ -114,6 +121,13 @@ export const navigationItems: NavigationItem[] = [
   { id: 'agents', label: 'Agent Profiles', detail: 'Specialist agents, models and budgets', icon: 'bot', group: 'operate' },
   { id: 'agent-control', label: 'Agent Control Plane', detail: 'Autonomy, policy, budgets, behavior and lifecycle controls', icon: 'sliders', group: 'configure' },
   { id: 'bots', label: 'Bots & Teams', detail: 'Named specialist bots, routines and mentions', icon: 'bot', group: 'operate' },
+  { id: 'teams', label: 'Agent Teams', detail: 'Multi-agent teams, roles, handoffs and parallel execution', icon: 'users', group: 'operate' },
+  { id: 'advanced-context', label: 'Advanced Context', detail: 'Context sources, budgets, compaction and provenance', icon: 'archive', group: 'build' },
+  { id: 'usage', label: 'Cost & Usage', detail: 'Tokens, requests, quotas, budgets and provider consumption', icon: 'activity', group: 'operate' },
+  { id: 'release', label: 'Release Center', detail: 'Release gates, evidence, rollback and readiness', icon: 'check-circle', group: 'operate' },
+  { id: 'customization', label: 'Customization', detail: 'Themes, keymaps, layouts and workspace profiles', icon: 'sliders', group: 'configure' },
+  { id: 'help', label: 'Help & Documentation', detail: 'Contextual guides, shortcuts and troubleshooting', icon: 'info', group: 'configure' },
+  { id: 'recovery', label: 'Offline & Recovery', detail: 'Offline states, drafts, retry and session recovery', icon: 'history', group: 'operate' },
   { id: 'workflows', label: 'Workflows', detail: 'Reusable process definitions and step graphs', icon: 'clock', group: 'operate' },
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
@@ -165,11 +179,11 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
   'browser', 'mcp', 'security', 'permissions', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows'>
+export type PlatformMode = Extract<RailMode, 'overview' | 'agent-control' | 'prompts' | 'permissions' | 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social' | 'providers' | 'skills' | 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' | 'onboarding' | 'qa' | 'memory' | 'tools' | 'workflows' | 'teams' | 'advanced-context' | 'usage' | 'release' | 'customization' | 'help' | 'recovery'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'overview', 'agent-control', 'prompts', 'permissions', 'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social', 'providers', 'skills', 'playground', 'routing', 'token-observatory', 'versions', 'audit', 'onboarding', 'qa', 'memory', 'tools', 'workflows', 'teams', 'advanced-context', 'usage', 'release', 'customization', 'help', 'recovery',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

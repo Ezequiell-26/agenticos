@@ -6,7 +6,7 @@ type Credential={id:string;name:string;type:string;state:'Configured'|'Not confi
 const initial:Credential[]=catalog.map(([name,type,state,detail],i)=>({id:'cred-'+i,name,type,state:state==='Configured'?'Configured':'Not configured',scope:i===0?'Global':i===1?'Workspace':'Project',provider:name,lastVerified:i<2?'Today · preview':'Never',expires:i===0?'Not disclosed':i===1?'External policy':'Not configured',secretKind:detail}))
 
 export default function CredentialManager({onAction}:{onAction:(message:string)=>void}){
- const [items,setItems]=useState(initial);const [selectedId,setSelectedId]=useState(initial[0].id);const [query,setQuery]=useState('');const [tab,setTab]=useState<'Overview'|'Scopes'|'Usage'>('Overview');const [showMeta,setShowMeta]=useState(true)
+ const items=initial;const [selectedId,setSelectedId]=useState(initial[0].id);const [query,setQuery]=useState('');const [tab,setTab]=useState<'Overview'|'Scopes'|'Usage'>('Overview');const [showMeta,setShowMeta]=useState(true)
  const current=items.find(i=>i.id===selectedId)??items[0]
  const visible=useMemo(()=>{const q=query.trim().toLowerCase();return q?items.filter(i=>[i.name,i.type,i.scope,i.provider,i.state].join(' ').toLowerCase().includes(q)):items},[items,query])
  return <div className="credential-manager">

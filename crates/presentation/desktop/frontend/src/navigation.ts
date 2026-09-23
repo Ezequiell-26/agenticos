@@ -29,6 +29,14 @@ export type RailMode =
   | 'research'
   | 'mcp'
   | 'security'
+  | 'sessions'
+  | 'logs'
+  | 'analytics'
+  | 'webhooks'
+  | 'credentials'
+  | 'imports'
+  | 'toolsets'
+  | 'media'
   | 'plugins'
   | 'hooks'
   | 'batch'
@@ -75,6 +83,9 @@ export const navigationItems: NavigationItem[] = [
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
   { id: 'research', label: 'Research', detail: 'Batch tasks, sources, trajectories and exports', icon: 'search', group: 'operate' },
+  { id: 'sessions', label: 'Sessions', detail: 'Conversation history, recall, export and lifecycle control', icon: 'history', group: 'operate' },
+  { id: 'logs', label: 'Logs & Traces', detail: 'Structured events, tool output and diagnostic traces', icon: 'activity', group: 'operate' },
+  { id: 'analytics', label: 'Analytics', detail: 'Usage, latency, tokens and workspace activity views', icon: 'activity', group: 'operate' },
   { id: 'batch', label: 'Batch Processing', detail: 'Process many inputs with bounded concurrency and results', icon: 'layers', group: 'operate' },
   { id: 'learning', label: 'Learning Loop', detail: 'Capture useful run outcomes and evolve skills locally', icon: 'spark', group: 'operate' },
 
@@ -83,6 +94,8 @@ export const navigationItems: NavigationItem[] = [
   { id: 'tools', label: 'Tools', detail: 'Tool registry, risk and execution policy', icon: 'tool', group: 'configure' },
   { id: 'memory', label: 'Memory', detail: 'Persistent memory and cross-session recall', icon: 'history', group: 'configure' },
   { id: 'settings', label: 'Settings', detail: 'Appearance, behavior, privacy and safety', icon: 'settings', group: 'configure' },
+  { id: 'toolsets', label: 'Toolsets', detail: 'Activate grouped capabilities without changing individual tool policy', icon: 'layers', group: 'configure' },
+  { id: 'credentials', label: 'Credentials', detail: 'Connection metadata without exposing secrets to the UI', icon: 'shield', group: 'configure' },
   { id: 'plugins', label: 'Plugins', detail: 'Extend the product surface with packaged capabilities', icon: 'tool', group: 'configure' },
   { id: 'hooks', label: 'Hooks & Policies', detail: 'Lifecycle hooks, middleware and event rules', icon: 'shield', group: 'configure' },
   { id: 'execution', label: 'Execution Lab', detail: 'Sandboxed code execution and reproducible task previews', icon: 'code', group: 'configure' },
@@ -92,15 +105,18 @@ export const navigationItems: NavigationItem[] = [
   { id: 'voice', label: 'Voice & Media', detail: 'Voice input, TTS, vision and media tools', icon: 'mic', group: 'integrate' },
   { id: 'mcp', label: 'MCP Servers', detail: 'External tool servers, OAuth and capabilities', icon: 'tool', group: 'integrate' },
   { id: 'environments', label: 'Environments', detail: 'Development images, setup, network and runtime configuration', icon: 'cloud', group: 'integrate' },
+  { id: 'webhooks', label: 'Webhooks & Events', detail: 'Inbound triggers, delivery attempts and endpoint policy', icon: 'globe', group: 'integrate' },
+  { id: 'imports', label: 'Imports & Migrations', detail: 'Bring agent rules, skills and sessions from other systems', icon: 'arrow-down', group: 'integrate' },
+  { id: 'media', label: 'Media Studio', detail: 'Image generation, vision, TTS and multimodal workflows', icon: 'layout', group: 'integrate' },
   { id: 'integrations', label: 'Source Integrations', detail: 'GitHub, GitLab and connected engineering systems', icon: 'git', group: 'integrate' },
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'integrations' | 'security'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'integrations', 'security',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'integrations', 'security',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

@@ -5,7 +5,7 @@ import Icon from '../../components/Icon'
 type PlatformMode = Extract<RailMode,
   | 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews'
   | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser'
-  | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'
+  | 'voice' | 'research' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'integrations' | 'security'
 >
 
 type Item = { id: string; title: string; detail: string; meta?: string; state?: string }
@@ -141,6 +141,64 @@ const mcpServers = [
   ['database', 'External data source', '8 tools', 'Disabled'],
 ]
 
+
+const sessions: ReadonlyArray<[string, string, string, string, boolean]> = [
+  ['session-042', 'Frontend platform build', 'Today · 42 messages', 'Active', true],
+  ['session-041', 'Provider routing review', 'Yesterday · 18 messages', 'Archived', false],
+  ['session-040', 'Architecture planning', 'Sep 21 · 27 messages', 'Pinned', true],
+  ['session-039', 'Video editor research', 'Sep 20 · 9 messages', 'Archived', false],
+]
+
+const logEntries: ReadonlyArray<[string, string, string, string]> = [
+  ['16:31:02', 'agent.run', 'tool.call', 'filesystem.read_file · 42ms'],
+  ['16:31:03', 'agent.run', 'provider.route', 'primary route selected · preview'],
+  ['16:31:04', 'agent.run', 'tool.call', 'terminal.cargo_check · running'],
+  ['16:31:06', 'agent.run', 'policy.check', 'fail-closed · passed'],
+  ['16:31:09', 'agent.run', 'handoff', 'artifact package prepared'],
+]
+
+const analyticsCards: ReadonlyArray<[string, string, string]> = [
+  ['Runs', '128', '+18% vs previous period'],
+  ['Tokens', '2.84M', 'context + output preview'],
+  ['Tool success', '98.7%', '312 calls'],
+  ['Avg latency', '428ms', 'P95 1.2s'],
+]
+
+const webhooks: ReadonlyArray<[string, string, string, string, boolean]> = [
+  ['github-review', 'GitHub review event', 'POST /events/review', 'Enabled', true],
+  ['release-hook', 'Release tag trigger', 'POST /events/release', 'Enabled', true],
+  ['alert-hook', 'Monitoring alert', 'POST /events/alert', 'Paused', false],
+]
+
+const credentials: ReadonlyArray<[string, string, string, string]> = [
+  ['OpenAI', 'Model provider', 'Configured', 'Secret stored externally'],
+  ['GitHub', 'Source integration', 'Configured', 'OAuth token external'],
+  ['Browserbase', 'Browser backend', 'Not configured', 'No secret exposed'],
+  ['Telegram', 'Gateway', 'Not configured', 'Pairing required'],
+]
+
+const toolsets: ReadonlyArray<[string, string, string, boolean]> = [
+  ['core-safe', 'Files + Git + read-only inspection', '12 tools', true],
+  ['web-research', 'Search + extract + browser', '9 tools', false],
+  ['agent-orchestration', 'Todo + delegation + code execution', '7 tools', true],
+  ['media', 'Vision + image generation + TTS', '6 tools', false],
+  ['messaging', 'Gateway + delivery channels', '8 tools', false],
+]
+
+const imports: ReadonlyArray<[string, string, string, string]> = [
+  ['Cursor rules', '.cursor/rules', 'Rules', 'Ready'],
+  ['Claude config', 'CLAUDE.md + settings', 'Instructions', 'Ready'],
+  ['Hermes context', '.hermes.md + SOUL.md + USER.md', 'Context', 'Ready'],
+  ['Session archive', 'JSON / transcript bundle', 'Sessions', 'Preview'],
+]
+
+const mediaItems: ReadonlyArray<[string, string, string, string]> = [
+  ['Vision analysis', 'Analyze pasted or attached images', 'Multimodal', 'Ready'],
+  ['Image generation', 'Prompt → image artifact workflow', 'Generation', 'Preview'],
+  ['Text to speech', 'Convert assistant responses to audio', 'Voice', 'Preview'],
+  ['Video storyboard', 'Compose multimodal production plan', 'Creative', 'Preview'],
+]
+
 const securityPolicies: ReadonlyArray<[string, string, boolean]> = [
   ['Fail-closed execution', 'Sensitive actions stop until explicitly approved', true],
   ['Workspace sandbox', 'Commands are scoped to the selected workspace', true],
@@ -169,6 +227,12 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   const [selectedHook, setSelectedHook] = useState(hooks[0][0])
   const [environment, setEnvironment] = useState(environments[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
+  const [selectedSession, setSelectedSession] = useState(sessions[0][0])
+  const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
+  const [enabledToolsets, setEnabledToolsets] = useState(() => new Set(toolsets.filter((item) => item[3]).map((item) => item[0])))
+  const [selectedCredential, setSelectedCredential] = useState(credentials[0][0])
+  const [selectedImport, setSelectedImport] = useState(imports[0][0])
+  const [selectedMedia, setSelectedMedia] = useState(mediaItems[0][0])
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -196,6 +260,75 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
     )
   }
 
+
+
+  if (mode === 'sessions') return (
+    <Shell>
+      {renderHeader('Conversation management', 'Sessions', 'Browse, search, pin, export and manage agent conversations without leaving the workspace.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New session opened in preview')}><Icon name="plus" size={14} /> New session</button>)}
+      <div className="session-layout"><div className="session-list">{sessions.map(([id, title, meta, state, pinned]) => <button type="button" key={id} className={`session-row ${selectedSession === id ? 'session-row--active' : ''}`} onClick={() => setSelectedSession(id)}><div className="session-row__icon"><Icon name={pinned ? 'archive' : 'history'} size={14} /></div><div><strong>{title}</strong><span>{id} · {meta}</span></div><span className={state === 'Active' ? 'state-pill state-pill--active' : state === 'Pinned' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedSession}><div className="platform-grid platform-grid--2"><Metric label="Messages" value="42" /><Metric label="Context" value="62.2k" /><Metric label="Model" value="Auto route" /><Metric label="Last active" value="2m" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Session search opened in preview')}><Icon name="search" size={13} /> Search messages</button><button className="studio-button" type="button" onClick={() => notify('Session export prepared in preview')}><Icon name="arrow-down" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Session branch opened in preview')}><Icon name="branch" size={13} /> Fork</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'logs') return (
+    <Shell>
+      {renderHeader('Diagnostics', 'Logs & Traces', 'Inspect structured agent events, tool calls, policy checks and diagnostic output.', <><button className="studio-button" type="button" onClick={() => notify('Log filters opened in preview')}><Icon name="search" size={14} /> Filter</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Log export prepared in preview')}><Icon name="arrow-down" size={14} /> Export</button></>)}
+      <div className="log-toolbar"><span className="state-pill state-pill--completed">Live preview</span><span className="mono-text">level: info · scope: current session</span></div>
+      <div className="log-table">{logEntries.map(([time, scope, event, detail]) => <div className="log-row" key={time + event}><span>{time}</span><span>{scope}</span><strong>{event}</strong><span>{detail}</span></div>)}</div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'analytics') return (
+    <Shell>
+      {renderHeader('Usage intelligence', 'Analytics', 'A product-level view of runs, tokens, latency and tool activity. Values below are preview data.', <button className="studio-button" type="button" onClick={() => notify('Analytics period changed in preview')}><Icon name="clock" size={14} /> Last 30 days</button>)}
+      <div className="analytics-grid">{analyticsCards.map(([label, value, sub]) => <div className="platform-metric-card" key={label}><span>{label}</span><strong>{value}</strong><small>{sub}</small></div>)}</div>
+      <div className="platform-grid platform-grid--2"><Panel title="Activity"><div className="analytics-bars">{[28,46,38,72,54,81,61,88,70,93,76,84,66,91].map((value, index) => <i key={index} style={{ height: value + '%' }} />)}</div></Panel><Panel title="Breakdown"><Metric label="Agent runs" value="71%" /><Metric label="Background" value="16%" /><Metric label="Research" value="8%" /><Metric label="Other" value="5%" /></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'webhooks') return (
+    <Shell>
+      {renderHeader('Event gateway', 'Webhooks & Events', 'Define inbound event triggers, delivery policies and local preview endpoints.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Webhook builder opened in preview')}><Icon name="plus" size={14} /> New webhook</button>)}
+      <div className="webhook-list">{webhooks.map(([id, title, endpoint, state, enabled]) => <div className="webhook-row" key={id}><div><strong>{title}</strong><span>{id} · {endpoint}</span></div><span className={enabledWebhooks.has(id) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabledWebhooks.has(id) ? 'Enabled' : state}</span><button className="studio-button" type="button" onClick={() => { const next = new Set(enabledWebhooks); next.has(id) ? next.delete(id) : next.add(id); setEnabledWebhooks(next); notify(id + ' toggled in preview') }}>{enabledWebhooks.has(id) ? 'Pause' : 'Enable'}</button></div>)}</div>
+      <Panel title="Delivery policy"><div className="platform-grid platform-grid--2"><Metric label="Retries" value="3" /><Metric label="Backoff" value="Exponential" /><Metric label="Signing" value="Required" /><Metric label="Timeout" value="10s" /></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'credentials') return (
+    <Shell>
+      {renderHeader('Secrets boundary', 'Credentials', 'Connection metadata and setup state without rendering API keys or secret values.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Credential setup opened in preview')}><Icon name="shield" size={14} /> Add credential</button>)}
+      <div className="credential-layout"><div className="credential-list">{credentials.map(([name, role, state, detail]) => <button type="button" key={name} className={`credential-row ${selectedCredential === name ? 'credential-row--active' : ''}`} onClick={() => setSelectedCredential(name)}><div><strong>{name}</strong><span>{role}</span></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div><Panel title={selectedCredential}><div className="platform-grid platform-grid--2"><Metric label="Secret value" value="Hidden" /><Metric label="Storage" value="External" /><Metric label="Rotation" value="Managed" /><Metric label="Exposure" value="Never rendered" /></div><div className="callout"><Icon name="shield" size={14} /><span>Credentials stay outside presentation state. This screen is intentionally metadata-only.</span></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'toolsets') return (
+    <Shell>
+      {renderHeader('Capability bundles', 'Toolsets', 'Activate groups of tools for a workflow while keeping individual tool permissions visible elsewhere.', <button className="studio-button" type="button" onClick={() => notify('Toolset editor opened in preview')}><Icon name="plus" size={14} /> New toolset</button>)}
+      <div className="toolset-list">{toolsets.map(([name, detail, count, active]) => <div className="toolset-row" key={name}><div className="toolset-icon"><Icon name="layers" size={15} /></div><div><strong>{name}</strong><span>{detail} · {count}</span></div><button className={enabledToolsets.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={enabledToolsets.has(name)} onClick={() => toggle(setEnabledToolsets, enabledToolsets, name)}><span /></button></div>)}</div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'imports') return (
+    <Shell>
+      {renderHeader('Migration', 'Imports & Migrations', 'Bring instructions, rules, context and session archives into AgentiCOS with an explicit review step.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Import picker opened in preview')}><Icon name="arrow-down" size={14} /> Import package</button>)}
+      <div className="import-layout"><div className="import-list">{imports.map(([name, source, type, state]) => <button type="button" key={name} className={`import-row ${selectedImport === name ? 'import-row--active' : ''}`} onClick={() => setSelectedImport(name)}><div><strong>{name}</strong><span>{source} · {type}</span></div><span className="state-pill state-pill--completed">{state}</span></button>)}</div><Panel title={selectedImport}><div className="platform-grid platform-grid--2"><Metric label="Review" value="Required" /><Metric label="Merge" value="Preview diff" /><Metric label="Secrets" value="Ignored" /><Metric label="Rollback" value="Available" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Migration diff opened in preview')}>View diff</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Migration approval staged in preview')}><Icon name="check" size={14} /> Approve import</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'media') return (
+    <Shell>
+      {renderHeader('Multimodal workspace', 'Media Studio', 'A unified surface for image generation, vision analysis, speech and multimodal artifacts.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New media task opened in preview')}><Icon name="plus" size={14} /> New media task</button>)}
+      <div className="media-studio-grid">{mediaItems.map(([name, detail, category, state]) => <button type="button" key={name} className={`platform-card media-card ${selectedMedia === name ? 'platform-card--active' : ''}`} onClick={() => setSelectedMedia(name)}><div className="media-card__icon"><Icon name="layout" size={18} /></div><div><strong>{name}</strong><span>{detail}</span><small>{category}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
+      <Panel title={selectedMedia}><div className="media-preview"><div className="empty-orb"><Icon name="layout" size={24} /></div><strong>Multimodal preview</strong><span>Attach an image, generate an artifact or queue audio when the corresponding runtime service is connected.</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Media input picker opened in preview')}>Add input</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Generation request staged in preview')}><Icon name="spark" size={14} /> Generate</button></div></Panel>
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'batch') return (
     <Shell>

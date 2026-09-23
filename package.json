@@ -19,7 +19,8 @@
     "forge": "tsx src/forge-cli.ts",
     "kernel:smoke": "tsx src/kernel-cli.ts",
     "continuity:verify": "node scripts/verify-agent-continuity.mjs",
-    "state:verify": "node scripts/verify-project-consistency.mjs"
+    "state:verify": "node scripts/verify-project-consistency.mjs",
+    "frontend:architecture": "node scripts/verify-frontend-architecture.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"

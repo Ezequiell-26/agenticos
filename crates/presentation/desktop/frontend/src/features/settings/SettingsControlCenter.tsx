@@ -9,6 +9,7 @@ import {
   readSettingsStore,
   resolveSettingsScope,
   saveSettingsStore,
+  getSettingsHistory,
 } from './settings-engine'
 
 type Scope = 'global' | 'project' | 'session' | 'agent'
@@ -282,6 +283,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
   const [deepConfig, setDeepConfig] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [savedStore, setSavedStore] = useState<SettingsStore<PersistedControlState>>(initialStore)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const state = useMemo<ControlState>(() => ({
     ...resolveSettingsScope(store, store.activeScope),
@@ -402,6 +404,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
           </label>
           <button type="button" className={dirty ? 'studio-button studio-button--active' : 'studio-button'} onClick={save} disabled={!dirty}><Icon name="check" size={14} /> Save</button>
           <button type="button" className="studio-button" onClick={discard} disabled={!dirty}><Icon name="refresh" size={14} /> Discard</button>
+          <button type="button" className={historyOpen ? 'studio-button studio-button--active' : 'studio-button'} onClick={() => setHistoryOpen((open) => !open)}><Icon name="history" size={14} /> History</button>
           <button type="button" className="studio-button" onClick={exportConfig}><Icon name="download" size={14} /> Export</button>
           <button type="button" className="studio-button" onClick={reset}><Icon name="refresh" size={14} /> Reset scope</button>
         </div>
@@ -424,6 +427,29 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
           Scope: {state.scope}
         </div>
       </div>
+
+      {historyOpen && (
+        <div className="control-center-history">
+          <div className="control-center-history__header">
+            <div><strong>Configuration history</strong><small>Local snapshots kept for the last 20 saves.</small></div>
+            <button type="button" className="icon-button" onClick={() => setHistoryOpen(false)} aria-label="Close history"><Icon name="x" size={14} /></button>
+          </div>
+          <div className="control-center-history__list">
+            {getSettingsHistory(store).slice(0, 8).map((entry) => (
+              <div className="control-center-history__row" key={entry.id}>
+                <span><strong>{entry.label}</strong><small>{entry.scope} · {new Date(entry.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></span>
+                <button type="button" className="studio-button" onClick={() => {
+                  if (dirty && !window.confirm('Discard current unsaved changes before restoring this snapshot?')) return
+                  setStore((current) => ({ ...current, scopes: { ...current.scopes, [current.activeScope]: { ...entry.snapshot } } }))
+                  setDirty(true)
+                  setHistoryOpen(false)
+                }}>Restore</button>
+              </div>
+            ))}
+            {getSettingsHistory(store).length === 0 && <div className="control-center-history__empty">No saved snapshots yet.</div>}
+          </div>
+        </div>
+      )}
 
       <div className="control-center-layout">
         <aside className="control-center-nav" aria-label="Settings sections">

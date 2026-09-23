@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
 import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
+import ArtifactViewer from '../features/artifacts/ArtifactViewer'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -334,8 +335,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
 
   if (mode === 'artifacts') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Output plane" title="Artifacts" subtitle="Generated files, previews, metadata and handoff actions." actions={<button className="studio-button" type="button" onClick={() => notify('Artifact index refreshed')}><Icon name="history" size={14} /> Refresh</button>} />
-      <div className="artifact-layout"><div className="artifact-list">{artifacts.map((artifact) => <button type="button" key={artifact[0]} className={`artifact-row ${artifactSelected === artifact[0] ? 'artifact-row--active' : ''}`} onClick={() => setArtifactSelected(artifact[0])}><div className="artifact-thumb"><Icon name={artifact[1] === 'Image' ? 'layout' : artifact[1] === 'Log' ? 'terminal' : 'archive'} size={16} /></div><div><strong>{artifact[0]}</strong><span>{artifact[1]} · {artifact[2]}</span></div></button>)}</div><div className="artifact-preview"><div className="artifact-preview__toolbar"><span>{artifactSelected}</span><div><button className="icon-button" type="button" title="Copy" onClick={() => notify('Artifact path copied')}><Icon name="copy" size={14} /></button><button className="icon-button" type="button" title="Download" onClick={() => notify('Download prepared in preview')}><Icon name="arrow-down" size={14} /></button></div></div><div className="artifact-canvas"><div className="artifact-canvas__icon"><Icon name="archive" size={28} /></div><strong>Preview surface</strong><span>Rich artifact preview can be attached here.</span></div></div></div>
+      <StudioHeader eyebrow="Output plane" title="Artifacts" subtitle="Inspect generated files, provenance, previews, versions and handoff actions." actions={<button className="studio-button" type="button" onClick={() => notify('Artifact index refreshed')}><Icon name="history" size={14} /> Refresh</button>} />
+      <ArtifactViewer onAction={notify} selected={artifactSelected} onSelect={setArtifactSelected} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

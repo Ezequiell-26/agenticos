@@ -231,8 +231,6 @@ mod tests {
         assert!(cache.is_empty());
     }
 
-
-
     #[test]
     fn test_lru_cache_put_get() {
         let mut cache = LruCache::new(10).unwrap();

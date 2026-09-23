@@ -11,7 +11,7 @@ type Theme = 'Monochrome' | 'Graphite' | 'Paper' | 'High contrast'
 type Accent = 'White' | 'Silver' | 'Blue' | 'Violet' | 'Green'
 type Density = 'Compact' | 'Comfortable' | 'Spacious'
 type ToolProgress = 'off' | 'new' | 'all' | 'verbose'
-type TerminalBackend = 'local' | 'docker' | 'ssh' | 'modal' | 'daytona' | 'singularity'
+type TerminalBackend = 'local' | 'docker' | 'ssh' | 'modal' | 'daytona' | 'vercel_sandbox' | 'singularity'
 
 interface Profile {
   id: string
@@ -263,8 +263,21 @@ const defaults: SettingsState = {
   compactOutput: false,
   showReasoning: true,
   showCost: false,
-  streaming: true,
   runtimeFooter: false,
+  focusView: false,
+  interimAssistantMessages: true,
+  suppressWarningNotifications: false,
+  showCommentary: true,
+  vimMode: false,
+  timestamps: false,
+  timestampFormat: '%H:%M',
+  turnSummary: true,
+  spinnerTokenFlow: true,
+  bellOnPrompt: false,
+  fileMutationVerifier: true,
+  creditsNotices: true,
+  cliMultilineShortcuts: true,
+  streaming: true,
   resumeDisplay: 'full',
   bellOnComplete: false,
   toolPreviewLength: 160,
@@ -287,8 +300,12 @@ const defaults: SettingsState = {
   summaryBaseUrl: '',
   terminalBackend: 'local',
   terminalCwd: '.',
+  terminalTempDir: '',
+  terminalFontFamily: '',
+  terminalHomeMode: 'auto',
   terminalTimeout: 180,
   terminalPersistent: true,
+  terminalSyncBackMaxBytes: 2147483648,
   terminalCpu: 1,
   terminalMemory: 5120,
   terminalDisk: 51200,

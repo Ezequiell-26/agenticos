@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
 
 type SecurityTab = 'Overview' | 'Policies' | 'Audit' | 'Sessions' | 'Recovery'
@@ -60,7 +60,7 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
 
         {tab === 'Sessions' && <div className="security-session-list">{sessions.map(([name, type, age, state]) => <div className="security-session-row" key={name}><div className="security-session-icon"><Icon name={type === 'Web session' ? 'globe' : 'bot'} size={14} /></div><div><strong>{name}</strong><span>{type} · {age}</span></div><span className="state-pill state-pill--completed">{state}</span><button className="studio-button" type="button" onClick={() => onAction(name + ' session controls opened in preview')}>Manage</button></div>)}</div>}
 
-        {tab === 'Recovery' && <div className="security-recovery-grid"><Panel title="Recovery checkpoint"><div className="recovery-card"><span className="eyebrow">Latest safe point</span><strong>CP-028 · 31m ago</strong><p>Restores presentation-local state and the selected workspace snapshot.</p><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Recovery preview opened')}>Open recovery</button></div></Panel><Panel title="Emergency controls"><div className="emergency-list"><button type="button" onClick={() => onAction('All sessions revoke staged in preview')}><Icon name="shield" size={13} /> Revoke all sessions</button><button type="button" onClick={() => onAction('Local credentials purge staged in preview')}><Icon name="history" size={13} /> Purge local credential metadata</button><button type="button" onClick={() => onAction('Workspace lock staged in preview')}><Icon name="lock" size={13} /> Lock workspace</button></div></Panel></div>}
+        {tab === 'Recovery' && <div className="security-recovery-grid"><Panel title="Recovery checkpoint"><div className="recovery-card"><span className="eyebrow">Latest safe point</span><strong>CP-028 · 31m ago</strong><p>Restores presentation-local state and the selected workspace snapshot.</p><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Recovery preview opened')}>Open recovery</button></div></Panel><Panel title="Emergency controls"><div className="emergency-list"><button type="button" onClick={() => onAction('All sessions revoke staged in preview')}><Icon name="shield" size={13} /> Revoke all sessions</button><button type="button" onClick={() => onAction('Local credentials purge staged in preview')}><Icon name="history" size={13} /> Purge local credential metadata</button><button type="button" onClick={() => onAction('Workspace lock staged in preview')}><Icon name="shield" size={13} /> Lock workspace</button></div></Panel></div>}
       </div>
     </div>
   )
@@ -74,6 +74,6 @@ function Row({ label, value }: { label: string; value: string }) {
   return <div className="security-row"><span>{label}</span><strong>{value}</strong></div>
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return <section className="security-panel"><div className="security-panel__head"><strong>{title}</strong><span className="mono-text">preview</span></div><div className="security-panel__body">{children}</div></section>
 }

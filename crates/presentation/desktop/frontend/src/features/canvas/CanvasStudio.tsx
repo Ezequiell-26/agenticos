@@ -3,7 +3,7 @@ import Icon from '../../components/Icon'
 
 type CanvasTab = 'Canvas' | 'Preview' | 'Code' | 'History'
 
-const templates = [
+const templates: ReadonlyArray<readonly [string, string, string]> = [
   ['agent-map', 'Agent architecture map', 'Workflow graph'],
   ['ui-board', 'UI concept board', 'Interactive React artifact'],
   ['research', 'Research canvas', 'Sources + synthesis'],

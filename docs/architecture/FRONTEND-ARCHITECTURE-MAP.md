@@ -150,3 +150,20 @@ For every architecture/frontend change:
 ## 9. Current verification truth
 
 The frontend build workflow has been hardened, but the latest main commit has not produced an observed workflow result through the available GitHub status interface. Therefore build/browser/Tauri verification must remain **unverified** until fresh evidence is available.
+
+
+## Surface ownership
+
+Every navigation ID must have exactly one declared presentation owner:
+
+```text
+chat                    -> App shell
+files/terminal/runs/... -> StudioSurface (legacy compatibility)
+all PlatformMode IDs    -> PlatformSurface
+```
+
+The shared `navigation-audit.ts` utility is the source of truth for this mapping and reports unowned surfaces as structural issues.
+
+## Current source-level coverage
+
+As of 2026-09-24 the registry contains 90 navigation surfaces and 0 unowned entries. This does not imply that runtime behavior is live; runtime adapters and fresh verification evidence remain separate release gates.

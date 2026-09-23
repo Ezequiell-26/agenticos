@@ -531,3 +531,20 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified: a fresh CI run for this final head, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: df9be7f69ce2cfb5440bdcae1b8cc886f637fcff.
 - Next step: validate this final head through CI and then perform browser-level visual verification when a runnable frontend environment is available.
+
+## 2026-09-24 — Unified control plane + frontend performance pass
+
+- Added `src/features/settings/SettingsControlCenter.tsx` as the top-level settings control plane.
+- The control plane groups modern agent-IDE configuration into nine domains: Overview, AI & Agent, Codebase & Context, Execution & Security, Browser & Web, Customizations, Cloud & Automations, Interface & Performance, and Data & Usage.
+- Added configuration scopes for Global, Project, Session and Agent.
+- Added UI controls for Agent/Plan/Ask/Review/Custom modes, model routing, fast models, failover, autonomy, codebase indexing, context sources, permissions, terminal sandbox, browser backends, Chrome DevTools, MCP, rules, skills, plugins, custom agents, hooks, cloud agents, isolated worktrees, remote control, automations, notifications, theme, density, reduced motion, privacy and cost tracking.
+- Kept the existing `SettingsStudio` as the detailed/deep configuration layer rather than duplicating its 193-field catalog.
+- Converted non-chat workspace surfaces to lazy-loaded modules through `WorkspaceOverview`, reducing initial feature mounting and keeping heavy surfaces off the startup path.
+- Removed a duplicated Security & Privacy domain declaration from `SettingsStudio`.
+- The frontend remains presentation-only: no provider credentials, backend routes or runtime semantics were introduced.
+
+Verification status:
+- Source edits are structurally complete.
+- Fresh TypeScript/Vite CI for the combined head is still required.
+- Browser/Tauri and accessibility verification remain required before merge.
+

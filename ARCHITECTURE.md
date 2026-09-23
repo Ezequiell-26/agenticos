@@ -31,6 +31,18 @@ For registered repositories—especially MIT-licensed repositories—the learnin
 
 See docs/architecture/REFERENCE-KNOWLEDGE-CORPUS.md and docs/architecture/AI-IMPLEMENTATION-CONTRACT.md.
 
+## Repository structure invariant
+
+The repository has one canonical Rust workspace layout:
+
+```
+crates/<layer>/<crate>/Cargo.toml
+```
+
+The current workspace contains 40 registered crates across the canonical layers. Nested crate manifests, legacy root crates, duplicate adapter crates and secondary desktop applications are not part of the product tree and are blocked by the architecture gate.
+
+The canonical desktop product lives only at `crates/presentation/desktop/`; its frontend lives at `crates/presentation/desktop/frontend/`. Historical implementations remain in Git history and must be reintroduced only through a fresh, evidence-backed reconciliation.
+
 ## Global invariants
 
 1. No model vendor is hard-coded into the agent core.

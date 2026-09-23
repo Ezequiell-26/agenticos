@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const fail = (message) => {
   console.error("ARCHITECTURE BOUNDARIES: FAIL — " + message);
@@ -49,14 +50,56 @@ for (const pkg of packages) {
   }
 }
 
+
 const packageByName = new Map(packages.map((pkg) => [pkg.name, pkg]));
 
 function packageLayer(pkg) {
   const normalized = pkg.manifest_path.replaceAll("\\", "/");
   const relative = normalized.split("/crates/")[1];
   const first = relative.split("/")[0];
-  if (layers.has(first)) return first;
-  return "legacy";
+  return layers.has(first) ? first : "invalid";
+}
+
+function collectCargoManifests(rootPath) {
+  const manifests = [];
+
+  function walk(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile() && entry.name === "Cargo.toml") {
+        manifests.push(fullPath.replaceAll("\\", "/"));
+      }
+    }
+  }
+
+  walk(rootPath);
+  return manifests;
+}
+
+const expectedManifestPaths = new Set(
+  packages.map((pkg) => pkg.manifest_path.replaceAll("\\", "/").replace(/^.*?(?=crates\/)/, "")),
+);
+const actualManifestPaths = collectCargoManifests(join(root, "crates"));
+for (const manifestPath of actualManifestPaths) {
+  const relative = manifestPath.replace(root.replaceAll("\\", "/") + "/", "");
+  const segments = relative.split("/");
+  if (segments.length !== 4 || segments[0] !== "crates" || segments[3] !== "Cargo.toml") {
+    fail("nested or legacy Cargo.toml detected: " + relative);
+  }
+  if (!expectedManifestPaths.has(relative)) {
+    fail("Cargo.toml is not registered as a workspace package: " + relative);
+  }
+}
+
+if (actualManifestPaths.length !== packages.length) {
+  fail(
+    "workspace manifest count mismatch: metadata=" +
+      packages.length +
+      " filesystem=" +
+      actualManifestPaths.length,
+  );
 }
 
 for (const pkg of packages) {
@@ -71,6 +114,10 @@ for (const pkg of packages) {
         : layer === "utilities"
           ? new Set(["domain", "application", "presentation"])
           : new Set();
+
+  if (layer === "invalid") {
+    fail("workspace package is outside canonical layers: " + pkg.manifest_path);
+  }
 
   for (const depName of dependencies) {
     if (!depName.startsWith("agenticos-")) continue;

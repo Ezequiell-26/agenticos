@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Icon from '../../components/Icon'
 
-const sessions = [
+const sessions: ReadonlyArray<readonly [string, string, string, string]> = [
   ['CU-01', 'Browser QA', 'Browser', 'Ready'],
   ['CU-02', 'Desktop smoke test', 'Desktop', 'Running'],
   ['CU-03', 'Accessibility audit', 'Browser', 'Queued'],

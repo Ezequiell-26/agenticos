@@ -1,10 +1,23 @@
 import { navigationItems, platformModes, primaryRailIds, type NavigationGroup, type RailMode } from './navigation'
 
+export type SurfaceOwner = 'app-shell' | 'studio-surface' | 'platform-surface'
+
+export const appOwnedSurfaceIds: ReadonlySet<RailMode> = new Set(['chat'])
+export const studioOwnedSurfaceIds: ReadonlySet<RailMode> = new Set(['files', 'terminal', 'runs', 'agents', 'artifacts', 'settings'])
+
+export function getSurfaceOwner(mode: RailMode): SurfaceOwner | null {
+  if (appOwnedSurfaceIds.has(mode)) return 'app-shell'
+  if (studioOwnedSurfaceIds.has(mode)) return 'studio-surface'
+  if (platformModes.has(mode)) return 'platform-surface'
+  return null
+}
+
 export type NavigationAuditIssueCode =
   | 'duplicate-navigation-id'
   | 'platform-mode-without-navigation-item'
   | 'duplicate-navigation-label'
   | 'navigation-item-without-detail'
+  | 'navigation-item-without-owner'
 
 export interface NavigationAuditReport {
   ok: boolean
@@ -43,6 +56,9 @@ export function auditNavigationRegistry(): NavigationAuditReport {
     labels.add(item.label)
     if (!item.detail.trim()) {
       issues.push({ code: 'navigation-item-without-detail', mode: item.id, detail: 'Navigation item must provide a non-empty description.' })
+    }
+    if (getSurfaceOwner(item.id) === null) {
+      issues.push({ code: 'navigation-item-without-owner', mode: item.id, detail: 'Navigation item has no declared UI surface owner.' })
     }
   }
 

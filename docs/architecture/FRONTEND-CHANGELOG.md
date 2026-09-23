@@ -1069,3 +1069,12 @@ Verification status:
 - Corrected the coverage tab JSX nesting so the coverage bar container closes inside each mapped coverage row.
 - This removes the remaining TypeScript parser failure reported by the frontend verification workflow.
 - No quality metrics, runtime adapters or backend behavior were changed.
+
+
+## 2026-09-24 — Workspace Dock interaction hardening
+
+- Added explicit tab-to-panel relationships and panel semantics to the bottom dock.
+- Added keyboard/assistive-technology state for selected Problems rows.
+- Added a presentation-only terminal clear control and a polite output log region.
+- No runtime process attachment, command execution, provider, credential or persistence behavior was introduced.
+- Verification: source inspection; fresh frontend production build still required after the latest syntax repair.

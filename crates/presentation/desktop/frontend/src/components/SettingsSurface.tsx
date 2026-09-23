@@ -139,6 +139,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
         fontSize: string
         contextMode: string
         language: string
+        defaultMode: string
         keymap: string
         workspaceName: string
         startupView: string

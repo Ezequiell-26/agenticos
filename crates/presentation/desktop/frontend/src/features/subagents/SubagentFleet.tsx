@@ -9,7 +9,8 @@ const subagents = [
 ] as const
 
 export default function SubagentFleet({ onAction }: { onAction: (message: string) => void }) {
-  const [selected, setSelected] = useState(subagents[0][0])
+  type SubagentId = (typeof subagents)[number][0]
+  const [selected, setSelected] = useState<SubagentId>(subagents[0][0])
   const current = subagents.find((item) => item[0] === selected) ?? subagents[0]
   return (
     <div className="subagent-fleet">

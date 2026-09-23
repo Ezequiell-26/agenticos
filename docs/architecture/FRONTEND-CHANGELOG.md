@@ -329,3 +329,9 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: latest CI conclusion, browser visual verification, Windows/Tauri rendering and full accessibility audit.
 - Rollback point: `8e8a907792883deeab37661b0189909c47c21014`.
 - Next step: use the resulting CI evidence to complete browser-level visual regression coverage of the primary workspace flows.
+
+## 2026-09-24 — Frontend build recovery
+
+- Fixed Settings persistence typing by declaring the stored `defaultMode` preference alongside the other settings fields.
+- Fixed Subagent Fleet selection typing by deriving the selected ID from the immutable subagent registry instead of narrowing state to the first item.
+- Purpose: restore the nested Vite/TypeScript build after CI surfaced concrete type errors; no runtime transport or backend contracts changed.

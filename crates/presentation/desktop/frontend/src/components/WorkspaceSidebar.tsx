@@ -7,7 +7,8 @@ interface WorkspaceSidebarProps {
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
   onOpenSearch: () => void
-}
+  runtimeConnected: boolean
+
 
 export default function WorkspaceSidebar({
   conversations,
@@ -15,6 +16,7 @@ export default function WorkspaceSidebar({
   onSelectConversation,
   onCreateConversation,
   onOpenSearch,
+  runtimeConnected,
 }: WorkspaceSidebarProps) {
   return (
     <aside className="workspace-sidebar">
@@ -76,8 +78,8 @@ export default function WorkspaceSidebar({
 
       <div className="sidebar-footer">
         <div className="mini-status">
-          <span className="status-dot status-dot--live" />
-          <span>Runtime bridge</span>
+          <span className={`status-dot ${runtimeConnected ? 'status-dot--live' : 'status-dot--offline'}`} />
+          <span>{runtimeConnected ? 'Runtime online' : 'Runtime offline'}</span>
         </div>
         <button className="sidebar-footer__action" title="Command palette" aria-label="Command palette" type="button" onClick={onOpenSearch}>
           <Icon name="command" size={15} />

@@ -675,3 +675,9 @@ Credentials never expose secret material in the frontend.
 Added a dedicated Channel Gateway Manager and routed Channels & Gateway through it. The surface now exposes channel capabilities, gateway routing, delivery controls and session associations with responsive/reduced-motion styling.
 
 Runtime transport and credentials remain outside the frontend boundary.
+
+### 2026-09-24 — Research Workbench
+
+Replaced the shallow Research presentation with a dedicated Research Workbench covering Batch, Sources, Trajectories and Synthesis views, with responsive/reduced-motion styling.
+
+No external search or runtime execution was introduced.

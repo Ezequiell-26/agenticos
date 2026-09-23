@@ -540,7 +540,7 @@ function Range({ label, value, description, onChange }: { label: string; value: 
 }
 
 function ModePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <div className="mode-picker">{modes.map((mode) => <button type="button" key={mode} className={value === mode ? 'mode-picker__item mode-picker__item--active' : 'mode-picker__item'} onClick={() => onChange(mode)}><Icon name={mode === 'Ask' ? 'search' : mode === 'Review' ? 'shield' : mode === 'Plan' ? 'clipboard' as IconName : mode === 'Custom' ? 'spark' : 'bot'} size={14} />{mode}</button>)}</div>
+  return <div className="mode-picker">{modes.map((mode) => <button type="button" key={mode} className={value === mode ? 'mode-picker__item mode-picker__item--active' : 'mode-picker__item'} onClick={() => onChange(mode)}><Icon name={mode === 'Ask' ? 'search' : mode === 'Review' ? 'shield' : mode === 'Plan' ? 'check' as IconName : mode === 'Custom' ? 'spark' : 'bot'} size={14} />{mode}</button>)}</div>
 }
 
 function InfoLine({ title, detail }: { title: string; detail: string }) {

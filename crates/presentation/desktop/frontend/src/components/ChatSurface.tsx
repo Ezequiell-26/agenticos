@@ -80,6 +80,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [notice, setNotice] = useState('')
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
+  const sessionMenuRef = useRef<HTMLDivElement>(null)
   const [promptHistoryOpen, setPromptHistoryOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -98,6 +99,22 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   useEffect(() => {
     try { if (draft) window.localStorage.setItem('agenticos.draft.' + sessionId, draft); else window.localStorage.removeItem('agenticos.draft.' + sessionId) } catch { /* optional draft persistence */ }
   }, [draft, sessionId])
+
+  useEffect(() => {
+    if (!sessionMenuOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSessionMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sessionMenuOpen])
 
   useEffect(() => {
     if (!notice) return
@@ -214,9 +231,9 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <button className={`soft-button ${advancedOpen ? 'soft-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls"><Icon name="settings" size={14} />Controls</button>
           <button className={`soft-button ${runDrawerOpen ? 'soft-button--active' : ''}`} type="button" title="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} />Trace</button>
           <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
-          <div className="session-menu-wrap">
-            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
-            {sessionMenuOpen && <div className="session-menu" role="menu">
+          <div className="session-menu-wrap" ref={sessionMenuRef}>
+            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} aria-controls="session-actions-menu" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
+            {sessionMenuOpen && <div className="session-menu" id="session-actions-menu" role="menu">
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>

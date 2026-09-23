@@ -108,3 +108,27 @@
   .developer-detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .developer-mock-grid { grid-template-columns:repeat(2,1fr); }
 }
+
+.developer-next-edit-strip { display:grid; gap:8px; margin:10px 0; padding:10px; border:1px solid #202020; border-radius:9px; background:#0d0d0d; }
+.developer-next-edit-strip > div:first-child { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+.developer-next-edit-strip > div:first-child strong { color:#aaa; font-size:8px; }
+.developer-next-edit-list { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+.developer-next-edit-list > button { display:flex; align-items:center; justify-content:space-between; gap:7px; min-width:0; padding:8px; border:1px solid #1e1e1e; border-radius:7px; background:#101010; color:#777; text-align:left; cursor:pointer; }
+.developer-next-edit-list > button:hover { border-color:#303030; background:#151515; color:#ddd; }
+.developer-next-edit-list > button > span { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.developer-next-edit-list strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#aaa; font-size:7px; }
+.developer-next-edit-list small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; font-size:6px; }
+.developer-bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.developer-patch-stack,.developer-test-explorer { min-width:0; padding:10px; border:1px solid #202020; border-radius:8px; background:#0d0d0d; }
+.developer-bottom-head { display:flex; align-items:center; justify-content:space-between; gap:7px; margin-bottom:6px; }
+.developer-patch-row,.developer-test-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:8px; width:100%; padding:7px 0; border-top:1px solid #181818; background:transparent; color:inherit; text-align:left; }
+.developer-patch-row { cursor:pointer; }
+.developer-patch-row:hover { background:#111; }
+.developer-patch-row > span { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.developer-patch-row strong,.developer-test-row strong { color:#aaa; font-size:7px; }
+.developer-patch-row small,.developer-test-row small { color:#555; font-size:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.developer-patch-row b { color:#777; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.developer-test-row { grid-template-columns:20px minmax(0,1fr) auto auto; }
+.developer-test-icon { width:18px; height:18px; display:grid; place-items:center; border:1px solid #202020; border-radius:5px; color:#666; background:#111; }
+@media(max-width:1180px) { .developer-next-edit-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .developer-bottom-grid { grid-template-columns:1fr; } .developer-next-edit-list { grid-template-columns:1fr; } }

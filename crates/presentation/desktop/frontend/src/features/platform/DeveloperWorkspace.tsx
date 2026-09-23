@@ -94,6 +94,8 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   const [selectedEnvironment, setSelectedEnvironment] = useState<(typeof environments)[number][0]>(environments[0][0])
   const [visualPrompt, setVisualPrompt] = useState('')
   const [browserUrl, setBrowserUrl] = useState('http://localhost:5173')
+  const [designSelection, setDesignSelection] = useState<string[]>(['Hero'])
+  const [voiceQueue, setVoiceQueue] = useState<string[]>([])
   const [autonomy, setAutonomy] = useState<'suggest' | 'supervised' | 'autonomous'>('supervised')
   const [sandbox, setSandbox] = useState<'local' | 'worktree' | 'cloud'>('worktree')
   const [approvalGate, setApprovalGate] = useState(true)
@@ -102,6 +104,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   const filtered = useMemo(() => files.filter((file) => file[0].toLowerCase().includes(query.toLowerCase())), [query])
   const lane = lanes.find((item) => item[0] === selectedLane) ?? lanes[0]
   const environment = environments.find((item) => item[0] === selectedEnvironment) ?? environments[0]
+  const designTargets = ['Hero', 'Navigation', 'Composer', 'Sidebar', 'Responsive shell']
 
   const tabs: Array<[DevTab, string, string]> = [
     ['build', 'Build', 'Editor, search and agent edit loop'],
@@ -256,7 +259,19 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
               <div className="developer-browser-frame__chrome"><span className="developer-browser-dot" /><span>{browserUrl}</span><Tag label="Preview browser" /></div>
               <div className="developer-browser-frame__canvas"><div className="developer-browser-mock"><span className="eyebrow">Live UI preview</span><h2>Point. Draw. Describe.</h2><p>Visual instructions become scoped engineering tasks without leaving the developer workspace.</p><div className="developer-mock-grid"><span>Hero</span><span>Navigation</span><span>Composer</span><span>Responsive</span></div></div></div>
             </div>
-            <div className="developer-visual-prompt"><textarea value={visualPrompt} onChange={(event) => setVisualPrompt(event.target.value)} placeholder="Describe a visual change, e.g. 'Move this CTA higher, reduce spacing, preserve responsive behavior…'" aria-label="Visual design instruction" /><button className="studio-button studio-button--active" type="button" disabled={!visualPrompt.trim()} onClick={() => onAction('Visual change request staged in preview')}>Apply visual brief</button></div>
+            <div className="developer-design-targets">
+              <div><span className="eyebrow">Visual targets</span><small>Select one or more elements. Their layout/code context travels with the visual brief.</small></div>
+              <div className="developer-target-list">{designTargets.map((target) => {
+                const selectedTarget = designSelection.includes(target)
+                return <button key={target} type="button" aria-pressed={selectedTarget} className={selectedTarget ? 'developer-target developer-target--active' : 'developer-target'} onClick={() => setDesignSelection((current) => selectedTarget ? current.filter((item) => item !== target) : [...current, target])}>{target}</button>
+              })}</div>
+            </div>
+            <div className="developer-visual-prompt"><textarea value={visualPrompt} onChange={(event) => setVisualPrompt(event.target.value)} placeholder="Describe a visual change, e.g. 'Move this CTA higher, reduce spacing, preserve responsive behavior…'" aria-label="Visual design instruction" /><button className="studio-button studio-button--active" type="button" disabled={!visualPrompt.trim() || designSelection.length === 0} onClick={() => onAction('Visual change for '+designSelection.join(', ')+' staged in preview')}>Apply visual brief</button></div>
+            <div className="developer-voice-queue">
+              <div><span className="eyebrow">Voice instructions</span><small>{voiceQueue.length ? voiceQueue.length+' instruction'+(voiceQueue.length === 1 ? '' : 's')+' queued' : 'Queue a spoken design change without leaving the browser context.'}</small></div>
+              <button className="studio-button" type="button" onClick={() => { const next = 'Reduce spacing around '+(designSelection[0] ?? 'selected element'); setVoiceQueue((current) => [...current, next].slice(-3)); onAction('Voice design instruction queued in preview') }}><Icon name="mic" size={13} /> Queue voice change</button>
+              {voiceQueue.length > 0 && <div className="developer-voice-list">{voiceQueue.map((item, index) => <span key={index}>{item}</span>)}</div>}
+            </div>
           </Panel>
           <Panel title="Browser verification">
             <div className="developer-verify-list">

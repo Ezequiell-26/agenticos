@@ -1096,3 +1096,10 @@ Verification status:
 - Added Escape recovery for the run trace and explicit tab-to-panel relationships across trace views.
 - The existing application Error Boundary now remounts the UI tree on retry while keeping raw exception text out of the product-facing surface.
 - Verification remains source-level pending fresh production build and desktop/browser execution evidence.
+
+## 2026-09-24 — Resizable desktop shell hardening
+
+- Removed the hard 1180px interaction floor for the desktop frontend at narrower viewport sizes.
+- Added progressive breakpoints that reclaim inspector/sidebar space before reducing the primary workspace.
+- Preserved the monochrome visual system and core navigation hierarchy while improving window resizing behavior.
+- No runtime, provider, credential or persistence contract changed.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import Icon, { type IconName } from './Icon'
+import { UI_PREFERENCES_STORAGE_KEY, applyUiLayoutPreferences, emitUiPreferencesChanged } from '../services/ui-preferences'
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
@@ -164,8 +165,6 @@ interface SettingsState {
 interface SettingsSurfaceProps {
   notify: (message: string) => void
 }
-
-const storageKey = 'agenticos.ui.hermes-settings-v2'
 
 const defaults: SettingsState = {
   theme: 'Monochrome',
@@ -333,7 +332,7 @@ const previewModes: ToolProgress[] = ['off', 'new', 'all', 'verbose']
 
 function readSaved(): { settings: SettingsState; profiles: Profile[]; activeProfileId: string } | null {
   try {
-    const raw = window.localStorage.getItem(storageKey)
+    const raw = window.localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<{ settings: SettingsState; profiles: Profile[]; activeProfileId: string }>
     if (!parsed.settings) return null
@@ -367,20 +366,14 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   useEffect(() => {
     document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
     document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
+    document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
+    document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
     document.documentElement.dataset.agenticosDensity = settings.density.toLowerCase()
-    document.documentElement.dataset.agenticosSidebar = settings.leftSidebarVisible ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosInspector = settings.agentInspectorVisible ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosDock = settings.bottomDockVisible ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosRail = settings.activityRailCompact ? 'compact' : 'expanded'
-    document.documentElement.dataset.agenticosStatusbar = settings.statusBarVisible ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosTooltips = settings.showTooltips ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosHoverPreview = settings.hoverPreview ? 'visible' : 'hidden'
-    document.documentElement.dataset.agenticosNotifications = settings.notificationPosition
     document.documentElement.style.setProperty('--agenticos-ui-scale', String(settings.uiScale / 100))
     document.documentElement.style.setProperty('--agenticos-font-size', settings.fontSize + 'px')
-    document.documentElement.style.setProperty('--agenticos-sidebar-width', settings.sidebarWidth + 'px')
-    document.documentElement.style.setProperty('--agenticos-inspector-width', settings.inspectorWidth + 'px')
-  }, [settings.theme, settings.accent, settings.density, settings.uiScale, settings.fontSize])
+    applyUiLayoutPreferences(settings)
+  }, [settings])
+  }, [settings])
 
   useEffect(() => {
     setAdvancedJson(JSON.stringify(toPortableConfig(settings, profiles, activeProfileId), null, 2))
@@ -470,7 +463,9 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
 
   function save() {
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify({ settings, profiles, activeProfileId }))
+      window.localStorage.setItem(UI_PREFERENCES_STORAGE_KEY, JSON.stringify({ settings, profiles, activeProfileId }))
+      applyUiLayoutPreferences(settings)
+      emitUiPreferencesChanged()
       setDirty(false)
       notify('Configuration saved locally')
     } catch {
@@ -484,7 +479,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
     setProfiles(defaultProfiles)
     setActiveProfileId('default')
     setDirty(false)
-    try { window.localStorage.removeItem(storageKey) } catch { /* optional */ }
+    try { window.localStorage.removeItem(UI_PREFERENCES_STORAGE_KEY) } catch { /* optional */ }
     notify('Configuration restored to defaults')
   }
 

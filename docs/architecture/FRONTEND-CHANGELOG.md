@@ -1110,3 +1110,9 @@ Verification status:
 - Session actions and prompt history now dismiss on outside pointer interaction or Escape.
 - Composer tools and advanced controls expose expanded-state relationships to assistive technology.
 - Slash-command selection remains presentation-only and now supports direct keyboard traversal.
+
+## 2026-09-24 — Keyboard interaction correctness
+
+- Scoped result-navigation shortcuts to active search fields so Enter/Arrow actions on modal controls retain their native behavior.
+- Made Tab cycling resilient when focus temporarily falls outside the expected control set.
+- Preserved Escape-based recovery and focus restoration across both search overlays.

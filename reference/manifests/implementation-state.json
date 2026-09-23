@@ -1458,7 +1458,7 @@
         "verify ReAct loop functionality"
       ],
       "requires": [
-        "conversational-cli-vertical-slice-1"
+        "windows-desktop-app-vertical-slice-1"
       ],
       "required_checks": [
         "ReAct core loop tests",

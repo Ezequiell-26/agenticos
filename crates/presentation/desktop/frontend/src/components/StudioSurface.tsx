@@ -202,6 +202,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
             showDiff={showDiff}
             onSave={() => notify('Saved editor draft')}
           />
+        </div>
         <div className="studio-pane inspector-pane">
           <div className="pane-toolbar"><strong>Inspector</strong><span className="mono-text">{showDiff ? 'DIFF' : 'FILE'}</span></div>
           <div className="inspector-section"><span>Language</span><strong>{selectedFile.endsWith('.rs') ? 'Rust' : selectedFile.endsWith('.md') ? 'Markdown' : 'TypeScript React'}</strong></div>

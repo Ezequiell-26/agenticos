@@ -150,3 +150,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Provider & Model Control Center | ModelControlCenter | providers, models, routing, fallback, capabilities and usage | preview |
+
+
+| Integration Control Center | IntegrationControlCenter | MCP, browser, channels, sources, credentials, webhooks and environments | preview |

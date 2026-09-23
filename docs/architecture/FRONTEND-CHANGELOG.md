@@ -968,3 +968,10 @@ Verification status:
 - Added a unified model plane for providers, model inventory, routing policy, fallback strategy, capabilities and usage guards.
 - Kept provider credentials and authoritative health outside presentation state.
 - Connected the model plane to the shared navigation taxonomy so routing and provider UX live together.
+
+
+## Integration Control Center — 2026-09-24
+
+- Added a unified integration surface for MCP, Browser, Channels, Sources, Credentials, Webhooks and Environments.
+- Added integration-level network policy, secret-handling, inbound-event and external-publication guards.
+- Kept authoritative connections and secret values outside presentation state.

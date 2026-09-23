@@ -706,3 +706,10 @@ Verification status:
 - design tokens aligned with the existing monochrome system;
 - lazy loading preserved for the new feature;
 - fresh TypeScript/Vite build, GitHub Actions, browser/Tauri verification and accessibility audit remain pending.
+
+
+## 2026-09-24 — Workspace overview control plane
+- Added `Workspace Overview` as the frontend entry surface for project health, active tasks, agent activity, notifications and safe quick actions.
+- Reused existing preview datasets; no runtime/backend calls were introduced.
+- Added responsive layout rules for narrower desktop widths.
+- Verification status: implementation committed to feature branch; build/browser/CI evidence still pending.

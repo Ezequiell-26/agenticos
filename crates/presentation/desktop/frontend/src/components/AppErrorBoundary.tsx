@@ -2,15 +2,14 @@ import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react'
 import Icon from './Icon'
 
 interface Props { children: ReactNode }
-interface State { hasError: boolean; message: string; retryKey: number }
+interface State { hasError: boolean; retryKey: number }
 
 export default class AppErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, message: '', retryKey: 0 }
+  state: State = { hasError: false, retryKey: 0 }
 
   static getDerivedStateFromError(error: unknown): State {
     return {
       hasError: true,
-      message: error instanceof Error ? error.message : 'Unknown interface error',
       retryKey: 0,
     }
   }
@@ -20,7 +19,7 @@ export default class AppErrorBoundary extends Component<Props, State> {
   }
 
   reset = () => {
-    this.setState((current) => ({ hasError: false, message: '', retryKey: current.retryKey + 1 }))
+    this.setState((current) => ({ hasError: false, retryKey: current.retryKey + 1 }))
   }
 
   render() {

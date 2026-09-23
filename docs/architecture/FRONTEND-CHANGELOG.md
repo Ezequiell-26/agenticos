@@ -1103,3 +1103,10 @@ Verification status:
 - Added progressive breakpoints that reclaim inspector/sidebar space before reducing the primary workspace.
 - Preserved the monochrome visual system and core navigation hierarchy while improving window resizing behavior.
 - No runtime, provider, credential or persistence contract changed.
+
+## 2026-09-24 — Chat continuity and menu-state hardening
+
+- Recent prompts now persist locally through a bounded, validated five-item store so the composer survives UI remounts.
+- Session actions and prompt history now dismiss on outside pointer interaction or Escape.
+- Composer tools and advanced controls expose expanded-state relationships to assistive technology.
+- Slash-command selection remains presentation-only and now supports direct keyboard traversal.

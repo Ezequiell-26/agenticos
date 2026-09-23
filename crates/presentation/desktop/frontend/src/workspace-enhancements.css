@@ -983,3 +983,28 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 .control-center-history__row strong { color:#bdbdbd; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .control-center-history__row small { color:#555; font-size:8px; }
 .control-center-history__empty { grid-column:1/-1; padding:14px; color:#555; font-size:9px; text-align:center; }
+
+.permission-matrix { padding:4px 0 8px; }
+.permission-matrix__summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-bottom:9px; }
+.permission-summary-card { padding:9px 10px; border:1px solid #202020; border-radius:8px; background:#111; }
+.permission-summary-card span { display:block; color:#5e5e5e; font-size:8px; text-transform:uppercase; letter-spacing:.08em; }
+.permission-summary-card strong { display:block; margin-top:2px; color:#ddd; font-size:16px; font-variant-numeric:tabular-nums; }
+.permission-matrix__table { border:1px solid #202020; border-radius:8px; overflow:hidden; }
+.permission-matrix__head,.permission-matrix__row { display:grid; grid-template-columns:1.1fr 1fr 78px 1.7fr; gap:9px; align-items:center; padding:8px 9px; }
+.permission-matrix__head { background:#141414; border-bottom:1px solid #202020; color:#555; font-size:8px; text-transform:uppercase; letter-spacing:.08em; }
+.permission-matrix__row { min-height:34px; border-bottom:1px solid #171717; font-size:9px; }
+.permission-matrix__row:last-child { border-bottom:0; }
+.permission-matrix__row strong { color:#aaa; font-weight:600; }
+.permission-matrix__row > span { color:#707070; }
+.permission-matrix__row small { color:#595959; line-height:1.35; }
+.permission-badge { display:inline-flex; align-items:center; gap:4px; width:max-content; padding:3px 6px; border:1px solid #282828; border-radius:5px; font-size:8px; text-transform:uppercase; letter-spacing:.05em; }
+.permission-badge--allow { color:#c8c8c8; }
+.permission-badge--ask { color:#aaa; background:#151515; }
+.permission-badge--deny { color:#777; background:#0d0d0d; }
+@media (max-width: 760px) {
+  .permission-matrix__head { display:none; }
+  .permission-matrix__row { grid-template-columns:1fr auto; }
+  .permission-matrix__row > span:nth-child(2) { grid-column:1; }
+  .permission-matrix__row > span:nth-child(3) { grid-column:2; grid-row:1 / span 2; }
+  .permission-matrix__row > small { grid-column:1 / -1; }
+}

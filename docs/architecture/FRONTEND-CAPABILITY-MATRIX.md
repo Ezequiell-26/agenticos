@@ -162,3 +162,8 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Project Control Center | ProjectControlCenter | project identity, workspace, tasks, Git, environments and direct workspace entry points | preview |
+
+
+## Taxonomy exhaustiveness audit — 2026-09-24
+
+All 97 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.

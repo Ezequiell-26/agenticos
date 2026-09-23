@@ -118,3 +118,17 @@ The current repository already contains an early desktop UI from existing commit
 - Rollback point: `4c035ecac4cff82cb08ff07790d20c22afb70099`.
 - Next step: continue the frontend with richer approvals, observability and agent-control surfaces.
 
+## Control & observability expansion — 2026-09-24
+
+- Scope: frontend-only product expansion.
+- User-visible effect: added Approvals, Observability, Agent Profiles and Prompt Lab to the main navigation and command palette.
+- Modified: `crates/presentation/desktop/frontend/src/components/ActivityRail.tsx`, `CommandPalette.tsx`, `App.tsx`, `StudioSurface.tsx`, and `index.css`.
+- Functionality added: approval queue/detail actions, telemetry cards/event stream, selectable agent profiles with local controls, prompt library/editor/variables, richer navigation grouping and keyboard access.
+- Deleted: none.
+- Preserved: all previous chat, editor, run, provider, skills, tools, memory, workflow, artifact, terminal and settings surfaces.
+- Architecture decision: these features are fully interactive in presentation-local state and are not represented as live backend telemetry or permissions until contracts exist.
+- Verification evidence: GitHub accepted the frontend changes on `main`; CI was triggered automatically for the latest commits.
+- Unverified checks: latest CI conclusion, browser visual verification, Windows/Tauri rendering, accessibility audit.
+- Rollback point: `4c035ecac4cff82cb08ff07790d20c22afb70099`.
+- Next step: continue with richer workspace interactions and visual regression coverage.
+

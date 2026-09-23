@@ -633,3 +633,9 @@ Verification for this slice:
 Added `features/subagents/SubagentBuilder.tsx` and routed `SubagentFleet.tsx` through the new builder. The surface now covers task ownership, isolated context budgets, bounded turns, model/toolset selection, memory scope, handoff format, recursive delegation, safety toggles, approval requirements and run/handoff inspection.
 
 No runtime execution or authorization was added. The existing Subagent route remains lazy-loaded through the platform surface.
+
+### 2026-09-24 — Provider Account Center
+
+Expanded `features/providers/ProviderStudio.tsx` with an Accounts tab. It now presents provider/account metadata, safe masked secret state, model counts, quota previews, routing role, capabilities, connection test/refresh/routing actions, and responsive account layouts.
+
+No credentials or transport behavior were introduced.

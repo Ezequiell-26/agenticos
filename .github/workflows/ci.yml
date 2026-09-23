@@ -13,34 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  repair-rustfmt:
-    if: github.event_name == 'pull_request' && github.head_ref == 'implementation/step-25-provider-integration-tests-2026-09-23' && github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: Apply rustfmt
-        run: cargo fmt --all
-      - name: Commit formatted files
-        run: |
-          if git diff --quiet; then
-            echo "RUSTFMT REPAIR: already clean"
-            exit 0
-          fi
-          git config user.name "AgentiCOS Bot"
-          git config user.email "agenticos-bot@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: apply rustfmt"
-          git push origin HEAD:${{ github.head_ref }}
-
   verify-typescript:
     runs-on: ubuntu-latest
     timeout-minutes: 15

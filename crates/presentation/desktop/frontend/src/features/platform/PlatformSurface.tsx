@@ -31,6 +31,7 @@ const RunControlCenter = lazy(() => import('./RunControlCenter'))
 const MemoryStudio = lazy(() => import('./MemoryStudio'))
 const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
 const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
+const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStudio').then((module) => ({ default: module.FrontendCompletenessStudio })))
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
@@ -61,6 +62,15 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   function notify(message: string) {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 2200)
+  }
+
+  if (mode === 'evaluations' || mode === 'skills' || mode === 'mcp' || mode === 'providers' || mode === 'browser' || mode === 'computer' || mode === 'credentials' || mode === 'plugins' || mode === 'imports' || mode === 'sessions' || mode === 'onboarding' || mode === 'qa') {
+    return (
+      <Shell>
+        <FrontendCompletenessStudio mode={mode} onAction={notify} />
+        <Toast message={notice} />
+      </Shell>
+    )
   }
 
   function toggle(setter: (value: Set<string>) => void, current: Set<string>, value: string) {

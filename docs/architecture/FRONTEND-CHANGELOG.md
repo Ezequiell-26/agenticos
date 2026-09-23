@@ -780,3 +780,12 @@ Verification status:
 - Exposed memory, tools and workflows as lazy platform modes.
 - Kept all three surfaces presentation-only; no runtime, credential, filesystem or network mutation was introduced.
 - Verification pending: fresh TypeScript/Vite build, browser/Tauri visual QA and accessibility audit.
+
+
+## 2026-09-24 — Frontend Completeness Suite
+
+- Added `FrontendCompletenessStudio` as a presentation-only control-plane surface.
+- Added advanced Evaluation Studio, Skills Studio, MCP Control Center, Provider & Model Center, Browser Automation Studio, Computer Use Recorder, Credential Vault, Plugin/Marketplace Manager, Import & Migration Center, Session Replay & Branching, Workspace Setup, and QA & Readiness Center.
+- Added navigation modes for Workspace Setup and QA & Readiness and routed provider/skills surfaces through the same platform boundary.
+- Runtime/backend integrations remain intentionally deferred; buttons stage UI actions only.
+- Verification note: this slice was not yet validated with a fresh Vite/TypeScript build, Tauri runtime, browser verification, accessibility audit, or GitHub Actions result.

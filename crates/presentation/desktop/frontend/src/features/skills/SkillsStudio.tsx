@@ -12,6 +12,16 @@ const skillCatalog = [
   { name: 'UI Designer', detail: 'Compose layouts, interactions and product critique.', category: 'Design', version: '1.6.2', installed: false, updated: '1d ago' },
   { name: 'Test Engineer', detail: 'Create deterministic tests and verification plans.', category: 'Quality', version: '1.9.1', installed: true, updated: 'Today' },
   { name: 'Data Operator', detail: 'Transform datasets and produce structured outputs.', category: 'Data', version: '1.2.5', installed: false, updated: '6d ago' },
+  { name: '/automate', detail: 'Create scheduled and event-triggered automations.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/autopilot', detail: 'Monitor a pull request and handle follow-up work.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/canvas', detail: 'Create interactive React artifacts alongside chat.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/create-hook', detail: 'Create lifecycle hooks and update hook configuration.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/create-rule', detail: 'Create scoped rules for user, project or team behavior.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/create-skill', detail: 'Create portable Agent Skill packages with SKILL.md.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/create-subagent', detail: 'Create focused subagents with models and tool access.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/review-bugbot', detail: 'Review changes for bugs, security and regressions.', category: 'Cursor', version: 'built-in', installed: true, updated: 'Today' },
+  { name: '/review-security', detail: 'Run security-focused review workflows.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
+  { name: '/loop', detail: 'Repeat a prompt or skill on a defined interval.', category: 'Cursor', version: 'built-in', installed: false, updated: 'Today' },
 ]
 
 export default function SkillsStudio({ onAction }: { onAction: (message: string) => void }) {

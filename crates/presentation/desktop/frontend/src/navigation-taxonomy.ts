@@ -46,7 +46,7 @@ const governanceIds: ReadonlySet<RailMode> = new Set([
 ])
 
 const integrationIds: ReadonlySet<RailMode> = new Set([
-  'mcp', 'browser', 'computer', 'voice', 'channels', 'environment-lab', 'environments', 'integrations', 'webhooks',
+  'integration-control', 'mcp', 'browser', 'computer', 'voice', 'channels', 'environment-lab', 'environments', 'integrations', 'webhooks',
   'credentials', 'imports', 'media', 'wake', 'homeassistant', 'social', 'cloud', 'background', 'execution', 'automations', 'batch',
 ])
 

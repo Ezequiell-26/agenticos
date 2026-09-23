@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import ContextInspector from '../context/ContextInspector'
+import McpManager from '../mcp/McpManager'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -13,7 +14,7 @@ const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
 const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
-import { projects, indexEntries, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
@@ -25,7 +26,6 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [enabledContext, setEnabledContext] = useState(() => new Set(contextSources.filter((item) => item[3]).map((item) => item[0])))
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
   const [pausedAutomations, setPausedAutomations] = useState(() => new Set(automations.filter((item) => item[3] === 'Paused').map((item) => item[0])))
-  const [selectedMcp, setSelectedMcp] = useState(mcpServers[0][0])
   const [voiceMode, setVoiceMode] = useState(true)
   const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
@@ -428,8 +428,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'mcp') return (
     <Shell>
-      {renderHeader('Tool gateway', 'MCP Servers', 'Connect external tool servers, inspect capabilities and review authentication state.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('MCP server installer opened in preview')}><Icon name="plus" size={14} /> Add MCP server</button>)}
-      <div className="mcp-layout"><div className="mcp-list">{mcpServers.map(([name, detail, tools, state]) => <button type="button" key={name} className={`mcp-row ${selectedMcp === name ? 'mcp-row--active' : ''}`} onClick={() => setSelectedMcp(name)}><div className="mcp-icon"><Icon name="tool" size={15} /></div><div><strong>{name}</strong><span>{detail}</span></div><small>{tools}</small><span className={`state-pill state-pill--${state === 'Connected' ? 'active' : 'pending'}`}>{state}</span></button>)}</div><Panel title={selectedMcp}><div className="mcp-detail"><Metric label="Transport" value="stdio / HTTP" /><Metric label="Auth" value="OAuth preview" /><Metric label="Tools" value="12" /><Metric label="Policy" value="Approval required" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('OAuth setup opened in preview')}>Authenticate</button><button className="studio-button" type="button" onClick={() => notify('MCP capability list refreshed')}>Refresh capabilities</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('MCP server enabled in preview')}><Icon name="check" size={14} /> Enable server</button></div><div className="callout"><Icon name="shield" size={14} /><span>MCP servers are treated as external capability providers; credentials remain outside presentation state.</span></div></Panel></div>
+      <McpManager onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

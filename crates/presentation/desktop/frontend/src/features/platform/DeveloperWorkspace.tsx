@@ -319,4 +319,5 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
         <span>UI mode: presentation-ready</span>
       </div>
     </div>
-  
+  )
+}

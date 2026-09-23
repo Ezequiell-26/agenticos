@@ -4,8 +4,8 @@ import { UI_PREFERENCES_STORAGE_KEY, applyUiLayoutPreferences, emitUiPreferences
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
-  | 'compression' | 'display' | 'layout' | 'voice' | 'gateway' | 'mcp' | 'automation'
-  | 'security' | 'shortcuts' | 'advanced'
+  | 'compression' | 'display' | 'layout' | 'voice' | 'web' | 'browser' | 'gateway' | 'mcp' | 'automation'
+  | 'runtime' | 'security' | 'shortcuts' | 'advanced'
 
 type Theme = 'Monochrome' | 'Graphite' | 'Paper' | 'High contrast'
 type Accent = 'White' | 'Silver' | 'Blue' | 'Violet' | 'Green'
@@ -63,6 +63,7 @@ interface SettingsState {
   compactOutput: boolean
   showReasoning: boolean
   showCost: boolean
+  runtimeFooter: boolean
   streaming: boolean
   resumeDisplay: string
   bellOnComplete: boolean
@@ -106,7 +107,17 @@ interface SettingsState {
   visionModel: string
   visionTimeout: number
   webBackend: string
+  webExtractBackend: string
+  webKeylessFallback: boolean
+  webKeylessRescue: boolean
   browserCloudProvider: string
+  browserInactivityTimeout: number
+  browserCommandTimeout: number
+  browserRecordSessions: boolean
+  browserCdpUrl: string
+  browserDialogPolicy: string
+  browserDialogTimeout: number
+  browserPersistence: boolean
   imageProvider: string
   apiServerEnabled: boolean
   apiServerHost: string
@@ -140,9 +151,22 @@ interface SettingsState {
   schedulePolicy: string
   scheduleConcurrency: number
   completionNotifications: boolean
+  humanDelayMode: string
+  humanDelayMinMs: number
+  humanDelayMaxMs: number
   clearOnExit: boolean
   debugMode: boolean
   experimentalFeatures: boolean
+  runtimeNofileSoftLimit: number
+  codeExecutionMode: string
+  codeExecutionTimeout: number
+  codeExecutionMaxToolCalls: number
+  mcpResultSizeChars: number
+  genericResultSizeChars: number
+  stallGuards: boolean
+  turnLivenessTimeout: number
+  turnLivenessPoll: number
+  timezone: string
   soulFile: string
   contextFilePriority: string
   leftSidebarVisible: boolean
@@ -204,6 +228,7 @@ const defaults: SettingsState = {
   showReasoning: true,
   showCost: false,
   streaming: true,
+  runtimeFooter: false,
   resumeDisplay: 'full',
   bellOnComplete: false,
   toolPreviewLength: 160,
@@ -246,7 +271,17 @@ const defaults: SettingsState = {
   visionModel: 'Auto vision model',
   visionTimeout: 30,
   webBackend: 'auto',
+  webExtractBackend: 'auto',
+  webKeylessFallback: true,
+  webKeylessRescue: true,
   browserCloudProvider: 'none',
+  browserInactivityTimeout: 120,
+  browserCommandTimeout: 30,
+  browserRecordSessions: false,
+  browserCdpUrl: '',
+  browserDialogPolicy: 'must_respond',
+  browserDialogTimeout: 300,
+  browserPersistence: false,
   imageProvider: 'auto',
   apiServerEnabled: false,
   apiServerHost: '127.0.0.1',
@@ -280,9 +315,22 @@ const defaults: SettingsState = {
   schedulePolicy: 'bounded',
   scheduleConcurrency: 4,
   completionNotifications: true,
+  humanDelayMode: 'off',
+  humanDelayMinMs: 800,
+  humanDelayMaxMs: 2500,
   clearOnExit: false,
   debugMode: false,
   experimentalFeatures: false,
+  runtimeNofileSoftLimit: 4096,
+  codeExecutionMode: 'project',
+  codeExecutionTimeout: 300,
+  codeExecutionMaxToolCalls: 50,
+  mcpResultSizeChars: 50000,
+  genericResultSizeChars: 100000,
+  stallGuards: true,
+  turnLivenessTimeout: 600,
+  turnLivenessPoll: 15,
+  timezone: '',
   soulFile: 'SOUL.md',
   contextFilePriority: '.hermes.md → AGENTS.md → CLAUDE.md → .cursorrules',
   leftSidebarVisible: true,
@@ -313,12 +361,15 @@ const sections: Array<{ id: SectionId; label: string; detail: string; icon: Icon
   { id: 'compression', label: 'Compression & Cache', detail: 'Compaction and context preservation', icon: 'archive', group: 'Context' },
   { id: 'display', label: 'Display & Theme', detail: 'Skin, density, motion and output', icon: 'spark', group: 'Interface' },
   { id: 'layout', label: 'Workspace Layout', detail: 'Panels, dock, rail, widths and chrome', icon: 'layout', group: 'Interface' },
-  { id: 'voice', label: 'Voice & Media', detail: 'TTS, STT, vision and web', icon: 'mic', group: 'Interface' },
+  { id: 'voice', label: 'Voice & Media', detail: 'TTS, STT, vision and media', icon: 'mic', group: 'Interface' },
+  { id: 'web', label: 'Web Search', detail: 'Search/extract backends and keyless fallback', icon: 'search', group: 'Interface' },
+  { id: 'browser', label: 'Browser Automation', detail: 'Sessions, CDP, dialogs and persistence', icon: 'globe', group: 'Interface' },
   { id: 'gateway', label: 'Gateway & Channels', detail: 'API server, streaming and messaging', icon: 'globe', group: 'Integrations' },
   { id: 'mcp', label: 'MCP', detail: 'Servers, discovery and timeouts', icon: 'network', group: 'Integrations' },
   { id: 'automation', label: 'Automation', detail: 'Cron, wake word and background runs', icon: 'calendar', group: 'Operations' },
   { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
   { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
+  { id: 'runtime', label: 'Runtime & Liveness', detail: 'Limits, spillover, code execution and anti-stall', icon: 'activity', group: 'Advanced' },
   { id: 'shortcuts', label: 'Shortcuts', detail: 'Keymap and custom workspace commands', icon: 'command', group: 'Advanced' },
   { id: 'advanced', label: 'Advanced / Raw Config', detail: 'Portable snapshot and expert controls', icon: 'sliders', group: 'Advanced' },
 ]
@@ -834,6 +885,23 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
             </SettingsPage>
           )}
 
+          {section === 'browser' && (
+            <SettingsPage title="Browser Automation" description="Tune persistent browser sessions, CDP attachment and native dialog policy.">
+              <SettingSection title="Session lifecycle">
+                <NumberField label="Inactivity timeout" value={settings.browserInactivityTimeout} onChange={(v) => update('browserInactivityTimeout', v)} suffix="seconds" min={5} max={86400} />
+                <NumberField label="Command timeout" value={settings.browserCommandTimeout} onChange={(v) => update('browserCommandTimeout', v)} suffix="seconds" min={1} max={3600} />
+                <ToggleRow label="Record sessions" detail="Keep browser session recordings available for verification and debugging." enabled={settings.browserRecordSessions} onChange={() => update('browserRecordSessions', !settings.browserRecordSessions)} />
+                <ToggleRow label="Managed persistence" detail="Keep browser cookies and login state across restarts when the backend supports it." enabled={settings.browserPersistence} onChange={() => update('browserPersistence', !settings.browserPersistence)} />
+              </SettingSection>
+              <SettingSection title="CDP & dialogs">
+                <TextField label="CDP URL" value={settings.browserCdpUrl} onChange={(v) => update('browserCdpUrl', v)} placeholder="http://127.0.0.1:9222" />
+                <SelectField label="Dialog policy" value={settings.browserDialogPolicy} onChange={(v) => update('browserDialogPolicy', v)} options={['must_respond', 'auto_dismiss', 'auto_accept']} />
+                <NumberField label="Dialog timeout" value={settings.browserDialogTimeout} onChange={(v) => update('browserDialogTimeout', v)} suffix="seconds" min={1} max={3600} />
+              </SettingSection>
+              <InfoBanner icon="globe" title="Browser safety" text="Dialog policy only affects browser UI behavior. Host permissions and credentials remain controlled by the runtime boundary." />
+            </SettingsPage>
+          )}
+
           {section === 'gateway' && (
             <SettingsPage title="Gateway & Channels" description="Model the messaging gateway, API server and per-platform output behavior.">
               <SettingSection title="API server">
@@ -883,6 +951,32 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
                 <NumberField label="Max scheduled concurrency" value={settings.scheduleConcurrency} onChange={(v) => update('scheduleConcurrency', v)} suffix="runs" min={1} max={32} />
                 <ToggleRow label="Notify on completion" detail="Send a notification when a background run finishes." enabled={settings.completionNotifications} onChange={() => update('completionNotifications', !settings.completionNotifications)} />
               </SettingSection>
+            </SettingsPage>
+          )}
+
+          {section === 'runtime' && (
+            <SettingsPage title="Runtime & Liveness" description="Expose Hermes-style runtime safeguards for long sessions, large results and code execution.">
+              <SettingSection title="Runtime limits">
+                <NumberField label="NOFILE soft limit" value={settings.runtimeNofileSoftLimit} onChange={(v) => update('runtimeNofileSoftLimit', v)} suffix="descriptors" min={0} max={1048576} />
+                <NumberField label="Generic spillover threshold" value={settings.genericResultSizeChars} onChange={(v) => update('genericResultSizeChars', v)} suffix="chars" min={1000} max={10000000} />
+                <NumberField label="MCP spillover threshold" value={settings.mcpResultSizeChars} onChange={(v) => update('mcpResultSizeChars', v)} suffix="chars" min={1000} max={10000000} />
+              </SettingSection>
+              <SettingSection title="Code execution">
+                <SelectField label="Execution mode" value={settings.codeExecutionMode} onChange={(v) => update('codeExecutionMode', v)} options={['project', 'strict']} />
+                <NumberField label="Execution timeout" value={settings.codeExecutionTimeout} onChange={(v) => update('codeExecutionTimeout', v)} suffix="seconds" min={1} max={3600} />
+                <NumberField label="Max tool calls" value={settings.codeExecutionMaxToolCalls} onChange={(v) => update('codeExecutionMaxToolCalls', v)} suffix="calls" min={0} max={10000} />
+              </SettingSection>
+              <SettingSection title="Anti-stall">
+                <ToggleRow label="Stall guards" detail="Break repeated identical tool calls and trigger bounded continuation recovery." enabled={settings.stallGuards} onChange={() => update('stallGuards', !settings.stallGuards)} />
+                <NumberField label="Turn liveness timeout" value={settings.turnLivenessTimeout} onChange={(v) => update('turnLivenessTimeout', v)} suffix="seconds" min={0} max={86400} />
+                <NumberField label="Liveness poll interval" value={settings.turnLivenessPoll} onChange={(v) => update('turnLivenessPoll', v)} suffix="seconds" min={1} max={3600} />
+              </SettingSection>
+              <SettingSection title="Messaging pacing">
+                <SelectField label="Human delay" value={settings.humanDelayMode} onChange={(v) => update('humanDelayMode', v)} options={['off', 'natural', 'custom']} />
+                <NumberField label="Minimum delay" value={settings.humanDelayMinMs} onChange={(v) => update('humanDelayMinMs', v)} suffix="ms" min={0} max={60000} />
+                <NumberField label="Maximum delay" value={settings.humanDelayMaxMs} onChange={(v) => update('humanDelayMaxMs', v)} suffix="ms" min={0} max={60000} />
+              </SettingSection>
+              <InfoBanner icon="shield" title="Fail-safe runtime controls" text="These settings describe runtime policy but do not grant permissions from the React UI. Backend enforcement remains authoritative." />
             </SettingsPage>
           )}
 
@@ -937,6 +1031,7 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
               <SettingSection title="Diagnostics">
                 <ToggleRow label="Debug mode" detail="Expose additional UI diagnostics and structured state metadata." enabled={settings.debugMode} onChange={() => update('debugMode', !settings.debugMode)} />
                 <ToggleRow label="Experimental features" detail="Show experimental frontend surfaces before backend contracts are connected." enabled={settings.experimentalFeatures} onChange={() => update('experimentalFeatures', !settings.experimentalFeatures)} />
+                <ToggleRow label="Gateway runtime footer" detail="Show model/context/CWD metadata when the runtime exposes final gateway output." enabled={settings.runtimeFooter} onChange={() => update('runtimeFooter', !settings.runtimeFooter)} />
                 <TextField label="Primary identity file" value={settings.soulFile} onChange={(v) => update('soulFile', v)} />
                 <TextField label="Context file precedence" value={settings.contextFilePriority} onChange={(v) => update('contextFilePriority', v)} />
                 <div className="advanced-grid"><div><span>Config schema</span><strong>Hermes-inspired v2</strong></div><div><span>Persistence</span><strong>Local preview</strong></div><div><span>Secret store</span><strong>Runtime-owned</strong></div><div><span>Runtime bridge</span><strong>Typed service boundary</strong></div></div>
@@ -1026,6 +1121,7 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       resume_display: settings.resumeDisplay,
       bell_on_complete: settings.bellOnComplete,
       tool_preview_length: settings.toolPreviewLength,
+      runtime_footer: settings.runtimeFooter,
       skin: settings.theme,
     },
     voice: {
@@ -1035,8 +1131,20 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
     },
     web: {
       backend: settings.webBackend,
+      extract_backend: settings.webExtractBackend,
+      keyless_fallback: settings.webKeylessFallback,
+      keyless_rescue: settings.webKeylessRescue,
       browser_cloud_provider: settings.browserCloudProvider,
       image_provider: settings.imageProvider,
+    },
+    browser: {
+      inactivity_timeout: settings.browserInactivityTimeout,
+      command_timeout: settings.browserCommandTimeout,
+      record_sessions: settings.browserRecordSessions,
+      cdp_url: settings.browserCdpUrl,
+      dialog_policy: settings.browserDialogPolicy,
+      dialog_timeout: settings.browserDialogTimeout,
+      managed_persistence: settings.browserPersistence,
     },
     gateway: {
       multiplex_profiles: settings.multiplexProfiles,
@@ -1070,6 +1178,23 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       cli_preset: settings.cliToolsetPreset,
       messaging_preset: settings.messagingToolsetPreset,
     },
+    runtime: {
+      nofile_soft_limit: settings.runtimeNofileSoftLimit,
+      code_execution: {
+        mode: settings.codeExecutionMode,
+        timeout: settings.codeExecutionTimeout,
+        max_tool_calls: settings.codeExecutionMaxToolCalls,
+      },
+      tool_budget: {
+        generic_result_size_chars: settings.genericResultSizeChars,
+        mcp_result_size_chars: settings.mcpResultSizeChars,
+      },
+      stall_guards: settings.stallGuards,
+      turn_liveness: {
+        timeout_s: settings.turnLivenessTimeout,
+        poll_s: settings.turnLivenessPoll,
+      },
+    },
     automation: {
       cron_enabled: settings.cronEnabled,
       wake_enabled: settings.wakeEnabled,
@@ -1077,6 +1202,11 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       schedule_policy: settings.schedulePolicy,
       schedule_concurrency: settings.scheduleConcurrency,
       completion_notifications: settings.completionNotifications,
+      human_delay: {
+        mode: settings.humanDelayMode,
+        min_ms: settings.humanDelayMinMs,
+        max_ms: settings.humanDelayMaxMs,
+      },
     },
     security: {
       safe_mode: settings.safeMode,

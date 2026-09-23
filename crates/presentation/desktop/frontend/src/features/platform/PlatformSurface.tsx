@@ -32,6 +32,8 @@ const MemoryStudio = lazy(() => import('./MemoryStudio'))
 const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
 const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
 const FrontendCompletenessStudio = lazy(() => import('./FrontendCompletenessStudio').then((module) => ({ default: module.FrontendCompletenessStudio })))
+const FinalControlSuite = lazy(() => import('./FinalControlSuite').then((module) => ({ default: module.FinalControlSuite })))
+import './FinalControlSuite.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
@@ -62,6 +64,15 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   function notify(message: string) {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 2200)
+  }
+
+  if (mode === 'teams' || mode === 'advanced-context' || mode === 'usage' || mode === 'observability' || mode === 'release' || mode === 'customization' || mode === 'help' || mode === 'recovery') {
+    return (
+      <Shell>
+        <FinalControlSuite mode={mode === 'advanced-context' ? 'context' : mode} onAction={notify} />
+        <Toast message={notice} />
+      </Shell>
+    )
   }
 
   if (mode === 'evaluations' || mode === 'skills' || mode === 'mcp' || mode === 'providers' || mode === 'browser' || mode === 'computer' || mode === 'credentials' || mode === 'plugins' || mode === 'imports' || mode === 'sessions' || mode === 'onboarding' || mode === 'qa') {

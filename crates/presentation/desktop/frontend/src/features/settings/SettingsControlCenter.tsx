@@ -8,6 +8,7 @@ const CapabilityRegistry = lazy(() => import('../runtime/CapabilityRegistry'))
 const SetupChecklist = lazy(() => import('./SetupChecklist'))
 const ScopeResolverPreview = lazy(() => import('./ScopeResolverPreview'))
 const ThemeStudio = lazy(() => import('./ThemeStudio'))
+const WorkspacePresetPicker = lazy(() => import('./WorkspacePresetPicker'))
 import {
   type SettingsScope,
   type SettingsStore,
@@ -731,6 +732,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Select label="Density" value={state.density} options={densities} onChange={(value) => update('density', value)} />
                 <Toggle label="Reduced motion" value={state.reducedMotion} onChange={(value) => update('reducedMotion', value)} />
                 <Toggle label="Compact sidebar" value={state.compactSidebar} onChange={(value) => update('compactSidebar', value)} />
+              </ControlSection>
+              <ControlSection title="Workspace presets">
+                <LazyPanel><WorkspacePresetPicker /></LazyPanel>
               </ControlSection>
               <ControlSection title="Workspace layout">
                 <Toggle label="Split terminals" value={state.splitTerminal} onChange={(value) => update('splitTerminal', value)} />

@@ -54,7 +54,8 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
     'Primary user flow remains keyboard accessible',
     'Changed surfaces have explicit verification evidence',
   ])
-  const [goalProgress, setGoalProgress] = useState(62)
+  const [completedCriteria, setCompletedCriteria] = useState<Set<number>>(() => new Set([0, 1]))
+  const goalProgress = Math.round((completedCriteria.size / successCriteria.length) * 100)
 
   const activeMode = useMemo(() => modes.find(([id]) => id === mode) ?? modes[2], [mode])
 
@@ -102,7 +103,7 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
             {goalMode && <div className="mission-control__goalbody">
               <div className="mission-control__goalprogress"><span>Outcome progress</span><b>{goalProgress}%</b><div><i style={{ width: goalProgress + '%' }} /></div></div>
               <div className="mission-control__criteria">
-                {successCriteria.map((criterion, index) => <label key={criterion}><input type="checkbox" checked={index < 2} onChange={() => setGoalProgress((value) => Math.min(100, value + (index === 2 ? 8 : -4)))} /><span>{criterion}</span></label>)}
+                {successCriteria.map((criterion, index) => <label key={criterion}><input type="checkbox" checked={completedCriteria.has(index)} onChange={() => setCompletedCriteria((current) => { const next = new Set(current); next.has(index) ? next.delete(index) : next.add(index); return next })} /><span>{criterion}</span></label>)}
               </div>
               <button className="studio-button" type="button" onClick={() => setSuccessCriteria((current) => [...current, 'Final handoff package is complete'].slice(-4))}>Add success criterion</button>
             </div>}

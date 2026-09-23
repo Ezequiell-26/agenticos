@@ -3,7 +3,7 @@ import Icon, { type IconName } from '../../components/Icon'
 import SettingsStudio from './SettingsStudio'
 
 type Scope = 'global' | 'project' | 'session' | 'agent'
-type SectionId = 'overview' | 'ai' | 'context' | 'execution' | 'browser' | 'customizations' | 'cloud' | 'interface' | 'data'
+type SectionId = 'overview' | 'ai' | 'context' | 'execution' | 'browser' | 'customizations' | 'cloud' | 'developer' | 'interface' | 'data'
 
 interface ControlState {
   scope: Scope
@@ -82,6 +82,32 @@ interface ControlState {
   privacyMode: boolean
   costTracking: boolean
   usageLimit: number
+  editorFontSize: number
+  editorTabSize: number
+  wordWrap: string
+  minimap: boolean
+  breadcrumbs: boolean
+  formatOnSave: boolean
+  codeActionsOnSave: boolean
+  inlineSuggestions: boolean
+  tabAutocomplete: boolean
+  autocompleteModel: string
+  autocompleteDelay: number
+  semanticHighlighting: boolean
+  gitPanel: boolean
+  autoStageAgentChanges: boolean
+  generatedCommitMessages: boolean
+  branchDiffs: boolean
+  conflictResolver: boolean
+  verifyOnCompletion: boolean
+  verificationCommand: string
+  artifactPreview: boolean
+  autoAttachArtifacts: boolean
+  goalRetention: boolean
+  steeringWhileRunning: boolean
+  loopCheckInterval: number
+  remoteControl: boolean
+  remoteNickname: string
 }
 
 const defaults: ControlState = {
@@ -161,6 +187,32 @@ const defaults: ControlState = {
   privacyMode: true,
   costTracking: true,
   usageLimit: 100,
+  editorFontSize: 13,
+  editorTabSize: 2,
+  wordWrap: 'off',
+  minimap: false,
+  breadcrumbs: true,
+  formatOnSave: false,
+  codeActionsOnSave: true,
+  inlineSuggestions: true,
+  tabAutocomplete: true,
+  autocompleteModel: 'Auto route',
+  autocompleteDelay: 80,
+  semanticHighlighting: true,
+  gitPanel: true,
+  autoStageAgentChanges: false,
+  generatedCommitMessages: true,
+  branchDiffs: true,
+  conflictResolver: true,
+  verifyOnCompletion: true,
+  verificationCommand: 'npm test && npm run verify',
+  artifactPreview: true,
+  autoAttachArtifacts: true,
+  goalRetention: true,
+  steeringWhileRunning: true,
+  loopCheckInterval: 30,
+  remoteControl: false,
+  remoteNickname: 'this workstation',
 }
 
 const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName }> = [
@@ -171,6 +223,7 @@ const sections: Array<{ id: SectionId; label: string; detail: string; icon: Icon
   { id: 'browser', label: 'Browser & Web', detail: 'Browser agent, DevTools and web context', icon: 'globe' },
   { id: 'customizations', label: 'Customizations', detail: 'Rules, skills, plugins, MCP, agents and hooks', icon: 'spark' },
   { id: 'cloud', label: 'Cloud & Automations', detail: 'Background agents, worktrees, artifacts and triggers', icon: 'cloud' },
+  { id: 'developer', label: 'Editor, Git & Verification', detail: 'Autocomplete, VCS, task verification, artifacts and goals', icon: 'code' },
   { id: 'interface', label: 'Interface & Performance', detail: 'Theme, density, panels and rendering efficiency', icon: 'layout' },
   { id: 'data', label: 'Data & Usage', detail: 'Privacy, telemetry, cost and local state', icon: 'database' },
 ]
@@ -492,6 +545,50 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <InfoLine title="Actions" detail="Run agents, review changes, comment on pull requests, send notifications and invoke MCP." />
               </ControlSection>
               <InfoCallout icon="cloud" title="Keep the foreground light" text="The control plane exposes long-running workloads without mounting their full histories. Detailed run timelines remain isolated in the Operations surfaces." />
+            </ControlPage>
+          )}
+
+          {section === 'developer' && (
+            <ControlPage title="Editor, Git & Verification" description="IDE-level controls for code editing, inline completion, version control, verification and long-running task workflows.">
+              <ControlSection title="Editor">
+                <Number label="Editor font size" value={state.editorFontSize} suffix="px" min={10} max={24} onChange={(value) => update('editorFontSize', value)} />
+                <Number label="Tab size" value={state.editorTabSize} suffix="spaces" min={1} max={8} onChange={(value) => update('editorTabSize', value)} />
+                <Select label="Word wrap" value={state.wordWrap} options={['off', 'bounded', 'on']} onChange={(value) => update('wordWrap', value)} />
+                <Toggle label="Minimap" value={state.minimap} onChange={(value) => update('minimap', value)} />
+                <Toggle label="Breadcrumbs" value={state.breadcrumbs} onChange={(value) => update('breadcrumbs', value)} />
+                <Toggle label="Semantic highlighting" value={state.semanticHighlighting} onChange={(value) => update('semanticHighlighting', value)} />
+                <Toggle label="Format on save" value={state.formatOnSave} onChange={(value) => update('formatOnSave', value)} />
+                <Toggle label="Code actions on save" value={state.codeActionsOnSave} onChange={(value) => update('codeActionsOnSave', value)} />
+              </ControlSection>
+              <ControlSection title="Autocomplete & Tab">
+                <Toggle label="Inline suggestions" value={state.inlineSuggestions} onChange={(value) => update('inlineSuggestions', value)} />
+                <Toggle label="Tab autocomplete" value={state.tabAutocomplete} onChange={(value) => update('tabAutocomplete', value)} />
+                <Select label="Autocomplete model" value={state.autocompleteModel} options={models} onChange={(value) => update('autocompleteModel', value)} />
+                <Number label="Suggestion delay" value={state.autocompleteDelay} suffix="ms" min={0} max={2000} onChange={(value) => update('autocompleteDelay', value)} />
+              </ControlSection>
+              <ControlSection title="Git / VCS">
+                <Toggle label="VCS review panel" value={state.gitPanel} onChange={(value) => update('gitPanel', value)} />
+                <Toggle label="Auto-stage agent changes" value={state.autoStageAgentChanges} onChange={(value) => update('autoStageAgentChanges', value)} />
+                <Toggle label="Generated commit messages" value={state.generatedCommitMessages} onChange={(value) => update('generatedCommitMessages', value)} />
+                <Toggle label="Branch diffs" value={state.branchDiffs} onChange={(value) => update('branchDiffs', value)} />
+                <Toggle label="Conflict resolver" value={state.conflictResolver} onChange={(value) => update('conflictResolver', value)} />
+              </ControlSection>
+              <ControlSection title="Task verification & artifacts">
+                <Toggle label="Verify on completion" value={state.verifyOnCompletion} onChange={(value) => update('verifyOnCompletion', value)} />
+                <Text label="Verification command" value={state.verificationCommand} onChange={(value) => update('verificationCommand', value)} placeholder="Test/verify command…" />
+                <Toggle label="Artifact preview" value={state.artifactPreview} onChange={(value) => update('artifactPreview', value)} />
+                <Toggle label="Auto-attach artifacts" value={state.autoAttachArtifacts} onChange={(value) => update('autoAttachArtifacts', value)} />
+              </ControlSection>
+              <ControlSection title="Long-running goals">
+                <Toggle label="Retain long-lived goals" value={state.goalRetention} onChange={(value) => update('goalRetention', value)} />
+                <Toggle label="Steer agent while running" value={state.steeringWhileRunning} onChange={(value) => update('steeringWhileRunning', value)} />
+                <Number label="Loop/check interval" value={state.loopCheckInterval} suffix="seconds" min={5} max={3600} onChange={(value) => update('loopCheckInterval', value)} />
+              </ControlSection>
+              <ControlSection title="Remote control">
+                <Toggle label="Remote control" value={state.remoteControl} onChange={(value) => update('remoteControl', value)} />
+                <Text label="Machine nickname" value={state.remoteNickname} onChange={(value) => update('remoteNickname', value)} />
+              </ControlSection>
+              <InfoCallout icon="code" title="Verification remains explicit" text="Editor, Git, task verification, artifacts and remote control are presentation controls. Actual writes, commands, tests and remote sessions stay behind runtime-owned contracts." />
             </ControlPage>
           )}
 

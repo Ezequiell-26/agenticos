@@ -142,3 +142,5 @@
 .developer-voice-queue { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
 .developer-voice-list { grid-column:1/-1; display:grid; gap:4px; }
 .developer-voice-list span { padding:6px 8px; border:1px solid #1d1d1d; border-radius:6px; background:#101010; color:#777; font-size:6px; }
+
+.developer-appshot-chip{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid #2c2c2c;border-radius:7px;background:#111;color:#777;box-shadow:0 10px 25px rgba(0,0,0,.25)}.developer-appshot-chip>span{display:flex;flex-direction:column;gap:2px}.developer-appshot-chip strong{font-size:7px;color:#aaa}.developer-appshot-chip small{font-size:5px;color:#555}.developer-browser-frame__canvas{position:relative}

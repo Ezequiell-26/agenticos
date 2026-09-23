@@ -36,6 +36,11 @@ export default function BrowserWorkspace({ onAction }: { onAction: (message: str
   const [url, setUrl] = useState('https://example.local')
   const [tabs, setTabs] = useState(['Example app'])
   const [activeTab, setActiveTab] = useState('Example app')
+  const [annotationMode, setAnnotationMode] = useState(false)
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([])
+  const [readOnlyJs, setReadOnlyJs] = useState(true)
+  const [assetPanel, setAssetPanel] = useState(false)
+  const [tabGroup, setTabGroup] = useState('Workspace')
 
   function addTab() {
     const next = 'Tab ' + String(tabs.length + 1)
@@ -47,6 +52,10 @@ export default function BrowserWorkspace({ onAction }: { onAction: (message: str
   return (
     <div className="browser-workspace">
       <div className="browser-session-bar">
+        <div className="browser-tab-group">
+          <span className="eyebrow">Group</span>
+          <select value={tabGroup} onChange={(event)=>setTabGroup(event.target.value)} aria-label="Browser tab group"><option>Workspace</option><option>Research</option><option>Design</option><option>QA</option></select>
+        </div>
         <div className="browser-tab-strip">
           {tabs.map((item) => <button key={item} type="button" className={activeTab === item ? 'browser-session-tab browser-session-tab--active' : 'browser-session-tab'} onClick={() => setActiveTab(item)}><Icon name="globe" size={11} />{item}</button>)}
           <button className="icon-button" type="button" onClick={addTab} aria-label="New browser tab"><Icon name="plus" size={13} /></button>
@@ -59,18 +68,19 @@ export default function BrowserWorkspace({ onAction }: { onAction: (message: str
         <button className="icon-button" type="button" onClick={() => onAction('Forward navigation staged in preview')} aria-label="Forward"><Icon name="chevron-right" size={14} /></button>
         <button className="icon-button" type="button" onClick={() => onAction('Page refresh staged in preview')} aria-label="Refresh"><Icon name="history" size={14} /></button>
         <div className="browser-address"><span className="status-dot status-dot--live" /><input value={url} onChange={(event) => setUrl(event.target.value)} aria-label="Browser URL" /><button type="button" onClick={() => onAction('Navigation recorded for ' + url)}>Go</button></div>
-        <button className="studio-button" type="button" onClick={() => onAction('New isolated browser context staged in preview')}><Icon name="shield" size={13} /> Isolate</button>
+        <button className={annotationMode ? 'studio-button studio-button--active' : 'studio-button'} type="button" aria-pressed={annotationMode} onClick={()=>setAnnotationMode((value)=>!value)}><Icon name="layout" size={13} /> {annotationMode ? 'Annotate on' : 'Annotate'}</button><button className="studio-button" type="button" onClick={() => onAction('New isolated browser context staged in preview')}><Icon name="shield" size={13} /> Isolate</button>
       </div>
 
       <div className="browser-workspace__body">
         <div className="browser-page">
           <div className="browser-page__head"><span>example.local</span><div><span>DOM 412</span><span>JS ready</span><span>Storage 3</span></div></div>
           <div className="browser-page__canvas">
-            <div className="browser-page__hero">
+            <div className={annotationMode ? "browser-page__hero browser-page__hero--annotation" : "browser-page__hero"}>
+              {annotationMode && <span className="browser-annotation-hint">Design annotation mode · click a target to scope the next agent instruction</span>}
               <span className="eyebrow">Example app</span>
               <h2>Interactive browser preview</h2>
               <p>This surface represents the page an agent can inspect, click, fill, screenshot and verify later through a real browser runtime.</p>
-              <div className="browser-page__actions"><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Page action clicked in preview')}><Icon name="play" size={13} /> Run action</button><button className="studio-button" type="button" onClick={() => onAction('Screenshot capture staged in preview')}>Screenshot</button></div>
+              <div className="browser-page__actions"><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Page action clicked in preview')}><Icon name="play" size={13} /> Run action</button><button className="studio-button" type="button" onClick={() => onAction('Screenshot capture staged in preview')}>Screenshot</button><button className={assetPanel ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={()=>setAssetPanel((value)=>!value)}><Icon name="archive" size={13}/> Assets</button></div>
             </div>
           </div>
         </div>
@@ -80,8 +90,12 @@ export default function BrowserWorkspace({ onAction }: { onAction: (message: str
             {(['Page', 'DOM', 'Console', 'Network', 'Storage'] as BrowserTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'browser-inspector__tab browser-inspector__tab--active' : 'browser-inspector__tab'} onClick={() => setTab(item)}>{item}</button>)}
           </div>
           <div className="browser-inspector__body">
-            {tab === 'Page' && <div className="browser-inspector-stack"><Metric label="URL" value={url} /><Metric label="Viewport" value="1440 × 900" /><Metric label="DOM nodes" value="412" /><Metric label="Session" value="Isolated" /><div className="callout"><Icon name="globe" size={13} /><span>Browser actions shown here are visual previews; no live browser session is opened by the frontend.</span></div></div>}
-            {tab === 'DOM' && <div className="browser-tree">{dom.map(([name, type, meta]) => <button type="button" key={name} onClick={() => onAction('Selected DOM node ' + name)}><span>{name}</span><div><strong>{type}</strong><small>{meta}</small></div><Icon name="chevron-right" size={12} /></button>)}</div>}
+            {tab === 'Page' && <div className="browser-inspector-stack">
+              <div className="browser-inspector-feature"><div><span className="eyebrow">Annotation scope</span><strong>{selectedNodes.length ? selectedNodes.join(' · ') : 'No target selected'}</strong><small>{annotationMode ? 'Click-to-target ready' : 'Annotation mode off'}</small></div><button className="studio-button" type="button" onClick={()=>{setSelectedNodes([]);onAction('Browser annotation selection cleared')}}>Clear</button></div>
+              {assetPanel && <div className="browser-inspector-feature"><div><span className="eyebrow">Asset extraction</span><strong>18 assets discovered</strong><small>Images 12 · styles 4 · fonts 2</small></div><button className="studio-button studio-button--active" type="button" onClick={()=>onAction('Browser asset extraction staged in preview')}>Extract</button></div>
+              }
+              <div className="browser-inspector-feature"><div><span className="eyebrow">Script context</span><strong>{readOnlyJs ? 'Read-only JS context' : 'JS context disabled'}</strong><small>No mutation permissions in this presentation surface.</small></div><button className={readOnlyJs ? 'studio-button studio-button--active' : 'studio-button'} type="button" aria-pressed={readOnlyJs} onClick={()=>setReadOnlyJs((value)=>!value)}>{readOnlyJs ? 'Enabled' : 'Enable'}</button></div><Metric label="URL" value={url} /><Metric label="Viewport" value="1440 × 900" /><Metric label="DOM nodes" value="412" /><Metric label="Session" value="Isolated" /><div className="callout"><Icon name="globe" size={13} /><span>Browser actions shown here are visual previews; no live browser session is opened by the frontend.</span></div></div>}
+            {tab === 'DOM' && <div className="browser-tree">{dom.map(([name, type, meta]) => <button type="button" key={name} aria-pressed={selectedNodes.includes(name)} className={selectedNodes.includes(name) ? 'browser-tree__node browser-tree__node--selected' : 'browser-tree__node'} onClick={() => { setSelectedNodes((current) => current.includes(name) ? current.filter((item)=>item!==name) : [...current,name].slice(-5)); onAction('Selected DOM node ' + name) }}><span>{name}</span><div><strong>{type}</strong><small>{meta}</small></div><Icon name="chevron-right" size={12} /></button>)}</div>}
             {tab === 'Console' && <div className="browser-log-list">{consoleLines.map(([level, message, detail]) => <div key={message}><span className="mono-text">{level}</span><div><strong>{message}</strong><small>{detail}</small></div></div>)}</div>}
             {tab === 'Network' && <div className="browser-network-list">{network.map(([method, path, status, duration]) => <div key={method + path}><span className="mono-text">{method}</span><div><strong>{path}</strong><small>{duration}</small></div><span className="state-pill state-pill--pending">{status}</span></div>)}</div>}
             {tab === 'Storage' && <div className="browser-storage-list">{storage.map(([key, value, scope]) => <div key={key}><div><strong>{key}</strong><small>{scope}</small></div><span>{value}</span></div>)}</div>}

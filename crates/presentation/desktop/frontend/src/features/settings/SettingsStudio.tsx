@@ -439,7 +439,7 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
       notify('A profile with that name already exists')
       return
     }
-    const profile: Profile = { id, name, description: 'New isolated agent profile', model: settings.defaultModel, provider: settings.defaultProvider, agent: settings.defaultAgent, active: false }
+    const profile: Profile = { id, name, description: 'New isolated agent profile', model: settings.defaultModel, provider: settings.defaultProvider, agent: settings.defaultAgent, active: false, gatewayEnabled: false, skillsCount: 0, mcpCount: 0 }
     setProfiles((current) => [...current, profile])
     setNewProfile('')
     setDirty(true)

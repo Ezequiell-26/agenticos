@@ -35,7 +35,7 @@ const fallbackStatus: AgentStatusSnapshot = {
 
 const modeStorageKey = 'agenticos.ui.mode'
 const sessionStorageKey = 'agenticos.ui.session'
-const railModes: RailMode[] = ['chat', 'files', 'runs', 'providers', 'skills', 'tools', 'memory', 'workflows', 'artifacts', 'terminal', 'settings']
+const railModes: RailMode[] = ['chat', 'files', 'runs', 'approvals', 'observability', 'agents', 'prompts', 'providers', 'skills', 'tools', 'memory', 'workflows', 'artifacts', 'terminal', 'settings']
 
 function readStoredMode(): RailMode {
   try {

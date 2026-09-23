@@ -310,3 +310,22 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: browser visual verification, Windows/Tauri rendering, accessibility audit and live backend integration.
 - Rollback point: `b638e6d7d31b510707fd89e9a577e36043d512a2`.
 - Next step: inspect the integrated CI/build result, then perform browser-level visual verification when a runnable frontend is available.
+## Frontend hardening: recovery and route coverage — 2026-09-24
+
+- Scope: frontend-only reliability and governance hardening.
+- User-visible effect: added a shell-level render recovery screen so a React rendering failure becomes a recoverable workspace state instead of a blank desktop surface.
+- Architecture correction: the legacy compatibility chat now receives an injected `onSend` service operation and contains no direct HTTP/API call.
+- Governance correction: `scripts/verify-frontend-architecture.mjs` now checks that every registered navigation mode resolves to a visual route, verifies shell safeguard files, and rejects direct HTTP calls from the compatibility chat component.
+- Created:
+  - `crates/presentation/desktop/frontend/src/components/AppErrorBoundary.tsx`
+- Modified:
+  - `crates/presentation/desktop/frontend/src/components/ChatInterface.tsx`
+  - `crates/presentation/desktop/frontend/src/main.tsx`
+  - `crates/presentation/desktop/frontend/src/index.css`
+  - `scripts/verify-frontend-architecture.mjs`
+- Deleted: none.
+- Preserved: all 59 navigation surfaces, Cursor/Hermes-inspired feature work, Rust runtime, runtime service contracts and sequential implementation state.
+- Verification evidence: source inspection confirms the recovery wrapper, service-boundary chat signature and route-coverage verifier are present.
+- Unverified checks: latest CI conclusion, browser visual verification, Windows/Tauri rendering and full accessibility audit.
+- Rollback point: `8e8a907792883deeab37661b0189909c47c21014`.
+- Next step: use the resulting CI evidence to complete browser-level visual regression coverage of the primary workspace flows.

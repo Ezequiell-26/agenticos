@@ -1116,3 +1116,9 @@ Verification status:
 - Scoped result-navigation shortcuts to active search fields so Enter/Arrow actions on modal controls retain their native behavior.
 - Made Tab cycling resilient when focus temporarily falls outside the expected control set.
 - Preserved Escape-based recovery and focus restoration across both search overlays.
+
+## 2026-09-24 — Frontend State Matrix contract enforcement
+
+- State Matrix previews now disable primary/retry actions for permission and approval-blocked states instead of presenting them as executable.
+- Added state selection semantics and a live preview region so state transitions are explicit to keyboard and assistive-technology users.
+- Kept all state actions presentation-only and aligned with the matrix's existing fail-closed UX contract.

@@ -2,20 +2,20 @@
 #![warn(missing_docs)]
 
 //! AgentiCOS Brain - Central intelligence platform
-//! 
+//!
 //! The Brain is the center of the AgentiCOS system:
 //! - Reasoning, planning, orchestration
 //! - Memory, knowledge, execution
 //! - Evaluation, learning, capability discovery
 //! - Resource management
-//! 
+//!
 //! The Brain never depends structurally on a concrete repository, provider, model, MCP or tool.
 
 pub mod capability_registry;
-pub mod source_intelligence;
-pub mod resource_governor;
 pub mod knowledge_base;
 pub mod reasoning_engine;
+pub mod resource_governor;
+pub mod source_intelligence;
 
 pub use capability_registry::{CapabilityRegistry, RegistryConfig, RegistryStats};
 
@@ -54,25 +54,13 @@ pub type License = String;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CapabilityOrigin {
     /// Code integrated directly into core
-    IntegratedCode {
-        repo: RepoId,
-        commit: CommitHash,
-    },
+    IntegratedCode { repo: RepoId, commit: CommitHash },
     /// Adapted through plugin adapter
-    AdaptedPlugin {
-        repo: RepoId,
-        adapter: CapabilityId,
-    },
+    AdaptedPlugin { repo: RepoId, adapter: CapabilityId },
     /// Runs in isolated process
-    IsolatedProcess {
-        repo: RepoId,
-        sandbox: CapabilityId,
-    },
+    IsolatedProcess { repo: RepoId, sandbox: CapabilityId },
     /// Knowledge source (indexed, not executed)
-    KnowledgeSource {
-        repo: RepoId,
-        indexed: bool,
-    },
+    KnowledgeSource { repo: RepoId, indexed: bool },
 }
 
 /// Capability metadata
@@ -178,25 +166,25 @@ pub struct SourceLocation {
 pub enum BrainError {
     #[error("Capability not found: {0}")]
     CapabilityNotFound(CapabilityId),
-    
+
     #[error("Invalid capability version: {0}")]
     InvalidVersion(String),
-    
+
     #[error("Dependency conflict: {0}")]
     DependencyConflict(String),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Resource limit exceeded: {0}")]
     ResourceLimitExceeded(String),
-    
+
     #[error("Knowledge base error: {0}")]
     KnowledgeBaseError(String),
-    
+
     #[error("Source intelligence error: {0}")]
     SourceIntelligenceError(String),
-    
+
     #[error("Reasoning engine error: {0}")]
     ReasoningEngineError(String),
 }
@@ -231,10 +219,10 @@ mod tests {
             repo: "test-repo".to_string(),
             commit: "abc123".to_string(),
         };
-        
+
         let serialized = serde_json::to_string(&origin).unwrap();
         let deserialized: CapabilityOrigin = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(origin, deserialized);
     }
 

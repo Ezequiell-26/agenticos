@@ -72,10 +72,10 @@ impl KnowledgeBase {
     /// Store knowledge
     pub async fn store(&self, entry: KnowledgeEntry) -> Result<(), BrainError> {
         self.storage.store(entry.key.clone(), entry.clone()).await?;
-        
+
         let mut index = self.index.write().await;
         index.index_entry(entry);
-        
+
         Ok(())
     }
 
@@ -164,7 +164,7 @@ mod tests {
     async fn test_knowledge_base() {
         let storage = Arc::new(InMemoryKnowledgeStorage::new());
         let kb = KnowledgeBase::new(storage, KnowledgeConfig::default());
-        
+
         let entry = KnowledgeEntry {
             key: "test-key".to_string(),
             content: "Test content".to_string(),
@@ -188,9 +188,9 @@ mod tests {
                 },
             },
         };
-        
+
         kb.store(entry.clone()).await.unwrap();
-        
+
         let retrieved = kb.retrieve("test-key").await.unwrap();
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().key, "test-key");

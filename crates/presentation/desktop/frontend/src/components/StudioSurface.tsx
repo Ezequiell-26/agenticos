@@ -11,6 +11,7 @@ import AgentBuilder from '../features/agents/AgentBuilder'
 import PromptStudio from '../features/prompts/PromptStudio'
 import SettingsSurface from './SettingsSurface'
 import CodeEditorSurface from '../features/editor/CodeEditorSurface'
+import RunTimeline from '../features/runs/RunTimeline'
 
 type Toast = { id: number; message: string }
 
@@ -109,8 +110,6 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   const [toasts, setToasts] = useState<Toast[]>([])
   const [terminalLines, setTerminalLines] = useState(terminalWelcome)
   const [terminalInput, setTerminalInput] = useState('')
-  const [runFilter, setRunFilter] = useState<'All' | 'Active' | 'Completed'>('All')
-  const [selectedRun, setSelectedRun] = useState('RUN-042')
   const [artifactSelected, setArtifactSelected] = useState(artifacts[0][0])
 
   function notify(message: string) {
@@ -216,33 +215,12 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     </section>
   )
 
-  if (mode === 'runs') {
-    const runs = [
-      ['RUN-042', 'Frontend modernization', 'Active', '14 min'],
-      ['RUN-041', 'Provider audit', 'Completed', '8 min'],
-      ['RUN-040', 'Architecture check', 'Completed', '4 min'],
-      ['RUN-039', 'Workspace scan', 'Completed', '19 min'],
-    ]
-    const visibleRuns = runs.filter((run) => runFilter === 'All' || run[2] === runFilter)
-    return (
-      <section className="studio-surface">
-        <StudioHeader eyebrow="Operations" title="Agent Runs" subtitle="Execution history, approvals, tool calls, verification and recovery checkpoints." actions={<button className="studio-button" type="button" onClick={() => notify('New run prepared in preview')}><Icon name="plus" size={14} /> New run</button>} />
-        <div className="split-surface">
-          <div className="list-pane">
-            <div className="segmented">{(['All', 'Active', 'Completed'] as const).map((filter) => <button type="button" className={runFilter === filter ? 'segmented--active' : ''} key={filter} onClick={() => setRunFilter(filter)}>{filter}</button>)}</div>
-            <div className="entity-list">{visibleRuns.map((run) => <button type="button" key={run[0]} className={`entity-row ${selectedRun === run[0] ? 'entity-row--active' : ''}`} onClick={() => setSelectedRun(run[0])}><div className="entity-row__main"><strong>{run[0]}</strong><span>{run[1]}</span></div><div className="entity-row__meta"><span className={`state-pill state-pill--${run[2].toLowerCase()}`}>{run[2]}</span><small>{run[3]}</small></div></button>)}</div>
-          </div>
-          <div className="detail-pane">
-            <div className="detail-header"><div><span className="eyebrow">Run detail</span><h2>{selectedRun}</h2></div><div className="detail-actions"><button className="icon-button" type="button" title="Copy run id" onClick={() => notify('Run id copied')}><Icon name="copy" size={15} /></button><button className="studio-button" type="button" onClick={() => notify('Run queued again in preview')}><Icon name="play" size={14} /> Re-run</button></div></div>
-            <div className="run-stat-grid"><div><span>Duration</span><strong>14m 32s</strong></div><div><span>Tools</span><strong>18</strong></div><div><span>Tokens</span><strong>32.8k</strong></div><div><span>Changes</span><strong>7 files</strong></div></div>
-            <div className="run-progress"><div><span>Execution progress</span><span>68%</span></div><div className="progress"><span style={{ width: '68%' }} /></div></div>
-            <div className="timeline">{[['Planning', 'Scope resolved · 10:41', 'done'], ['Approval', 'User policy check · 10:43', 'done'], ['Execution', '18 tool calls · 10:44', 'active'], ['Verification', 'Tests + diff review · pending', 'pending']].map(([title, detail, state]) => <div className="timeline-row" key={title}><div className={`timeline-marker timeline-marker--${state}`}>{state === 'done' ? <Icon name="check" size={13} /> : state === 'active' ? <Icon name="play" size={11} /> : <span />}</div><div className="timeline-copy"><strong>{title}</strong><span>{detail}</span></div></div>)}</div>
-          </div>
-        </div>
-        {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
-      </section>
-    )
-  }
+  if (mode === 'runs') return (
+    <section className="studio-surface">
+      <RunTimeline onAction={notify} />
+      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+    </section>
+  )
 
   if (mode === 'providers') return (
     <section className="studio-surface">

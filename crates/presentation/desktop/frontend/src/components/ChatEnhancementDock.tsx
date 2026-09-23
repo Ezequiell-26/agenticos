@@ -29,6 +29,18 @@ const commands = [
   ['/resume', 'Resume a recent session'],
   ['/compact', 'Compact the current context'],
   ['/rename', 'Rename the current session'],
+  ['/rollback', 'Restore a selected checkpoint'],
+  ['/memory', 'Inspect or capture persistent memory'],
+  ['/session-search', 'Search previous sessions'],
+  ['/cron', 'Manage scheduled agent tasks'],
+  ['/delegate', 'Delegate work to a specialist subagent'],
+  ['/skills', 'Browse procedural skills'],
+  ['/tools', 'Inspect toolsets and execution policies'],
+  ['/mcp', 'Inspect connected MCP servers'],
+  ['/browser', 'Open browser control'],
+  ['/voice', 'Start voice workflow'],
+  ['/gateway', 'Inspect messaging gateway'],
+  ['/compact', 'Compact the active context before continuing'],
   ['/run-everything', 'Configure automatic execution preview'],
 ]
 

@@ -141,3 +141,6 @@ The navigation registry currently contains 90 surfaces. Ownership is explicit th
 - 0 unowned navigation surfaces
 
 This is a structural completeness result, not a runtime-verification result. Build, browser, accessibility execution and Tauri/runtime tests still require fresh evidence.
+
+
+| Workspace Navigator | NavigationCenter | full feature catalog, sections, favorites and recent surfaces | preview |

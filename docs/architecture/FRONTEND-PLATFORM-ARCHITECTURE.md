@@ -9,9 +9,9 @@ The AgentiCOS desktop frontend is a product shell for an agent runtime, not the 
 The frontend is divided into four navigation planes:
 
 - **Build** — Command Center, Files & Editor, Terminal, Prompt Lab, Projects, Codebase Index, Context, Rules & Instructions.
-- **Operate** — Runs, Background Agents, Reviews & Bugbot, Checkpoints, Approvals, Observability, Agent Profiles, Bots & Teams, Workflows, Automations, Artifacts and Research.
-- **Configure** — Providers & Models, Skills, Tools, Memory and Settings.
-- **Integrate** — Channels & Gateway, Browser, Voice & Media, MCP Servers and Security Center.
+- **Operate** — Runs, Background Agents, Reviews & Bugbot, Checkpoints, Approvals, Observability, Agent Profiles, Bots & Teams, Workflows, Automations, Artifacts, Research, Batch Processing and Learning Loop.
+- **Configure** — Providers & Models, Skills, Tools, Memory, Settings, Plugins, Hooks & Policies and Execution Lab.
+- **Integrate** — Channels & Gateway, Browser, Voice & Media, MCP Servers, Environments, Source Integrations and Security Center.
 
 ## Source structure
 
@@ -106,3 +106,27 @@ Public references:
 ## Verification state
 
 This document records architecture only. CI, browser verification, Windows/Tauri rendering, accessibility and new live runtime contracts remain separate verification gates.
+
+## Agent composition modes
+
+The chat control plane now exposes local presentation modes corresponding to documented Cursor/Hermes-style workflows:
+
+- **Agent** — implementation/refactoring workflow.
+- **Plan** — research and plan before build.
+- **Ask** — read-only exploration.
+- **Debug** — evidence-first diagnosis.
+- **Bot** — specialist profile context.
+
+The composer also exposes slash-style entry points for `/ask`, `/debug`, `/goal`, `/fork`, `/resume`, `/compact`, `/rename` and `/run-everything` alongside the existing planning/review/research commands. These are local presentation affordances until explicit runtime contracts exist.
+
+## Expanded platform domains
+
+- **Plugins** package optional capabilities.
+- **Hooks & Policies** model lifecycle middleware and fail-closed event handling.
+- **Execution Lab** models reproducible sandbox execution without executing browser-side code.
+- **Environments** represent local/background/future cloud development environments with explicit setup, network, secrets and MCP boundaries.
+- **Source Integrations** represent repository and engineering-system connections.
+- **Batch Processing** models bounded-concurrency work over many inputs.
+- **Learning Loop** models reviewable skill/memory/prompt candidates rather than silently mutating agent behavior.
+
+These domains are frontend product surfaces, not claims of live availability.

@@ -187,3 +187,16 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: final overall CI conclusion, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
 - Next step: complete the final CI run and then perform browser-level verification for navigation and agent workspace flows.
+
+
+## Cursor + Hermes control-plane depth — 2026-09-24
+
+- Scope: frontend-only continuation of the public Cursor/Hermes capability integration.
+- Commits: `e400b26958f926d5143ee2675d8553d6c937d2ac` and `ac892d48b8f520a6918eb104b8808d16ddfb6c5e`.
+- User-visible effect: added a dedicated Agent/Plan/Ask/Debug/Bot mode strip, expanded slash-style commands and session controls, centralized persisted navigation across all frontend modes, and added platform surfaces for Plugins, Hooks & Policies, Batch Processing, Learning Loop, Execution Lab, Environments and Source Integrations.
+- Architecture decision: chat-specific composition is under `features/chat`; platform-wide capability views are under `features/platform`; navigation remains a single typed registry consumed by rail, command palette and app state.
+- Safety/accuracy decision: all newly added surfaces are explicit local/preview UI and do not invent runtime endpoints, provider credentials, cloud execution or messaging delivery.
+- Verification evidence: architecture gate and TypeScript/Vite production build passed during CI run `#690`; subsequent run `#693` exposed one ownership-type mismatch and was corrected in `ac892d48b8f520a6918eb104b8808d16ddfb6c5e`; latest global run is `#694`.
+- Unverified checks: final global CI conclusion for `ac892d48b8f520a6918eb104b8808d16ddfb6c5e`, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: `19bc9d373dba412d45a021c193268a82159cf526`.
+- Next step: complete the final CI gate and then proceed to browser-level visual regression coverage.

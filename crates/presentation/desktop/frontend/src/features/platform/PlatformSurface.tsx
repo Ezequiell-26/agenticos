@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
+import React, { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 const ContextInspector = lazy(() => import('../context/ContextInspector'))
 const McpManager = lazy(() => import('../mcp/McpManager'))
@@ -85,7 +85,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
     )
   }
 
-  if (mode === 'evaluations' || mode === 'skills' || mode === 'mcp' || mode === 'providers' || mode === 'browser' || mode === 'computer' || mode === 'credentials' || mode === 'plugins' || mode === 'imports' || mode === 'sessions' || mode === 'onboarding') {
+  if (mode === 'skills' || mode === 'providers' || mode === 'plugins' || mode === 'onboarding') {
     return (
       <Shell>
         <FrontendCompletenessStudio mode={mode} onAction={notify} />
@@ -541,7 +541,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   )
 }
 
-function PlatformSurface({ mode }: { mode: PlatformMode }) {
+class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean }> {\n  state = { hasError: false }\n\n  static getDerivedStateFromError() {\n    return { hasError: true }\n  }\n\n  componentDidCatch(error: unknown) {\n    console.error('AgentiCOS platform surface failed to render', error)\n  }\n\n  render() {\n    if (this.state.hasError) {\n      return (\n        <section className=\"surface-error\" role=\"alert\">\n          <div className=\"surface-error__icon\"><Icon name=\"alert\" size={18} /></div>\n          <div>\n            <strong>Workspace feature could not be rendered</strong>\n            <small>The frontend kept the failure isolated. Retry the surface or return to another workspace area.</small>\n          </div>\n          <button className=\"studio-button\" type=\"button\" onClick={() => this.setState({ hasError: false })}>Retry</button>\n        </section>\n      )\n    }\n    return this.props.children\n  }\n}\n\nfunction PlatformSurface({ mode }: { mode: PlatformMode }) {
   return (
     <Suspense fallback={
       <section className="surface-loading" aria-live="polite">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import type { RailMode } from '../navigation'
 import { navigationItems } from '../navigation'
-import { navigationSectionLabel } from '../navigation-taxonomy'
+import { getNavigationSection, navigationSections } from '../navigation-taxonomy'
 import Icon, { type IconName } from './Icon'
 
 interface CommandPaletteProps {
@@ -52,7 +52,7 @@ export default function CommandPalette({
     ...navigationItems.map((item) => ({
       id: item.id,
       label: item.label,
-      detail: navigationSectionLabel(item.id) + ' · ' + item.detail,
+      detail: (navigationSections.find((section) => section.id === getNavigationSection(item.id))?.label ?? 'Run') + ' · ' + item.detail,
       icon: item.icon,
       action: () => onSelectMode(item.id),
     })),

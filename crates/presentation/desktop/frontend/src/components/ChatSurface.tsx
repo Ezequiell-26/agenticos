@@ -48,7 +48,7 @@ function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: 
       <div className={`message-bubble ${isUser ? 'message-bubble--user' : ''} ${isSystem ? 'message-bubble--system' : ''}`}>
         <div className="message-meta"><span>{isUser ? 'You' : isSystem ? 'System' : 'AgentiCOS'}</span><time>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
         <p>{message.content}</p>
-        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => onAction('Response copied')}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
+        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" aria-label="Copy response" onClick={() => onAction('copy:' + message.content)}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" aria-label="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" aria-label="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
       </div>
     </article>
   )
@@ -79,6 +79,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [notice, setNotice] = useState('')
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
+  const [promptHistoryOpen, setPromptHistoryOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -122,6 +123,31 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     }
     setAttachedFiles((current) => [...current, next])
     setNotice(`${next} attached`)
+  }
+
+  async function copyResponse(content: string) {
+    try {
+      await navigator.clipboard.writeText(content)
+      setNotice('Response copied to clipboard')
+    } catch {
+      setNotice('Clipboard access unavailable')
+    }
+  }
+
+  function restorePrompt(prompt: string) {
+    setDraft(prompt)
+    setPromptHistoryOpen(false)
+    setSlashOpen(prompt.trimStart().startsWith('/'))
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  function clearComposer() {
+    setDraft('')
+    setAttachedFiles([])
+    setSlashOpen(false)
+    setPromptHistoryOpen(false)
+    setNotice('Composer cleared')
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   async function submit() {
@@ -216,7 +242,16 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           </div>
         ) : (
           <div className="message-stack">
-            {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} />)}
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onAction={(action) => {
+                  if (action.startsWith('copy:')) void copyResponse(action.slice(5))
+                  else setNotice(action)
+                }}
+              />
+            ))}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
             <div ref={messagesEndRef} aria-hidden="true" />
           </div>
@@ -240,8 +275,18 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
-              <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
-              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
+              <button className="composer-icon" type="button" title="Attach file" aria-label="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
+              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" aria-label="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
+              <div className="prompt-history-wrap">
+                <button className={`composer-icon ${promptHistoryOpen ? 'composer-icon--active' : ''}`} type="button" title="Recent prompts" aria-label="Recent prompts" aria-expanded={promptHistoryOpen} onClick={() => setPromptHistoryOpen((value) => !value)} disabled={promptHistory.length === 0}><Icon name="history" size={15} /></button>
+                {promptHistoryOpen && promptHistory.length > 0 && (
+                  <div className="prompt-history-menu" role="menu" aria-label="Recent prompts">
+                    <div className="prompt-history-menu__head"><span>Recent prompts</span><button type="button" onClick={() => { setPromptHistory([]); setPromptHistoryOpen(false); setNotice('Prompt history cleared') }}>Clear</button></div>
+                    {promptHistory.map((prompt) => <button key={prompt} type="button" role="menuitem" onClick={() => restorePrompt(prompt)}><Icon name="history" size={12} /><span>{prompt}</span></button>)}
+                  </div>
+                )}
+              </div>
+              <button className="composer-icon" type="button" title="Clear composer" aria-label="Clear composer" onClick={clearComposer}><Icon name="x" size={15} /></button>
               <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
               <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
               <span className="context-chip"><Icon name="folder" size={12} /> {contextScope}</span>

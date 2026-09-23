@@ -31,3 +31,7 @@ The dependency graph is a DAG. Shared third-party versions are inherited from th
 Architecture changes require continuity/state checks, TypeScript checks/tests, canonical workspace validation, rustfmt, workspace compile/test, clippy with warnings denied and dependency-tree inspection.
 
 A green architecture gate means the structure is coherent and verifiable; it does not claim that every Brain capability is implemented.
+
+## Current reconciliation
+
+The canonical layout cleanup is intentionally a prerequisite to the pending Capability Registry slice. It removes duplicate crate ownership before additional Brain capabilities are added.

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
+import ContextInspector from '../context/ContextInspector'
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))
@@ -12,7 +13,7 @@ const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
 const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
-import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
@@ -333,8 +334,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
   if (mode === 'context') return (
     <Shell>
-      {renderHeader('Prompt context', 'Context', 'Assemble a predictable context pack before an agent run. Values are presentation-only.', <button className="studio-button" type="button" onClick={() => notify('Context pack saved in preview')}><Icon name="check" size={14} /> Save pack</button>)}
-      <div className="context-layout"><Panel title="Sources">{contextSources.map(([name, detail, tokens]) => <div className="context-source" key={name}><div><strong>{name}</strong><span>{detail}</span></div><span className="mono-text">{tokens}</span><button className={`switch ${enabledContext.has(name) ? 'switch--on' : ''}`} type="button" role="switch" aria-checked={enabledContext.has(name)} onClick={() => toggle(setEnabledContext, enabledContext, name)}><span /></button></div>)}</Panel><Panel title="Budget"><div className="context-budget"><div className="budget-ring"><strong>{enabledContext.size * 8.1}k</strong><span>estimated</span></div><div className="budget-bar"><span style={{ width: `${Math.min(96, enabledContext.size * 11)}%` }} /></div><div className="budget-rows"><Metric label="Sources" value={String(enabledContext.size)} /><Metric label="Reserved output" value="8k" /><Metric label="Remaining" value="41k" /></div></div><div className="callout"><Icon name="archive" size={14} /><span>Hermes-style context references and Cursor-style codebase context can coexist in one explicit pack.</span></div></Panel></div>
+      <ContextInspector onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

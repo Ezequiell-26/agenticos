@@ -1389,3 +1389,23 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 .version-list{display:flex;flex-direction:column;gap:7px}
 .version-list .task-row{width:100%;text-align:left}
 @media (max-width:900px){.routing-flow{grid-template-columns:1fr}.routing-flow>svg{transform:rotate(90deg);justify-self:center}.version-layout{grid-template-columns:1fr}}
+
+
+/* Workspace Overview — presentation-only control plane */
+.overview-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);gap:14px}
+.overview-grid--three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.overview-health,.overview-list,.overview-alerts,.overview-actions{display:grid;gap:8px}
+.overview-health>div{padding:12px;border:1px solid var(--border-subtle);background:var(--surface-2);border-radius:10px;display:grid;gap:4px}
+.overview-health span,.overview-health small,.overview-row small,.overview-alert small,.overview-action small{color:var(--text-muted)}
+.overview-health strong{color:var(--text-strong)}
+.overview-row,.overview-alert,.overview-action{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:10px;border:1px solid var(--border-subtle);background:var(--surface-2);border-radius:9px;color:inherit;cursor:pointer}
+.overview-row:hover,.overview-alert:hover,.overview-action:hover{border-color:var(--border-strong)}
+.overview-row>div,.overview-alert>div,.overview-action>div{min-width:0;display:grid;gap:2px;flex:1}
+.overview-row__badge{font:600 10px var(--font-mono);padding:3px 5px;border:1px solid var(--border-subtle);border-radius:5px}
+.overview-alert time,.overview-row time{font:11px var(--font-mono);color:var(--text-muted)}
+.overview-alert__dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted)}
+.overview-alert__dot--high{background:var(--danger)}
+.overview-alert__dot--medium{background:var(--warning)}
+.overview-alert__dot--info{background:var(--accent)}
+.overview-action__icon{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--border-subtle);border-radius:7px;background:var(--surface-1)}
+@media (max-width:1100px){.overview-grid--three{grid-template-columns:1fr}.overview-grid{grid-template-columns:1fr}}

@@ -541,16 +541,46 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   )
 }
 
-class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean }> {\n  state = { hasError: false }\n\n  static getDerivedStateFromError() {\n    return { hasError: true }\n  }\n\n  componentDidCatch(error: unknown) {\n    console.error('AgentiCOS platform surface failed to render', error)\n  }\n\n  render() {\n    if (this.state.hasError) {\n      return (\n        <section className=\"surface-error\" role=\"alert\">\n          <div className=\"surface-error__icon\"><Icon name=\"alert\" size={18} /></div>\n          <div>\n            <strong>Workspace feature could not be rendered</strong>\n            <small>The frontend kept the failure isolated. Retry the surface or return to another workspace area.</small>\n          </div>\n          <button className=\"studio-button\" type=\"button\" onClick={() => this.setState({ hasError: false })}>Retry</button>\n        </section>\n      )\n    }\n    return this.props.children\n  }\n}\n\nfunction PlatformSurface({ mode }: { mode: PlatformMode }) {
+class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('AgentiCOS platform surface failed to render', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="surface-error" role="alert">
+          <div className="surface-error__icon"><Icon name="alert" size={18} /></div>
+          <div>
+            <strong>Workspace feature could not be rendered</strong>
+            <small>The frontend kept the failure isolated. Retry the surface or return to another workspace area.</small>
+          </div>
+          <button className="studio-button" type="button" onClick={() => this.setState({ hasError: false })}>Retry</button>
+        </section>
+      )
+    }
+    return this.props.children
+  }
+}
+
+function PlatformSurface({ mode }: { mode: PlatformMode }) {
   return (
-    <Suspense fallback={
+    <SurfaceErrorBoundary>
+      <Suspense fallback={
       <section className="surface-loading" aria-live="polite">
         <span className="surface-loading__spinner" />
         <div><strong>Loading workspace feature</strong><small>The selected tool is being loaded on demand.</small></div>
       </section>
     }>
-      <PlatformSurfaceContent mode={mode} />
-    </Suspense>
+        <PlatformSurfaceContent mode={mode} />
+      </Suspense>
+    </SurfaceErrorBoundary>
   )
 }
 

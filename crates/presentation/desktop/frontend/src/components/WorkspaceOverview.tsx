@@ -1,4 +1,8 @@
+import type { ReactNode } from 'react'
+import FileExplorer from './FileExplorer'
 import Icon, { type IconName } from './Icon'
+import ProviderDashboard from './ProviderDashboard'
+import RunTimeline from './RunTimeline'
 
 type RailMode = 'files' | 'runs' | 'providers' | 'settings'
 
@@ -9,8 +13,26 @@ const copy: Record<RailMode, { eyebrow: string; title: string; body: string; ico
   settings: { eyebrow: 'Control plane', title: 'Settings', body: 'Runtime, appearance, permissions and workspace policies are centralized here.', icon: 'settings' },
 }
 
+const views: Record<RailMode, () => ReactNode> = {
+  files: () => <FileExplorer />,
+  runs: () => <RunTimeline />,
+  providers: () => <ProviderDashboard />,
+  settings: () => (
+    <section className="overview-surface">
+      <div className="overview-heading"><div><span className="eyebrow">Control plane</span><h1>Settings</h1><p>Centralized runtime and workspace controls. Production permissions remain governed by Tauri and the backend.</p></div></div>
+      <div className="settings-list">
+        <div className="settings-row"><div><strong>Safety mode</strong><small>Destructive actions require explicit confirmation.</small></div><span className="settings-toggle settings-toggle--on">ON</span></div>
+        <div className="settings-row"><div><strong>Runtime transport</strong><small>Tauri IPC / local HTTP abstraction.</small></div><span className="mono-text">AUTO</span></div>
+        <div className="settings-row"><div><strong>Appearance</strong><small>AgentiCOS monochrome workspace.</small></div><span className="mono-text">BLACK / WHITE</span></div>
+      </div>
+    </section>
+  ),
+}
+
 export default function WorkspaceOverview({ mode }: { mode: RailMode }) {
   const content = copy[mode]
+  const View = views[mode]
+  if (View) return <View />
 
   return (
     <section className="overview-surface">

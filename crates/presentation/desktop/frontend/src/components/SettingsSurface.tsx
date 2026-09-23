@@ -112,6 +112,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   const [values, setValues] = useState(defaults)
   const [defaultModel, setDefaultModel] = useState('Auto route')
   const [defaultAgent, setDefaultAgent] = useState('Builder')
+  const [defaultMode, setDefaultMode] = useState('Agent')
   const [theme, setTheme] = useState('Monochrome')
   const [density, setDensity] = useState('Comfortable')
   const [fontSize, setFontSize] = useState('13')
@@ -119,6 +120,10 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   const [language, setLanguage] = useState('English')
   const [keymap, setKeymap] = useState('Default')
   const [workspaceName, setWorkspaceName] = useState('Personal workspace')
+  const [startupView, setStartupView] = useState('Command Center')
+  const [uiScale, setUiScale] = useState('100%')
+  const [terminalShell, setTerminalShell] = useState('PowerShell')
+  const [compactionThreshold, setCompactionThreshold] = useState('78%')
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {

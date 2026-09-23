@@ -204,7 +204,7 @@ export const evaluationRuns: ReadonlyArray<[string, string, string, string]> = [
   ['RUN-EVAL-079', 'DeepSeek', '43 / 48', '5m 48s'],
 ]
 
-export export const notifications: ReadonlyArray<[string, string, string, string, boolean]> = [
+export const notifications: ReadonlyArray<[string, string, string, string, boolean]> = [
   ['Approval requested', 'Background agent wants permission to modify provider routing.', '2m', 'high', false],
   ['Run completed', 'Frontend regression scan finished with 0 critical findings.', '11m', 'info', false],
   ['Checkpoint captured', 'CP-028 is ready for restore preview.', '31m', 'info', true],

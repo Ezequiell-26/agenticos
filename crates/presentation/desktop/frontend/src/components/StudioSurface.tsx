@@ -82,27 +82,11 @@ const providers = [
   { name: 'Local Route', health: 'Degraded', models: 4, latency: 'On demand', load: 22 },
 ]
 
-const skills = [
-  ['Repository Analyst', 'Inspect codebases, architecture and dependency graphs', 'Analysis'],
-  ['Browser Operator', 'Navigate, inspect and interact with web applications', 'Automation'],
-  ['Release Engineer', 'Plan releases, validation and CI/CD operations', 'DevOps'],
-  ['Code Reviewer', 'Review diffs, regressions, tests and contracts', 'Engineering'],
-  ['Researcher', 'Gather sources and produce evidence-backed research', 'Research'],
-  ['UI Designer', 'Compose product surfaces, layouts and interaction flows', 'Design'],
-  ['Test Engineer', 'Create deterministic tests and verification plans', 'Quality'],
-  ['Data Operator', 'Transform datasets and build structured outputs', 'Data'],
-]
+/* REMOVED_LEGACY_SKILLS */
+/* legacy skills data moved to features/skills */
 
-const tools = [
-  ['filesystem', 'Read / write files', 'High'],
-  ['terminal', 'Execute shell commands', 'Critical'],
-  ['git', 'Inspect and create commits', 'High'],
-  ['browser', 'Browser automation', 'High'],
-  ['search', 'Web / repository search', 'Medium'],
-  ['http', 'HTTP client', 'High'],
-  ['python', 'Data / scripting runtime', 'High'],
-  ['diff', 'Diff and patch engine', 'Medium'],
-]
+/* REMOVED_LEGACY_TOOLS */
+/* legacy tools data moved to features/tools */
 
 const memories: ReadonlyArray<[string, string, string, boolean]> = [
   ['Architecture rules', 'Never bypass the Rust runtime boundary for secrets or provider credentials.', 'Project', true],
@@ -112,12 +96,8 @@ const memories: ReadonlyArray<[string, string, string, boolean]> = [
   ['Provider strategy', 'Runtime owns provider selection, failover and health semantics.', 'Project', false],
 ]
 
-const workflows = [
-  ['Repository Audit', 'Inspect → plan → test → report', '12 steps'],
-  ['Implement Feature', 'Plan → approve → edit → verify → summarize', '18 steps'],
-  ['Release Checklist', 'Build → test → package → evidence', '9 steps'],
-  ['Dependency Review', 'Inventory → license → vulnerabilities → report', '7 steps'],
-]
+/* REMOVED_LEGACY_WORKFLOWS */
+/* legacy workflow data moved to features/workflows */
 
 const artifacts = [
   ['agenticos-command-center.png', 'Image', '2.8 MB'],
@@ -148,11 +128,6 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   const [reviewPanelOpen, setReviewPanelOpen] = useState(false)
   const [editorValue, setEditorValue] = useState(codeByFile[files[0].label])
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [selectedProvider, setSelectedProvider] = useState(providers[0].name)
-  const [enabledSkills, setEnabledSkills] = useState(() => new Set(['Repository Analyst', 'Code Reviewer', 'Test Engineer']))
-  const [enabledTools, setEnabledTools] = useState(() => new Set(['filesystem', 'terminal', 'git', 'browser']))
-  const [memoryPinned, setMemoryPinned] = useState(() => new Set(memories.filter((item) => item[3]).map((item) => item[0])))
-  const [workflowRunning, setWorkflowRunning] = useState<string | null>(null)
   const [terminalLines, setTerminalLines] = useState(terminalWelcome)
   const [terminalInput, setTerminalInput] = useState('')
   const [runFilter, setRunFilter] = useState<'All' | 'Active' | 'Completed'>('All')
@@ -204,12 +179,6 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     setTerminalLines((current) => command === 'clear' ? [] : [...current, `$ ${command}`, ...response])
     setTerminalInput('')
     notify(`Terminal: ${command}`)
-  }
-
-  function toggleSet(value: string, setter: (next: Set<string>) => void, current: Set<string>) {
-    const next = new Set(current)
-    next.has(value) ? next.delete(value) : next.add(value)
-    setter(next)
   }
 
   const filteredFiles = useMemo(() => {
@@ -299,6 +268,14 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     <section className="studio-surface">
       <StudioHeader eyebrow="Model plane" title="Providers & Models" subtitle="Inspect provider health, models, routing strategy, quotas and fallback behavior in one workspace." actions={<button className="studio-button" type="button" onClick={() => notify('Provider catalog refreshed in preview')}><Icon name="history" size={14} /> Refresh</button>} />
       <ProviderStudio onAction={notify} />
+      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
+    </section>
+  )
+
+  if (mode === 'tools') return (
+    <section className="studio-surface">
+      <StudioHeader eyebrow="Tool plane" title="Tool Registry" subtitle="Inspect capabilities, risk, permissions, schemas and execution behavior." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('Tool registry scanned in preview')}><Icon name="history" size={14} /> Scan registry</button>} />
+      <ToolsStudio onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

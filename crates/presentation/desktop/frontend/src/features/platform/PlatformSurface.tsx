@@ -2,15 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
 import Icon from '../../components/Icon'
 import BrowserWorkspace from '../browser/BrowserWorkspace'
-import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, contextSources, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, mcpServers, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
-  const [browserUrl, setBrowserUrl] = useState('https://example.local')
-  const [browserLog, setBrowserLog] = useState(['session started · isolated preview', 'page loaded · example.local'])
   const [selectedRule, setSelectedRule] = useState(ruleSources[0][0])
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
   const [enabledContext, setEnabledContext] = useState(() => new Set(contextSources.filter((item) => item[3]).map((item) => item[0])))
@@ -76,7 +74,7 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
     <Shell>
       {renderHeader('Workspace inbox', 'Notifications', 'Centralize approvals, completions, warnings and background activity without interrupting the current task.', <><button className="studio-button" type="button" onClick={() => setNotificationsRead(new Set(notifications.map((item) => item[0])))}>Mark all read</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Notification preferences opened in preview')}>Preferences</button></>)}
       <div className="notification-summary"><Metric label="Unread" value={String(notifications.length - notificationsRead.size)} /><Metric label="Approvals" value="1" /><Metric label="Warnings" value="1" /><Metric label="Recent runs" value="4" /></div>
-      <div className="notification-list">{notifications.map(([title, detail, age, level, read]) => { const isRead = notificationsRead.has(title); return <button type="button" key={title} className={isRead ? 'notification-row notification-row--read' : 'notification-row'} onClick={() => setNotificationsRead((current) => new Set(current).add(title))}><span className={`notification-dot notification-dot--${level}`} /><div><strong>{title}</strong><span>{detail}</span><small>{age} · {isRead ? 'read' : 'unread'}</small></div><Icon name={level === 'high' ? 'shield' : 'chevron-right'} size={13} /></button> })}</div>
+      <div className="notification-list">{notifications.map(([title, detail, age, level]) => { const isRead = notificationsRead.has(title); return <button type="button" key={title} className={isRead ? 'notification-row notification-row--read' : 'notification-row'} onClick={() => setNotificationsRead((current) => new Set(current).add(title))}><span className={`notification-dot notification-dot--${level}`} /><div><strong>{title}</strong><span>{detail}</span><small>{age} · {isRead ? 'read' : 'unread'}</small></div><Icon name={level === 'high' ? 'shield' : 'chevron-right'} size={13} /></button> })}</div>
       <Toast message={notice} />
     </Shell>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Icon from '../../components/Icon'
 
 type RunTab = 'Overview' | 'Plan' | 'Tools' | 'Changes' | 'Context'
@@ -42,6 +42,19 @@ const context = [
 
 export default function AgentRunDrawer({ open, running, onClose, onAction }: AgentRunDrawerProps) {
   const [tab, setTab] = useState<RunTab>('Overview')
+
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose, open])
+
   if (!open) return null
 
   return (
@@ -67,12 +80,13 @@ export default function AgentRunDrawer({ open, running, onClose, onAction }: Age
 
       <div className="agent-run-tabs" role="tablist" aria-label="Run trace views">
         {(['Overview', 'Plan', 'Tools', 'Changes', 'Context'] as RunTab[]).map((item) => (
-          <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'agent-run-tab agent-run-tab--active' : 'agent-run-tab'} onClick={() => setTab(item)}>{item}</button>
+          <button type="button" key={item} role="tab" aria-selected={tab === item} aria-controls={'agent-run-panel-' + item.toLowerCase()} id={'agent-run-tab-' + item.toLowerCase()} className={tab === item ? 'agent-run-tab agent-run-tab--active' : 'agent-run-tab'} onClick={() => setTab(item)}>{item}</button>
         ))}
       </div>
 
       <div className="agent-run-drawer__body">
         {tab === 'Overview' && <>
+          <div id="agent-run-panel-overview" role="tabpanel" aria-labelledby="agent-run-tab-overview" tabIndex={0}>
           <SectionHeading title="Lifecycle" detail="deterministic order" />
           <div className="run-trace-list">{steps.map(([index, title, state, duration]) => <div className="run-trace-step" key={index}>
             <span className="run-trace-step__index">{index}</span>
@@ -81,11 +95,11 @@ export default function AgentRunDrawer({ open, running, onClose, onAction }: Age
           </div>)}</div>
           <SectionHeading title="Current objective" detail="session scope" />
           <div className="trace-objective"><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Planning, mutation, verification and handoff remain visible as separate states.</span></div>
-        </>}
-        {tab === 'Plan' && <div className="run-plan-list">{['Inspect workspace and active rules', 'Assemble relevant context pack', 'Implement the smallest reversible slice', 'Run frontend verification', 'Inspect regressions and changed files', 'Prepare evidence and handoff'].map((item, index) => <div key={item} className="run-plan-item"><span>0{index + 1}</span><div><strong>{item}</strong><small>{index < 4 ? 'defined in preview' : 'queued'}</small></div><Icon name={index < 4 ? 'check' : 'clock'} size={12} /></div>)}</div>}
-        {tab === 'Tools' && <div className="run-tool-list">{tools.map(([group, name, state, duration]) => <div className="run-tool-row" key={name}><div className="tool-icon"><Icon name={group === 'terminal' ? 'terminal' : group === 'git' ? 'git' : 'tool'} size={13} /></div><div><strong>{name}</strong><small>{group} · {duration}</small></div><span className={state === 'completed' ? 'state-pill state-pill--completed' : state === 'running' ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{state}</span></div>)}</div>}
-        {tab === 'Changes' && <div className="run-change-list">{changes.map(([file, state, delta]) => <button type="button" key={file} onClick={() => onAction(`Opened ${file} diff in preview`)}><Icon name="code" size={14} /><div><strong>{file}</strong><small>{state} · {delta}</small></div><Icon name="chevron-right" size={13} /></button>)}</div>}
-        {tab === 'Context' && <div className="run-context-list">{context.map(([name, tokens, state]) => <div key={name} className="run-context-row"><div><strong>{name}</strong><small>{state}</small></div><span className="mono-text">{tokens}</span><Icon name={state === 'included' ? 'check' : 'more'} size={12} /></div>)}</div>}
+        </div></>}
+        {tab === 'Plan' && <div className="run-plan-list" id="agent-run-panel-plan" role="tabpanel" aria-labelledby="agent-run-tab-plan" tabIndex={0}>{['Inspect workspace and active rules', 'Assemble relevant context pack', 'Implement the smallest reversible slice', 'Run frontend verification', 'Inspect regressions and changed files', 'Prepare evidence and handoff'].map((item, index) => <div key={item} className="run-plan-item"><span>0{index + 1}</span><div><strong>{item}</strong><small>{index < 4 ? 'defined in preview' : 'queued'}</small></div><Icon name={index < 4 ? 'check' : 'clock'} size={12} /></div>)}</div>}
+        {tab === 'Tools' && <div className="run-tool-list" id="agent-run-panel-tools" role="tabpanel" aria-labelledby="agent-run-tab-tools" tabIndex={0}>{tools.map(([group, name, state, duration]) => <div className="run-tool-row" key={name}><div className="tool-icon"><Icon name={group === 'terminal' ? 'terminal' : group === 'git' ? 'git' : 'tool'} size={13} /></div><div><strong>{name}</strong><small>{group} · {duration}</small></div><span className={state === 'completed' ? 'state-pill state-pill--completed' : state === 'running' ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{state}</span></div>)}</div>}
+        {tab === 'Changes' && <div className="run-change-list" id="agent-run-panel-changes" role="tabpanel" aria-labelledby="agent-run-tab-changes" tabIndex={0}>{changes.map(([file, state, delta]) => <button type="button" key={file} onClick={() => onAction(`Opened ${file} diff in preview`)}><Icon name="code" size={14} /><div><strong>{file}</strong><small>{state} · {delta}</small></div><Icon name="chevron-right" size={13} /></button>)}</div>}
+        {tab === 'Context' && <div className="run-context-list" id="agent-run-panel-context" role="tabpanel" aria-labelledby="agent-run-tab-context" tabIndex={0}>{context.map(([name, tokens, state]) => <div key={name} className="run-context-row"><div><strong>{name}</strong><small>{state}</small></div><span className="mono-text">{tokens}</span><Icon name={state === 'included' ? 'check' : 'more'} size={12} /></div>)}</div>}
       </div>
 
       <div className="agent-run-drawer__foot">

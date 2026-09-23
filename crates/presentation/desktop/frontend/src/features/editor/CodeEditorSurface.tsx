@@ -22,6 +22,9 @@ export default function CodeEditorSurface({
   const [wrap, setWrap] = useState(false)
   const [minimap, setMinimap] = useState(false)
   const [focusedLine, setFocusedLine] = useState(1)
+  const [aiPanel, setAiPanel] = useState(false)
+  const [selection, setSelection] = useState('Current file')
+  const [diagnostics, setDiagnostics] = useState(true)
 
   const lines = useMemo(() => value.split('\n'), [value])
   const language = filePath.endsWith('.rs')
@@ -96,7 +99,7 @@ export default function CodeEditorSurface({
             {query && <small>{matchCount} match{matchCount === 1 ? '' : 'es'}</small>}
           </label>
         </div>
-        <div className="code-editor-toolbar__right">
+        <div className="code-editor-toolbar__right"><button type="button" className={aiPanel ? 'code-editor-tool code-editor-tool--active' : 'code-editor-tool'} onClick={()=>setAiPanel(v=>!v)}><Icon name="spark" size={12}/> AI</button>
           <button type="button" className={wrap ? 'code-editor-tool code-editor-tool--active' : 'code-editor-tool'} onClick={() => setWrap((current) => !current)} title="Toggle word wrap">
             <Icon name="layout" size={12} /> Wrap
           </button>
@@ -109,6 +112,7 @@ export default function CodeEditorSurface({
         </div>
       </div>
 
+      {aiPanel && <div className="code-editor-ai-panel"><div><span className="eyebrow">AI coding actions</span><strong>{filePath}</strong><small>Scoped to {selection.toLowerCase()} · review before apply</small></div><div>{['Explain selection','Refactor safely','Generate tests','Find edge cases','Add types','Fix diagnostics'].map(action=><button type="button" key={action} onClick={()=>onSave?.() || setDiagnostics(true)}>{action}</button>)}</div><select value={selection} onChange={e=>setSelection(e.target.value)} aria-label="AI context scope"><option>Current selection</option><option>Current file</option><option>Related files</option><option>Project context</option></select></div>}
       <div className={wrap ? 'code-editor code-editor--rich code-editor--wrap' : 'code-editor code-editor--rich'}>
         <div className="line-numbers" aria-hidden="true">
           {lines.map((_, index) => (
@@ -136,6 +140,7 @@ export default function CodeEditorSurface({
         </div>}
       </div>
 
+      {diagnostics && <div className="code-editor-diagnostics"><span><Icon name="check" size={11}/> 0 errors</span><span><Icon name="info" size={11}/> 2 suggestions</span><button type="button" onClick={()=>setDiagnostics(false)}>Hide diagnostics</button></div>}
       <div className="editor-status editor-status--rich">
         <span>Ln {focusedLine}, Col 1</span>
         <span>{language}</span>

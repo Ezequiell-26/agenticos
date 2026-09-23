@@ -29,7 +29,7 @@ const toolGroups = [
   ['Command', 'Terminal and build commands', false],
   ['Browser', 'Browser automation and visual checks', true],
   ['MCP', 'External tool servers', false],
-]
+] as const
 
 const verification = [
   ['Scope resolved', 'Project + task boundaries sealed', 'done'],
@@ -48,6 +48,14 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   const [schedule, setSchedule] = useState(false)
   const [selectedModel, setSelectedModel] = useState('Qwen3 Coder')
   const [query, setQuery] = useState('Implement the next frontend slice and verify it without regressing existing surfaces.')
+  const [goalMode, setGoalMode] = useState(true)
+  const [successCriteria, setSuccessCriteria] = useState([
+    'No new TypeScript or JSX regressions',
+    'Primary user flow remains keyboard accessible',
+    'Changed surfaces have explicit verification evidence',
+  ])
+  const [completedCriteria, setCompletedCriteria] = useState<Set<number>>(() => new Set([0, 1]))
+  const goalProgress = Math.round((completedCriteria.size / successCriteria.length) * 100)
 
   const activeMode = useMemo(() => modes.find(([id]) => id === mode) ?? modes[2], [mode])
 
@@ -86,6 +94,19 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
           <div className="mission-control__prompt">
             <textarea value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Mission instructions" />
             <div className="mission-control__prompt-meta"><span>{query.length} chars</span><span>Task scope: current project</span></div>
+          </div>
+          <div className="mission-control__goalbar">
+            <div className="mission-control__goalhead">
+              <div><span className="eyebrow">Goal mode</span><strong>{goalMode ? 'Agent continues until success criteria are satisfied' : 'Single-turn execution'}</strong></div>
+              <button type="button" className={goalMode ? 'studio-button studio-button--active' : 'studio-button'} aria-pressed={goalMode} onClick={() => setGoalMode((value) => !value)}>{goalMode ? 'Goal mode on' : 'Goal mode off'}</button>
+            </div>
+            {goalMode && <div className="mission-control__goalbody">
+              <div className="mission-control__goalprogress"><span>Outcome progress</span><b>{goalProgress}%</b><div><i style={{ width: goalProgress + '%' }} /></div></div>
+              <div className="mission-control__criteria">
+                {successCriteria.map((criterion, index) => <label key={criterion}><input type="checkbox" checked={completedCriteria.has(index)} onChange={() => setCompletedCriteria((current) => { const next = new Set(current); next.has(index) ? next.delete(index) : next.add(index); return next })} /><span>{criterion}</span></label>)}
+              </div>
+              <button className="studio-button" type="button" onClick={() => setSuccessCriteria((current) => [...current, 'Final handoff package is complete'].slice(-4))}>Add success criterion</button>
+            </div>}
           </div>
           <div className="mission-control__quick">
             <button className="studio-button" type="button" onClick={() => setQuery('Inspect the repository architecture, identify the safest next frontend slice, then implement it with evidence.')}>Architecture-first</button>

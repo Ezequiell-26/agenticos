@@ -29,6 +29,10 @@ const statusLabel: Record<CheckState,string> = {pass:'Ready',warning:'Needs hard
 export function FrontendQAHarness({onAction}:{onAction:(message:string)=>void}){
   const [filter,setFilter]=useState(''),[selected,setSelected]=useState('routes')
   const [states,setStates]=useState<Record<string,CheckState>>(()=>Object.fromEntries(checks.map(c=>[c.id,c.state])))
+  const [viewport,setViewport]=useState('1440×900')
+  const [baseline,setBaseline]=useState('baseline-2026-09-24')
+  const [tolerance,setTolerance]=useState(0.1)
+  const [keyboardPath,setKeyboardPath]=useState(true)
   const filtered=useMemo(()=>checks.filter(c=>[c.area,c.title,c.detail].join(' ').toLowerCase().includes(filter.toLowerCase())),[filter])
   const counts=useMemo(()=>Object.values(states).reduce((a,s)=>({...a,[s]:a[s]+1}),{pass:0,warning:0,pending:0} as Record<CheckState,number>),[states])
   const active=checks.find(c=>c.id===selected) ?? checks[0]
@@ -50,6 +54,7 @@ export function FrontendQAHarness({onAction}:{onAction:(message:string)=>void}){
       <button className="studio-button" type="button" onClick={()=>onAction('QA evidence export staged in preview')}><Icon name="arrow-down" size={13}/> Export evidence</button>
       <button className="studio-button studio-button--active" type="button" onClick={()=>onAction('Full frontend QA run staged in preview')}><Icon name="play" size={13}/> Run checklist</button>
     </div>
+    <div className="qa-visual-contract"><div><span className="eyebrow">Visual regression contract</span><strong>{baseline}</strong><small>Selected viewport: {viewport} · pixel tolerance {tolerance}%</small></div><label>Viewport<select value={viewport} onChange={e=>setViewport(e.target.value)}><option>1440×900</option><option>1280×800</option><option>1024×768</option><option>390×844</option></select></label><label>Tolerance<input type="range" min={0} max={1} step={0.05} value={tolerance} onChange={e=>setTolerance(Number(e.target.value))}/><span>{tolerance}%</span></label><button type="button" className={keyboardPath?'studio-button studio-button--active':'studio-button'} aria-pressed={keyboardPath} onClick={()=>setKeyboardPath(v=>!v)}>Keyboard path</button><button type="button" className="studio-button" onClick={()=>{setBaseline('baseline-'+new Date().toISOString().slice(0,10));onAction('Visual baseline captured in preview')}}><Icon name="archive" size={12}/> Capture baseline</button><button type="button" className="studio-button studio-button--active" onClick={()=>onAction('Visual regression comparison opened in preview')}>Compare</button></div>
     <div className="qa-harness__grid">
       <Panel title="Release gates">
         <div className="qa-harness__list">{filtered.map(check=><button type="button" key={check.id} className={selected===check.id?'qa-gate qa-gate--active':'qa-gate'} onClick={()=>setSelected(check.id)}>

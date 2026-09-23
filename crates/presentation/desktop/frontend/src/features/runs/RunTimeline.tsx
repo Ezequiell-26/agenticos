@@ -17,7 +17,8 @@ type Filter = 'All' | RunState
 export default function RunTimeline({ onAction }: { onAction: (message: string) => void }) {
   const [filter, setFilter] = useState<Filter>('All')
   const [selectedId, setSelectedId] = useState(runs[0].id)
-  const [view, setView] = useState<'Timeline' | 'Tools' | 'Changes'>('Timeline')
+  const [view, setView] = useState<'Timeline' | 'Tools' | 'Changes' | 'Trace'>('Timeline')
+  const [traceFilter, setTraceFilter] = useState<'All'|'Model'|'Tool'|'Policy'>('All')
   const selected = runs.find((run) => run.id === selectedId) ?? runs[0]
   const visible = useMemo(() => filter === 'All' ? runs : runs.filter((run) => run.state === filter), [filter])
 
@@ -41,7 +42,7 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
         <section className="run-timeline__detail">
           <header className="run-timeline__detail-head"><div><span className="eyebrow">{selected.state}</span><h3>{selected.id}</h3><p>{selected.title} · {selected.agent}</p></div><div><button className="icon-button" type="button" title="Copy run id" aria-label="Copy run id" onClick={() => onAction(selected.id + ' copied')}><Icon name="copy" size={14} /></button><button className="studio-button" type="button" onClick={() => onAction(selected.id + ' re-run staged in preview')}><Icon name="play" size={13} /> Re-run</button></div></header>
           <div className="run-timeline__stats"><Stat label="Duration" value={selected.duration + ' 32s'} /><Stat label="Tools" value={String(selected.tools)} /><Stat label="Tokens" value={selected.tokens} /><Stat label="Changes" value={selected.changes} /></div>
-          <div className="run-timeline__tabs" role="tablist">{(['Timeline','Tools','Changes'] as const).map((item) => <button type="button" key={item} role="tab" aria-selected={view === item} className={view === item ? 'run-timeline__tab run-timeline__tab--active' : 'run-timeline__tab'} onClick={() => setView(item)}>{item}</button>)}</div>
+          <div className="run-timeline__tabs" role="tablist">{(['Timeline','Tools','Changes','Trace'] as const).map((item) => <button type="button" key={item} role="tab" aria-selected={view === item} className={view === item ? 'run-timeline__tab run-timeline__tab--active' : 'run-timeline__tab'} onClick={() => setView(item)}>{item}</button>)}</div>
           {view === 'Timeline' && <div className="run-timeline__events">{[
             ['10:41', 'Planning', 'Scope resolved and context sealed', 'done'],
             ['10:43', 'Approval', 'Workspace write policy checked', 'done'],
@@ -50,6 +51,14 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
             ['10:55', 'Handoff', 'Artifacts and execution summary prepared', selected.state === 'Completed' ? 'done' : 'pending'],
           ].map(([time,title,detail,state]) => <div className="run-timeline__event" key={title}><span>{time}</span><span className={`run-timeline__marker run-timeline__marker--${state}`}>{state === 'done' ? <Icon name="check" size={11} /> : state === 'active' ? <Icon name="play" size={10} /> : state === 'failed' ? <Icon name="alert" size={11} /> : null}</span><div><strong>{title}</strong><small>{detail}</small></div></div>)}</div>}
           {view === 'Tools' && <div className="run-timeline__event-table">{['filesystem.read_file','git.diff','provider.route','terminal.check','artifact.write'].map((tool,index)=><div key={tool}><span>{String(index+1).padStart(2,'0')}</span><strong>{tool}</strong><small>{index===3 && selected.state==='Active' ? 'running' : '42 ms'}</small><span>{index < 4 ? 'ok' : 'queued'}</span></div>)}</div>}
+          {view === 'Trace' && <div className="run-trace-panel"><div className="run-trace-summary"><div><span>Model</span><strong>{selected.model}</strong><small>Auto route → coder lane</small></div><div><span>Provider</span><strong>OpenAI-compatible</strong><small>fallback armed</small></div><div><span>Latency</span><strong>8.42s</strong><small>p95 preview 12.1s</small></div><div><span>Tokens</span><strong>{selected.tokens}</strong><small>54.2k context peak</small></div><div><span>Cost</span><strong>$0.00*</strong><small>free/preview accounting</small></div><div><span>Budget</span><strong>72%</strong><small>run reserve remaining</small></div></div><div className="run-trace-toolbar">{(['All','Model','Tool','Policy'] as const).map(item=><button type="button" key={item} className={traceFilter===item?'studio-button studio-button--active':'studio-button'} onClick={()=>setTraceFilter(item)}>{item}</button>)}<button type="button" className="studio-button" onClick={()=>onAction('Trace export prepared in preview')}><Icon name="download" size={12}/> Export trace</button></div><div className="run-trace-waterfall">{[
+['09:01.2','Model','Planner','1.8s','Model'],
+['09:03.0','Tool','filesystem.read','420ms','Tool'],
+['09:03.5','Policy','workspace.scope','35ms','Policy'],
+['09:04.1','Model','Coder','4.9s','Model'],
+['09:09.4','Tool','terminal.check','1.1s','Tool'],
+['09:10.7','Policy','release.gate','210ms','Policy'],
+].filter(item=>traceFilter==='All'||item[4]===traceFilter).map(([time,kind,name,duration])=><div key={time+name}><span className="mono-text">{time}</span><span className={'run-trace-kind run-trace-kind--'+kind.toLowerCase()}>{kind}</span><strong>{name}</strong><div className="run-trace-bar"><i style={{width:kind==='Model'?'78%':kind==='Tool'?'32%':'12%'}} /></div><small>{duration}</small></div>)}</div><div className="callout"><Icon name="info" size={12}/><span>*Cost is preview metadata. Authoritative provider billing, token accounting and trace telemetry belong to runtime adapters.</span></div></div>}
           {view === 'Changes' && <div className="run-timeline__change-panel"><div><span className="eyebrow">Working tree</span><strong>{selected.changes}</strong><small>Diff preview · no runtime mutation from this UI.</small></div><pre>@@ src/features/agents/AgentBuilder.tsx
 + profile settings and scoped policies
 @@ src/features/subagents/SubagentBuilder.tsx

@@ -167,3 +167,48 @@ This is a structural completeness result, not a runtime-verification result. Bui
 ## Taxonomy exhaustiveness audit — 2026-09-24
 
 All 97 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
+
+
+## AI engineering command center — 2026-09-24
+
+The Developer Workspace now consolidates the current agent-native developer workflow patterns into one frontend surface:
+
+| Capability | Frontend treatment | Runtime status |
+| --- | --- | --- |
+| Parallel agents | agent lanes, dedicated context/model state, worktree identity, follow-up and merge review controls | preview |
+| Long-running work | automation schedules, trigger state, history and handoff | preview |
+| Skills / reusable procedures | versioned skill inventory, tools/MCP/check contracts and invocation state | preview |
+| Visual design mode | browser frame, visual instruction composer, screenshot/evidence controls and viewport checks | preview |
+| Agentic review | review findings, security gate, regression tests and checkpoint controls | preview |
+| Context engineering | source selection, token budget, compaction, deduplication and provenance | preview |
+| Environment matrix | local, worktree, cloud and SSH targets with network/policy state | preview |
+| Unified activity | agent, QA, review, research and verification events | preview |
+| Autonomy controls | suggest/supervised/autonomous presentation state | preview |
+| Approval gates | explicit human-gate presentation state for risky operations | preview |
+
+
+## 2026-09-24 — Extended agent-native frontend contract
+
+| Surface | Capability added | Runtime contract boundary |
+| --- | --- | --- |
+| Computer Use | Observe / Act / Annotate, target overlays, action plan, approval gate | Browser/computer runtime |
+| Memory | Retrieval modes, budget, conflict policy, compaction/retrieval testing | Memory/context runtime |
+| Workflow | Simulation, runtime variables, retry/failure policy | Workflow executor |
+| Security | Profiles, incident lock, audit filtering, permission diff | Authorization runtime |
+| Artifact | Diff, integrity, provenance | Artifact runtime |
+| Automation | Timezone, quiet hours, failure policy | Scheduler |
+| Canvas | Node palette, zoom, selection, workflow/context/artifact bridges | Canvas/runtime adapter |
+| Editor | AI in-editor actions, diagnostics | Code intelligence service |
+| Prompt Studio | Evaluation suite, judge, regression gate | Evaluation runtime |
+| Cloud Agents | Live logs, reconnect, auto snapshot | Cloud agent runtime |
+| Provider Studio | OpenAI-compatible endpoint, model discovery, Tools/Vision | Provider gateway |
+| Channels | Retries, rate limits, signed webhook state, delivery approval | Gateway runtime |
+| Subagents | Parallel lanes, budget and failure strategy | Orchestrator |
+| Runs | Trace waterfall, latency/tokens/cost/budget | Observability runtime |
+| Quality | Behavioral evals, baseline comparisons, regression gates | QA/eval runtime |
+| Knowledge | Retrieval debugger, Top-K, hybrid weighting, grounding | Retrieval runtime |
+| MCP | Protocol version, reconnect, exposure profile | MCP runtime |
+| Operations | Heartbeat, alerts, approvals, cross-device resume | Operations runtime |
+| QA Harness | Visual baselines, viewport matrix, keyboard path | Verification runtime |
+
+The frontend deliberately models these as explicit UI contracts; authoritative execution remains outside React until typed adapters are connected.

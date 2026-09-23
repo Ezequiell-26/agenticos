@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import ActivityRail, { type RailMode } from './components/ActivityRail'
-import AgentPanel from './components/AgentPanel'
-import ChatSurface from './components/ChatSurface'
-import CommandPalette from './components/CommandPalette'
-import Icon from './components/Icon'
-import QuickActionsMenu from './components/QuickActionsMenu'
-import StatusBar from './components/StatusBar'
-import WorkspaceOverview from './components/WorkspaceOverview'
-import WorkspaceSidebar from './components/WorkspaceSidebar'
-import WorkspaceDock from './components/WorkspaceDock'
-import { navigationItems } from './navigation'
-import { runtime } from './services/runtime'
-import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from './services/ui-preferences'
-import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
+import ActivityRail, { type RailMode } from './ActivityRail'
+import AgentPanel from './AgentPanel'
+import ChatSurface from './ChatSurface'
+import CommandPalette from './CommandPalette'
+import Icon from './Icon'
+import QuickActionsMenu from './QuickActionsMenu'
+import StatusBar from './StatusBar'
+import WorkspaceOverview from './WorkspaceOverview'
+import WorkspaceSidebar from './WorkspaceSidebar'
+import WorkspaceDock from './WorkspaceDock'
+import { navigationItems } from '../navigation'
+import { runtime } from '../services/runtime'
+import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from '../services/ui-preferences'
+import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from '../types/runtime'
 
 const now = Date.now()
 
@@ -76,6 +76,7 @@ function App() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
   const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
+  const [focusMode, setFocusMode] = useState(false)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -129,11 +130,21 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
         event.preventDefault()
         setAgentPanelOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        setFocusMode((open) => !open)
+        return
+      }
+      if (event.key === 'Escape' && focusMode) {
+        event.preventDefault()
+        setFocusMode(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [focusMode])
 
   const visibleTitle = useMemo(() => navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center', [mode])
 
@@ -215,7 +226,7 @@ function App() {
   }
 
   return (
-    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
+    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <ActivityRail active={mode} onChange={setMode} />
       <WorkspaceSidebar
         activeConversation={sessionId}
@@ -238,10 +249,11 @@ function App() {
             <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
             <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
+            <button className={focusMode ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Focus mode · Ctrl+Shift+F" aria-pressed={focusMode} onClick={() => setFocusMode((open) => !open)}><Icon name="maximize" size={14} />Focus</button>
             <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
               <Icon name="history" size={15} /><span className="notification-badge">2</span>
             </button>
-            <span className="runtime-chip">
+            <span className="runtime-chip" aria-live="polite" aria-label={'Runtime ' + (status.provider === 'Runtime offline' ? 'offline' : 'connected') + ', state ' + status.state}>
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
               {status.state}
             </span>
@@ -279,6 +291,13 @@ function App() {
         onCreateConversation={handleCreateConversation}
         onSelectConversation={handleSelectConversation}
         onSelectMode={(nextMode) => { setMode(nextMode); setPaletteOpen(false) }}
+        onToggleDock={() => setDockOpen((open) => !open)}
+        onToggleFocus={() => setFocusMode((open) => !open)}
+        onTogglePanels={() => {
+          const next = !(leftPanelOpen && agentPanelOpen)
+          setLeftPanelOpen(next)
+          setAgentPanelOpen(next)
+        }}
         open={paletteOpen}
       />
     </div>

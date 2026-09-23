@@ -996,3 +996,206 @@ Verification status:
 - Added a workspace-level project control surface for project identity, current branch, tasks, environment, layout and recovery context.
 - Added direct launch cards into Developer, Mission, Execution, Intelligence, Governance and Integration workspaces.
 - Kept project/branch/environment changes as presentation intents until runtime project services are connected.
+
+## 2026-09-24 — Frontend build regression repair
+
+- Repaired six existing platform surfaces whose JSX/TypeScript syntax blocked the production frontend build on main.
+- Closed the missing EvidenceArtifactInspector preview wrapper and the missing component/function closures in GovernanceControlCenter, IntegrationControlCenter, IntelligenceControlCenter, ProjectControlCenter, and QualityWorkbench.
+- No new capability, provider integration, credential handling, runtime execution or persistence behavior was introduced.
+- Source-level tag/brace audit after repair is balanced for the changed files.
+- Verification: the previous main build had reproducible TypeScript errors in these surfaces; the repaired branch now requires a fresh GitHub Actions frontend build before the fix is considered build-verified.
+- Unverified: browser/Tauri execution and accessibility execution.
+- Rollback: revert PR #60; no history rewrite or destructive deletion.
+- Next step: validate PR #60 with the fresh frontend verification workflow and only then continue broader frontend hardening.
+
+## 2026-09-24 — Quality Workbench accessibility hardening
+
+- Added semantic tab roles and selection state to the Quality Workbench view switcher.
+- Added pressed-state semantics to diagnostic severity filters so keyboard and assistive-technology users can identify the active filter.
+- Kept all QA data presentation-only; no runtime execution or persistence behavior changed.
+- Verification remains dependent on the fresh GitHub Actions frontend build for the repair branch.
+
+## 2026-09-24 — Chat workflow UX expansion
+
+- Added reusable recent-prompt history to the composer, including restore and local clear actions.
+- Added real clipboard copy for assistant responses with explicit fallback feedback when clipboard access is unavailable.
+- Added one-click composer reset for draft text, attachments and command-menu state.
+- Kept all runtime execution, provider routing and credentials behind the existing service boundary.
+- No new navigation mode was introduced; the capability stays inside Command Center to avoid feature fragmentation.
+
+## 2026-09-24 — Focus mode for workspace shell
+
+- Added a temporary Focus/Zen mode to the application shell with `Ctrl+Shift+F` and `Escape` recovery.
+- Focus mode hides the activity rail, workspace sidebar, agent inspector and bottom dock so chat/editor surfaces can use the full window.
+- The mode is presentation-only and does not alter runtime state or persisted project data.
+- Added an explicit topbar control with `aria-pressed` state and keyboard shortcut labeling.
+
+
+## 2026-09-24 — Navigation registry + command palette hardening
+
+- Reconciled the typed RailMode registry with the already implemented Workspace Setup, QA & Readiness and Wake Word & Presence platform surfaces.
+- Added shell controls to the Command Palette for Focus mode, side panels and the bottom dock, reusing existing state transitions instead of creating duplicate navigation surfaces.
+- Removed the stale Ctrl+Shift+F hint from the standalone Global Search surface because that shortcut is reserved by the application shell for Focus mode.
+- No provider, credential, filesystem, network or runtime execution behavior changed.
+- Verification remains source-level; a fresh frontend build and browser/Tauri interaction pass are still required.
+
+
+## 2026-09-24 — RailMode registry alignment
+
+- Added the existing Workspace Setup, QA & Readiness and Wake Word & Presence modes to the canonical RailMode union.
+- This removes type-level drift between navigation metadata, platform mode registration and the already implemented PlatformSurface routes.
+- No new UI surface, runtime capability, provider, credential or persistence behavior was introduced.
+
+
+## 2026-09-24 — Focus mode keyboard hardening
+
+- Fixed the Focus Mode keyboard handler so its Escape recovery observes the current focus state instead of a stale initial closure.
+- Added a polite live-region label to the runtime status chip so state changes are exposed to assistive technology.
+- No runtime service or persistence behavior changed.
+
+## 2026-09-24 — Global Search accessibility hardening
+
+- Added combobox/listbox semantics and active-option linkage to Universal Search for keyboard and assistive-technology navigation.
+- Preserved the existing presentation-only search behavior and navigation routing.
+
+## 2026-09-24 — Quality Workbench syntax repair
+
+- Removed the extra closing wrapper that kept Quality Workbench from compiling under TypeScript/Vite.
+- This repairs the known frontend build blocker without changing the workbench feature model.
+
+
+## 2026-09-24 — Quality Workbench coverage nesting repair
+
+- Corrected the coverage tab JSX nesting so the coverage bar container closes inside each mapped coverage row.
+- This removes the remaining TypeScript parser failure reported by the frontend verification workflow.
+- No quality metrics, runtime adapters or backend behavior were changed.
+
+
+## 2026-09-24 — Workspace Dock interaction hardening
+
+- Added explicit tab-to-panel relationships and panel semantics to the bottom dock.
+- Added keyboard/assistive-technology state for selected Problems rows.
+- Added a presentation-only terminal clear control and a polite output log region.
+- No runtime process attachment, command execution, provider, credential or persistence behavior was introduced.
+- Verification: source inspection; fresh frontend production build still required after the latest syntax repair.
+
+
+## 2026-09-24 — Frontend interaction resilience pass
+
+- Hardened Command Palette focus lifecycle, keyboard navigation, option linkage and focus restoration.
+- Hardened Workspace Sidebar and Quick Actions dismissal behavior, selected conversation semantics and menu state.
+- Hardened Chat composer slash-command navigation with Arrow/Home/End-friendly selection semantics, active-option linkage and live notices.
+- Hardened the existing application error boundary so Retry remounts the UI tree and technical exception text is kept out of the product surface.
+- Hardened Workspace Dock tab/panel semantics and selected problem state.
+- All changes remain presentation-only; runtime execution, credentials, network, provider routing and persistence contracts were not introduced.
+- Verification: source inspection completed for changed surfaces; production build/browser/Tauri verification remains outstanding until CI reports the latest branch state.
+
+## 2026-09-24 — Universal interaction hardening follow-up
+
+- Extended the focus lifecycle and keyboard semantics from Command Palette to Universal Search and Agent Run Trace.
+- Added Escape recovery for the run trace and explicit tab-to-panel relationships across trace views.
+- The existing application Error Boundary now remounts the UI tree on retry while keeping raw exception text out of the product-facing surface.
+- Verification remains source-level pending fresh production build and desktop/browser execution evidence.
+
+## 2026-09-24 — Resizable desktop shell hardening
+
+- Removed the hard 1180px interaction floor for the desktop frontend at narrower viewport sizes.
+- Added progressive breakpoints that reclaim inspector/sidebar space before reducing the primary workspace.
+- Preserved the monochrome visual system and core navigation hierarchy while improving window resizing behavior.
+- No runtime, provider, credential or persistence contract changed.
+
+## 2026-09-24 — Chat continuity and menu-state hardening
+
+- Recent prompts now persist locally through a bounded, validated five-item store so the composer survives UI remounts.
+- Session actions and prompt history now dismiss on outside pointer interaction or Escape.
+- Composer tools and advanced controls expose expanded-state relationships to assistive technology.
+- Slash-command selection remains presentation-only and now supports direct keyboard traversal.
+
+## 2026-09-24 — Keyboard interaction correctness
+
+- Scoped result-navigation shortcuts to active search fields so Enter/Arrow actions on modal controls retain their native behavior.
+- Made Tab cycling resilient when focus temporarily falls outside the expected control set.
+- Preserved Escape-based recovery and focus restoration across both search overlays.
+
+## 2026-09-24 — Frontend State Matrix contract enforcement
+
+- State Matrix previews now disable primary/retry actions for permission and approval-blocked states instead of presenting them as executable.
+- Added state selection semantics and a live preview region so state transitions are explicit to keyboard and assistive-technology users.
+- Kept all state actions presentation-only and aligned with the matrix's existing fail-closed UX contract.
+
+
+## 2026-09-24 — AI engineering command center expansion
+
+- Expanded the existing Developer Workspace into a multi-surface AI engineering command center instead of introducing another top-level route.
+- Added presentation states for parallel agents, isolated worktrees, visual/browser design mode, screenshot/evidence capture, agentic review, security findings, context engineering, compaction, automations, skills, environment targets, and unified activity.
+- Added explicit autonomy, sandbox and approval-gate controls as frontend state.
+- Updated navigation metadata and the frontend capability matrix to reflect the expanded Developer Workspace.
+- The feature set is deliberately adapter-ready: runtime execution, real browser automation, remote environments, model providers, Git mutation, credentials and automation triggers remain outside this presentation slice.
+- Current feature inspiration was cross-checked against 2026 capabilities documented by OpenAI Codex, Cursor, Claude Code, GitHub Copilot and OpenHands.
+
+
+## 2026-09-24 — IDE agent workflow depth pass
+
+- Expanded Developer Workspace Build with next-edit suggestions, a reversible patch stack and contextual test explorer.
+- The new visual layer makes the Plan → Edit → Test → Review loop explicit without pretending that browser automation or repository mutation is already connected.
+- No new top-level navigation route was introduced; the capabilities remain inside the existing Developer Workspace.
+
+
+## 2026-09-24 — Frontend compiler backlog repair
+
+- Repaired the broader TypeScript backlog exposed after the Developer Workspace expansion, including relative App imports, DOM/React keyboard event type separation, model/task/provider selection state inference, settings scope typing, navigation audit contracts, and dead platform branches.
+- Raised the frontend compiler library target to ES2021 for APIs already used by the UI.
+- Removed unused state/helpers and reconciled duplicate platform routes without reducing the registered feature catalog.
+- Rechecked PlatformSurface route coverage: all declared PlatformMode values have a corresponding handler.
+- Fresh frontend verification is running on the latest code head; no pass/fail claim is made until GitHub reports the result.
+
+
+## 2026-09-24 — Design Mode interaction expansion
+
+- Added multi-element visual targeting to Developer Workspace Design Mode.
+- Added queued voice-design instruction state so a developer can prepare the next visual change without leaving the design workflow.
+- The visual brief now requires at least one selected target and carries the selected-element scope into the staged action label.
+- This remains a presentation contract until browser/computer-use adapters provide real element selection, voice capture and code mutation.
+
+
+## 2026-09-24 — Current AI developer capability convergence
+
+- Added Goal Mode with explicit success criteria and progress state in Agent Mission Control.
+- Expanded Collaboration & Review with batch-fix workflow, "new findings only" filtering and review-resolution reasons.
+- Added live preview/port-forward state to Environment Lab.
+- Expanded Browser Workspace with annotation mode, multi-select DOM targets, read-only JavaScript context, asset extraction and tab grouping.
+- Added Appshot context attachment and explicit Design Mode state to Developer Workspace.
+- Added scratch/template/import project bootstrap and preview/publish state to Project Control Center.
+- These capabilities are presentation contracts only until their corresponding Tauri/Rust/browser/provider services are connected.
+- Current capability coverage was cross-checked against current 2026 documentation from OpenAI Codex, Cursor and GitHub Copilot. citeturn900621search0turn900621search2turn900621search7turn900621search8turn900621search11
+
+
+## 2026-09-24 — Deep frontend productization pass
+
+- Computer Use: interaction modes, target overlay, approval gate and action-plan controls.
+- Memory: retrieval policy, context budget, conflict resolution, compact preview and retrieval testing.
+- Workflows: simulation mode, runtime variables and failure/retry policy.
+- Security: profile presets, incident lock, filtered audit and permission diff.
+- Artifacts: version diff, integrity and provenance views.
+- Automations: timezone, quiet hours and failure handling policy.
+- Canvas: zoom, node palette, node selection and Canvas → Workflow/Context/Artifact bridge.
+- Code Editor: in-editor AI actions and diagnostics strip.
+- Prompt Studio: evaluation suite, judge selection and regression gate.
+- Cloud Agents: live logs, reconnect and automatic snapshot state.
+- Provider Studio: OpenAI-compatible endpoint configuration, model discovery, Tools/Vision capability controls.
+- Channels: retries, rate limiting, signed webhook envelope and external-delivery approval.
+- Subagents: delegation plan, parallel lanes, token budget and failure policy.
+- Run Timeline: trace waterfall, provider/model/latency/token/cost/budget observability.
+- Quality Workbench: behavioral evaluation lab, datasets, judges, regression gates and grounding/tool metrics.
+- Knowledge Studio: retrieval debugger with Top-K, hybrid weighting, chunk scores, context packing and citation coverage.
+- MCP/Tools/credentials remain governed by explicit runtime-boundary contracts; presentation state never exposes secrets or grants real authorization.
+
+
+## 2026-09-24 — Final deepening pass for current frontend code commit
+
+- Added Tool Playground / dry-run contract to the tool registry.
+- Added Task Execution approval queue, process controls and explicit approval modes.
+- Added Visual Regression contract to QA Harness with baseline, viewport, tolerance and keyboard-path state.
+- Added MCP protocol capability negotiation controls.
+- Added AI visual variant generation and before/after comparison loop to Design Mode.
+- Verified frontend code commit `6e91d5cba438669c1d4d0f92262893d5a90c7e24` with GitHub Frontend Verification #208.

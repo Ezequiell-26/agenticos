@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
 import ChatEnhancementDock from './ChatEnhancementDock'
@@ -20,6 +20,15 @@ const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
 const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
+const promptHistoryKey = 'agenticos.prompt-history.v1'
+
+function readPromptHistory(): string[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(promptHistoryKey) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 5) : []
+  } catch { return [] }
+}
+
 const slashCommands = [
   ['/plan', 'Create a step-by-step plan without editing.'],
   ['/review', 'Review the current workspace for issues.'],
@@ -36,6 +45,17 @@ const slashCommands = [
   ['/mcp', 'Inspect MCP servers.'],
   ['/browser', 'Open browser control.'],
   ['/gateway', 'Inspect messaging gateway.'],
+  ['/model', 'Switch or inspect the active model profile.'],
+  ['/goal', 'Define an outcome and success criteria for a long-running mission.'],
+  ['/parallel', 'Delegate the task across isolated agent lanes.'],
+  ['/design', 'Open browser Design Mode and visual targeting.'],
+  ['/appshot', 'Attach an application screenshot with visible text context.'],
+  ['/skill-creator', 'Create a reusable skill from the current workflow.'],
+  ['/eval', 'Run or inspect evaluation suites for the current task.'],
+  ['/handoff', 'Package context, artifacts and state for another agent or device.'],
+  ['/resume', 'Resume the current task from its latest checkpoint.'],
+  ['/commit', 'Prepare a reviewable commit from the current change set.'],
+  ['/pr', 'Prepare a pull request handoff from the current branch.'],
 ] as const
 
 function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {
@@ -48,7 +68,7 @@ function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: 
       <div className={`message-bubble ${isUser ? 'message-bubble--user' : ''} ${isSystem ? 'message-bubble--system' : ''}`}>
         <div className="message-meta"><span>{isUser ? 'You' : isSystem ? 'System' : 'AgentiCOS'}</span><time>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
         <p>{message.content}</p>
-        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => onAction('Response copied')}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
+        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" aria-label="Copy response" onClick={() => onAction('copy:' + message.content)}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" aria-label="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" aria-label="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
       </div>
     </article>
   )
@@ -65,10 +85,11 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [temperature, setTemperature] = useState('0.3')
   const [responseFormat, setResponseFormat] = useState(responseFormats[0])
   const [slashOpen, setSlashOpen] = useState(false)
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0)
   const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
-  const [promptHistory, setPromptHistory] = useState<string[]>([])
+  const [promptHistory, setPromptHistory] = useState<string[]>(() => readPromptHistory())
   const [toolsOpen, setToolsOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [webAccess, setWebAccess] = useState(false)
@@ -79,12 +100,16 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [notice, setNotice] = useState('')
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
+  const sessionMenuRef = useRef<HTMLDivElement>(null)
+  const promptHistoryRef = useRef<HTMLDivElement>(null)
+  const [promptHistoryOpen, setPromptHistoryOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
+  useEffect(() => { setSlashSelectedIndex(0) }, [draft])
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -97,6 +122,42 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [draft, sessionId])
 
   useEffect(() => {
+    try { window.localStorage.setItem(promptHistoryKey, JSON.stringify(promptHistory.slice(0, 5))) } catch { /* optional prompt history persistence */ }
+  }, [promptHistory])
+
+  useEffect(() => {
+    if (!sessionMenuOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSessionMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sessionMenuOpen])
+
+  useEffect(() => {
+    if (!promptHistoryOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!promptHistoryRef.current?.contains(event.target as Node)) setPromptHistoryOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPromptHistoryOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [promptHistoryOpen])
+
+  useEffect(() => {
     if (!notice) return
     const timer = window.setTimeout(() => setNotice(''), 1900)
     return () => window.clearTimeout(timer)
@@ -106,7 +167,30 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     messagesEndRef.current?.scrollIntoView({ behavior: running ? 'smooth' : 'auto', block: 'end' })
   }, [messages, running])
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (slashOpen && slashMatches.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSlashSelectedIndex((index) => (index + 1) % slashMatches.length)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSlashSelectedIndex((index) => (index - 1 + slashMatches.length) % slashMatches.length)
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setSlashOpen(false)
+        return
+      }
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        const match = slashMatches[slashSelectedIndex]
+        if (match) useSlashCommand(match[0], match[1])
+        return
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       if (canSend) void submit()
@@ -122,6 +206,31 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     }
     setAttachedFiles((current) => [...current, next])
     setNotice(`${next} attached`)
+  }
+
+  async function copyResponse(content: string) {
+    try {
+      await navigator.clipboard.writeText(content)
+      setNotice('Response copied to clipboard')
+    } catch {
+      setNotice('Clipboard access unavailable')
+    }
+  }
+
+  function restorePrompt(prompt: string) {
+    setDraft(prompt)
+    setPromptHistoryOpen(false)
+    setSlashOpen(prompt.trimStart().startsWith('/'))
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  function clearComposer() {
+    setDraft('')
+    setAttachedFiles([])
+    setSlashOpen(false)
+    setPromptHistoryOpen(false)
+    setNotice('Composer cleared')
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   async function submit() {
@@ -163,9 +272,9 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <button className={`soft-button ${advancedOpen ? 'soft-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls"><Icon name="settings" size={14} />Controls</button>
           <button className={`soft-button ${runDrawerOpen ? 'soft-button--active' : ''}`} type="button" title="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} />Trace</button>
           <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
-          <div className="session-menu-wrap">
-            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
-            {sessionMenuOpen && <div className="session-menu" role="menu">
+          <div className="session-menu-wrap" ref={sessionMenuRef}>
+            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} aria-controls="session-actions-menu" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
+            {sessionMenuOpen && <div className="session-menu" id="session-actions-menu" role="menu">
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
               <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
@@ -177,7 +286,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       </header>
 
       {advancedOpen && (
-        <div className="chat-control-stack">
+        <div className="chat-control-stack" id="agent-advanced-controls">
           <AgentModeStrip mode={agentMode} onAction={setNotice} onChange={setAgentMode} />
         <div className="chat-control-bar">
           <label><span>Agent</span><select value={agent} onChange={(event) => setAgent(event.target.value)}>{agents.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -196,7 +305,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
         </div>
       )}
 
-      <div className="chat-content">
+      <div className="chat-content" aria-busy={running}>
         {messages.length === 0 ? (
           <div className="chat-empty">
             <div className="empty-orb"><Icon name="spark" size={22} /></div>
@@ -216,7 +325,16 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           </div>
         ) : (
           <div className="message-stack">
-            {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} />)}
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onAction={(action) => {
+                  if (action.startsWith('copy:')) void copyResponse(action.slice(5))
+                  else setNotice(action)
+                }}
+              />
+            ))}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
             <div ref={messagesEndRef} aria-hidden="true" />
           </div>
@@ -225,10 +343,10 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
       <footer className="composer-wrap">
         <div className="composer-shell">
-          {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description]) => <button type="button" key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
+          {slashOpen && <div className="slash-command-menu" id="slash-command-results" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description], index) => <button id={'slash-option-' + index} type="button" key={command} role="option" aria-selected={index === slashSelectedIndex} className={index === slashSelectedIndex ? 'slash-command--active' : ''} onMouseEnter={() => setSlashSelectedIndex(index)} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
-            <div className="composer-tools">
+            <div className="composer-tools" id="composer-tools-menu" role="menu">
               <button type="button" className={webAccess ? 'composer-tool--active' : ''} onClick={() => setWebAccess((value) => !value)}><Icon name="search" size={13} /> Web access</button>
               <button type="button" className={deepMode ? 'composer-tool--active' : ''} onClick={() => setDeepMode((value) => !value)}><Icon name="spark" size={13} /> Deep reasoning</button>
               <button type="button" className={codeMode ? 'composer-tool--active' : ''} onClick={() => setCodeMode((value) => !value)}><Icon name="code" size={13} /> Code mode</button>
@@ -237,13 +355,23 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             </div>
           )}
           <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <textarea ref={textareaRef} aria-label="Message AgentiCOS" aria-autocomplete={slashOpen ? 'list' : undefined} aria-controls={slashOpen ? 'slash-command-results' : undefined} aria-expanded={slashOpen || undefined} aria-activedescendant={slashOpen && slashMatches.length ? 'slash-option-' + slashSelectedIndex : undefined} className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
-              <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
-              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
-              <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
-              <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
+              <button className="composer-icon" type="button" title="Attach file" aria-label="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
+              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" aria-label="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
+              <div className="prompt-history-wrap" ref={promptHistoryRef}>
+                <button className={`composer-icon ${promptHistoryOpen ? 'composer-icon--active' : ''}`} type="button" title="Recent prompts" aria-label="Recent prompts" aria-expanded={promptHistoryOpen} onClick={() => setPromptHistoryOpen((value) => !value)} disabled={promptHistory.length === 0}><Icon name="history" size={15} /></button>
+                {promptHistoryOpen && promptHistory.length > 0 && (
+                  <div className="prompt-history-menu" role="menu" aria-label="Recent prompts">
+                    <div className="prompt-history-menu__head"><span>Recent prompts</span><button type="button" onClick={() => { setPromptHistory([]); setPromptHistoryOpen(false); setNotice('Prompt history cleared') }}>Clear</button></div>
+                    {promptHistory.map((prompt) => <button key={prompt} type="button" role="menuitem" onClick={() => restorePrompt(prompt)}><Icon name="history" size={12} /><span>{prompt}</span></button>)}
+                  </div>
+                )}
+              </div>
+              <button className="composer-icon" type="button" title="Clear composer" aria-label="Clear composer" onClick={clearComposer}><Icon name="x" size={15} /></button>
+              <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" aria-expanded={toolsOpen} aria-controls="composer-tools-menu" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
+              <button className="composer-icon" type="button" title="Agent controls" aria-expanded={advancedOpen} aria-controls="agent-advanced-controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
               <span className="context-chip"><Icon name="folder" size={12} /> {contextScope}</span>
               <span className="context-chip"><Icon name="code" size={12} /> {tokenEstimate.toLocaleString()} est. tokens</span>
               <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
@@ -252,7 +380,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             {running ? <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button> : <button className="send-button" disabled={!canSend} onClick={() => void submit()} type="button"><Icon name="send" size={15} />Send</button>}
           </div>
         </div>
-        {notice && <div className="composer-notice">{notice}</div>}
+        {notice && <div className="composer-notice" role="status" aria-live="polite">{notice}</div>}
       </footer>
       <AgentRunDrawer open={runDrawerOpen} running={running} onAction={setNotice} onClose={() => setRunDrawerOpen(false)} />
     </section>

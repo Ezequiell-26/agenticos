@@ -94,6 +94,8 @@ export type RailMode =
   | 'customization'
   | 'help'
   | 'recovery'
+  | 'onboarding'
+  | 'qa'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 
@@ -136,7 +138,7 @@ export const navigationItems: NavigationItem[] = [
   { id: 'chat', label: 'Command Center', detail: 'Agent chat, context, commands and session control', icon: 'home', group: 'build' },
   { id: 'files', label: 'Files & Editor', detail: 'Explorer, editor, tabs, diff and inspector', icon: 'file-code', group: 'build' },
   { id: 'git-control', label: 'Git Control Center', detail: 'Branches, diffs, commits, checkpoints and safe repository operations', icon: 'git', group: 'build' },
-  { id: 'developer-workspace', label: 'Developer Workspace', detail: 'Code navigation, symbols, diagnostics, safe edits and agent-assisted development', icon: 'code', group: 'build' },
+  { id: 'developer-workspace', label: 'Developer Workspace', detail: 'Editor, code intelligence, multi-agent worktrees, visual design, review and agent-assisted development', icon: 'code', group: 'build' },
   { id: 'terminal', label: 'Terminal', detail: 'Shell sessions and command execution', icon: 'terminal', group: 'build' },
   { id: 'prompts', label: 'Prompt Lab', detail: 'Reusable prompts, variables and templates', icon: 'spark', group: 'build' },
   { id: 'projects', label: 'Projects', detail: 'Workspace projects, tasks and active branches', icon: 'layers', group: 'build' },

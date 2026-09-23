@@ -19,6 +19,12 @@ export type NavigationAuditIssueCode =
   | 'navigation-item-without-detail'
   | 'navigation-item-without-owner'
 
+export interface NavigationAuditIssue {
+  code: NavigationAuditIssueCode
+  mode: RailMode
+  detail: string
+}
+
 export interface NavigationAuditReport {
   ok: boolean
   navigationCount: number

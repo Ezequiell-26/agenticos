@@ -23,9 +23,11 @@ const logs=[
 ]
 
 export function TaskExecutionCenter({onAction}:{onAction:(message:string)=>void}){
- const [selected,setSelected]=useState(initialTasks[0][0])
+ const [selected,setSelected]=useState<(typeof initialTasks)[number][0]>(initialTasks[0][0])
  const [taskState,setTaskState]=useState<Record<string,TaskState>>({})
- const [terminal,setTerminal]=useState(terminals[0][0])
+ const [terminal,setTerminal]=useState<(typeof terminals)[number][0]>(terminals[0][0])
+ const [selectedProcess,setSelectedProcess]=useState('frontend-build')
+ const [approvalMode,setApprovalMode]=useState<'queue'|'auto'>('queue')
  const [logFilter,setLogFilter]=useState('')
  const current=initialTasks.find(([id])=>id===selected)??initialTasks[0]
  const state=(id:string,base:TaskState)=>taskState[id]??base
@@ -52,7 +54,7 @@ export function TaskExecutionCenter({onAction}:{onAction:(message:string)=>void}
 
   <div className="task-execution__layout task-execution__layout--lower">
    <Panel title="Terminal sessions">
-    <div className="task-execution__terminal-tabs">{terminals.map(([id,shell,scope,status])=><button key={id} type="button" className={terminal===id?'terminal-tab terminal-tab--active':'terminal-tab'} onClick={()=>setTerminal(id)}><Icon name="terminal" size={12}/><span>{shell}</span><small>{status}</small></button>)}</div>
+    <div className="task-execution__terminal-tabs">{terminals.map(([id,shell,,status])=><button key={id} type="button" className={terminal===id?'terminal-tab terminal-tab--active':'terminal-tab'} onClick={()=>setTerminal(id)}><Icon name="terminal" size={12}/><span>{shell}</span><small>{status}</small></button>)}</div>
     <div className="terminal-preview"><div className="terminal-preview__bar"><span>{terminal}</span><Tag label="sandbox"/><button className="icon-button" aria-label="Clear terminal" type="button" onClick={()=>act('Clear terminal output')}><Icon name="x" size={13}/></button></div><pre>$ cargo check -p agenticos-api-server
 Checking dependencies...
 Checking agenticos-kernel
@@ -62,12 +64,13 @@ Checking frontend contract adapters...
    </Panel>
 
    <Panel title="Process & resource state">
-    <div className="process-list">{[['frontend-build','CPU 34%','running'],['test-runner','CPU 12%','queued'],['agent-worker','CPU 41%','running'],['browser-verify','CPU 0%','blocked']].map(([name,usage,status])=><div key={name}><div><strong>{name}</strong><span>{usage}</span></div><span className={status==='running'?'state-pill state-pill--completed':status==='blocked'?'state-pill state-pill--pending':'state-pill'}>{status}</span></div>)}</div>
+    <div className="process-list">{[['frontend-build','CPU 34%','running'],['test-runner','CPU 12%','queued'],['agent-worker','CPU 41%','running'],['browser-verify','CPU 0%','blocked']].map(([name,usage,status])=><button type="button" className={selectedProcess===name?'process-row process-row--active':'process-row'} key={name} onClick={()=>setSelectedProcess(name)}><div><strong>{name}</strong><span>{usage}</span></div><span className={status==='running'?'state-pill state-pill--completed':status==='blocked'?'state-pill state-pill--pending':'state-pill'}>{status}</span></button>)}</div>
     <div className="resource-meter"><span>Memory budget</span><b>5.8 / 16 GB</b><div><i style={{width:'36%'}}/></div></div>
-    <div className="resource-meter"><span>Execution budget</span><b>18 / 48 tool turns</b><div><i style={{width:'38%'}}/></div></div>
+    <div className="resource-meter"><span>Execution budget</span><b>18 / 48 tool turns</b><div><i style={{width:'38%'}}/></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Restart '+selectedProcess)}>Restart process</button><button className="studio-button" type="button" onClick={()=>act('Stop '+selectedProcess)}>Stop process</button></div>
    </Panel>
   </div>
 
+  <div className="task-execution__approval-grid"><Panel title="Approval queue"><div className="approval-queue-header"><div><span className="eyebrow">Pending action</span><strong>terminal.exec</strong><small>npm run verify · scoped workspace</small></div><span className="state-pill state-pill--pending">Waiting</span></div><div className="approval-queue-facts"><div><span>Risk</span><strong>Medium</strong></div><div><span>Scope</span><strong>Workspace only</strong></div><div><span>Timeout</span><strong>180s</strong></div><div><span>Evidence</span><strong>Required</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Approval details opened')}>Details</button><button className="studio-button" type="button" onClick={()=>act('Approval rejected')}>Reject</button><button className="studio-button studio-button--active" type="button" onClick={()=>act('Approval accepted')}>Approve</button></div></Panel><Panel title="Approval mode"><div className="approval-mode-options">{(['queue','auto'] as const).map(mode=><button type="button" key={mode} className={approvalMode===mode?'studio-button studio-button--active':'studio-button'} aria-pressed={approvalMode===mode} onClick={()=>setApprovalMode(mode)}>{mode}</button>)}</div><p className="approval-mode-note">{approvalMode==='queue'?'Sensitive operations pause for explicit human confirmation.':'Runtime may auto-approve only within an existing policy allowlist.'}</p></Panel></div>
   <Panel title="Event log">
    <div className="task-execution__log-toolbar"><div className="search-mini"><Icon name="search" size={12}/><input value={logFilter} onChange={e=>setLogFilter(e.target.value)} placeholder="Filter events…" aria-label="Filter execution events"/></div><button className="studio-button" type="button" onClick={()=>act('Export execution log')}>Export</button></div>
    <div className="task-execution__log">{filteredLogs.map(([time,kind,target,message])=><div key={time+message}><span className="mono-text">{time}</span><Tag label={kind}/><code>{target}</code><span>{message}</span></div>)}</div>

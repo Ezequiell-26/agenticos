@@ -42,6 +42,8 @@ export default function GlobalSearch({
   onSelectConversation,
 }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
@@ -67,10 +69,19 @@ export default function GlobalSearch({
   }, [items, query])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      restoreFocusRef.current?.focus?.()
+      restoreFocusRef.current = null
+      return
+    }
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setQuery('')
     setSelectedIndex(0)
     window.requestAnimationFrame(() => inputRef.current?.focus())
+    return () => {
+      restoreFocusRef.current?.focus?.()
+      restoreFocusRef.current = null
+    }
   }, [open])
 
   useEffect(() => setSelectedIndex(0), [query])
@@ -78,16 +89,36 @@ export default function GlobalSearch({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      const target = event.target
+      const isSearchField = target instanceof HTMLInputElement
+      if (event.key === 'Tab') {
+        const root = dialogRef.current
+        if (!root) return
+        const focusable = Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])'))
+        if (focusable.length === 0) return
+        const index = focusable.indexOf(document.activeElement as HTMLElement)
+        const safeIndex = index >= 0 ? index : (event.shiftKey ? 0 : focusable.length - 1)
+        const next = event.shiftKey
+          ? focusable[(safeIndex - 1 + focusable.length) % focusable.length]
+          : focusable[(safeIndex + 1) % focusable.length]
+        event.preventDefault()
+        next?.focus()
+      } else if (event.key === 'Escape') {
         event.preventDefault()
         onClose()
-      } else if (event.key === 'ArrowDown' && filtered.length) {
+      } else if (isSearchField && event.key === 'ArrowDown' && filtered.length) {
         event.preventDefault()
         setSelectedIndex((index) => (index + 1) % filtered.length)
-      } else if (event.key === 'ArrowUp' && filtered.length) {
+      } else if (isSearchField && event.key === 'ArrowUp' && filtered.length) {
         event.preventDefault()
         setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
-      } else if (event.key === 'Enter' && filtered.length) {
+      } else if (isSearchField && event.key === 'Home' && filtered.length) {
+        event.preventDefault()
+        setSelectedIndex(0)
+      } else if (isSearchField && event.key === 'End' && filtered.length) {
+        event.preventDefault()
+        setSelectedIndex(filtered.length - 1)
+      } else if (isSearchField && event.key === 'Enter' && filtered.length) {
         event.preventDefault()
         const item = filtered[selectedIndex]
         if (item?.mode) onSelectMode(item.mode)
@@ -103,17 +134,35 @@ export default function GlobalSearch({
 
   return (
     <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={dialogRef} className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
         <div className="global-search__head">
           <Icon name="search" size={17} />
-          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anything in AgentiCOS…" aria-label="Search anything in AgentiCOS" />
-          <kbd>Ctrl+Shift+F</kbd>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search anything in AgentiCOS…"
+            aria-label="Search anything in AgentiCOS"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="global-search-results"
+            aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${filtered[selectedIndex].id}` : undefined}
+          />
+          <span className="global-search__hint">Quick search</span>
           <button type="button" className="icon-button" aria-label="Close search" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div className="global-search__meta">{filtered.length} result{filtered.length === 1 ? '' : 's'} · navigation, settings, sessions and platform surfaces</div>
-        <div className="global-search__list">
+        <div id="global-search-results" className="global-search__list" role="listbox" aria-label="Search results">
           {filtered.map((item, index) => (
-            <button type="button" key={item.id} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
+            <button
+  type="button"
+  id={`global-search-result-${item.id}`}
+  role="option"
+  aria-selected={index === selectedIndex}
+  key={item.id}
+  className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onMouseEnter={() => setSelectedIndex(index)}
+  onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}
+>
               <span className="global-search__icon"><Icon name={item.icon} size={14} /></span>
               <span><strong>{item.label}</strong><small>{item.detail}</small></span>
               <em>{item.group}</em>

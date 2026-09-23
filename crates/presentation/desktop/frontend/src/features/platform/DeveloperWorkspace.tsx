@@ -97,6 +97,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   const [designSelection, setDesignSelection] = useState<string[]>(['Hero'])
   const [designModeEnabled, setDesignModeEnabled] = useState(true)
   const [voiceQueue, setVoiceQueue] = useState<string[]>([])
+  const [appshotAttached, setAppshotAttached] = useState(false)
   const [autonomy, setAutonomy] = useState<'suggest' | 'supervised' | 'autonomous'>('supervised')
   const [sandbox, setSandbox] = useState<'local' | 'worktree' | 'cloud'>('worktree')
   const [approvalGate, setApprovalGate] = useState(true)
@@ -255,10 +256,11 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
       {tab === 'design' && (
         <div className="developer-pro-grid">
           <Panel title="Visual design mode">
-            <div className="developer-design-toolbar"><label>Browser URL<input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Browser URL" /></label><button className={designModeEnabled ? "studio-button studio-button--active" : "studio-button"} type="button" aria-pressed={designModeEnabled} onClick={() => setDesignModeEnabled((value) => !value)}><Icon name="layout" size={13} /> {designModeEnabled ? "Design mode on" : "Design mode off"}</button><button className="studio-button" type="button" onClick={() => onAction('Navigate browser staged in preview')}><Icon name="globe" size={13} /> Open</button><button className="studio-button" type="button" onClick={() => onAction('Screenshot evidence staged in preview')}><Icon name="archive" size={13} /> Capture</button></div>
+            <div className="developer-design-toolbar"><label>Browser URL<input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Browser URL" /></label><button className={designModeEnabled ? "studio-button studio-button--active" : "studio-button"} type="button" aria-pressed={designModeEnabled} onClick={() => setDesignModeEnabled((value) => !value)}><Icon name="layout" size={13} /> {designModeEnabled ? "Design mode on" : "Design mode off"}</button><button className="studio-button" type="button" onClick={() => onAction('Navigate browser staged in preview')}><Icon name="globe" size={13} /> Open</button><button className="studio-button" type="button" onClick={() => { setAppshotAttached(true); onAction('Appshot attached in preview') }}><Icon name="archive" size={13} /> {appshotAttached ? 'Appshot attached' : 'Attach appshot'}</button></div>
             <div className="developer-browser-frame">
               <div className="developer-browser-frame__chrome"><span className="developer-browser-dot" /><span>{browserUrl}</span><Tag label={designModeEnabled ? "Design mode" : "Browse mode"} /></div>
-              <div className="developer-browser-frame__canvas"><div className="developer-browser-mock"><span className="eyebrow">Live UI preview</span><h2>Point. Draw. Describe.</h2><p>Visual instructions become scoped engineering tasks without leaving the developer workspace.</p><div className="developer-mock-grid"><span>Hero</span><span>Navigation</span><span>Composer</span><span>Responsive</span></div></div></div>
+              <div className="developer-browser-frame__canvas">
+                {appshotAttached && <div className="developer-appshot-chip"><Icon name="archive" size={12}/><span><strong>Appshot attached</strong><small>Screenshot + visible text context</small></span></div>}<div className="developer-browser-mock"><span className="eyebrow">Live UI preview</span><h2>Point. Draw. Describe.</h2><p>Visual instructions become scoped engineering tasks without leaving the developer workspace.</p><div className="developer-mock-grid"><span>Hero</span><span>Navigation</span><span>Composer</span><span>Responsive</span></div></div></div>
             </div>
             <div className="developer-design-targets">
               <div><span className="eyebrow">Visual targets</span><small>Select one or more elements. Their layout/code context travels with the visual brief.</small></div>

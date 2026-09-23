@@ -51,7 +51,7 @@ export default function ContextInspector({ onAction }: { onAction: (message: str
                   <button type="button" className="context-inspector__source-main" onClick={() => toggleSource(name)}>
                     <span className="context-inspector__source-icon"><Icon name={name === 'Workspace files' ? 'folder' : name === 'Open files' ? 'file-code' : name === 'Git diff' ? 'git' : name === 'Project rules' ? 'shield' : name === 'Pinned memory' ? 'database' : name === 'Web sources' ? 'globe' : 'history'} size={14} /></span>
                     <span><strong>{name}</strong><small>{detail}</small></span>
-                    <span className="mono-text">{tokens}k</span>
+                    <span className="mono-text">{tokens}</span>
                   </button>
                   <div className="context-inspector__source-actions">
                     <button type="button" className={state.pinned ? 'mini-chip mini-chip--active' : 'mini-chip'} onClick={() => patch(name, { pinned: !state.pinned })}>{state.pinned ? 'Pinned' : 'Pin'}</button>

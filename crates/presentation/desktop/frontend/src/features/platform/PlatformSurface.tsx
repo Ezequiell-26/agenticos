@@ -23,6 +23,8 @@ const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
 const AdvancedStudio = lazy(() => import('./AdvancedStudio').then((module) => ({ default: module.AdvancedStudio })))
 const WorkspaceOverview = lazy(() => import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })))
+const ApprovalCenter = lazy(() => import('./ApprovalCenter').then((module) => ({ default: module.ApprovalCenter })))
+const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module) => ({ default: module.PermissionsMatrix })))
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -76,6 +78,14 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'approvals') return (
+    <ApprovalCenter onAction={notify} />
+  )
+
+  if (mode === 'permissions') return (
+    <PermissionsMatrix onAction={notify} />
+  )
 
   if (mode === 'overview') return (
     <WorkspaceOverview onAction={notify} />

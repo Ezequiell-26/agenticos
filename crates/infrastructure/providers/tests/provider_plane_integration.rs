@@ -11,10 +11,22 @@ use std::net::TcpListener;
 use std::thread;
 
 fn provider(id: &str, models: &[&str]) -> ProviderEntry {
+    provider_with_base_url(
+        id,
+        format!("https://{id}.example.test"),
+        models,
+    )
+}
+
+fn provider_with_base_url(
+    id: &str,
+    base_url: impl Into<String>,
+    models: &[&str],
+) -> ProviderEntry {
     ProviderEntry {
         provider_id: id.to_string(),
         name: format!("Provider {id}"),
-        base_url: format!("https://{id}.example.test"),
+        base_url: base_url.into(),
         models: models.iter().map(|model| (*model).to_string()).collect(),
         capabilities: vec!["chat".to_string()],
     }
@@ -159,6 +171,131 @@ async fn provider_failover_follows_declared_order() {
             .await,
         None
     );
+}
+
+
+
+#[tokio::test]
+async fn auto_failover_disabled_does_not_advance_to_fallback() {
+    let fallback_manager = FallbackManager::new();
+
+    fallback_manager
+        .set_config(FallbackConfig {
+            primary_provider: "primary".to_string(),
+            fallback_providers: vec!["fallback".to_string()],
+            auto_failover: false,
+        })
+        .await
+        .expect("configure failover");
+
+    assert_eq!(
+        fallback_manager
+            .get_next_provider("primary", "primary")
+            .await,
+        None
+    );
+}
+
+#[tokio::test]
+async fn multi_provider_orchestration_selects_healthy_provider_and_executes_transport() {
+    let registry = ProviderRegistry::new();
+    let catalog = ModelCatalog::new();
+    let fallback_manager = FallbackManager::new();
+    let health_checker = HealthChecker::new();
+
+    let body =
+        r#"{"choices":[{"message":{"content":"orchestrated-ok"}}],"usage":{"total_tokens":9}}"#;
+    let (fallback_base_url, server) = spawn_http_response_server(body);
+
+    registry
+        .register(provider("primary", &["model-primary"]))
+        .await
+        .expect("register primary");
+    registry
+        .register(provider_with_base_url(
+            "fallback",
+            fallback_base_url.clone(),
+            &["model-fallback"],
+        ))
+        .await
+        .expect("register fallback");
+
+    catalog
+        .register(model("primary", "model-primary"))
+        .await
+        .expect("register primary model");
+    catalog
+        .register(model("fallback", "model-fallback"))
+        .await
+        .expect("register fallback model");
+
+    fallback_manager
+        .set_config(FallbackConfig {
+            primary_provider: "primary".to_string(),
+            fallback_providers: vec!["fallback".to_string()],
+            auto_failover: true,
+        })
+        .await
+        .expect("configure failover");
+
+    health_checker
+        .update(HealthCheck {
+            provider_id: "primary".to_string(),
+            status: HealthStatus::Unhealthy,
+            last_check: 1,
+            message: Some("primary unavailable".to_string()),
+        })
+        .await
+        .expect("record primary health");
+    health_checker
+        .update(HealthCheck {
+            provider_id: "fallback".to_string(),
+            status: HealthStatus::Healthy,
+            last_check: 1,
+            message: Some("fallback ready".to_string()),
+        })
+        .await
+        .expect("record fallback health");
+
+    let selected = select_healthy_provider("primary", &fallback_manager, &health_checker)
+        .await
+        .expect("select a healthy provider");
+    assert_eq!(selected, "fallback");
+
+    let selected_entry = registry
+        .get(&selected)
+        .await
+        .expect("selected provider exists");
+    assert_eq!(selected_entry.base_url, fallback_base_url);
+    assert_eq!(
+        catalog
+            .get("model-fallback")
+            .await
+            .expect("fallback model exists")
+            .provider_id,
+        selected
+    );
+
+    let provider = HttpModelProvider::new(selected.clone(), selected_entry.base_url);
+    let response = provider
+        .execute(ModelRequest {
+            request_id: "orchestration-request-1".to_string(),
+            model: "model-fallback".to_string(),
+            input: "hello".to_string(),
+            parameters: None,
+        })
+        .await
+        .expect("execute selected fallback provider");
+
+    server.join().expect("join test HTTP server");
+
+    assert_eq!(response.request_id, "orchestration-request-1");
+    assert_eq!(response.output, "orchestrated-ok");
+    assert_eq!(response.tokens_used, Some(9));
+    assert!(response
+        .metadata
+        .as_deref()
+        .is_some_and(|value| value.contains("fallback")));
 }
 
 #[tokio::test]

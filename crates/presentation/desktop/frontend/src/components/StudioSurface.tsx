@@ -10,6 +10,7 @@ import ToolsStudio from '../features/tools/ToolsStudio'
 import AgentStudio from '../features/agents/AgentStudio'
 import PromptStudio from '../features/prompts/PromptStudio'
 import SettingsSurface from './SettingsSurface'
+import CodeEditorSurface from '../features/editor/CodeEditorSurface'
 
 type Toast = { id: number; message: string }
 
@@ -195,12 +196,13 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
             })}
           </div>
           <div className="editor-meta"><span>{selectedFile}</span><span className="mono-text">UTF-8 · 2 spaces · local draft</span></div>
-          <div className={`code-editor ${showDiff ? 'code-editor--diff' : ''}`}>
-            <div className="line-numbers">{editorValue.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-            <textarea value={editorValue} onChange={(event) => setEditorValue(event.target.value)} spellCheck={false} aria-label="Code editor preview" />
-          </div>
-          <div className="editor-status"><span>Ln 1, Col 1</span><span>{editorValue.length} chars</span><span>{showDiff ? 'Diff inspector enabled' : 'Editing preview'}</span></div>
-        </div>
+          <CodeEditorSurface
+            value={editorValue}
+            onChange={setEditorValue}
+            filePath={selectedFile}
+            showDiff={showDiff}
+            onSave={() => notify('Saved editor draft')}
+          />
         <div className="studio-pane inspector-pane">
           <div className="pane-toolbar"><strong>Inspector</strong><span className="mono-text">{showDiff ? 'DIFF' : 'FILE'}</span></div>
           <div className="inspector-section"><span>Language</span><strong>{selectedFile.endsWith('.rs') ? 'Rust' : selectedFile.endsWith('.md') ? 'Markdown' : 'TypeScript React'}</strong></div>

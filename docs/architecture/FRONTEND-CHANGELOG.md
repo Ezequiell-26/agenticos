@@ -227,3 +227,21 @@ The current repository already contains an early desktop UI from existing commit
 - Coverage: navigation registry contains 49 surfaces and all 49 currently resolve to a frontend surface.
 - Verification: PR checks for TypeScript and Rust are queued as of the branch HEAD; browser CLI verification is unavailable in this environment; Windows/Tauri rendering and live runtime integration remain unverified.
 - Runtime boundary: new interactions remain local/preview until a matching runtime contract is intentionally added.
+## Workspace orchestration dock — 2026-09-24
+
+- Scope: frontend-only desktop workspace refinement; no Rust/backend contracts changed.
+- User-visible effect: added a universal bottom dock available across the desktop shell with Terminal, Problems, Timeline and Output views, plus maximize/restore controls and a compact runtime/mode context.
+- Interaction added: `Ctrl+J` toggles the dock; the terminal tab supports local preview commands (`help`, `status`, `clear`) without executing host processes.
+- Created:
+  - `crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx`
+  - `crates/presentation/desktop/frontend/src/workspace-enhancements.css`
+- Modified:
+  - `crates/presentation/desktop/frontend/src/App.tsx`
+  - `crates/presentation/desktop/frontend/src/main.tsx`
+- Deleted: none.
+- Preserved: Rust runtime, existing runtime service contracts, existing navigation/features, current implementation-state manifest and historical frontend evidence.
+- Architecture decision: the dock is a presentation-layer composition surface and keeps terminal/problem/timeline data explicitly local/preview until matching runtime services exist.
+- Verification evidence: source-level integration checks completed for imports, state wiring, keyboard shortcut and dock render path; GitHub Actions will provide the next TypeScript/build evidence.
+- Unverified checks: browser visual verification, Windows/Tauri rendering, accessibility audit and live backend integration.
+- Rollback point: previous main commit before this operation.
+- Next step: inspect the GitHub Actions result for the new frontend commits, then perform browser-level visual verification when a runnable local/deployed frontend is available.

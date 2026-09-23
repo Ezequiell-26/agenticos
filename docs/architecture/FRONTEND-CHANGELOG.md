@@ -1007,3 +1007,10 @@ Verification status:
 - Unverified: browser/Tauri execution and accessibility execution.
 - Rollback: revert PR #60; no history rewrite or destructive deletion.
 - Next step: validate PR #60 with the fresh frontend verification workflow and only then continue broader frontend hardening.
+
+## 2026-09-24 — Quality Workbench accessibility hardening
+
+- Added semantic tab roles and selection state to the Quality Workbench view switcher.
+- Added pressed-state semantics to diagnostic severity filters so keyboard and assistive-technology users can identify the active filter.
+- Kept all QA data presentation-only; no runtime execution or persistence behavior changed.
+- Verification remains dependent on the fresh GitHub Actions frontend build for the repair branch.

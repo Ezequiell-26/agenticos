@@ -37,6 +37,10 @@ interface SettingsState {
   modelAlias: string
   fallbackChain: string
   customEndpoint: string
+  delegationModel: string
+  delegationProvider: string
+  delegationEndpoint: string
+  clarifyTimeout: number
   cliToolsetPreset: string
   messagingToolsetPreset: string
   showToolCalls: boolean
@@ -158,6 +162,10 @@ const defaults: SettingsState = {
   modelAlias: 'fast → qwen3-coder',
   fallbackChain: 'Auto → OpenRouter → Nous → local',
   customEndpoint: '',
+  delegationModel: 'Inherit parent',
+  delegationProvider: 'Inherit parent',
+  delegationEndpoint: '',
+  clarifyTimeout: 120,
   cliToolsetPreset: 'hermes-cli',
   messagingToolsetPreset: 'hermes-telegram',
   showToolCalls: true,
@@ -587,9 +595,10 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <ToggleRow label="Show plan stage" detail="Expose planning before execution in the workspace." enabled={settings.showPlan} onChange={() => update('showPlan', !settings.showPlan)} />
               </SettingSection>
               <SettingSection title="Delegation">
-                <SelectField label="Delegation model" value="Inherit parent" onChange={() => undefined} options={['Inherit parent', 'Fast model', 'Qwen3 Coder', 'Gemini Flash', 'Custom']} />
-                <SelectField label="Delegation provider" value="Inherit parent" onChange={() => undefined} options={['Inherit parent', 'OpenRouter', 'Nous', 'Custom']} />
-                <TextField label="Delegation endpoint" value="" onChange={() => undefined} />
+                <SelectField label="Delegation model" value={settings.delegationModel} onChange={(v) => update('delegationModel', v)} options={['Inherit parent', 'Fast model', 'Qwen3 Coder', 'Gemini Flash', 'Custom']} />
+                <SelectField label="Delegation provider" value={settings.delegationProvider} onChange={(v) => update('delegationProvider', v)} options={['Inherit parent', 'OpenRouter', 'Nous', 'Custom']} />
+                <TextField label="Delegation endpoint" value={settings.delegationEndpoint} onChange={(v) => update('delegationEndpoint', v)} placeholder="https://host/v1" />
+                <NumberField label="Clarification timeout" value={settings.clarifyTimeout} onChange={(v) => update('clarifyTimeout', v)} suffix="seconds" min={5} max={1800} />
                 <RangeField label="Autonomy" value={settings.autonomy} onChange={(v) => update('autonomy', v)} description="Presentation-only autonomy indicator." />
                 <RangeField label="Tool budget" value={settings.toolBudget} onChange={(v) => update('toolBudget', v)} description="Presentation-only tool activity budget." />
               </SettingSection>
@@ -845,6 +854,14 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       soul_file: settings.soulFile,
       context_file_priority: settings.contextFilePriority,
     },
+    delegation: {
+      model: settings.delegationModel,
+      provider: settings.delegationProvider,
+      base_url: settings.delegationEndpoint,
+    },
+    clarify: {
+      timeout: settings.clarifyTimeout,
+    },
     tools: {
       progress: settings.toolProgress,
       show_calls: settings.showToolCalls,
@@ -978,8 +995,8 @@ function SelectField({ label, value, onChange, options }: { label: string; value
   return <label className="settings-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>
 }
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="settings-field"><span>{label}</span><input className="settings-input" value={value} onChange={(event) => onChange(event.target.value)} /></label>
+function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+  return <label className="settings-field"><span>{label}</span><input className="settings-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>
 }
 
 function NumberField({ label, value, onChange, suffix, min, max }: { label: string; value: number; onChange: (value: number) => void; suffix: string; min: number; max: number }) {

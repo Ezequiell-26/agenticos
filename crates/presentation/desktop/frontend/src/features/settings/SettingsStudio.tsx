@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
-import Icon, { type IconName } from './Icon'
-import { UI_PREFERENCES_STORAGE_KEY, applyUiLayoutPreferences, emitUiPreferencesChanged } from '../services/ui-preferences'
+import Icon, { type IconName } from '../../components/Icon'
+import { UI_PREFERENCES_STORAGE_KEY, applyUiLayoutPreferences, emitUiPreferencesChanged } from '../../services/ui-preferences'
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'

@@ -3,7 +3,7 @@ import Icon from '../../components/Icon'
 
 type AgentTab = 'Overview' | 'Behavior' | 'Tools' | 'Policies' | 'Tests'
 
-const agents = [
+const agents: ReadonlyArray<readonly [string, string, string, string, string]> = [
   ['Builder', 'Implementation specialist', 'Qwen3 Coder', '18 tools', 'Production'],
   ['Reviewer', 'Quality and regression analyst', 'GPT-OSS 120B', '11 tools', 'Production'],
   ['Researcher', 'Evidence and source specialist', 'DeepSeek', '9 tools', 'Experimental'],

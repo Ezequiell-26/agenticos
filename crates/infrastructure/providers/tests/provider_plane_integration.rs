@@ -11,11 +11,7 @@ use std::net::TcpListener;
 use std::thread;
 
 fn provider(id: &str, models: &[&str]) -> ProviderEntry {
-    provider_with_base_url(
-        id,
-        format!("https://{id}.example.test"),
-        models,
-    )
+    provider_with_base_url(id, format!("https://{id}.example.test"), models)
 }
 
 fn provider_with_base_url(

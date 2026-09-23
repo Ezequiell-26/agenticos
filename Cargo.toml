@@ -2,16 +2,16 @@
 resolver = "2"
 members = [
   "crates/domain/contracts", "crates/domain/brain",
-  "crates/application/execution", "crates/application/workflows", "crates/application/scheduler", "crates/application/agents",
+  "crates/application/execution", "crates/application/workflows", "crates/application/scheduler", "crates/application/agents", "crates/application/projects", "crates/application/skills",
   "crates/infrastructure/kernel", "crates/infrastructure/runtime", "crates/infrastructure/providers", "crates/infrastructure/tools",
   "crates/infrastructure/memory", "crates/infrastructure/protocols", "crates/infrastructure/sandbox", "crates/infrastructure/source-forge",
-  "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters",
+  "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters", "crates/infrastructure/artifacts", "crates/infrastructure/context", "crates/infrastructure/plugins", "crates/infrastructure/router", "crates/infrastructure/mcp",
   "crates/presentation/cli", "crates/presentation/gateway", "crates/presentation/desktop", "crates/presentation/api-server",
   "crates/utilities/concurrency-stress", "crates/utilities/crypto", "crates/utilities/math", "crates/utilities/time-utils",
   "crates/utilities/http-client", "crates/utilities/async-utils", "crates/utilities/cache", "crates/utilities/compression",
   "crates/utilities/rate-limiting", "crates/utilities/vector-database", "crates/utilities/websockets", "crates/utilities/file-watcher",
   "crates/utilities/text-search", "crates/utilities/event-bus", "crates/utilities/state-management", "crates/utilities/configuration",
-  "crates/utilities/streaming", "crates/utilities/notifications"
+  "crates/utilities/streaming", "crates/utilities/notifications", "crates/utilities/resilience"
 ]
 
 [workspace.package]
@@ -44,6 +44,12 @@ once_cell = "1.0"
 tokio-util = { version = "0.7", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono"] }
+semver = "1.0"
+serde_yaml = "0.9"
+dotenv = "0.15"
+rand = "0.8"
+async-stream = "0.3"
+clap = { version = "4.0", features = ["derive"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

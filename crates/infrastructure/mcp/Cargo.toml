@@ -1,5 +1,5 @@
 [package]
-name = "agenticos-tools"
+name = "agenticos-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,12 +7,8 @@ license.workspace = true
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
 async-trait = { workspace = true }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-[dev-dependencies]
-tokio = { version = "1.0", features = ["sync", "rt-multi-thread", "macros"] }
 
 [lints]
 workspace = true

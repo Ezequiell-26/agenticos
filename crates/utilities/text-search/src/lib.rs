@@ -87,14 +87,17 @@ impl InvertedIndex {
     pub fn add_document(&mut self, document: Document) -> Result<(), SearchError> {
         let id = document.id.clone();
         let text = document.all_text();
-        
+
         // Tokenize and index
         let tokens = self.tokenize(&text);
         for (position, token) in tokens.into_iter().enumerate() {
-            let term = self.terms.entry(token.clone()).or_insert_with(|| IndexTerm {
-                doc_ids: HashSet::new(),
-                positions: Vec::new(),
-            });
+            let term = self
+                .terms
+                .entry(token.clone())
+                .or_insert_with(|| IndexTerm {
+                    doc_ids: HashSet::new(),
+                    positions: Vec::new(),
+                });
             term.doc_ids.insert(id.clone());
             term.positions.push((id.clone(), position));
         }
@@ -140,7 +143,8 @@ impl InvertedIndex {
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // Build search results
-        results.into_iter()
+        results
+            .into_iter()
             .take(limit)
             .filter_map(|(id, score)| {
                 self.documents.get(&id).map(|doc| SearchResult {
@@ -248,7 +252,7 @@ impl SearchEngine {
     /// Search with query
     pub fn search(&self, query: &SearchQuery) -> Vec<SearchResult> {
         let mut results = self.index.search(&query.query, query.limit + query.offset);
-        
+
         // Apply offset
         if query.offset > 0 && query.offset < results.len() {
             results = results.into_iter().skip(query.offset).collect();
@@ -256,7 +260,8 @@ impl SearchEngine {
 
         // Apply filters (simplified)
         if !query.filters.is_empty() {
-            results = results.into_iter()
+            results = results
+                .into_iter()
                 .filter(|result| {
                     query.filters.iter().all(|filter| {
                         let text = result.document.all_text().to_lowercase();
@@ -325,12 +330,20 @@ impl TextMatcher {
 
         for i in 1..=m {
             for j in 1..=n {
-                let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+                let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                    0
+                } else {
+                    1
+                };
                 dp[i][j] = [
-                    dp[i - 1][j] + 1,      // deletion
-                    dp[i][j - 1] + 1,      // insertion
+                    dp[i - 1][j] + 1,        // deletion
+                    dp[i][j - 1] + 1,        // insertion
                     dp[i - 1][j - 1] + cost, // substitution
-                ].iter().min().copied().unwrap();
+                ]
+                .iter()
+                .min()
+                .copied()
+                .unwrap();
             }
         }
 
@@ -370,7 +383,11 @@ mod tests {
     #[test]
     fn test_inverted_index() {
         let mut index = InvertedIndex::new();
-        let doc = Document::new("1".to_string(), "Rust".to_string(), "Programming language".to_string());
+        let doc = Document::new(
+            "1".to_string(),
+            "Rust".to_string(),
+            "Programming language".to_string(),
+        );
         index.add_document(doc).unwrap();
         assert_eq!(index.len(), 1);
     }
@@ -378,9 +395,13 @@ mod tests {
     #[test]
     fn test_inverted_index_search() {
         let mut index = InvertedIndex::new();
-        let doc = Document::new("1".to_string(), "Rust".to_string(), "Programming language".to_string());
+        let doc = Document::new(
+            "1".to_string(),
+            "Rust".to_string(),
+            "Programming language".to_string(),
+        );
         index.add_document(doc).unwrap();
-        
+
         let results = index.search("rust", 10);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].document.id, "1");
@@ -389,9 +410,13 @@ mod tests {
     #[test]
     fn test_search_engine() {
         let mut engine = SearchEngine::new();
-        let doc = Document::new("1".to_string(), "Rust".to_string(), "Programming language".to_string());
+        let doc = Document::new(
+            "1".to_string(),
+            "Rust".to_string(),
+            "Programming language".to_string(),
+        );
         engine.index(doc).unwrap();
-        
+
         let query = SearchQuery::new("rust".to_string());
         let results = engine.search(&query);
         assert_eq!(results.len(), 1);
@@ -410,7 +435,7 @@ mod tests {
     fn test_levenshtein_distance() {
         let distance = TextMatcher::levenshtein_distance("rust", "rust");
         assert_eq!(distance, 0);
-        
+
         let distance = TextMatcher::levenshtein_distance("rust", "rusty");
         assert_eq!(distance, 1);
     }

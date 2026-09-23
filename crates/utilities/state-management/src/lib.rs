@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 
 #[derive(Error, Debug)]
 pub enum StateError {
@@ -82,7 +82,8 @@ pub trait StateHandler: Send + Sync {
 pub struct SimpleStateHandler {
     pub on_enter_fn: Option<Arc<dyn Fn(&mut StateContext) + Send + Sync>>,
     pub on_exit_fn: Option<Arc<dyn Fn(&mut StateContext) + Send + Sync>>,
-    pub event_handlers: HashMap<String, Arc<dyn Fn(&Event, &mut StateContext) -> Option<String> + Send + Sync>>,
+    pub event_handlers:
+        HashMap<String, Arc<dyn Fn(&Event, &mut StateContext) -> Option<String> + Send + Sync>>,
 }
 
 impl SimpleStateHandler {
@@ -220,11 +221,13 @@ impl StateMachine {
     /// Handle event
     pub async fn handle_event(&self, event: Event) -> Result<(), StateError> {
         let current = self.current_state.read().await;
-        let current_id = current.as_ref()
+        let current_id = current
+            .as_ref()
             .ok_or_else(|| StateError::MachineError("No current state".to_string()))?;
 
         let states = self.states.read().await;
-        let state = states.get(current_id)
+        let state = states
+            .get(current_id)
             .ok_or_else(|| StateError::StateNotFound(current_id.clone()))?;
 
         let mut context = self.context.write().await;
@@ -322,10 +325,10 @@ impl<T: Clone + Send + Sync> GlobalState<T> {
         let result = updater(&mut state);
         let new_state = state.clone();
         drop(state);
-        
+
         // Notify change
         let _ = self.change_sender.send(new_state);
-        
+
         result
     }
 
@@ -356,7 +359,7 @@ mod tests {
     fn test_simple_state_handler() {
         let handler = SimpleStateHandler::new()
             .with_on_enter(|ctx| ctx.set("entered".to_string(), serde_json::json!(true)));
-        
+
         let mut context = StateContext::new();
         let _ = handler.on_enter(&mut context);
         assert_eq!(context.get("entered"), Some(&serde_json::json!(true)));
@@ -365,11 +368,11 @@ mod tests {
     #[tokio::test]
     async fn test_state_machine() {
         let machine = StateMachine::new();
-        
+
         let handler = Arc::new(SimpleStateHandler::new());
         let state = State::new("idle".to_string(), handler);
         machine.add_state(state).await;
-        
+
         machine.set_initial("idle").await.unwrap();
         assert_eq!(machine.current_state().await, Some("idle".to_string()));
     }
@@ -377,20 +380,27 @@ mod tests {
     #[tokio::test]
     async fn test_state_machine_transition() {
         let machine = StateMachine::new();
-        
-        let idle_handler = Arc::new(SimpleStateHandler::new()
-            .with_event_handler("start".to_string(), |_event, _ctx| Some("running".to_string())));
-        
+
+        let idle_handler = Arc::new(
+            SimpleStateHandler::new().with_event_handler("start".to_string(), |_event, _ctx| {
+                Some("running".to_string())
+            }),
+        );
+
         let running_handler = Arc::new(SimpleStateHandler::new());
-        
-        machine.add_state(State::new("idle".to_string(), idle_handler)).await;
-        machine.add_state(State::new("running".to_string(), running_handler)).await;
-        
+
+        machine
+            .add_state(State::new("idle".to_string(), idle_handler))
+            .await;
+        machine
+            .add_state(State::new("running".to_string(), running_handler))
+            .await;
+
         machine.set_initial("idle").await.unwrap();
-        
+
         let event = Event::new("start".to_string());
         machine.handle_event(event).await.unwrap();
-        
+
         assert_eq!(machine.current_state().await, Some("running".to_string()));
     }
 
@@ -398,7 +408,7 @@ mod tests {
     async fn test_global_state() {
         let state = GlobalState::new(42);
         assert_eq!(state.get().await, 42);
-        
+
         state.update(|s| *s += 1).await;
         assert_eq!(state.get().await, 43);
     }

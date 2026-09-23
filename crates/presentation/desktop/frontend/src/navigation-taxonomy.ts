@@ -50,6 +50,10 @@ const integrationIds: ReadonlySet<RailMode> = new Set([
   'credentials', 'imports', 'media', 'wake', 'homeassistant', 'social', 'cloud', 'background', 'execution', 'automations', 'batch',
 ])
 
+const runIds: ReadonlySet<RailMode> = new Set([
+  'session-replay', 'runs', 'tasks', 'kanban', 'bots', 'artifacts', 'onboarding', 'analytics', 'hooks',
+])
+
 const systemIds: ReadonlySet<RailMode> = new Set([
   'settings', 'customization', 'help', 'marketplace', 'plugins', 'design-system', 'operations',
 ])
@@ -61,5 +65,6 @@ export function getNavigationSection(mode: RailMode): NavigationSection {
   if (governanceIds.has(mode)) return 'governance'
   if (integrationIds.has(mode)) return 'integrations'
   if (systemIds.has(mode)) return 'system'
+  if (runIds.has(mode)) return 'run'
   return 'run'
 }

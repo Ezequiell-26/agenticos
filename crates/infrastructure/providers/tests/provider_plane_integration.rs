@@ -7,7 +7,7 @@ use agenticos_providers::{
     ProviderRegistry, QuotaTracker, RetryManager,
 };
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::thread;
 
 fn provider(id: &str, models: &[&str]) -> ProviderEntry {

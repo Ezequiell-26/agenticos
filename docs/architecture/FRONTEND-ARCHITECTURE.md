@@ -258,3 +258,12 @@ Do not:
 - move the canonical runtime into TypeScript;
 - couple UI features to concrete provider names;
 - commit secrets, tokens or machine-local paths.
+
+### Presentation preference bridge
+
+Global presentation customization is centralized in:
+- `src/services/ui-preferences.ts` — storage key, typed layout preference reader, shell application and change subscription.
+- `src/features/settings/SettingsStudio.tsx` — feature-owned configuration UI.
+- `src/components/SettingsSurface.tsx` — thin compatibility wrapper for existing shell composition.
+
+The bridge is presentation-only. It may control UI geometry, theme and interaction preferences, but it must not store provider secrets or become a second runtime state system.

@@ -96,11 +96,11 @@ export const navigationItems: NavigationItem[] = [
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'artifacts' | 'channels' | 'browser' | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'integrations' | 'security'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
-  'bots', 'automations', 'artifacts', 'channels', 'browser', 'voice', 'research', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'integrations', 'security',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'integrations', 'security',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

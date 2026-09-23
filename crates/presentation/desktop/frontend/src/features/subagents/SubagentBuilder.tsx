@@ -104,6 +104,9 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   const [selectedId, setSelectedId] = useState(initialSubagents[0].id)
   const [tab, setTab] = useState<Tab>('Task')
   const [query, setQuery] = useState('')
+  const [parallelism, setParallelism] = useState(2)
+  const [failurePolicy, setFailurePolicy] = useState<'Stop parent'|'Retry specialist'|'Reassign'>('Stop parent')
+  const [budget, setBudget] = useState(32)
 
   const current = items.find((item) => item.id === selectedId) ?? items[0]
   const visibleItems = useMemo(() => {
@@ -199,7 +202,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
               <Field label="Model"><input value={current.model} onChange={(event) => patch({ model: event.target.value })} /></Field>
             </div>
             <Toggle label="Allow subagent delegation" value={current.canDelegate} onChange={(value) => patch({ canDelegate: value })} />
-            <div className="subagent-builder__handoff">
+            <div className="subagent-builder__delegation-plan"><div><span className="eyebrow">Delegation plan</span><strong>Parent → Specialist → Evidence → Parent</strong><small>Explicit handoff chain with isolated context.</small></div><label>Parallel lanes<input type="range" min={1} max={8} value={parallelism} onChange={e=>setParallelism(Number(e.target.value))}/><span>{parallelism} lane{parallelism===1?'':'s'}</span></label><label>Budget<input type="range" min={4} max={128} step={4} value={budget} onChange={e=>setBudget(Number(e.target.value))}/><span>{budget}k tokens</span></label><label>On failure<select value={failurePolicy} onChange={e=>setFailurePolicy(e.target.value as typeof failurePolicy)}><option>Stop parent</option><option>Retry specialist</option><option>Reassign</option></select></label></div><div className="subagent-builder__handoff">
               <div><span className="eyebrow">Parent receives</span><strong>{current.handoff}</strong><small>Result package remains explicit at the UI boundary.</small></div>
               <div className="subagent-builder__handoff-arrow"><Icon name="branch" size={17} /></div>
               <div><span className="eyebrow">Parent task</span><strong>Current session</strong><small>No implicit transcript injection is assumed.</small></div>
@@ -222,7 +225,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
               <div><span className="eyebrow">Current state</span><strong>{current.status}</strong><p>{current.task}</p></div>
               <div className="subagent-builder__run-actions">{current.status === 'Running' ? <button className="studio-button" type="button" onClick={stop}><Icon name="stop" size={13} /> Stop run</button> : <button className="studio-button studio-button--active" type="button" onClick={run}><Icon name="play" size={13} /> Start run</button>}</div>
             </div>
-            <div className="subagent-builder__run-grid"><Stat label="Context" value={Math.round(current.contextBudget / 1000) + 'k'} /><Stat label="Turns" value={String(current.maxTurns)} /><Stat label="Handoff" value={current.handoff} /><Stat label="Approval" value={current.requiresApproval ? 'Required' : 'Optional'} /></div>
+            <div className="subagent-builder__run-grid"><Stat label="Parallel lanes" value={String(parallelism)} /><Stat label="Budget" value={budget + 'k'} /><Stat label="Failure" value={failurePolicy} /><Stat label="Context" value={Math.round(current.contextBudget / 1000) + 'k'} /><Stat label="Context" value={Math.round(current.contextBudget / 1000) + 'k'} /><Stat label="Turns" value={String(current.maxTurns)} /><Stat label="Handoff" value={current.handoff} /><Stat label="Approval" value={current.requiresApproval ? 'Required' : 'Optional'} /></div>
             <div className="subagent-builder__timeline">{['Task assigned','Context sealed','Tools scoped','Execution started','Handoff prepared'].map((step,index)=><div key={step}><span>{String(index + 1).padStart(2,'0')}</span><strong>{step}</strong><small>{index < 3 ? 'complete' : current.status === 'Running' ? 'active' : 'pending'}</small></div>)}</div>
           </BuilderSection>}
         </div>

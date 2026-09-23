@@ -901,3 +901,11 @@ Verification status:
 - Added repository control surface for working-tree changes, branches, commit history, checkpoints and safe Git actions.
 - Added protected-branch, pre-commit, approval and rollback indicators.
 - All Git mutations remain presentation-only until connected to the repository backend.
+
+
+## Agent Mission Control + Market Benchmark — 2026-09-24
+
+- Added `Agent Mission Control`, a unified frontend mission composer for agent mode, model/route, context policy, tools/permissions, workspace isolation, parallel execution, scheduling and preflight verification.
+- Added a current market capability benchmark covering Cursor, OpenAI Codex, Google Antigravity, Claude Code, Windsurf Cascade, Cline and Roo Code, with source links and implementation decisions.
+- Fixed `PlatformMode` registration drift by including `knowledge`, `developer-workspace`, `git-control` and `agent-mission` in the typed platform-mode set.
+- Preserved the presentation/runtime boundary: mission launch, scheduling, tools, provider routing and worktree/cloud creation remain preview-only until connected to typed Tauri/Rust services.

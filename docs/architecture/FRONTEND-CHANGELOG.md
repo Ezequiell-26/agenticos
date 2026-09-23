@@ -516,3 +516,18 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: latest CI/build after the persistence correction, browser visual verification, Windows/Tauri rendering and accessibility audit.
 - Rollback point: 209bdf9abb8e471ed4207d5d9adecb7920890ebb.
 - Next step: inspect the newest CI result and fix only concrete failures.
+
+## Final frontend configuration checkpoint — 2026-09-24
+
+- Current frontend scope now includes the 59 product surfaces plus a 20-domain configuration studio with 193 typed settings fields and matching defaults.
+- Current customization covers profile lifecycle, model/provider routing, agent behavior/delegation, toolsets and global disabled toolsets, terminal/sandbox backends, context/memory, compression, display/skins, layout geometry, voice/media, web search, browser automation, gateway/channels, MCP, automation, runtime/liveness, security/privacy, shortcuts and raw configuration.
+- Shared architecture:
+  - one repository-owned SVG icon registry;
+  - one typed UI preference bridge;
+  - feature-owned SettingsStudio with a thin compatibility wrapper;
+  - shell subscription to persisted preferences;
+  - no secret material in React state or portable exports.
+- CI recovery note: run 793 isolated two TypeScript errors after a feature move; both were corrected before this checkpoint.
+- Unverified: a fresh CI run for this final head, browser visual verification, Windows/Tauri rendering and accessibility audit.
+- Rollback point: df9be7f69ce2cfb5440bdcae1b8cc886f637fcff.
+- Next step: validate this final head through CI and then perform browser-level visual verification when a runnable frontend environment is available.

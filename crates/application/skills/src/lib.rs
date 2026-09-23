@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-//! Canonical skill-domain boundary for AgentiCOS.
+//! skill definitions and lifecycle boundary. Functionality is introduced only through verified vertical slices.
 
-/// Returns the architectural owner.
+/// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-skills";

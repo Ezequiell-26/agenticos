@@ -1,10 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-//! Canonical project-domain boundary for AgentiCOS.
-///
-/// This crate is intentionally small until the project orchestration slice
-/// becomes implementation-authorized.
+//! workspace/project domain boundary. Functionality is introduced only through verified vertical slices.
 
-/// Returns the architectural owner.
+/// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-projects";

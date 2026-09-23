@@ -372,3 +372,9 @@ Both remain presentation-only until runtime contracts are connected.
 `features/automations/AutomationBuilder.tsx` now owns schedule/trigger, execution policy and result-delivery presentation.
 
 `features/credentials/CredentialManager.tsx` now owns metadata-only credential presentation, scopes and usage/audit views. Secret values remain masked and external to React state.
+
+## Channel Gateway Manager Surface (2026-09-24)
+
+`features/channels/ChannelGatewayManager.tsx` now owns the detailed Channels & Gateway presentation surface. It covers channel capability toggles, gateway routing preview, delivery policy, session routing and safe connection actions.
+
+No gateway transport, authentication secret or runtime delivery implementation was added.

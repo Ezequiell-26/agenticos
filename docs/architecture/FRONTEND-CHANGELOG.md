@@ -559,3 +559,15 @@ Verification status:
 - Fixed/verified the deep Settings catalog contains a single Security & Privacy domain declaration.
 - Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
 
+## 2026-09-24 — IDE depth: editor, VCS, verification and remote controls
+
+- Extended the Control Center to 10 domains with a dedicated **Editor, Git & Verification** domain.
+- Added editor preferences: font size, tab size, word wrap, minimap, breadcrumbs, semantic highlighting, format/code-actions on save.
+- Added autocomplete preferences: inline suggestions, Tab completion, model selection and suggestion delay.
+- Added VCS preferences: review panel, agent-change staging, generated commit messages, branch diffs and conflict resolver.
+- Added task verification/artifact preferences: verification command, verify-on-completion, artifact preview and auto-attachment.
+- Added long-lived goal controls: goal retention, in-run steering and loop/check interval.
+- Added remote-control presentation settings including a machine nickname; execution remains runtime-owned.
+- Static source audit: 101 ControlState fields, 101 defaults, zero missing/duplicate fields, 10 unique domains, zero unknown icon names.
+- Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
+

@@ -1089,3 +1089,10 @@ Verification status:
 - Hardened Workspace Dock tab/panel semantics and selected problem state.
 - All changes remain presentation-only; runtime execution, credentials, network, provider routing and persistence contracts were not introduced.
 - Verification: source inspection completed for changed surfaces; production build/browser/Tauri verification remains outstanding until CI reports the latest branch state.
+
+## 2026-09-24 — Universal interaction hardening follow-up
+
+- Extended the focus lifecycle and keyboard semantics from Command Palette to Universal Search and Agent Run Trace.
+- Added Escape recovery for the run trace and explicit tab-to-panel relationships across trace views.
+- The existing application Error Boundary now remounts the UI tree on retry while keeping raw exception text out of the product-facing surface.
+- Verification remains source-level pending fresh production build and desktop/browser execution evidence.

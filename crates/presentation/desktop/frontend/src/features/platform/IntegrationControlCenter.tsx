@@ -54,3 +54,4 @@ export function IntegrationControlCenter({onAction}:{onAction:(message:string)=>
 
   <div className="integration-control__guard"><Icon name="shield" size={13}/><span>Integration actions are UI intents. Network changes, external calls, secret attachment and gateway delivery require runtime authorization.</span></div>
  </div>
+}

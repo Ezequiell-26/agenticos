@@ -3,8 +3,8 @@ use agenticos_contracts::{
     QuotaInfo, RetryPolicy,
 };
 use agenticos_providers::{
-    CredentialPool, FallbackManager, HealthChecker, HttpModelProvider, ModelCatalog, ProviderRegistry,
-    QuotaTracker, RetryManager,
+    CredentialPool, FallbackManager, HealthChecker, HttpModelProvider, ModelCatalog,
+    ProviderRegistry, QuotaTracker, RetryManager,
 };
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -78,7 +78,9 @@ async fn select_healthy_provider(
             return Some(current);
         }
 
-        let next = fallback_manager.get_next_provider(primary, &current).await?;
+        let next = fallback_manager
+            .get_next_provider(primary, &current)
+            .await?;
         current = next;
     }
 }
@@ -114,7 +116,14 @@ async fn provider_registry_and_model_catalog_compose_across_multiple_providers()
 
     assert_eq!(primary_models.len(), 1);
     assert_eq!(fallback_models.len(), 1);
-    assert_eq!(primary_models[0].provider_id, providers.iter().find(|p| p.provider_id == "primary").unwrap().provider_id);
+    assert_eq!(
+        primary_models[0].provider_id,
+        providers
+            .iter()
+            .find(|p| p.provider_id == "primary")
+            .unwrap()
+            .provider_id
+    );
     assert_eq!(fallback_models[0].provider_id, "fallback");
 }
 
@@ -125,10 +134,7 @@ async fn provider_failover_follows_declared_order() {
     fallback_manager
         .set_config(FallbackConfig {
             primary_provider: "primary".to_string(),
-            fallback_providers: vec![
-                "fallback-a".to_string(),
-                "fallback-b".to_string(),
-            ],
+            fallback_providers: vec!["fallback-a".to_string(), "fallback-b".to_string()],
             auto_failover: true,
         })
         .await
@@ -164,10 +170,7 @@ async fn health_check_drives_failover_selection() {
     fallback_manager
         .set_config(FallbackConfig {
             primary_provider: "primary".to_string(),
-            fallback_providers: vec![
-                "fallback-a".to_string(),
-                "fallback-b".to_string(),
-            ],
+            fallback_providers: vec!["fallback-a".to_string(), "fallback-b".to_string()],
             auto_failover: true,
         })
         .await
@@ -207,8 +210,7 @@ async fn health_check_drives_failover_selection() {
     assert!(!health_checker.is_healthy("fallback-a").await);
     assert!(health_checker.is_healthy("fallback-b").await);
 
-    let selected =
-        select_healthy_provider("primary", &fallback_manager, &health_checker).await;
+    let selected = select_healthy_provider("primary", &fallback_manager, &health_checker).await;
 
     assert_eq!(selected.as_deref(), Some("fallback-b"));
 }
@@ -288,7 +290,8 @@ async fn credential_pool_keeps_credentials_scoped_to_their_provider() {
 
 #[tokio::test]
 async fn http_model_provider_executes_against_a_deterministic_local_provider() {
-    let body = r#"{"choices":[{"message":{"content":"integration-ok"}}],"usage":{"total_tokens":7}}"#;
+    let body =
+        r#"{"choices":[{"message":{"content":"integration-ok"}}],"usage":{"total_tokens":7}}"#;
     let (base_url, server) = spawn_http_response_server(body);
 
     let provider = HttpModelProvider::new("local-test".to_string(), base_url);
@@ -307,12 +310,10 @@ async fn http_model_provider_executes_against_a_deterministic_local_provider() {
     assert_eq!(response.request_id, "integration-request-1");
     assert_eq!(response.output, "integration-ok");
     assert_eq!(response.tokens_used, Some(7));
-    assert!(
-        response
-            .metadata
-            .as_deref()
-            .is_some_and(|value| value.contains("local-test"))
-    );
+    assert!(response
+        .metadata
+        .as_deref()
+        .is_some_and(|value| value.contains("local-test")));
 
     thread::sleep(Duration::from_millis(1));
 }

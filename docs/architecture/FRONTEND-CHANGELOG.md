@@ -1038,3 +1038,10 @@ Verification status:
 - Removed the stale Ctrl+Shift+F hint from the standalone Global Search surface because that shortcut is reserved by the application shell for Focus mode.
 - No provider, credential, filesystem, network or runtime execution behavior changed.
 - Verification remains source-level; a fresh frontend build and browser/Tauri interaction pass are still required.
+
+
+## 2026-09-24 — RailMode registry alignment
+
+- Added the existing Workspace Setup, QA & Readiness and Wake Word & Presence modes to the canonical RailMode union.
+- This removes type-level drift between navigation metadata, platform mode registration and the already implemented PlatformSurface routes.
+- No new UI surface, runtime capability, provider, credential or persistence behavior was introduced.

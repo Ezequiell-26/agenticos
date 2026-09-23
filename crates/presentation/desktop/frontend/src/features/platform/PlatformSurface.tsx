@@ -69,7 +69,7 @@ import './GitControlCenter.css'
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
+function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
@@ -154,7 +154,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
     </Shell>
   )
 
-  if (mode === 'navigation-center') return (<Shell><NavigationCenter active={mode} onChange={notifyMode => notify('Navigate to '+notifyMode)} /><Toast message={notice} /></Shell>)
+  if (mode === 'navigation-center') return (<Shell><NavigationCenter active={mode} onChange={(nextMode) => onNavigate?.(nextMode)} /><Toast message={notice} /></Shell>)
 
   if (mode === 'frontend-coverage') return (<Shell><FrontendCoverageStudio onAction={notify} /><Toast message={notice} /></Shell>)
 
@@ -654,7 +654,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { ha
   }
 }
 
-function PlatformSurface({ mode }: { mode: PlatformMode }) {
+function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
   return (
     <SurfaceErrorBoundary>
       <Suspense fallback={
@@ -663,7 +663,7 @@ function PlatformSurface({ mode }: { mode: PlatformMode }) {
         <div><strong>Loading workspace feature</strong><small>The selected tool is being loaded on demand.</small></div>
       </section>
     }>
-        <PlatformSurfaceContent mode={mode} />
+        <PlatformSurfaceContent mode={mode} onNavigate={onNavigate} />
       </Suspense>
     </SurfaceErrorBoundary>
   )

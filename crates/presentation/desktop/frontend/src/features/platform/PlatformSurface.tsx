@@ -19,7 +19,7 @@ const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
 const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
-import { projects, indexEntries, ruleSources, backgroundJobs, reviewItems, checkpoints, bots, automations, channels, researchBatches, batchJobs, learningSignals, plugins, hooks, environments, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, credentials, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
@@ -28,9 +28,7 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
   const [selectedRule, setSelectedRule] = useState(ruleSources[0][0])
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
-  const [enabledContext, setEnabledContext] = useState(() => new Set(contextSources.filter((item) => item[3]).map((item) => item[0])))
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
-  const [pausedAutomations, setPausedAutomations] = useState(() => new Set(automations.filter((item) => item[3] === 'Paused').map((item) => item[0])))
   const [voiceMode, setVoiceMode] = useState(true)
   const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
@@ -39,7 +37,6 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
   const [selectedSession, setSelectedSession] = useState(sessions[0][0])
   const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
   const [enabledToolsets, setEnabledToolsets] = useState(() => new Set(toolsets.filter((item) => item[3]).map((item) => item[0])))
-  const [selectedCredential, setSelectedCredential] = useState(credentials[0][0])
   const [selectedImport, setSelectedImport] = useState(imports[0][0])
   const [selectedMedia, setSelectedMedia] = useState(mediaItems[0][0])
   const [selectedEvaluation, setSelectedEvaluation] = useState(evaluationSuites[0][0])

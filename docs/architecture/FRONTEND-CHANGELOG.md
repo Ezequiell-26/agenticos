@@ -1062,3 +1062,10 @@ Verification status:
 
 - Removed the extra closing wrapper that kept Quality Workbench from compiling under TypeScript/Vite.
 - This repairs the known frontend build blocker without changing the workbench feature model.
+
+
+## 2026-09-24 — Quality Workbench coverage nesting repair
+
+- Corrected the coverage tab JSX nesting so the coverage bar container closes inside each mapped coverage row.
+- This removes the remaining TypeScript parser failure reported by the frontend verification workflow.
+- No quality metrics, runtime adapters or backend behavior were changed.

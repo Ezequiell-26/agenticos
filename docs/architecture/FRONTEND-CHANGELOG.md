@@ -835,3 +835,16 @@ Verification status:
 - Added `approvals` and `observability` to `platformModes` so the dedicated Approval Center and Final Control Suite routes are reachable instead of falling through to the legacy StudioSurface.
 - Kept the frontend-only boundary intact: no runtime, provider, credential, network or execution integration was added.
 - Verification status: source-level audit completed; GitHub Actions build result for the resulting commit must still be observed before claiming production-build verification.
+
+
+## 2026-09-24 — Platform mode type-registry hardening
+
+- Scope: frontend-only navigation/type consistency.
+- Branch: `fix/frontend-navigation-type-registry-2026-09-24`.
+- User-visible effect: keeps the typed `PlatformMode` union synchronized with the already-registered `approvals` and `observability` routes, preventing type-level drift between navigation registration and platform dispatch.
+- Modified: `crates/presentation/desktop/frontend/src/navigation.ts`.
+- Architecture decision: `PlatformMode`, `platformModes` and dedicated `PlatformSurface` branches must remain one coherent registry; a route added to the set must also exist in the type domain.
+- Verification evidence: source audit confirmed both modes were already in `platformModes` and dispatch, while missing from the `PlatformMode` union; the union is now corrected.
+- Unverified checks: fresh TypeScript/Vite build, GitHub Actions result, browser/Tauri verification and accessibility audit.
+- Rollback point: `58c5dd58e72024d2afaf890839c6fec5895bf0ea`.
+- Next step: run the isolated frontend verification workflow after merging this registry correction.

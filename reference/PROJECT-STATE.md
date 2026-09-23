@@ -7,10 +7,11 @@
 - Repository: `Ezequiell-26/agenticos`
 - Current architecture mode: `sequential-verified / fail-closed`
 - Current authorized implementation step: **Step 25 — `integration-test-implementation-phase-3`**
+- Current implementation step: `integration-test-implementation-phase-3`
 - Current step status: `in_progress`
 - Verified contiguous steps: **0–24 (25 steps)**
 - Steps 25 onward are not currently verified.
-- Current main head audited for this reconciliation: `bf3c919149d0c32589742840c27b330ff56587fa`
+- Current main head audited for this reconciliation: `c094adb1cbe4d7b0f0349935a4be90053f77ed76`
 - Safe rollback point for Step 25 implementation: `a278008b536ef4da7cf18a67191291446dd7a8a5`
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
@@ -36,6 +37,18 @@ A source file can exist without being a verified implementation step.
 The repository currently contains an early Tauri + React + Vite + Tailwind frontend. It is preserved and documented, but future UI changes remain governed by the sequential state machine.
 
 Likewise, Brain/Capability/Source/Resource work after Step 24 is retained as source history but is not treated as currently verified until its predecessor chain is completed.
+
+## Verification truth
+
+- Only Steps 0–24 are currently verified.
+- Step 25 remains `in_progress` until every acceptance check has recorded CI evidence.
+- Existing source outside the current step remains preserved but does not become verified by presence alone.
+
+## Anti-regression rule
+
+- Never advance the implementation state past the current authorized step.
+- Never mark a step verified without complete acceptance evidence.
+- Never delete or rewrite historical source/evidence to conceal a failing check.
 
 ## Architecture-control documents
 

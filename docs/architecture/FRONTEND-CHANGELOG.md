@@ -593,3 +593,11 @@ Verification status:
 - Added compact configuration history UI.
 - Static source audits passed after the hardening pass; runtime/build/browser verification remains pending.
 
+## 2026-09-24 — Effective permission visualization
+
+- Added `features/security/EffectivePermissionMatrix.tsx`.
+- Execution settings now render an explicit preview of effective allow/ask/deny decisions for files, external files, terminal, network, destructive operations, Git and MCP.
+- The matrix derives from the selected frontend policy controls so the user can see the consequence of a setting change before runtime integration.
+- The preview is explicitly non-authoritative; runtime policy enforcement remains behind typed contracts.
+- The component is isolated under the security feature boundary and only mounted inside the selected Execution & Security domain.
+

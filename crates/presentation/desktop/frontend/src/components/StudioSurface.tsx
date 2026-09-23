@@ -3,6 +3,7 @@ import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
 import ChangeReviewPanel from '../features/editor/ChangeReviewPanel'
 import ArtifactViewer from '../features/artifacts/ArtifactViewer'
+import WorkflowBuilder from '../features/workflows/WorkflowBuilder'
 import SettingsSurface from './SettingsSurface'
 
 type Toast = { id: number; message: string }
@@ -327,8 +328,8 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
 
   if (mode === 'workflows') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Automation plane" title="Workflows" subtitle="Repeatable agent processes with steps, checkpoints, schedules and test runs." actions={<button className="studio-button" type="button" onClick={() => notify('Workflow builder opened in preview')}><Icon name="plus" size={14} /> New workflow</button>} />
-      <div className="workflow-grid">{workflows.map(([name, description, steps]) => <div className="workflow-card" key={name}><div className="workflow-card__top"><div className="workflow-icon"><Icon name="clock" size={16} /></div><span className="state-pill state-pill--completed">Ready</span></div><strong>{name}</strong><span>{description}</span><div className="workflow-card__foot"><small>{steps}</small><button className="studio-button" type="button" disabled={workflowRunning === name} onClick={() => { setWorkflowRunning(name); notify(`${name} started`); window.setTimeout(() => setWorkflowRunning(null), 1800) }}>{workflowRunning === name ? 'Running…' : 'Run'}</button></div></div>)}</div>
+      <StudioHeader eyebrow="Automation plane" title="Workflows" subtitle="Design repeatable agent processes with triggers, steps, approvals and handoff stages." actions={<button className="studio-button studio-button--active" type="button" onClick={() => notify('New workflow draft created in preview')}><Icon name="plus" size={14} /> New workflow</button>} />
+      <WorkflowBuilder onAction={notify} />
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

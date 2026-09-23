@@ -23,9 +23,9 @@ const logs=[
 ]
 
 export function TaskExecutionCenter({onAction}:{onAction:(message:string)=>void}){
- const [selected,setSelected]=useState(initialTasks[0][0])
+ const [selected,setSelected]=useState<(typeof initialTasks)[number][0]>(initialTasks[0][0])
  const [taskState,setTaskState]=useState<Record<string,TaskState>>({})
- const [terminal,setTerminal]=useState(terminals[0][0])
+ const [terminal,setTerminal]=useState<(typeof terminals)[number][0]>(terminals[0][0])
  const [logFilter,setLogFilter]=useState('')
  const current=initialTasks.find(([id])=>id===selected)??initialTasks[0]
  const state=(id:string,base:TaskState)=>taskState[id]??base
@@ -52,7 +52,7 @@ export function TaskExecutionCenter({onAction}:{onAction:(message:string)=>void}
 
   <div className="task-execution__layout task-execution__layout--lower">
    <Panel title="Terminal sessions">
-    <div className="task-execution__terminal-tabs">{terminals.map(([id,shell,scope,status])=><button key={id} type="button" className={terminal===id?'terminal-tab terminal-tab--active':'terminal-tab'} onClick={()=>setTerminal(id)}><Icon name="terminal" size={12}/><span>{shell}</span><small>{status}</small></button>)}</div>
+    <div className="task-execution__terminal-tabs">{terminals.map(([id,shell,,status])=><button key={id} type="button" className={terminal===id?'terminal-tab terminal-tab--active':'terminal-tab'} onClick={()=>setTerminal(id)}><Icon name="terminal" size={12}/><span>{shell}</span><small>{status}</small></button>)}</div>
     <div className="terminal-preview"><div className="terminal-preview__bar"><span>{terminal}</span><Tag label="sandbox"/><button className="icon-button" aria-label="Clear terminal" type="button" onClick={()=>act('Clear terminal output')}><Icon name="x" size={13}/></button></div><pre>$ cargo check -p agenticos-api-server
 Checking dependencies...
 Checking agenticos-kernel

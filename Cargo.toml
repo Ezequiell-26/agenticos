@@ -1,17 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/brain", "crates/contracts", "crates/kernel", "crates/runtime", "crates/execution",
+  "crates/adapters", "crates/brain", "crates/contracts", "crates/kernel", "crates/runtime", "crates/execution",
   "crates/scheduler", "crates/providers", "crates/router", "crates/tools",
   "crates/sandbox", "crates/context", "crates/memory", "crates/skills",
   "crates/workflows", "crates/agents", "crates/projects", "crates/artifacts",
   "crates/plugins", "crates/gateway", "crates/security", "crates/observability",
-  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/cli",
+  "crates/evaluation", "crates/source-forge", "crates/protocols", "crates/mcp", "crates/cli",
   "crates/desktop", "crates/api-server", "crates/concurrency-stress", "crates/crypto",
   "crates/math", "crates/time-utils", "crates/http-client", "crates/async-utils",
   "crates/cache", "crates/compression", "crates/rate-limiting", "crates/vector-database",
   "crates/websockets", "crates/file-watcher", "crates/text-search", "crates/event-bus",
-  "crates/state-management", "crates/configuration", "crates/streaming", "crates/notifications"
+  "crates/state-management", "crates/configuration", "crates/streaming", "crates/notifications",
+  "crates/resilience"
 ]
 
 [workspace.package]
@@ -44,6 +45,12 @@ once_cell = "1.0"
 tokio-util = { version = "0.7", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono"] }
+semver = "1.0"
+serde_yaml = "0.9"
+dotenv = "0.15"
+rand = "0.8"
+async-stream = "0.3"
+clap = { version = "4.0", features = ["derive"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

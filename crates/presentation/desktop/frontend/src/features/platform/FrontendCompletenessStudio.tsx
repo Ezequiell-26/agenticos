@@ -71,8 +71,7 @@ function StatStrip({ items }: { items: [string, string][] }) {
 export function FrontendCompletenessStudio({ mode, onAction }: Props) {
   const [selected, setSelected] = useState('agent-core')
   const [filter, setFilter] = useState('')
-  const [enabled, setEnabled] = useState(() => new Set(['workspace', 'github']))
-  const [onboardingStep, setOnboardingStep] = useState(2)
+    const [onboardingStep, setOnboardingStep] = useState(2)
 
   const filteredSkills = useMemo(() => skills.filter((item) => item.join(' ').toLowerCase().includes(filter.toLowerCase())), [filter])
 
@@ -111,11 +110,11 @@ export function FrontendCompletenessStudio({ mode, onAction }: Props) {
 
   if (mode === 'credentials') return <Shell><Header eyebrow="Secrets boundary" title="Credential Vault" detail="Manage credential metadata, scopes, rotation state and approval boundaries without exposing secret values to the frontend." onAction={onAction} />
     <StatStrip items={[['Credentials', '24'], ['Healthy', '21'], ['Expiring', '2'], ['Unusable', '1']]} />
-    <div className="fc-card-grid">{['GitHub token','OpenAI-compatible key','Research API key','Browser profile secret','Local signing key','Webhook signing secret'].map((name, i) => <div className="fc-card" key={name}><div className="fc-card__top"><Icon name="lock" size={17} /><Tag>{i === 4 ? 'Local' : 'Vaulted'}</Tag></div><strong>{name}</strong><span>••••••••••••</span><small>{i % 2 ? 'Rotation: 28d' : 'Rotation: 14d'}</small><div className="fc-actions"><button className="studio-button" type="button" onClick={() => onAction(name + ' metadata opened')}>Details</button><button className="studio-button" type="button" onClick={() => onAction(name + ' rotation staged')}>Rotate</button></div></div>)}</div>
+    <div className="fc-card-grid">{['GitHub token','OpenAI-compatible key','Research API key','Browser profile secret','Local signing key','Webhook signing secret'].map((name, i) => <div className="fc-card" key={name}><div className="fc-card__top"><Icon name="lock" size={17} /><Tag label={i === 4 ? 'Local' : 'Vaulted'} /></div><strong>{name}</strong><span>••••••••••••</span><small>{i % 2 ? 'Rotation: 28d' : 'Rotation: 14d'}</small><div className="fc-actions"><button className="studio-button" type="button" onClick={() => onAction(name + ' metadata opened')}>Details</button><button className="studio-button" type="button" onClick={() => onAction(name + ' rotation staged')}>Rotate</button></div></div>)}</div>
     </Shell>
 
   if (mode === 'plugins') return <Shell><Header eyebrow="Extension lifecycle" title="Plugin & Marketplace Manager" detail="Discover, install, update, trust, sandbox and roll back packaged extensions." onAction={onAction} />
-    <div className="fc-card-grid">{['GitHub Engineering','Research Pack','Browser Automation','Local Dev Tools','Voice Pack','MCP Connector Pack'].map((name, i) => <div className="fc-card" key={name}><div className="fc-card__top"><Icon name="tool" size={17} /><Tag>{i < 4 ? 'Verified' : 'Community'}</Tag></div><strong>{name}</strong><span>v{1 + i}.2.{i}</span><small>{i % 2 ? 'Update available' : 'Installed'}</small><div className="fc-actions"><button className="studio-button" type="button" onClick={() => onAction(name + ' details opened')}>Details</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(name + ' lifecycle action staged')}>{i % 2 ? 'Update' : 'Configure'}</button></div></div>)}</div>
+    <div className="fc-card-grid">{['GitHub Engineering','Research Pack','Browser Automation','Local Dev Tools','Voice Pack','MCP Connector Pack'].map((name, i) => <div className="fc-card" key={name}><div className="fc-card__top"><Icon name="tool" size={17} /><Tag label={i < 4 ? 'Verified' : 'Community'} /></div><strong>{name}</strong><span>v{1 + i}.2.{i}</span><small>{i % 2 ? 'Update available' : 'Installed'}</small><div className="fc-actions"><button className="studio-button" type="button" onClick={() => onAction(name + ' details opened')}>Details</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(name + ' lifecycle action staged')}>{i % 2 ? 'Update' : 'Configure'}</button></div></div>)}</div>
     </Shell>
 
   if (mode === 'imports') return <Shell><Header eyebrow="Migration center" title="Import & Migration Center" detail="Import agent configurations, skills, rules, commands and session archives with diff, conflict resolution and rollback." onAction={onAction} />

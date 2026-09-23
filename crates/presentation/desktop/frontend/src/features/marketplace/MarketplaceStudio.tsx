@@ -3,7 +3,7 @@ import Icon from '../../components/Icon'
 
 type MarketTab = 'All' | 'Plugins' | 'Skills' | 'MCP' | 'Commands'
 
-const catalog = [
+const catalog: ReadonlyArray<readonly [string, string, string, string, boolean]> = [
   ['Cursor-style Core', 'Plugin', 'rules · skills · subagents · commands · hooks', 'Workspace', true],
   ['GitHub Engineering', 'Plugin', 'MCP · issues · reviews · source integration', 'Community', false],
   ['Web Research Pack', 'Skill', 'search · extract · browser workflows', 'Community', true],
@@ -15,7 +15,7 @@ const catalog = [
 export default function MarketplaceStudio({ onAction }: { onAction: (message: string) => void }) {
   const [tab, setTab] = useState<MarketTab>('All')
   const [query, setQuery] = useState('')
-  const [installed, setInstalled] = useState(() => new Set(catalog.filter((item) => item[4]).map((item) => item[0])))
+  const [installed, setInstalled] = useState<Set<string>>(() => new Set(catalog.filter((item) => item[4]).map((item) => item[0])))
   const visible = useMemo(() => catalog.filter(([name,type,description,scope]) => (tab === 'All' || (tab === 'Plugins' && type === 'Plugin') || (tab === 'Skills' && type === 'Skill') || (tab === 'MCP' && type === 'MCP') || (tab === 'Commands' && type === 'Command')) && (name + type + description + scope).toLowerCase().includes(query.toLowerCase())), [query, tab])
   const toggle = (name: string) => setInstalled((state) => { const next = new Set(state); next.has(name) ? next.delete(name) : next.add(name); return next })
   return (

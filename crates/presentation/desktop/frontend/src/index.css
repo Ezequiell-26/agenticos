@@ -1086,3 +1086,18 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .conversation-rename { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) 24px; gap:4px; padding:5px; }
 .conversation-rename input { min-width:0; height:27px; padding:0 8px; border:1px solid #303030; border-radius:6px; outline:0; background:#101010; color:#aaa; font-size:8px; }
 .conversation-rename button { width:24px; height:27px; display:grid; place-items:center; border:1px solid #2c2c2c; border-radius:6px; background:#171717; color:#aaa; cursor:pointer; }
+
+.quick-actions-wrap,.quick-actions-menu { position:relative; }
+.quick-actions-menu { position:absolute; top:37px; right:0; z-index:150; width:250px; padding:6px; border:1px solid #282828; border-radius:10px; background:#0d0d0d; box-shadow:0 18px 42px rgba(0,0,0,.46); }
+.quick-actions-menu__head { display:flex; flex-direction:column; gap:3px; padding:8px 9px 7px; border-bottom:1px solid #1e1e1e; margin-bottom:4px; }
+.quick-actions-menu__head strong { color:#bbb; font-size:9px; }
+.quick-actions-menu > button { display:grid; grid-template-columns:28px minmax(0,1fr) 12px; gap:8px; width:100%; align-items:center; padding:8px; border-radius:7px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.quick-actions-menu > button:hover { background:#161616; }
+.quick-actions-menu__icon { width:27px; height:27px; display:grid; place-items:center; border:1px solid #202020; border-radius:7px; background:#111; color:#747474; }
+.quick-actions-menu > button > span:nth-child(2) { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.quick-actions-menu strong { color:#999; font-size:8px; font-weight:550; }
+.quick-actions-menu small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#535353; font-size:6px; }
+.notification-button { position:relative; width:30px; height:30px; display:grid; place-items:center; border:1px solid #202020; border-radius:7px; background:#0d0d0d; color:#666; cursor:pointer; }
+.notification-button:hover { border-color:#333; background:#151515; color:#aaa; }
+.notification-badge { position:absolute; top:-3px; right:-3px; min-width:13px; height:13px; display:grid; place-items:center; padding:0 3px; border:1px solid #0d0d0d; border-radius:999px; background:#aaa; color:#090909; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; }
+@media (max-width: 760px) { .quick-actions-menu { right:auto; left:0; width:230px; } }

@@ -4,6 +4,7 @@ import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
 import Icon from './components/Icon'
+import QuickActionsMenu from './components/QuickActionsMenu'
 import StatusBar from './components/StatusBar'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
@@ -197,7 +198,11 @@ function App() {
             <h1>{visibleTitle}</h1>
           </div>
           <div className="topbar__right">
+            <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
+            <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
+              <Icon name="history" size={15} /><span className="notification-badge">2</span>
+            </button>
             <span className="runtime-chip">
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
               {status.state}

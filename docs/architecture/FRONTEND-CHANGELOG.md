@@ -422,3 +422,38 @@ The current repository already contains an early desktop UI from existing commit
 - Unverified checks: TypeScript/Vite build, GitHub Actions, browser/Tauri rendering and live runtime persistence.
 - Rollback point: 947645a1635dd8a05ac2a0896f52c78491af6545.
 - Next step: run the settings studio through CI and browser verification before merging the frontend branch.
+
+## Workspace customization bridge + settings feature boundary — 2026-09-24
+
+- Scope: frontend architecture refinement after the Hermes-style configuration expansion.
+- User-visible effect: layout preferences now propagate through a shared UI preference bridge instead of being trapped inside Settings; sidebar visibility, agent inspector visibility, dock visibility, status bar, rail density, tooltips, hover-preview policy and panel widths affect the desktop shell globally.
+- Customization added:
+  - persistent sidebar and inspector widths;
+  - persistent left/right/bottom panel visibility;
+  - persistent activity rail density;
+  - tooltip and hover-preview controls;
+  - notification position preference;
+  - keyboard/profile routing controls;
+  - global disabled-toolset registry;
+  - profile cloning and richer active-profile controls;
+  - per-profile gateway state, skills count and MCP count metadata.
+- Architecture cleanup:
+  - created crates/presentation/desktop/frontend/src/services/ui-preferences.ts as the canonical presentation preference bridge;
+  - moved the full Settings implementation into crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx;
+  - reduced components/SettingsSurface.tsx to a thin compatibility wrapper;
+  - kept the existing shell import stable while aligning the implementation with the feature-slice architecture contract.
+- Modified:
+  - crates/presentation/desktop/frontend/src/services/ui-preferences.ts
+  - crates/presentation/desktop/frontend/src/components/SettingsSurface.tsx
+  - crates/presentation/desktop/frontend/src/features/settings/SettingsStudio.tsx
+  - crates/presentation/desktop/frontend/src/components/App.tsx
+  - crates/presentation/desktop/frontend/src/workspace-enhancements.css
+  - docs/architecture/FRONTEND-CHANGELOG.md
+  - reference/journal/agent-operations.jsonl
+- Deleted: none.
+- Preserved: the complete 59-surface navigation system, Rust runtime/service boundary, profile configuration model, secret-free export, icon system and existing preview semantics.
+- Architecture decision: presentation preferences are now centralized in a typed service module; feature-specific UI remains inside the features/settings boundary while a compatibility wrapper protects existing composition imports.
+- Verification evidence: source audit confirms one Settings implementation, no duplicate Settings implementation tree, centralized preference key/bridge, and shell consumption of the same preference source.
+- Unverified checks: TypeScript/Vite production build, GitHub Actions, browser interaction, Tauri/Windows rendering and accessibility audit.
+- Rollback point: a72d7e332379694b15149492e0b16ae226438186.
+- Next step: validate the reorganized settings feature and preference bridge in CI and browser verification before merging.

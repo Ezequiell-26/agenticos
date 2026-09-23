@@ -8,7 +8,7 @@ interface WorkspaceSidebarProps {
   onCreateConversation: () => void
   onOpenSearch: () => void
   runtimeConnected: boolean
-
+}
 
 export default function WorkspaceSidebar({
   conversations,

@@ -909,3 +909,10 @@ Verification status:
 - Added a current market capability benchmark covering Cursor, OpenAI Codex, Google Antigravity, Claude Code, Windsurf Cascade, Cline and Roo Code, with source links and implementation decisions.
 - Fixed `PlatformMode` registration drift by including `knowledge`, `developer-workspace`, `git-control` and `agent-mission` in the typed platform-mode set.
 - Preserved the presentation/runtime boundary: mission launch, scheduling, tools, provider routing and worktree/cloud creation remain preview-only until connected to typed Tauri/Rust services.
+
+
+## Task Execution Center — 2026-09-24
+
+- Added a unified execution workspace for task queue state, terminal sessions, process/resource state, approvals, event logs and evidence-oriented controls.
+- Connected the surface to the same typed navigation and lazy-loading architecture used by other platform modules.
+- Kept command execution, process control, delegation and artifact mutation explicitly presentation-only until runtime adapters are connected.

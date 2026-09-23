@@ -83,3 +83,26 @@ export function auditNavigationRegistry(): NavigationAuditReport {
     issues,
   }
 }
+
+export interface NavigationSurfaceOwnershipReport {
+  total: number
+  app: number
+  studio: number
+  platform: number
+  unowned: number
+}
+
+export function navigationSurfaceOwnership(): NavigationSurfaceOwnershipReport {
+  let app = 0
+  let studio = 0
+  let platform = 0
+  let unowned = 0
+  for (const item of navigationItems) {
+    const owner = getSurfaceOwner(item.id)
+    if (owner === 'app-shell') app += 1
+    else if (owner === 'studio-surface') studio += 1
+    else if (owner === 'platform-surface') platform += 1
+    else unowned += 1
+  }
+  return { total: navigationItems.length, app, studio, platform, unowned }
+}

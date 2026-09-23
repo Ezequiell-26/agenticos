@@ -924,3 +924,11 @@ Verification status:
 - Added Evidence & Artifact Inspector for screenshots, videos, logs, diffs, test reports, handoffs and provenance chains.
 - Added Environment Lab for local/worktree/cloud/SSH targets, network policy, runtime setup, snapshots and lifecycle states.
 - Added FRONTEND-CAPABILITY-MATRIX.md as the canonical inventory of frontend surfaces and backend connection status.
+
+
+## Agent Arena + Resilience QA — 2026-09-24
+
+- Added Agent Arena for parallel candidate lanes, isolated worktrees, criterion comparison, evidence review and convergence preview.
+- Added Frontend State Matrix to standardize loading, ready, empty, error, offline, reconnecting, stale, permission and approval UX contracts across critical surfaces.
+- Added Visual & Accessibility Lab for viewport, keyboard, reduced-motion, contrast, semantics and recovery verification workflows.
+- Kept all verification labels honest: this lab records UI expectations and preview intent; it does not fabricate successful browser or accessibility execution.

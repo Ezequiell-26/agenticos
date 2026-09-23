@@ -1824,3 +1824,7 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   background:#171717;
   color:#eee;
 }
+
+.slash-command-menu > button[aria-selected="true"],
+.slash-command-menu > button:hover { background:#181818; color:#eee; }
+.slash-command-menu > button:focus-visible { outline:2px solid #858585; outline-offset:-2px; }

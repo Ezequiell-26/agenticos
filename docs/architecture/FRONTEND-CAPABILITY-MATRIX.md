@@ -167,3 +167,21 @@ This is a structural completeness result, not a runtime-verification result. Bui
 ## Taxonomy exhaustiveness audit — 2026-09-24
 
 All 97 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
+
+
+## AI engineering command center — 2026-09-24
+
+The Developer Workspace now consolidates the current agent-native developer workflow patterns into one frontend surface:
+
+| Capability | Frontend treatment | Runtime status |
+| --- | --- | --- |
+| Parallel agents | agent lanes, dedicated context/model state, worktree identity, follow-up and merge review controls | preview |
+| Long-running work | automation schedules, trigger state, history and handoff | preview |
+| Skills / reusable procedures | versioned skill inventory, tools/MCP/check contracts and invocation state | preview |
+| Visual design mode | browser frame, visual instruction composer, screenshot/evidence controls and viewport checks | preview |
+| Agentic review | review findings, security gate, regression tests and checkpoint controls | preview |
+| Context engineering | source selection, token budget, compaction, deduplication and provenance | preview |
+| Environment matrix | local, worktree, cloud and SSH targets with network/policy state | preview |
+| Unified activity | agent, QA, review, research and verification events | preview |
+| Autonomy controls | suggest/supervised/autonomous presentation state | preview |
+| Approval gates | explicit human-gate presentation state for risky operations | preview |

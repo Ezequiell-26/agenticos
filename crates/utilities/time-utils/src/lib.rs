@@ -2,7 +2,7 @@
 //! MIT/Apache-2.0 Licensed - Date and time library for Rust
 //! Source: https://github.com/chronotope/chrono (33,288 dependents, MIT/Apache-2.0)
 
-use chrono::{DateTime, Utc, Local, Duration, NaiveDateTime, NaiveDate, TimeZone, Datelike};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -187,9 +187,7 @@ pub struct Timer {
 
 impl Timer {
     pub fn new() -> Self {
-        Self {
-            start: Utc::now(),
-        }
+        Self { start: Utc::now() }
     }
 
     pub fn elapsed(&self) -> Duration {

@@ -172,7 +172,7 @@ pub struct NotificationManager {
 impl NotificationManager {
     pub fn new() -> Self {
         let (queue_sender, _queue_receiver) = mpsc::unbounded_channel();
-        
+
         let manager = Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
             queue: queue_sender,
@@ -203,7 +203,8 @@ impl NotificationManager {
 
     /// Send notification
     pub async fn send(&self, notification: Notification) -> Result<(), NotificationError> {
-        self.queue.send(notification)
+        self.queue
+            .send(notification)
             .map_err(|_| NotificationError::SendError("Queue closed".to_string()))
     }
 
@@ -221,12 +222,18 @@ impl NotificationManager {
         channels: Vec<Channel>,
     ) -> Result<(), NotificationError> {
         let notification = Notification::new(title, body);
-        let notification = channels.into_iter().fold(notification, |n, c| n.with_channel(c));
+        let notification = channels
+            .into_iter()
+            .fold(notification, |n, c| n.with_channel(c));
         self.send(notification).await
     }
 
     /// Send urgent notification
-    pub async fn notify_urgent(&self, title: String, body: String) -> Result<(), NotificationError> {
+    pub async fn notify_urgent(
+        &self,
+        title: String,
+        body: String,
+    ) -> Result<(), NotificationError> {
         let notification = Notification::new(title, body)
             .with_priority(Priority::Urgent)
             .with_channel(Channel::Email)
@@ -278,7 +285,10 @@ impl NotificationBuilder {
 
     pub fn build(self) -> Notification {
         let mut notification = Notification::new(self.title, self.body);
-        notification = self.channels.into_iter().fold(notification, |n, c| n.with_channel(c));
+        notification = self
+            .channels
+            .into_iter()
+            .fold(notification, |n, c| n.with_channel(c));
         notification = notification.with_priority(self.priority);
         for (key, value) in self.metadata {
             notification = notification.with_metadata(key, value);
@@ -300,8 +310,8 @@ mod tests {
 
     #[test]
     fn test_notification_with_channel() {
-        let notification = Notification::new("Test".to_string(), "Body".to_string())
-            .with_channel(Channel::Email);
+        let notification =
+            Notification::new("Test".to_string(), "Body".to_string()).with_channel(Channel::Email);
         assert!(notification.channels.contains(&Channel::Email));
     }
 
@@ -317,7 +327,7 @@ mod tests {
         let handler = InMemoryHandler::new();
         let notification = Notification::new("Test".to_string(), "Body".to_string());
         handler.send(&notification).await.unwrap();
-        
+
         let notifications = handler.get_all().await;
         assert_eq!(notifications.len(), 1);
     }
@@ -327,8 +337,11 @@ mod tests {
         let manager = NotificationManager::new();
         let handler = Arc::new(InMemoryHandler::new());
         manager.register_handler(Channel::InApp, handler).await;
-        
-        manager.notify("Test".to_string(), "Body".to_string()).await.unwrap();
+
+        manager
+            .notify("Test".to_string(), "Body".to_string())
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -336,12 +349,15 @@ mod tests {
         let manager = NotificationManager::new();
         let handler = Arc::new(InMemoryHandler::new());
         manager.register_handler(Channel::InApp, handler).await;
-        
-        manager.notify_channels(
-            "Test".to_string(),
-            "Body".to_string(),
-            vec![Channel::InApp, Channel::Email],
-        ).await.unwrap();
+
+        manager
+            .notify_channels(
+                "Test".to_string(),
+                "Body".to_string(),
+                vec![Channel::InApp, Channel::Email],
+            )
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -350,7 +366,7 @@ mod tests {
             .with_channel(Channel::Email)
             .with_priority(Priority::High)
             .build();
-        
+
         assert_eq!(notification.title, "Test");
         assert!(notification.channels.contains(&Channel::Email));
         assert_eq!(notification.priority, Priority::High);

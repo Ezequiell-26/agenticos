@@ -72,10 +72,7 @@ impl Default for RetryConfig {
 }
 
 /// Execute an async operation with exponential backoff retry.
-pub async fn retry_with_backoff<F, T, E>(
-    operation: F,
-    config: &RetryConfig,
-) -> Result<T, E>
+pub async fn retry_with_backoff<F, T, E>(operation: F, config: &RetryConfig) -> Result<T, E>
 where
     F: Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T, E>> + Send>>,
     E: std::fmt::Display,
@@ -91,7 +88,9 @@ where
                 if attempt < config.max_retries {
                     sleep(delay).await;
                     delay = std::cmp::min(
-                        Duration::from_millis((delay.as_millis() as f64 * config.backoff_multiplier) as u64),
+                        Duration::from_millis(
+                            (delay.as_millis() as f64 * config.backoff_multiplier) as u64,
+                        ),
                         config.max_delay,
                     );
                 }
@@ -103,10 +102,7 @@ where
 }
 
 /// Execute an async operation with timeout.
-pub async fn with_timeout<F, T>(
-    operation: F,
-    timeout: Duration,
-) -> Result<T, TimeoutError>
+pub async fn with_timeout<F, T>(operation: F, timeout: Duration) -> Result<T, TimeoutError>
 where
     F: std::future::Future<Output = T>,
 {

@@ -2,10 +2,10 @@
 //! MIT Licensed - Circuit breaker, retry, timeout, rate limiting
 //! Source: https://github.com/lerouxrgd/recloser (122 stars, MIT)
 
-use thiserror::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio::time::Instant;
 
@@ -74,7 +74,7 @@ impl CircuitBreaker {
         E: std::error::Error + Send + Sync + 'static,
     {
         let state = *self.state.read().await;
-        
+
         match state {
             CircuitState::Open => {
                 let last_failure = *self.last_failure_time.read().await;
@@ -110,7 +110,7 @@ impl CircuitBreaker {
 
     async fn on_success(&self) {
         let state = *self.state.read().await;
-        
+
         match state {
             CircuitState::HalfOpen => {
                 let successes = self.success_count.fetch_add(1, Ordering::SeqCst) + 1;
@@ -129,13 +129,13 @@ impl CircuitBreaker {
 
     async fn on_failure(&self) {
         let failures = self.failure_count.fetch_add(1, Ordering::SeqCst) + 1;
-        
+
         let mut last_failure = self.last_failure_time.write().await;
         *last_failure = Some(Instant::now());
         drop(last_failure);
 
         let state = *self.state.read().await;
-        
+
         if state != CircuitState::Open && failures >= self.config.failure_threshold {
             let mut state = self.state.write().await;
             *state = CircuitState::Open;
@@ -200,8 +200,10 @@ impl Retry {
                 Ok(value) => return Ok(value),
                 Err(_) if attempt < self.config.max_attempts => {
                     std::thread::sleep(backoff);
-                    let backoff_millis = (backoff.as_millis() as f64 * self.config.backoff_multiplier) as u64;
-                    let backoff_millis = backoff_millis.min(self.config.max_backoff.as_millis() as u64);
+                    let backoff_millis =
+                        (backoff.as_millis() as f64 * self.config.backoff_multiplier) as u64;
+                    let backoff_millis =
+                        backoff_millis.min(self.config.max_backoff.as_millis() as u64);
                     backoff = Duration::from_millis(backoff_millis);
                 }
                 Err(_) => return Err(ResilienceError::MaxRetriesExceeded),
@@ -230,16 +232,14 @@ mod tests {
         };
         let breaker = CircuitBreaker::new(config);
 
-        let result = breaker.call(|| Err::<(), _>(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "test",
-        ))).await;
+        let result = breaker
+            .call(|| Err::<(), _>(std::io::Error::new(std::io::ErrorKind::Other, "test")))
+            .await;
         assert!(result.is_err());
 
-        let result = breaker.call(|| Err::<(), _>(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "test",
-        ))).await;
+        let result = breaker
+            .call(|| Err::<(), _>(std::io::Error::new(std::io::ErrorKind::Other, "test")))
+            .await;
         assert!(result.is_err());
 
         assert_eq!(breaker.state().await, CircuitState::Open);

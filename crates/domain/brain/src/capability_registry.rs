@@ -1,6 +1,6 @@
 //! Capability Registry - Dynamic capability discovery and management
 
-use super::{Capability, CapabilityId, CapabilityOrigin, CapabilityStatus, BrainError};
+use super::{BrainError, Capability, CapabilityId, CapabilityOrigin, CapabilityStatus};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -39,19 +39,20 @@ impl CapabilityRegistry {
     /// Register a new capability
     pub async fn register(&self, capability: Capability) -> Result<(), BrainError> {
         let mut registry = self.capabilities.write().await;
-        
+
         if registry.len() >= self.config.max_capabilities {
             return Err(BrainError::ResourceLimitExceeded(
-                "Maximum capabilities reached".to_string()
+                "Maximum capabilities reached".to_string(),
             ));
         }
-        
+
         if registry.contains_key(&capability.id) {
-            return Err(BrainError::DependencyConflict(
-                format!("Capability {} already exists", capability.id)
-            ));
+            return Err(BrainError::DependencyConflict(format!(
+                "Capability {} already exists",
+                capability.id
+            )));
         }
-        
+
         registry.insert(capability.id.clone(), capability);
         Ok(())
     }
@@ -72,12 +73,16 @@ impl CapabilityRegistry {
     }
 
     /// Update capability status
-    pub async fn update_status(&self, id: &CapabilityId, status: CapabilityStatus) -> Result<(), BrainError> {
+    pub async fn update_status(
+        &self,
+        id: &CapabilityId,
+        status: CapabilityStatus,
+    ) -> Result<(), BrainError> {
         let mut registry = self.capabilities.write().await;
         let capability = registry
             .get_mut(id)
             .ok_or_else(|| BrainError::CapabilityNotFound(id.clone()))?;
-        
+
         capability.status = status;
         Ok(())
     }
@@ -96,7 +101,7 @@ impl CapabilityRegistry {
     pub async fn check_compatibility(&self, id: &CapabilityId) -> Result<bool, BrainError> {
         let capability = self.get(id).await?;
         let registry = self.capabilities.read().await;
-        
+
         for dep_id in &capability.dependencies {
             if let Some(dep) = registry.get(dep_id) {
                 // Check if dependency conflicts
@@ -107,7 +112,7 @@ impl CapabilityRegistry {
                 return Ok(false); // Missing dependency
             }
         }
-        
+
         Ok(true)
     }
 }
@@ -126,7 +131,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_capability() {
         let registry = CapabilityRegistry::default();
-        
+
         let capability = Capability {
             id: "test-capability".to_string(),
             name: "Test Capability".to_string(),
@@ -179,9 +184,9 @@ mod tests {
             },
             status: CapabilityStatus::Discovered,
         };
-        
+
         registry.register(capability).await.unwrap();
-        
+
         let retrieved = registry.get(&"test-capability".to_string()).await.unwrap();
         assert_eq!(retrieved.id, "test-capability");
     }
@@ -189,7 +194,7 @@ mod tests {
     #[tokio::test]
     async fn test_duplicate_capability() {
         let registry = CapabilityRegistry::default();
-        
+
         let capability = Capability {
             id: "test-capability".to_string(),
             name: "Test".to_string(),
@@ -242,9 +247,9 @@ mod tests {
             },
             status: CapabilityStatus::Discovered,
         };
-        
+
         registry.register(capability.clone()).await.unwrap();
-        
+
         let result = registry.register(capability).await;
         assert!(result.is_err());
     }

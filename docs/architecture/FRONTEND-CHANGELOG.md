@@ -809,3 +809,8 @@ Verification status:
 - Registered the `qa` route before the broader completeness suite so the dedicated QA surface is actually reachable.
 - Verification status: code was added through the GitHub branch/PR workflow; fresh TypeScript/Vite build, browser/Tauri verification and accessibility execution remain pending.
 - No runtime, provider, secret, filesystem or network behavior was introduced.
+
+
+## 2026-09-24 — Frontend build hardening follow-up
+- Corrected malformed literal `\\n` sequences that were present in three TypeScript sources and caused `tsc` parse failures.
+- Frontend production verification remains gated on the isolated GitHub Actions build; no passing result is claimed until the workflow executes successfully.

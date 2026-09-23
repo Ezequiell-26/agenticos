@@ -1616,3 +1616,14 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 .prompt-test__result strong { color:#999; font-size:8px; }
 .prompt-test__result small { color:#555; font-size:6px; line-height:1.45; }
 @media (max-width:900px) { .agent-studio,.prompt-studio { grid-template-columns:1fr; } .agent-studio__list,.prompt-studio__list { max-height:300px; border-right:0; border-bottom:1px solid #1e1e1e; } .agent-control-grid { grid-template-columns:repeat(2,1fr); } .agent-toolset-list,.agent-form-grid { grid-template-columns:1fr; } .agent-field:first-child { grid-column:auto; } }
+
+
+/* Frontend interaction hardening — compact navigation + reduced-motion support */
+.activity-rail__items { width:100%; padding:4px 0; overscroll-behavior:contain; }
+.activity-rail__bottom { margin-top:8px; }
+.rail-button:focus-visible,.brand-mark:focus-visible,.quick-actions-menu > button:focus-visible { outline:1px solid #8c8c8c; outline-offset:2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:0.01ms !important; }
+  .surface-focusable:hover { transform:none; }
+}

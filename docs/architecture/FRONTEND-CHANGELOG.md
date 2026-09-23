@@ -548,3 +548,14 @@ Verification status:
 - Fresh TypeScript/Vite CI for the combined head is still required.
 - Browser/Tauri and accessibility verification remain required before merge.
 
+## 2026-09-24 — Agent IDE depth coverage
+
+- Extended the unified Control Center with auxiliary model routing for vision, compression, approvals, browser analysis, image/media and session-title workloads.
+- Added iteration budget and provider service-tier controls to the agent domain.
+- Added vision embedding byte/call budgets to the context domain.
+- Added status-line field selection and platform display override controls.
+- Kept these controls presentation-local and separate from the detailed runtime-inspired settings catalog.
+- Static source audit after this pass: 76 ControlState fields, 76 defaults, zero missing defaults or duplicate fields.
+- Fixed/verified the deep Settings catalog contains a single Security & Privacy domain declaration.
+- Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
+

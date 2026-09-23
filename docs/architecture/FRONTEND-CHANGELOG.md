@@ -1168,3 +1168,24 @@ Verification status:
 - Added scratch/template/import project bootstrap and preview/publish state to Project Control Center.
 - These capabilities are presentation contracts only until their corresponding Tauri/Rust/browser/provider services are connected.
 - Current capability coverage was cross-checked against current 2026 documentation from OpenAI Codex, Cursor and GitHub Copilot. citeturn900621search0turn900621search2turn900621search7turn900621search8turn900621search11
+
+
+## 2026-09-24 — Deep frontend productization pass
+
+- Computer Use: interaction modes, target overlay, approval gate and action-plan controls.
+- Memory: retrieval policy, context budget, conflict resolution, compact preview and retrieval testing.
+- Workflows: simulation mode, runtime variables and failure/retry policy.
+- Security: profile presets, incident lock, filtered audit and permission diff.
+- Artifacts: version diff, integrity and provenance views.
+- Automations: timezone, quiet hours and failure handling policy.
+- Canvas: zoom, node palette, node selection and Canvas → Workflow/Context/Artifact bridge.
+- Code Editor: in-editor AI actions and diagnostics strip.
+- Prompt Studio: evaluation suite, judge selection and regression gate.
+- Cloud Agents: live logs, reconnect and automatic snapshot state.
+- Provider Studio: OpenAI-compatible endpoint configuration, model discovery, Tools/Vision capability controls.
+- Channels: retries, rate limiting, signed webhook envelope and external-delivery approval.
+- Subagents: delegation plan, parallel lanes, token budget and failure policy.
+- Run Timeline: trace waterfall, provider/model/latency/token/cost/budget observability.
+- Quality Workbench: behavioral evaluation lab, datasets, judges, regression gates and grounding/tool metrics.
+- Knowledge Studio: retrieval debugger with Top-K, hybrid weighting, chunk scores, context packing and citation coverage.
+- MCP/Tools/credentials remain governed by explicit runtime-boundary contracts; presentation state never exposes secrets or grants real authorization.

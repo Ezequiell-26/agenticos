@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import Icon from './Icon'
 import { navigationItems, type RailMode } from '../navigation'
+import NavigationLauncher from './NavigationLauncher'
 
 export type { RailMode } from '../navigation'
 
@@ -9,12 +11,14 @@ interface ActivityRailProps {
 }
 
 export default function ActivityRail({ active, onChange }: ActivityRailProps) {
+  const [launcherOpen, setLauncherOpen] = useState(false)
   let previousGroup: string | undefined
 
   return (
     <nav className="activity-rail" aria-label="Primary navigation">
-      <div className="activity-brand" aria-label="AgentiCOS">
-        <span className="brand-mark">A</span>
+      <div className="activity-brand">
+        <button className={launcherOpen ? 'brand-mark brand-mark--active' : 'brand-mark'} type="button" aria-label="Open all AgentiCOS features" aria-expanded={launcherOpen} onClick={() => setLauncherOpen((value) => !value)}>A</button>
+        {launcherOpen && <NavigationLauncher active={active} onChange={(mode) => { onChange(mode); setLauncherOpen(false) }} onClose={() => setLauncherOpen(false)} />}
       </div>
 
       <div className="activity-rail__items">

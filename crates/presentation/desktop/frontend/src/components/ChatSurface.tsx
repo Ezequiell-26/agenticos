@@ -64,6 +64,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
@@ -84,6 +85,10 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     const timer = window.setTimeout(() => setNotice(''), 1900)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: running ? 'smooth' : 'auto', block: 'end' })
+  }, [messages, running])
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -109,7 +114,13 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     setDraft('')
     setSlashOpen(false)
     setPromptHistory((current) => [message, ...current.filter((item) => item !== message)].slice(0, 5))
-    await onSend(message)
+    try {
+      await onSend(message)
+    } catch {
+      setDraft(message)
+      setNotice('Request failed. Your message was restored.')
+      window.requestAnimationFrame(() => textareaRef.current?.focus())
+    }
   }
 
   function useStarter(prompt: string) {
@@ -191,6 +202,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <div className="message-stack">
             {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} />)}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
+            <div ref={messagesEndRef} aria-hidden="true" />
           </div>
         )}
       </div>

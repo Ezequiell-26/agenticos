@@ -97,9 +97,10 @@ export default function GlobalSearch({
         const focusable = Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])'))
         if (focusable.length === 0) return
         const index = focusable.indexOf(document.activeElement as HTMLElement)
+        const safeIndex = index >= 0 ? index : (event.shiftKey ? 0 : focusable.length - 1)
         const next = event.shiftKey
-          ? focusable[(index - 1 + focusable.length) % focusable.length]
-          : focusable[(index + 1) % focusable.length]
+          ? focusable[(safeIndex - 1 + focusable.length) % focusable.length]
+          : focusable[(safeIndex + 1) % focusable.length]
         event.preventDefault()
         next?.focus()
       } else if (event.key === 'Escape') {

@@ -156,3 +156,6 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 
 | Governance Control Center | GovernanceControlCenter | permissions, approvals, security, hooks, audit and release gates | preview |
+
+
+| Intelligence Control Center | IntelligenceControlCenter | context, knowledge, memory, research, prompts, evaluations and token optimization | preview |

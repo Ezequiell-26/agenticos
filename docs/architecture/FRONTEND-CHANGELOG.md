@@ -982,3 +982,10 @@ Verification status:
 - Added a unified safety/release plane for permissions, approvals, security posture, hooks, audit timeline and release gates.
 - Added explicit fail-closed presentation states and evidence requirements.
 - Consolidated governance navigation without removing the dedicated detailed surfaces underneath it.
+
+
+## Intelligence Control Center — 2026-09-24
+
+- Added a unified intelligence surface for Context, Knowledge, Memory, Research, Prompts, Evaluations and token optimization.
+- Added explicit context budget controls and the four-stage optimization contract: noise trim, deduplication, structural compaction and dynamic budget trim.
+- Kept retrieval, memory persistence, evaluation results and token limits runtime-authoritative.

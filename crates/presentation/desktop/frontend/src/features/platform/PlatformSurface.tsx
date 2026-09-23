@@ -1,14 +1,14 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { PlatformMode } from '../../navigation'
-import ContextInspector from '../context/ContextInspector'
-import McpManager from '../mcp/McpManager'
-import HookManager from '../hooks/HookManager'
-import GitDiffCenter from '../git/GitDiffCenter'
-import EnvironmentBuilder from '../environments/EnvironmentBuilder'
-import AutomationBuilder from '../automations/AutomationBuilder'
-import CredentialManager from '../credentials/CredentialManager'
-import ChannelGatewayManager from '../channels/ChannelGatewayManager'
-import ResearchWorkbench from '../research/ResearchWorkbench'
+const ContextInspector = lazy(() => import('../context/ContextInspector'))
+const McpManager = lazy(() => import('../mcp/McpManager'))
+const HookManager = lazy(() => import('../hooks/HookManager'))
+const GitDiffCenter = lazy(() => import('../git/GitDiffCenter'))
+const EnvironmentBuilder = lazy(() => import('../environments/EnvironmentBuilder'))
+const AutomationBuilder = lazy(() => import('../automations/AutomationBuilder'))
+const CredentialManager = lazy(() => import('../credentials/CredentialManager'))
+const ChannelGatewayManager = lazy(() => import('../channels/ChannelGatewayManager'))
+const ResearchWorkbench = lazy(() => import('../research/ResearchWorkbench'))
 import Icon from '../../components/Icon'
 const BrowserWorkspace = lazy(() => import('../browser/BrowserWorkspace'))
 const SecurityCenter = lazy(() => import('../security/SecurityCenter'))

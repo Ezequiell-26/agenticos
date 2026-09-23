@@ -156,3 +156,12 @@ discover capability
   -> inspect artifacts / evidence
   -> return to session or fork
 ```
+
+
+## Navigation ergonomics and chat reliability
+
+The activity rail intentionally exposes a compact primary set of high-frequency surfaces. The full 49-mode registry remains available through the AgentiCOS launcher and command palette. When a secondary surface is active, that surface is temporarily surfaced in the rail so the current location remains visible.
+
+The chat surface follows a fail-recovery rule: a runtime rejection produces a visible system error, restores the unsent draft in the composer, returns the run state to failed, and leaves the user able to retry without reconstructing the message manually. Message history also keeps the latest activity in view through controlled auto-scroll.
+
+Accessibility behavior includes visible keyboard focus treatment and a reduced-motion mode for preference-aware environments.

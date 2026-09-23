@@ -43,9 +43,9 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
       </div>
 
       <div className="panel-section">
-        <div className="panel-section__heading"><span>Live context</span><span className="mono-text">7.8k / 32k</span></div>
-        <div className="context-meter"><span style={{ width: '24%' }} /></div>
-        <div className="context-foot"><span>24% in use</span><span>Budget healthy</span></div>
+        <div className="panel-section__heading"><span>Context telemetry</span><span className="mono-text">{status.latencyMs ? `${status.latencyMs} ms` : 'not connected'}</span></div>
+        <div className="context-meter"><span style={{ width: status.latencyMs ? '10%' : '0%' }} /></div>
+        <div className="context-foot"><span>{status.latencyMs ? 'Runtime signal received' : 'Awaiting runtime telemetry'}</span><span>UI does not invent usage</span></div>
       </div>
 
       <div className="panel-section">

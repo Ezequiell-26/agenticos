@@ -3,8 +3,8 @@ import Icon, { type IconName } from './Icon'
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
-  | 'compression' | 'display' | 'voice' | 'gateway' | 'mcp' | 'automation'
-  | 'security' | 'advanced'
+  | 'compression' | 'display' | 'layout' | 'voice' | 'gateway' | 'mcp' | 'automation'
+  | 'security' | 'shortcuts' | 'advanced'
 
 type Theme = 'Monochrome' | 'Graphite' | 'Paper' | 'High contrast'
 type Accent = 'White' | 'Silver' | 'Blue' | 'Violet' | 'Green'
@@ -20,6 +20,9 @@ interface Profile {
   provider: string
   agent: string
   active: boolean
+  gatewayEnabled: boolean
+  skillsCount: number
+  mcpCount: number
 }
 
 interface SettingsState {
@@ -28,6 +31,8 @@ interface SettingsState {
   density: Density
   uiScale: number
   fontSize: number
+  sidebarWidth: number
+  inspectorWidth: number
   language: string
   workspaceName: string
   startupView: string
@@ -139,6 +144,21 @@ interface SettingsState {
   experimentalFeatures: boolean
   soulFile: string
   contextFilePriority: string
+  leftSidebarVisible: boolean
+  agentInspectorVisible: boolean
+  bottomDockVisible: boolean
+  activityRailCompact: boolean
+  statusBarVisible: boolean
+  showTooltips: boolean
+  commandShortcutsVisible: boolean
+  hoverPreview: boolean
+  notificationPosition: string
+  keymapProfile: string
+  shortcutPalette: string
+  shortcutNewChat: string
+  disabledToolsets: string[]
+  multiplexProfiles: boolean
+  profileRouting: string
 }
 
 interface SettingsSurfaceProps {
@@ -153,6 +173,8 @@ const defaults: SettingsState = {
   density: 'Comfortable',
   uiScale: 100,
   fontSize: 13,
+  sidebarWidth: 270,
+  inspectorWidth: 320,
   language: 'English',
   workspaceName: 'Personal workspace',
   startupView: 'Command Center',
@@ -264,6 +286,21 @@ const defaults: SettingsState = {
   experimentalFeatures: false,
   soulFile: 'SOUL.md',
   contextFilePriority: '.hermes.md → AGENTS.md → CLAUDE.md → .cursorrules',
+  leftSidebarVisible: true,
+  agentInspectorVisible: true,
+  bottomDockVisible: false,
+  activityRailCompact: true,
+  statusBarVisible: true,
+  showTooltips: true,
+  commandShortcutsVisible: true,
+  hoverPreview: true,
+  notificationPosition: 'top-right',
+  keymapProfile: 'Default',
+  shortcutPalette: '⌘K',
+  shortcutNewChat: '⌘N',
+  disabledToolsets: [],
+  multiplexProfiles: false,
+  profileRouting: 'sticky active profile',
 }
 
 const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName; group: string }> = [
@@ -276,11 +313,14 @@ const sections: Array<{ id: SectionId; label: string; detail: string; icon: Icon
   { id: 'context', label: 'Context & Memory', detail: 'Memory, recall and working context', icon: 'database', group: 'Context' },
   { id: 'compression', label: 'Compression & Cache', detail: 'Compaction and context preservation', icon: 'archive', group: 'Context' },
   { id: 'display', label: 'Display & Theme', detail: 'Skin, density, motion and output', icon: 'spark', group: 'Interface' },
+  { id: 'layout', label: 'Workspace Layout', detail: 'Panels, dock, rail, widths and chrome', icon: 'layout', group: 'Interface' },
   { id: 'voice', label: 'Voice & Media', detail: 'TTS, STT, vision and web', icon: 'mic', group: 'Interface' },
   { id: 'gateway', label: 'Gateway & Channels', detail: 'API server, streaming and messaging', icon: 'globe', group: 'Integrations' },
   { id: 'mcp', label: 'MCP', detail: 'Servers, discovery and timeouts', icon: 'network', group: 'Integrations' },
   { id: 'automation', label: 'Automation', detail: 'Cron, wake word and background runs', icon: 'calendar', group: 'Operations' },
   { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
+  { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
+  { id: 'shortcuts', label: 'Shortcuts', detail: 'Keymap and custom workspace commands', icon: 'command', group: 'Advanced' },
   { id: 'advanced', label: 'Advanced / Raw Config', detail: 'Portable snapshot and expert controls', icon: 'sliders', group: 'Advanced' },
 ]
 
@@ -304,9 +344,9 @@ function readSaved(): { settings: SettingsState; profiles: Profile[]; activeProf
 }
 
 const defaultProfiles: Profile[] = [
-  { id: 'default', name: 'Default', description: 'General purpose assistant', model: 'Auto route', provider: 'Automatic', agent: 'Builder', active: true },
-  { id: 'coder', name: 'Coder', description: 'Deep code work and terminal tasks', model: 'Qwen3 Coder', provider: 'OpenRouter', agent: 'Builder', active: false },
-  { id: 'research', name: 'Research', description: 'Web research, recall and evidence', model: 'Gemini', provider: 'Automatic', agent: 'Researcher', active: false },
+  { id: 'default', name: 'Default', description: 'General purpose assistant', model: 'Auto route', provider: 'Automatic', agent: 'Builder', active: true, gatewayEnabled: true, skillsCount: 12, mcpCount: 3 },
+  { id: 'coder', name: 'Coder', description: 'Deep code work and terminal tasks', model: 'Qwen3 Coder', provider: 'OpenRouter', agent: 'Builder', active: false, gatewayEnabled: false, skillsCount: 8, mcpCount: 2 },
+  { id: 'research', name: 'Research', description: 'Web research, recall and evidence', model: 'Gemini', provider: 'Automatic', agent: 'Researcher', active: false, gatewayEnabled: false, skillsCount: 11, mcpCount: 4 },
 ]
 
 export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
@@ -328,15 +368,18 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
     document.documentElement.dataset.agenticosTheme = settings.theme.toLowerCase().replace(/\s+/g, '-')
     document.documentElement.dataset.agenticosAccent = settings.accent.toLowerCase()
     document.documentElement.dataset.agenticosDensity = settings.density.toLowerCase()
+    document.documentElement.dataset.agenticosSidebar = settings.leftSidebarVisible ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosInspector = settings.agentInspectorVisible ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosDock = settings.bottomDockVisible ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosRail = settings.activityRailCompact ? 'compact' : 'expanded'
+    document.documentElement.dataset.agenticosStatusbar = settings.statusBarVisible ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosTooltips = settings.showTooltips ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosHoverPreview = settings.hoverPreview ? 'visible' : 'hidden'
+    document.documentElement.dataset.agenticosNotifications = settings.notificationPosition
     document.documentElement.style.setProperty('--agenticos-ui-scale', String(settings.uiScale / 100))
     document.documentElement.style.setProperty('--agenticos-font-size', settings.fontSize + 'px')
-    return () => {
-      delete document.documentElement.dataset.agenticosTheme
-      delete document.documentElement.dataset.agenticosAccent
-      delete document.documentElement.dataset.agenticosDensity
-      document.documentElement.style.removeProperty('--agenticos-ui-scale')
-      document.documentElement.style.removeProperty('--agenticos-font-size')
-    }
+    document.documentElement.style.setProperty('--agenticos-sidebar-width', settings.sidebarWidth + 'px')
+    document.documentElement.style.setProperty('--agenticos-inspector-width', settings.inspectorWidth + 'px')
   }, [settings.theme, settings.accent, settings.density, settings.uiScale, settings.fontSize])
 
   useEffect(() => {
@@ -369,6 +412,33 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
       update('defaultProvider', next.provider)
       update('defaultAgent', next.agent)
     }
+  }
+
+  function cloneActiveProfile() {
+    const source = activeProfile
+    if (!source) return
+    const base = source.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile'
+    let id = base + '-copy'
+    let suffix = 2
+    while (profiles.some((profile) => profile.id === id)) id = base + '-copy-' + suffix++
+    setProfiles((current) => [...current, { ...source, id, name: source.name + ' Copy', active: false }])
+    setDirty(true)
+    notify('Profile cloned locally')
+  }
+
+  function toggleDisabledToolset(name: string) {
+    setSettings((current) => ({
+      ...current,
+      disabledToolsets: current.disabledToolsets.includes(name)
+        ? current.disabledToolsets.filter((item) => item !== name)
+        : [...current.disabledToolsets, name],
+    }))
+    setDirty(true)
+  }
+
+  function updateActiveProfile(patch: Partial<Profile>) {
+    if (!activeProfile) return
+    updateProfile(activeProfile.id, patch)
   }
 
   function createProfile() {
@@ -544,6 +614,7 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
             <SettingsPage title="Profiles" description="Each profile is an independent configuration boundary. This UI models Hermes-style profile isolation while remaining local/preview.">
               <div className="profile-create-row">
                 <input value={newProfile} onChange={(event) => setNewProfile(event.target.value)} className="settings-input" placeholder="Create profile: coder, research, personal…" />
+                <button className="studio-button" type="button" onClick={cloneActiveProfile}><Icon name="copy" size={14} /> Clone active</button>
                 <button className="studio-button studio-button--active" type="button" onClick={createProfile}><Icon name="plus" size={14} /> Create profile</button>
               </div>
               <div className="profile-grid">
@@ -558,7 +629,15 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                   </article>
                 ))}
               </div>
-              <InfoBanner icon="users" title="Isolated state model" text="Profile-specific config, memory, sessions, skills, cron jobs and gateway state are represented as separate domains. Runtime persistence remains owned by the backend." />
+              <SettingSection title="Active profile controls">
+                <TextField label="Profile description" value={activeProfile?.description ?? ''} onChange={(v) => updateActiveProfile({ description: v })} />
+                <SelectField label="Profile model" value={activeProfile?.model ?? settings.defaultModel} onChange={(v) => updateActiveProfile({ model: v })} options={models} />
+                <SelectField label="Profile provider" value={activeProfile?.provider ?? settings.defaultProvider} onChange={(v) => updateActiveProfile({ provider: v })} options={providers} />
+                <SelectField label="Profile agent" value={activeProfile?.agent ?? settings.defaultAgent} onChange={(v) => updateActiveProfile({ agent: v })} options={agents} />
+                <ToggleRow label="Profile gateway" detail="Keep this profile eligible for gateway delivery when the runtime supports it." enabled={Boolean(activeProfile?.gatewayEnabled)} onChange={() => updateActiveProfile({ gatewayEnabled: !activeProfile?.gatewayEnabled })} />
+                <InfoBanner icon="spark" title="Profile assets" text={(activeProfile?.skillsCount ?? 0) + ' skills · ' + (activeProfile?.mcpCount ?? 0) + ' MCP servers · independent model and gateway state.'} />
+              </SettingSection>
+              <InfoBanner icon="users" title="Isolated state model" text="Profile-specific config, memory, sessions, skills, cron jobs, SOUL and gateway state are represented as separate domains. Runtime persistence remains owned by the backend." />
             </SettingsPage>
           )}
 
@@ -617,6 +696,15 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <div className="settings-chip-grid">
                   {channels.map((channel) => <button type="button" className="settings-chip settings-chip--active" key={channel} onClick={() => notify(channel + ' toolset opened in preview')}><Icon name="tool" size={12} /> {channel}<span>custom</span></button>)}
                 </div>
+              </SettingSection>
+              <SettingSection title="Global disabled toolsets">
+                <div className="settings-chip-grid">
+                  {['web', 'terminal', 'file', 'browser', 'vision', 'image_gen', 'tts', 'memory', 'session_search', 'cronjob', 'delegation', 'code_execution', 'homeassistant', 'mcp', 'rl'].map((toolset) => {
+                    const disabled = settings.disabledToolsets.includes(toolset)
+                    return <button type="button" key={toolset} className={disabled ? 'settings-chip settings-chip--active' : 'settings-chip'} onClick={() => toggleDisabledToolset(toolset)}><Icon name={disabled ? 'lock' : 'tool'} size={12} /> {toolset}<span>{disabled ? 'disabled' : 'enabled'}</span></button>
+                  })}
+                </div>
+                <small className="settings-inline-note">A globally disabled toolset stays suppressed even when a platform preset enables it.</small>
               </SettingSection>
               <SettingSection title="Tool inventory">
                 <div className="settings-tool-grid">
@@ -707,6 +795,28 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <ToggleRow label="Bell on complete" detail="Optional local completion signal for long-running tasks." enabled={settings.bellOnComplete} onChange={() => update('bellOnComplete', !settings.bellOnComplete)} />
                 <NumberField label="Tool preview length" value={settings.toolPreviewLength} onChange={(v) => update('toolPreviewLength', v)} suffix="chars" min={0} max={2000} />
               </SettingSection>
+            </SettingsPage>
+          )}
+
+          {section === 'layout' && (
+            <SettingsPage title="Workspace Layout" description="Configure how much of the desktop chrome is visible and how wide each workspace region should be.">
+              <SettingSection title="Panels">
+                <ToggleRow label="Left sidebar" detail="Keep workspace and conversation navigation visible." enabled={settings.leftSidebarVisible} onChange={() => update('leftSidebarVisible', !settings.leftSidebarVisible)} />
+                <ToggleRow label="Agent inspector" detail="Keep the right-side agent/context/safety inspector visible." enabled={settings.agentInspectorVisible} onChange={() => update('agentInspectorVisible', !settings.agentInspectorVisible)} />
+                <ToggleRow label="Bottom dock" detail="Open the terminal/problems/timeline/output dock by default." enabled={settings.bottomDockVisible} onChange={() => update('bottomDockVisible', !settings.bottomDockVisible)} />
+                <ToggleRow label="Status bar" detail="Show provider, branch, messages and guardrail state at the bottom." enabled={settings.statusBarVisible} onChange={() => update('statusBarVisible', !settings.statusBarVisible)} />
+              </SettingSection>
+              <SettingSection title="Navigation chrome">
+                <ToggleRow label="Compact activity rail" detail="Use the compact icon rail designed for dense desktop workflows." enabled={settings.activityRailCompact} onChange={() => update('activityRailCompact', !settings.activityRailCompact)} />
+                <ToggleRow label="Tooltips" detail="Show labels on navigation hover when the rail is collapsed." enabled={settings.showTooltips} onChange={() => update('showTooltips', !settings.showTooltips)} />
+                <ToggleRow label="Hover previews" detail="Allow lightweight preview affordances on interactive surfaces." enabled={settings.hoverPreview} onChange={() => update('hoverPreview', !settings.hoverPreview)} />
+                <SelectField label="Notification position" value={settings.notificationPosition} onChange={(v) => update('notificationPosition', v)} options={['top-right', 'top-left', 'bottom-right', 'bottom-left']} />
+              </SettingSection>
+              <SettingSection title="Workspace geometry">
+                <RangeField label="Sidebar width" value={settings.sidebarWidth} min={220} max={380} onChange={(v) => update('sidebarWidth', v)} description="Desktop sidebar width in pixels." />
+                <RangeField label="Inspector width" value={settings.inspectorWidth} min={280} max={440} onChange={(v) => update('inspectorWidth', v)} description="Right agent inspector width in pixels." />
+              </SettingSection>
+              <InfoBanner icon="layout" title="Responsive behavior" text="The shell still collapses panels through keyboard shortcuts and responsive breakpoints. Layout preferences provide the persistent starting geometry." />
             </SettingsPage>
           )}
 
@@ -803,6 +913,22 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
                 <ToggleRow label="Clear local state on exit" detail="Remove presentation-only preferences on application exit." enabled={settings.clearOnExit} onChange={() => update('clearOnExit', !settings.clearOnExit)} />
               </SettingSection>
               <InfoBanner icon="lock" title="Protected workspace" text="API keys, OAuth credentials, passwords and tokens are intentionally absent from this React state model." />
+            </SettingsPage>
+          )}
+
+          {section === 'shortcuts' && (
+            <SettingsPage title="Shortcuts" description="Choose a keymap and personalize the most important workspace commands.">
+              <SettingSection title="Keymap">
+                <SelectField label="Keymap profile" value={settings.keymapProfile} onChange={(v) => update('keymapProfile', v)} options={['Default', 'VS Code', 'Vim', 'Emacs', 'Custom']} />
+                <TextField label="Command palette" value={settings.shortcutPalette} onChange={(v) => update('shortcutPalette', v)} />
+                <TextField label="New conversation" value={settings.shortcutNewChat} onChange={(v) => update('shortcutNewChat', v)} />
+                <ToggleRow label="Show shortcut hints" detail="Show keyboard affordances beside actionable commands and buttons." enabled={settings.commandShortcutsVisible} onChange={() => update('commandShortcutsVisible', !settings.commandShortcutsVisible)} />
+              </SettingSection>
+              <SettingSection title="Profile routing">
+                <ToggleRow label="Multiplex profiles" detail="Expose multiple named profiles as routable gateway contexts when the runtime supports them." enabled={settings.multiplexProfiles} onChange={() => update('multiplexProfiles', !settings.multiplexProfiles)} />
+                <SelectField label="Profile routing mode" value={settings.profileRouting} onChange={(v) => update('profileRouting', v)} options={['sticky active profile', 'route by channel', 'route by command', 'route by workspace']} />
+              </SettingSection>
+              <InfoBanner icon="command" title="Desktop shortcuts" text="⌘/Ctrl+K opens the palette, ⌘/Ctrl+B toggles the sidebar, ⌘/Ctrl+J toggles the dock and ⌘/Ctrl+Shift+B toggles the inspector. Runtime keymaps remain separate from this presentation layer." />
             </SettingsPage>
           )}
 
@@ -921,6 +1047,8 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       image_provider: settings.imageProvider,
     },
     gateway: {
+      multiplex_profiles: settings.multiplexProfiles,
+      profile_routing: settings.profileRouting,
       api_server: {
         enabled: settings.apiServerEnabled,
         host: settings.apiServerHost,
@@ -944,6 +1072,11 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       auto_discover: settings.mcpAutoDiscover,
       timeout: settings.mcpTimeout,
       servers: settings.mcpServers,
+    },
+    toolsets: {
+      disabled: settings.disabledToolsets,
+      cli_preset: settings.cliToolsetPreset,
+      messaging_preset: settings.messagingToolsetPreset,
     },
     automation: {
       cron_enabled: settings.cronEnabled,
@@ -973,6 +1106,24 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       language: settings.language,
       workspace_name: settings.workspaceName,
       startup_view: settings.startupView,
+      layout: {
+        sidebar_visible: settings.leftSidebarVisible,
+        inspector_visible: settings.agentInspectorVisible,
+        dock_visible: settings.bottomDockVisible,
+        statusbar_visible: settings.statusBarVisible,
+        rail_compact: settings.activityRailCompact,
+        sidebar_width: settings.sidebarWidth,
+        inspector_width: settings.inspectorWidth,
+        tooltips: settings.showTooltips,
+        hover_preview: settings.hoverPreview,
+        notification_position: settings.notificationPosition,
+      },
+      shortcuts: {
+        keymap: settings.keymapProfile,
+        palette: settings.shortcutPalette,
+        new_chat: settings.shortcutNewChat,
+        hints: settings.commandShortcutsVisible,
+      },
     },
     profiles,
     note: 'Presentation-local configuration snapshot. Secrets are intentionally excluded.',

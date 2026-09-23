@@ -37,6 +37,9 @@ export type RailMode =
   | 'imports'
   | 'toolsets'
   | 'media'
+  | 'evaluations'
+  | 'notifications'
+  | 'wake'
   | 'plugins'
   | 'hooks'
   | 'batch'
@@ -83,6 +86,8 @@ export const navigationItems: NavigationItem[] = [
   { id: 'automations', label: 'Automations', detail: 'Scheduled jobs, triggers and recurring runs', icon: 'calendar', group: 'operate' },
   { id: 'artifacts', label: 'Artifacts', detail: 'Generated files, screenshots, logs and handoffs', icon: 'archive', group: 'operate' },
   { id: 'research', label: 'Research', detail: 'Batch tasks, sources, trajectories and exports', icon: 'search', group: 'operate' },
+  { id: 'evaluations', label: 'Evaluations', detail: 'Benchmark agents, prompts and model behavior with repeatable suites', icon: 'check', group: 'operate' },
+  { id: 'notifications', label: 'Notifications', detail: 'Approvals, run completions, failures and workspace alerts', icon: 'history', group: 'operate' },
   { id: 'sessions', label: 'Sessions', detail: 'Conversation history, recall, export and lifecycle control', icon: 'history', group: 'operate' },
   { id: 'logs', label: 'Logs & Traces', detail: 'Structured events, tool output and diagnostic traces', icon: 'activity', group: 'operate' },
   { id: 'analytics', label: 'Analytics', detail: 'Usage, latency, tokens and workspace activity views', icon: 'activity', group: 'operate' },
@@ -108,15 +113,16 @@ export const navigationItems: NavigationItem[] = [
   { id: 'webhooks', label: 'Webhooks & Events', detail: 'Inbound triggers, delivery attempts and endpoint policy', icon: 'globe', group: 'integrate' },
   { id: 'imports', label: 'Imports & Migrations', detail: 'Bring agent rules, skills and sessions from other systems', icon: 'arrow-down', group: 'integrate' },
   { id: 'media', label: 'Media Studio', detail: 'Image generation, vision, TTS and multimodal workflows', icon: 'layout', group: 'integrate' },
+  { id: 'wake', label: 'Wake Word & Presence', detail: 'Hands-free activation, microphone presence and session readiness', icon: 'mic', group: 'integrate' },
   { id: 'integrations', label: 'Source Integrations', detail: 'GitHub, GitLab and connected engineering systems', icon: 'git', group: 'integrate' },
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'integrations' | 'security'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
   'projects', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'integrations', 'security',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

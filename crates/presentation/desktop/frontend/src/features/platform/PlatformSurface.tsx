@@ -5,7 +5,7 @@ import Icon from '../../components/Icon'
 type PlatformMode = Extract<RailMode,
   | 'projects' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews'
   | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser'
-  | 'voice' | 'research' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'integrations' | 'security'
+  | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'integrations' | 'security'
 >
 
 type Item = { id: string; title: string; detail: string; meta?: string; state?: string }
@@ -199,6 +199,28 @@ const mediaItems: ReadonlyArray<[string, string, string, string]> = [
   ['Video storyboard', 'Compose multimodal production plan', 'Creative', 'Preview'],
 ]
 
+
+const evaluationSuites: ReadonlyArray<[string, string, string, string, string]> = [
+  ['eval-code-01', 'Code correctness', '48 cases', '93.8%', 'Stable'],
+  ['eval-agent-02', 'Tool-use discipline', '32 cases', '96.4%', 'Stable'],
+  ['eval-research-03', 'Research grounding', '24 cases', '89.1%', 'Review'],
+  ['eval-ui-04', 'Frontend interaction', '18 cases', '91.7%', 'Stable'],
+]
+
+const evaluationRuns: ReadonlyArray<[string, string, string, string]> = [
+  ['RUN-EVAL-081', 'Qwen3 Coder', '48 / 48', '6m 12s'],
+  ['RUN-EVAL-080', 'GPT-OSS 120B', '46 / 48', '7m 04s'],
+  ['RUN-EVAL-079', 'DeepSeek', '43 / 48', '5m 48s'],
+]
+
+const notifications = [
+  ['Approval requested', 'Background agent wants permission to modify provider routing.', '2m', 'high', false],
+  ['Run completed', 'Frontend regression scan finished with 0 critical findings.', '11m', 'info', false],
+  ['Checkpoint captured', 'CP-028 is ready for restore preview.', '31m', 'info', true],
+  ['Integration warning', 'Telegram delivery is not connected.', '1h', 'medium', true],
+  ['Skill update', 'A new version is available for Browser Operator.', '3h', 'info', true],
+] as const
+
 const securityPolicies: ReadonlyArray<[string, string, boolean]> = [
   ['Fail-closed execution', 'Sensitive actions stop until explicitly approved', true],
   ['Workspace sandbox', 'Commands are scoped to the selected workspace', true],
@@ -233,6 +255,9 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   const [selectedCredential, setSelectedCredential] = useState(credentials[0][0])
   const [selectedImport, setSelectedImport] = useState(imports[0][0])
   const [selectedMedia, setSelectedMedia] = useState(mediaItems[0][0])
+  const [selectedEvaluation, setSelectedEvaluation] = useState(evaluationSuites[0][0])
+  const [notificationsRead, setNotificationsRead] = useState(() => new Set(notifications.filter((item) => item[4]).map((item) => item[0])))
+  const [wakeEnabled, setWakeEnabled] = useState(true)
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -261,6 +286,32 @@ export default function PlatformSurface({ mode }: { mode: PlatformMode }) {
   }
 
 
+
+
+  if (mode === 'evaluations') return (
+    <Shell>
+      {renderHeader('Quality intelligence', 'Evaluations', 'Repeatable suites for agent behavior, tools, prompts and model comparisons.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Evaluation run staged in preview')}><Icon name="play" size={14} /> Run suite</button>)}
+      <div className="evaluation-layout"><div className="evaluation-list">{evaluationSuites.map(([id, title, cases, score, state]) => <button type="button" key={id} className={`evaluation-row ${selectedEvaluation === id ? 'evaluation-row--active' : ''}`} onClick={() => setSelectedEvaluation(id)}><div><strong>{title}</strong><span>{id} · {cases}</span></div><span className="mono-text">{score}</span><span className={state === 'Stable' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedEvaluation}><div className="evaluation-score"><div><span>Current score</span><strong>93.8%</strong><small>+2.4 pts vs previous</small></div><div className="score-ring"><span>93</span></div></div><div className="evaluation-run-list">{evaluationRuns.map(([id, model, passed, duration]) => <div key={id}><div><strong>{model}</strong><span>{id} · {duration}</span></div><span className="mono-text">{passed}</span></div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Case browser opened in preview')}>Browse cases</button><button className="studio-button" type="button" onClick={() => notify('Model comparison opened in preview')}>Compare models</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Evaluation report exported in preview')}><Icon name="arrow-down" size={13} /> Export report</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'notifications') return (
+    <Shell>
+      {renderHeader('Workspace inbox', 'Notifications', 'Centralize approvals, completions, warnings and background activity without interrupting the current task.', <><button className="studio-button" type="button" onClick={() => setNotificationsRead(new Set(notifications.map((item) => item[0])))}>Mark all read</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Notification preferences opened in preview')}>Preferences</button></>)}
+      <div className="notification-summary"><Metric label="Unread" value={String(notifications.length - notificationsRead.size)} /><Metric label="Approvals" value="1" /><Metric label="Warnings" value="1" /><Metric label="Recent runs" value="4" /></div>
+      <div className="notification-list">{notifications.map(([title, detail, age, level, read]) => { const isRead = notificationsRead.has(title); return <button type="button" key={title} className={isRead ? 'notification-row notification-row--read' : 'notification-row'} onClick={() => setNotificationsRead((current) => new Set(current).add(title))}><span className={`notification-dot notification-dot--${level}`} /><div><strong>{title}</strong><span>{detail}</span><small>{age} · {isRead ? 'read' : 'unread'}</small></div><Icon name={level === 'high' ? 'shield' : 'chevron-right'} size={13} /></button> })}</div>
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'wake') return (
+    <Shell>
+      {renderHeader('Hands-free control', 'Wake Word & Presence', 'Manage microphone readiness, hotword activation and voice-session behavior as explicit local UI state.', <button className={wakeEnabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setWakeEnabled((value) => !value)}><Icon name="mic" size={14} /> {wakeEnabled ? 'Wake enabled' : 'Wake disabled'}</button>)}
+      <div className="wake-layout"><Panel title="Presence"><div className="wake-orb"><Icon name="mic" size={28} /></div><strong className="wake-title">{wakeEnabled ? 'Listening for activation' : 'Microphone idle'}</strong><span className="wake-description">Local UI preview only. No microphone stream is opened by this component.</span><div className="platform-grid platform-grid--2"><Metric label="Wake phrase" value="Hey AgentiCOS" /><Metric label="Sensitivity" value="Balanced" /><Metric label="Device" value="Default microphone" /><Metric label="Mode" value={wakeEnabled ? 'Standby' : 'Off'} /></div></Panel><Panel title="Voice handoff"><div className="strategy-stack"><div><span>Activation</span><strong>Wake word → session</strong></div><div><span>Response</span><strong>Text + TTS preview</strong></div><div><span>Privacy</span><strong>On-device gate preferred</strong></div><div><span>Fallback</span><strong>Push-to-talk</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Voice preferences opened in preview')}>Voice settings</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Push-to-talk staged in preview')}>Test push-to-talk</button></div></Panel></div>
+      <Toast message={notice} />
+    </Shell>
+  )
 
   if (mode === 'sessions') return (
     <Shell>

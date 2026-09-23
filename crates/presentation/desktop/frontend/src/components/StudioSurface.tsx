@@ -166,15 +166,17 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
   }
 
   function closeTab(path: string) {
-    setOpenTabs((current) => {
-      if (current.length <= 1) return current
-      const next = current.filter((item) => item !== path)
-      if (path === selectedFile) {
-        const nextPath = next[next.length - 1]
-        if (nextPath) selectFile(nextPath)
+    if (openTabs.length <= 1) return
+    const next = openTabs.filter((item) => item !== path)
+    setOpenTabs(next)
+    if (path === selectedFile) {
+      const nextPath = next[next.length - 1]
+      const nextFile = files.find((file) => file.path === nextPath)
+      if (nextPath && nextFile) {
+        setSelectedFile(nextPath)
+        setEditorValue(codeByFile[nextFile.label] ?? '// Preview content\n')
       }
-      return next
-    })
+    }
   }
 
   function runTerminalCommand() {

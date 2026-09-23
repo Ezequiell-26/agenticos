@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import type { RailMode } from '../navigation'
 
@@ -24,6 +24,23 @@ const actions: QuickAction[] = [
 
 export default function QuickActionsMenu({ onCreateConversation, onSelectMode }: QuickActionsMenuProps) {
   const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
 
   function run(action: QuickAction) {
     setOpen(false)
@@ -35,12 +52,12 @@ export default function QuickActionsMenu({ onCreateConversation, onSelectMode }:
   }
 
   return (
-    <div className="quick-actions-wrap">
-      <button className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu">
+    <div className="quick-actions-wrap" ref={menuRef}>
+      <button className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="quick-actions-menu" aria-haspopup="menu">
         <Icon name="plus" size={14} /> Create
       </button>
       {open && (
-        <div className="quick-actions-menu" role="menu">
+        <div className="quick-actions-menu" id="quick-actions-menu" role="menu">
           <div className="quick-actions-menu__head"><span className="eyebrow">Quick actions</span><strong>Workspace</strong></div>
           {actions.map((action) => (
             <button key={action.id} type="button" role="menuitem" onClick={() => run(action)}>

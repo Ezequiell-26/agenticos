@@ -669,3 +669,9 @@ No backend execution, credentials or runtime authorization were introduced.
 Added dedicated builders for Automations and Credentials and routed both surfaces through `PlatformSurface`. Added responsive/reduced-motion styling and explicit presentation-only boundaries.
 
 Credentials never expose secret material in the frontend.
+
+### 2026-09-24 — Channel Gateway Manager
+
+Added a dedicated Channel Gateway Manager and routed Channels & Gateway through it. The surface now exposes channel capabilities, gateway routing, delivery controls and session associations with responsive/reduced-motion styling.
+
+Runtime transport and credentials remain outside the frontend boundary.

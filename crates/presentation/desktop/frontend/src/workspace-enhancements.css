@@ -1,0 +1,45 @@
+/* AgentiCOS workspace orchestration layer. Additive to the existing visual system. */
+
+.workspace-main { position: relative; overflow: hidden; }
+.workspace-dock { position: absolute; left: 12px; right: 12px; bottom: 36px; z-index: 20; display: grid; grid-template-rows: 40px minmax(180px, 260px); overflow: hidden; border: 1px solid #292929; border-radius: 12px; background: rgba(12,12,12,.98); box-shadow: 0 24px 60px rgba(0,0,0,.42); backdrop-filter: blur(18px); }
+.workspace-dock--maximized { top: 74px; bottom: 36px; grid-template-rows: 40px minmax(0,1fr); }
+.workspace-dock__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px 0 10px; border-bottom: 1px solid #222; background: #101010; }
+.workspace-dock__tabs, .workspace-dock__meta { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.workspace-dock__tab { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 9px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #777; font-size: 10px; font-weight: 600; cursor: pointer; }
+.workspace-dock__tab:hover { color: #ddd; background: #171717; }
+.workspace-dock__tab--active { color: #f5f5f5; background: #1a1a1a; border-color: #2a2a2a; }
+.workspace-dock__count { min-width: 15px; padding: 1px 4px; border-radius: 999px; background: #242424; color: #8d8d8d; font-size: 8px; text-align: center; }
+.dock-context { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 1px solid #242424; border-radius: 6px; background: #0e0e0e; color: #666; font-size: 9px; text-transform: capitalize; }
+.workspace-dock__body { min-height: 0; overflow: auto; }
+.dock-section-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 9px; border-bottom: 1px solid #1c1c1c; color: #d7d7d7; font-size: 10px; font-weight: 650; }
+.dock-terminal, .dock-problems, .dock-timeline, .dock-output { height: 100%; min-height: 0; }
+.dock-terminal { display: grid; grid-template-rows: 1fr 42px; background: #090909; }
+.dock-terminal__output { overflow: auto; padding: 14px 16px; color: #8f8f8f; font: 11px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.dock-terminal__command { color: #e8e8e8; }
+.dock-terminal__input { display: flex; align-items: center; gap: 9px; padding: 0 14px; border-top: 1px solid #1e1e1e; background: #0d0d0d; color: #a8a8a8; }
+.dock-terminal__input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #e5e5e5; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dock-terminal__input input::placeholder { color: #4d4d4d; }
+.dock-problems { padding-bottom: 12px; }
+.dock-problem-row { width: 100%; display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #1a1a1a; background: transparent; text-align: left; cursor: pointer; }
+.dock-problem-row:hover { background: #151515; }
+.dock-problem-icon { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid #303030; border-radius: 6px; background: #171717; color: #aaa; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dock-problem-icon--warning { color: #ddd; border-color: #4a4a4a; }
+.dock-problem-icon--info { color: #8a8a8a; }
+.dock-problem-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dock-problem-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d7d7d7; font-size: 10px; }
+.dock-problem-copy small { color: #5f5f5f; font-size: 9px; }
+.dock-timeline-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0; padding: 16px; }
+.dock-timeline-step { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 9px; min-width: 0; padding-right: 22px; }
+.dock-timeline-step:not(:last-child)::after { content: ''; position: absolute; left: 22px; right: 7px; top: 13px; border-top: 1px solid #2a2a2a; }
+.dock-timeline-step__marker { position: relative; z-index: 1; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid #303030; border-radius: 8px; background: #151515; color: #9c9c9c; font: 700 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dock-timeline-step--done .dock-timeline-step__marker { color: #efefef; }
+.dock-timeline-step--active .dock-timeline-step__marker { background: #efefef; color: #080808; border-color: #efefef; }
+.dock-timeline-step div:last-child { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dock-timeline-step strong { color: #dcdcdc; font-size: 10px; }
+.dock-timeline-step small { color: #5e5e5e; font-size: 9px; line-height: 1.4; }
+.dock-output__grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1px; background: #1c1c1c; }
+.dock-output__grid > div { display: flex; flex-direction: column; gap: 5px; min-height: 118px; padding: 14px; background: #0d0d0d; }
+.dock-output__grid span, .dock-output__grid small { color: #5e5e5e; font-size: 9px; }
+.dock-output__grid strong { color: #dadada; font-size: 11px; }
+@media (max-width: 1380px) { .workspace-dock { left: 8px; right: 8px; } .dock-timeline-grid { grid-template-columns: repeat(2,minmax(0,1fr)); row-gap: 18px; } .dock-timeline-step:nth-child(2)::after { display: none; } .dock-output__grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (prefers-reduced-motion: reduce) { .workspace-dock, .workspace-dock * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

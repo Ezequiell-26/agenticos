@@ -14,12 +14,20 @@ export type RailMode =
   | 'skills'
   | 'tools'
   | 'memory'
+  | 'marketplace'
   | 'settings'
   | 'projects'
   | 'codebase'
   | 'context'
   | 'rules'
+  | 'canvas'
+  | 'commands'
   | 'background'
+  | 'subagents'
+  | 'cloud'
+  | 'computer'
+  | 'operations'
+  | 'kanban'
   | 'reviews'
   | 'checkpoints'
   | 'bots'
@@ -48,6 +56,8 @@ export type RailMode =
   | 'execution'
   | 'environments'
   | 'integrations'
+  | 'homeassistant'
+  | 'social'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 
@@ -74,10 +84,17 @@ export const navigationItems: NavigationItem[] = [
   { id: 'codebase', label: 'Codebase Index', detail: 'Semantic search, indexing and repository map', icon: 'search', group: 'build' },
   { id: 'context', label: 'Context', detail: 'Context packs, token budget and source selection', icon: 'archive', group: 'build' },
   { id: 'rules', label: 'Rules & Instructions', detail: 'Project rules, AGENTS.md and agent identity', icon: 'shield', group: 'build' },
+  { id: 'canvas', label: 'Canvas', detail: 'Interactive visual artifacts and side-by-side agent workspaces', icon: 'layout', group: 'build' },
+  { id: 'commands', label: 'Commands', detail: 'Reusable slash workflows and focused agent actions', icon: 'command', group: 'build' },
 
   { id: 'runs', label: 'Runs', detail: 'Execution lifecycle, verification and recovery', icon: 'activity', group: 'operate' },
   { id: 'tasks', label: 'Tasks', detail: 'Objectives, dependencies, status and agent handoffs', icon: 'check', group: 'operate' },
   { id: 'background', label: 'Background Agents', detail: 'Long-running isolated agent tasks and worktrees', icon: 'cloud', group: 'operate' },
+  { id: 'subagents', label: 'Subagents', detail: 'Specialists with isolated context, models and toolsets', icon: 'bot', group: 'operate' },
+  { id: 'cloud', label: 'Cloud Agents', detail: 'Remote agents, environments, artifacts and follow-ups', icon: 'cloud', group: 'operate' },
+  { id: 'computer', label: 'Computer Use', detail: 'Desktop control, browser sessions and recorded verification', icon: 'layout', group: 'operate' },
+  { id: 'operations', label: 'Operations Center', detail: 'Health, doctor, backups, support and maintenance actions', icon: 'settings', group: 'operate' },
+  { id: 'kanban', label: 'Kanban', detail: 'Task boards, agent ownership and workflow handoffs', icon: 'layers', group: 'operate' },
   { id: 'reviews', label: 'Reviews & Bugbot', detail: 'Diff review, findings and automated checks', icon: 'check', group: 'operate' },
   { id: 'checkpoints', label: 'Checkpoints', detail: 'Snapshots, diffs, rollback and restore previews', icon: 'git', group: 'operate' },
   { id: 'approvals', label: 'Approvals', detail: 'Sensitive actions and policy decisions', icon: 'shield', group: 'operate' },
@@ -106,6 +123,7 @@ export const navigationItems: NavigationItem[] = [
   { id: 'plugins', label: 'Plugins', detail: 'Extend the product surface with packaged capabilities', icon: 'tool', group: 'configure' },
   { id: 'hooks', label: 'Hooks & Policies', detail: 'Lifecycle hooks, middleware and event rules', icon: 'shield', group: 'configure' },
   { id: 'execution', label: 'Execution Lab', detail: 'Sandboxed code execution and reproducible task previews', icon: 'code', group: 'configure' },
+  { id: 'marketplace', label: 'Marketplace', detail: 'Discover plugins, skills, MCP servers and reusable packages', icon: 'tool', group: 'configure' },
 
   { id: 'channels', label: 'Channels & Gateway', detail: 'Messaging surfaces, gateway connections and delivery', icon: 'message', group: 'integrate' },
   { id: 'browser', label: 'Browser', detail: 'Navigation, scraping, form actions and sessions', icon: 'globe', group: 'integrate' },
@@ -118,6 +136,8 @@ export const navigationItems: NavigationItem[] = [
   { id: 'wake', label: 'Wake Word & Presence', detail: 'Hands-free activation, microphone presence and session readiness', icon: 'mic', group: 'integrate' },
   { id: 'integrations', label: 'Source Integrations', detail: 'GitHub, GitLab and connected engineering systems', icon: 'git', group: 'integrate' },
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
+  { id: 'homeassistant', label: 'Home Assistant', detail: 'Home automation tools and device actions through an integration boundary', icon: 'settings', group: 'integrate' },
+  { id: 'social', label: 'Social Search', detail: 'Social/X search and external thread research tools', icon: 'search', group: 'integrate' },
 ]
 
 export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
@@ -127,11 +147,11 @@ export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
   'browser', 'mcp', 'security', 'settings',
 ])
 
-export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security'>
+export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'canvas' | 'commands' | 'background' | 'subagents' | 'cloud' | 'computer' | 'operations' | 'kanban' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'marketplace' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security' | 'homeassistant' | 'social'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([
-  'projects', 'tasks', 'codebase', 'context', 'rules', 'background', 'reviews', 'checkpoints',
-  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security',
+  'projects', 'tasks', 'codebase', 'context', 'rules', 'canvas', 'commands', 'background', 'subagents', 'cloud', 'computer', 'operations', 'kanban', 'reviews', 'checkpoints',
+  'bots', 'automations', 'channels', 'browser', 'voice', 'research', 'evaluations', 'notifications', 'sessions', 'logs', 'analytics', 'batch', 'learning', 'mcp', 'plugins', 'hooks', 'execution', 'marketplace', 'environments', 'webhooks', 'imports', 'credentials', 'toolsets', 'media', 'wake', 'integrations', 'security', 'homeassistant', 'social',
 ])
 
 export function isPlatformMode(mode: RailMode): mode is PlatformMode {

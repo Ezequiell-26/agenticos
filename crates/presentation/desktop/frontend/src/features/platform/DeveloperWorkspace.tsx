@@ -14,6 +14,24 @@ const files = [
 ] as const
 
 const symbols = ['ReactAgent', 'ModelProvider', 'ToolRegistry', 'RuntimeState', 'NavigationItem', 'ContextBudget', 'ExecutionPolicy']
+const nextEdits = [
+  ['Tighten runtime status semantics', 'App.tsx: runtime chip', 'low', 'preserve existing state'],
+  ['Extract provider route type', 'PlatformSurface.tsx: navigation', 'medium', 'remove drift'],
+  ['Add regression test fixture', 'QualityWorkbench.tsx: coverage', 'low', 'verification first'],
+  ['Add context budget guard', 'ChatSurface.tsx: composer', 'medium', 'fail closed'],
+] as const
+const patchStack = [
+  ['Patch 01', 'Workspace Dock semantics', 'applied', '+18 / -5'],
+  ['Patch 02', 'Search focus lifecycle', 'applied', '+42 / -11'],
+  ['Patch 03', 'Developer Workspace', 'review', '+1,139 / -108'],
+]
+const testSuites = [
+  ['TypeScript', 'tsc --noEmit', 'required', 'pending'],
+  ['Frontend build', 'vite build', 'required', 'pending'],
+  ['Interaction', 'keyboard + menus', 'recommended', 'pending'],
+  ['Accessibility', 'semantics + focus', 'required', 'pending'],
+  ['Visual regression', 'viewport snapshots', 'recommended', 'pending'],
+] as const
 
 const lanes = [
   ['Builder', 'Implement feature slice', 'coding', 'worktree/builder', '72%', '+184 / -37', 'Qwen3 Coder'],
@@ -176,6 +194,10 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
                 <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Patch review staged in preview')}><Icon name="spark" size={13} /> Agent patch</button>
               </div>
             </div>
+            <div className="developer-next-edit-strip">
+              <div><span className="eyebrow">Next edit suggestions</span><strong>Agent sees 4 high-confidence follow-up opportunities</strong></div>
+              <div className="developer-next-edit-list">{nextEdits.map(([title, location, risk]) => <button key={title} type="button" onClick={() => onAction('Suggested edit ' + title + ' selected')}><span><strong>{title}</strong><small>{location}</small></span><Tag label={risk} /></button>)}</div>
+            </div>
             <div className="developer-editor-grid">
               <pre className="code-preview developer-code-preview">{'// Agent-assisted preview\n// Work remains behind review and approval boundaries.\n\nfn execute_turn(message: &str) -> Result<AgentResponse> {\n    let context = context_budget.pack(message)?;\n    let response = provider.complete(context)?;\n    event_store.append(response.events())?;\n    Ok(response)\n}'}</pre>
               <aside className="developer-inline-inspector">
@@ -187,6 +209,16 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
                 <div><span>Checkpoint</span><b>Ready</b></div>
                 <button className="studio-button" type="button" onClick={() => onAction('Checkpoint capture staged in preview')}>Create checkpoint</button>
               </aside>
+            </div>
+            <div className="developer-bottom-grid">
+              <div className="developer-patch-stack">
+                <div className="developer-bottom-head"><span className="eyebrow">Patch stack</span><button className="studio-button" type="button" onClick={() => onAction('Patch stack diff opened in preview')}>View diff</button></div>
+                {patchStack.map(([id, title, state, delta]) => <button key={id} type="button" className="developer-patch-row" onClick={() => onAction(id + ' selected')}><span><strong>{id}</strong><small>{title}</small></span><Tag label={state} /><b>{delta}</b></button>)}
+              </div>
+              <div className="developer-test-explorer">
+                <div className="developer-bottom-head"><span className="eyebrow">Test explorer</span><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Targeted test suite staged in preview')}>Run selected</button></div>
+                {testSuites.map(([name, command, gate, state]) => <div key={name} className="developer-test-row"><span className="developer-test-icon"><Icon name={state === 'passed' ? 'check' : 'clock'} size={12} /></span><span><strong>{name}</strong><small>{command}</small></span><Tag label={gate} /><span className="mono-text">{state}</span></div>)}
+              </div>
             </div>
           </Panel>
         </div>

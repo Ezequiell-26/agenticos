@@ -120,6 +120,13 @@ export const navigationItems: NavigationItem[] = [
   { id: 'security', label: 'Security Center', detail: 'Sandboxing, approvals, network and data controls', icon: 'shield', group: 'integrate' },
 ]
 
+export const primaryRailIds: ReadonlySet<RailMode> = new Set<RailMode>([
+  'chat', 'files', 'terminal',
+  'runs', 'tasks', 'agents', 'approvals', 'workflows',
+  'providers', 'tools', 'memory',
+  'browser', 'mcp', 'security', 'settings',
+])
+
 export type PlatformMode = Extract<RailMode, 'projects' | 'tasks' | 'codebase' | 'context' | 'rules' | 'background' | 'reviews' | 'checkpoints' | 'bots' | 'automations' | 'channels' | 'browser' | 'voice' | 'research' | 'evaluations' | 'notifications' | 'sessions' | 'logs' | 'analytics' | 'batch' | 'learning' | 'mcp' | 'plugins' | 'hooks' | 'execution' | 'environments' | 'webhooks' | 'imports' | 'credentials' | 'toolsets' | 'media' | 'wake' | 'integrations' | 'security'>
 
 export const platformModes: ReadonlySet<RailMode> = new Set<PlatformMode>([

@@ -657,3 +657,9 @@ The feature is presentation-only and introduces no runtime transport or credenti
 Created `features/hooks/HookManager.tsx` and routed Hooks & Policies through the dedicated feature boundary. Added configuration, lifecycle trace and test-bench views with responsive/reduced-motion styling.
 
 No runtime middleware or authorization behavior was introduced.
+
+### 2026-09-24 — Git Diff Center and Environment Builder
+
+Added dedicated feature components for source-control review and environment configuration. The dispatcher now routes Reviews through Git Diff Center and Environments through Environment Builder, reducing inline surface state.
+
+No backend execution, credentials or runtime authorization were introduced.

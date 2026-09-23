@@ -129,3 +129,15 @@ Each module should represent, where meaningful:
 The frontend now has broad coverage across coding-agent, orchestration, context, memory, tools, MCP, browser/computer use, governance, Git, execution, artifacts, environments, research, evaluation, release and recovery.
 
 The remaining work to call the frontend operational rather than presentation-complete is backend adapter coverage, runtime event streaming, persistence, real command/tool execution, and fresh build/browser/Tauri verification.
+
+
+## Final source-level ownership audit — 2026-09-24
+
+The navigation registry currently contains 90 surfaces. Ownership is explicit through the shared audit utility:
+
+- 83 `PlatformSurface` modes
+- 6 `StudioSurface` modes: `files`, `terminal`, `runs`, `agents`, `artifacts`, `settings`
+- 1 App-shell mode: `chat`
+- 0 unowned navigation surfaces
+
+This is a structural completeness result, not a runtime-verification result. Build, browser, accessibility execution and Tauri/runtime tests still require fresh evidence.

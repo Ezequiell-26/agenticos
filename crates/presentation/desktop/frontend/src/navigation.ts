@@ -94,6 +94,8 @@ export type RailMode =
   | 'customization'
   | 'help'
   | 'recovery'
+  | 'onboarding'
+  | 'qa'
 
 export type NavigationGroup = 'build' | 'operate' | 'configure' | 'integrate'
 

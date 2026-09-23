@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 
-const commands = [
+const commands: ReadonlyArray<readonly [string, string, string]> = [
   ['/automate', 'Create or edit an automation', 'Cursor'],
   ['/autopilot', 'Monitor a PR and handle follow-up work', 'Cursor'],
   ['/canvas', 'Create an interactive React artifact', 'Cursor'],

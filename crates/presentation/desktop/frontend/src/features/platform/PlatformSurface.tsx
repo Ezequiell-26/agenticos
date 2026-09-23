@@ -22,6 +22,7 @@ const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
 const AdvancedStudio = lazy(() => import('./AdvancedStudio').then((module) => ({ default: module.AdvancedStudio })))
+const WorkspaceOverview = lazy(() => import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })))
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
@@ -75,6 +76,10 @@ function PlatformSurfaceContent({ mode }: { mode: PlatformMode }) {
 
 
 
+
+  if (mode === 'overview') return (
+    <WorkspaceOverview onAction={notify} />
+  )
 
   if (mode === 'playground' || mode === 'routing' || mode === 'token-observatory' || mode === 'versions' || mode === 'audit') return (
     <AdvancedStudio mode={mode} onAction={notify} />

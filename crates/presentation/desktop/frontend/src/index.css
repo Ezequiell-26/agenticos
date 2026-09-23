@@ -187,3 +187,48 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 @media (max-width: 1320px) {
   .app-shell { grid-template-columns: 58px 245px minmax(520px, 1fr) 285px; }
 }
+
+.overview-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:6px 4px 18px; }
+.overview-heading h1 { margin:8px 0 6px; font-size:28px; font-weight:650; letter-spacing:-.04em; }
+.overview-heading p { max-width:620px; margin:0; color:#6d6d6d; font-size:11px; line-height:1.65; }
+.overview-heading__badge { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; border:1px solid #262626; border-radius:999px; background:#111; color:#8b8b8b; font-size:9px; white-space:nowrap; }
+.metric-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.metric-card { padding:14px; border:1px solid #202020; border-radius:11px; background:#0d0d0d; }
+.metric-card span, .metric-card small { display:block; color:#5e5e5e; font-size:9px; }
+.metric-card strong { display:block; margin:7px 0 3px; font-size:20px; letter-spacing:-.03em; }
+.surface-block, .run-card, .explorer-shell, .settings-list { border:1px solid #202020; border-radius:13px; background:#0d0d0d; overflow:hidden; }
+.surface-block__heading, .explorer-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid #1f1f1f; color:#777; font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
+.provider-row { display:grid; grid-template-columns:1fr 110px 90px 100px 28px; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid #181818; color:#676767; font-size:9px; }
+.provider-row:last-child { border-bottom:0; }
+.provider-row__identity { display:flex; align-items:center; gap:8px; color:#c4c4c4; }
+.run-card { padding:14px 16px; }
+.run-card__header { display:flex; justify-content:space-between; color:#777; font-size:10px; }
+.timeline { margin-top:18px; }
+.timeline-row { position:relative; display:grid; grid-template-columns:30px 1fr; gap:10px; min-height:70px; }
+.timeline-marker { z-index:1; width:26px; height:26px; display:grid; place-items:center; border:1px solid #303030; border-radius:50%; background:#121212; color:#888; }
+.timeline-marker--done { background:#e9e9e9; border-color:#e9e9e9; color:#0b0b0b; }
+.timeline-marker--active { color:#f1f1f1; border-color:#525252; }
+.timeline-marker--pending { color:#444; }
+.timeline-marker--pending span { width:5px; height:5px; border-radius:50%; background:#454545; }
+.timeline-line { position:absolute; left:12px; top:26px; width:1px; height:44px; background:#272727; }
+.timeline-copy > div { display:flex; align-items:center; gap:8px; }
+.timeline-copy strong { color:#c6c6c6; font-size:11px; }
+.timeline-copy small { display:block; margin-top:5px; color:#5f5f5f; font-size:9px; }
+.overview-grid--two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.explorer-tree { padding:7px 0; }
+.tree-row { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; padding-top:0; padding-bottom:0; background:transparent; color:#707070; text-align:left; cursor:pointer; font-size:10px; }
+.tree-row:hover { background:#141414; color:#e7e7e7; }
+.tree-row--folder { color:#969696; }
+.tree-row--file { color:#717171; }
+.settings-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 14px; border-bottom:1px solid #1b1b1b; }
+.settings-row:last-child { border-bottom:0; }
+.settings-row strong { display:block; color:#c2c2c2; font-size:11px; }
+.settings-row small { display:block; margin-top:4px; color:#5d5d5d; font-size:9px; }
+.settings-toggle { padding:4px 7px; border:1px solid #2f2f2f; border-radius:6px; font:700 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.settings-toggle--on { background:#ededed; color:#0b0b0b; border-color:#ededed; }
+
+@media (max-width: 900px) {
+  .metric-row, .overview-grid--two { grid-template-columns:1fr; }
+  .provider-row { grid-template-columns:1fr 80px 70px 28px; }
+  .provider-row > span:nth-of-type(2) { display:none; }
+}

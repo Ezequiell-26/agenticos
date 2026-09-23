@@ -11,7 +11,7 @@
 - Current step status: `in_progress`
 - Verified contiguous steps: **0–24 (25 steps)**
 - Steps 25 onward are not currently verified.
-- Current main head audited for this reconciliation: `c094adb1cbe4d7b0f0349935a4be90053f77ed76`
+- Baseline main head audited before this coherence repair: `adafcc4828d775f32c224bc88ef9b69ff67e7c14`
 - Safe rollback point for Step 25 implementation: `a278008b536ef4da7cf18a67191291446dd7a8a5`
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite

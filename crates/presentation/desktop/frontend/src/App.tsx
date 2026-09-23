@@ -35,14 +35,51 @@ const fallbackStatus: AgentStatusSnapshot = {
   model: 'Waiting for backend',
 }
 
+const modeStorageKey = 'agenticos.ui.mode'
+const sessionStorageKey = 'agenticos.ui.session'
+const railModes: RailMode[] = ['chat', 'files', 'runs', 'providers', 'settings']
+
+function readStoredMode(): RailMode {
+  try {
+    const value = window.localStorage.getItem(modeStorageKey)
+    return value && railModes.includes(value as RailMode) ? value as RailMode : 'chat'
+  } catch {
+    return 'chat'
+  }
+}
+
+function readStoredSession(): string {
+  try {
+    return window.localStorage.getItem(sessionStorageKey) || 'default'
+  } catch {
+    return 'default'
+  }
+}
+
+function persistUiState(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Storage is optional; runtime state remains authoritative.
+  }
+}
+
 function App() {
-  const [mode, setMode] = useState<RailMode>('chat')
-  const [sessionId, setSessionId] = useState('default')
+  const [mode, setMode] = useState<RailMode>(() => readStoredMode())
+  const [sessionId, setSessionId] = useState(() => readStoredSession())
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages)
   const [conversations, setConversations] = useState(initialConversations)
   const [status, setStatus] = useState<AgentStatusSnapshot>(fallbackStatus)
   const [running, setRunning] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => {
+    persistUiState(modeStorageKey, mode)
+  }, [mode])
+
+  useEffect(() => {
+    persistUiState(sessionStorageKey, sessionId)
+  }, [sessionId])
 
   useEffect(() => {
     let active = true
@@ -60,7 +97,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setPaletteOpen(true)
+        setPaletteOpen((open) => !open)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -116,8 +153,7 @@ function App() {
 
   function handleRun() {
     setMode('runs')
-    setRunning(true)
-    setStatus((current) => ({ ...current, state: 'planning' }))
+    setRunning(false)
   }
 
   function handleStop() {
@@ -126,7 +162,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <ActivityRail active={mode} onChange={setMode} />
       <WorkspaceSidebar
         activeConversation={sessionId}
@@ -155,7 +191,7 @@ function App() {
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (
-            <ChatSurface disabled={false} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
+            <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
           ) : (
             <WorkspaceOverview mode={mode} />
           )}

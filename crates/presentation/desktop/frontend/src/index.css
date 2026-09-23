@@ -1021,3 +1021,5 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
 @media (max-width: 760px) {
   .notification-summary { grid-template-columns:repeat(2,1fr); }
 }
+
+.credential-row small,.toolset-row small { color:#4f4f4f; font-size:6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }

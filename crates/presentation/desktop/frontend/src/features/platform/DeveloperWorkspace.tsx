@@ -68,12 +68,12 @@ const activity = [
 ] as const
 
 export function DeveloperWorkspace({ onAction }: { onAction: (message: string) => void }) {
-  const [active, setActive] = useState(files[0][0])
+  const [active, setActive] = useState<(typeof files)[number][0]>(files[0][0])
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<DevTab>('build')
-  const [selectedLane, setSelectedLane] = useState(lanes[0][0])
-  const [selectedSkill, setSelectedSkill] = useState(skills[0][0])
-  const [selectedEnvironment, setSelectedEnvironment] = useState(environments[0][0])
+  const [selectedLane, setSelectedLane] = useState<(typeof lanes)[number][0]>(lanes[0][0])
+  const [selectedSkill, setSelectedSkill] = useState<(typeof skills)[number][0]>(skills[0][0])
+  const [selectedEnvironment, setSelectedEnvironment] = useState<(typeof environments)[number][0]>(environments[0][0])
   const [visualPrompt, setVisualPrompt] = useState('')
   const [browserUrl, setBrowserUrl] = useState('http://localhost:5173')
   const [autonomy, setAutonomy] = useState<'suggest' | 'supervised' | 'autonomous'>('supervised')
@@ -200,7 +200,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
                 <button key={name} type="button" className={selectedLane === name ? 'developer-lane developer-lane--active' : 'developer-lane'} onClick={() => setSelectedLane(name)}>
                   <span className="developer-lane__avatar"><Icon name="bot" size={14} /></span>
                   <span><strong>{name}</strong><small>{goal}</small><em>{worktree}</em></span>
-                  <span className="developer-lane__meta"><Tag label={state} /><b>{context}</b><small>{delta}</small></span>
+                  <span className="developer-lane__meta"><Tag label={state} /><b>{context}</b><small>{delta} · {model}</small></span>
                 </button>
               ))}
             </div>

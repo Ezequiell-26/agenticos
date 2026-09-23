@@ -2,7 +2,7 @@
   "schema_version": 1,
   "project": "agenticos",
   "mode": "sequential-verified",
-  "current_step": "capability-registry-implementation-vertical-slice-1",
+  "current_step": "integration-test-implementation-phase-3",
   "steps": [
     {
       "id": "architecture-foundation",
@@ -2191,7 +2191,7 @@
     {
       "id": "enterprise-utilities-vertical-slice-1",
       "number": 52,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "concurrency-stress crate - concurrency stress testing based on MIT patterns",
         "crypto crate - cryptography (hashing, encryption, key pairs) based on rscrypto MIT",
@@ -2277,9 +2277,37 @@
       ]
     },
     {
+      "id": "enterprise-utilities-integration-vertical-slice-1",
+      "number": 53,
+      "status": "pending",
+      "scope": [
+        "review API compatibility of the enterprise utility crates",
+        "integrate only verified compatible utilities through canonical boundaries",
+        "add compatibility and integration tests",
+        "preserve the standalone utility crates when integration is not justified"
+      ],
+      "requires": [
+        "enterprise-utilities-vertical-slice-1"
+      ],
+      "required_checks": [
+        "enterprise utility API compatibility tests",
+        "integration tests for accepted utilities",
+        "cargo build --workspace --all-targets",
+        "cargo fmt --all -- --check",
+        "cargo check --workspace --all-targets",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "security gate",
+        "architecture gate"
+      ],
+      "verification_evidence": [],
+      "unlocks": [
+        "brain-architecture-foundation-vertical-slice-1"
+      ]
+    },
+    {
       "id": "brain-architecture-foundation-vertical-slice-1",
       "number": 54,
-      "status": "verified",
+      "status": "pending",
       "scope": [
         "create brain/kernel crate separate from existing kernel",
         "define Capability Registry contracts (dynamic capability discovery, version, origin, license, compatibility, dependencies, permissions, cost, consumption, evidence)",
@@ -2508,6 +2536,12 @@
       "from": "product-surfaces-cli-vertical-slice-1:verified",
       "to": "runtime-integration-vertical-slice-1:pending",
       "reason": "Reconciled the current main state after detecting a duplicate top-level steps key and stale human-readable state. The next authorized slice targets the documented integration gaps without rewriting verified history."
+    },
+    {
+      "from": "runtime-integration-vertical-slice-1:pending",
+      "to": "integration-test-implementation-phase-3:pending",
+      "reason": "State reconciliation restored the first non-verified step and demoted later claims to pending because their predecessors remain pending; no capability is considered verified without a valid sequential chain.",
+      "run_id": null
     }
   ]
 }

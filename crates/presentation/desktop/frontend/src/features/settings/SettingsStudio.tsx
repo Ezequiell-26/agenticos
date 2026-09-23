@@ -64,6 +64,19 @@ interface SettingsState {
   showReasoning: boolean
   showCost: boolean
   runtimeFooter: boolean
+  focusView: boolean
+  interimAssistantMessages: boolean
+  suppressWarningNotifications: boolean
+  showCommentary: boolean
+  vimMode: boolean
+  timestamps: boolean
+  timestampFormat: string
+  turnSummary: boolean
+  spinnerTokenFlow: boolean
+  bellOnPrompt: boolean
+  fileMutationVerifier: boolean
+  creditsNotices: boolean
+  cliMultilineShortcuts: boolean
   streaming: boolean
   resumeDisplay: string
   bellOnComplete: boolean
@@ -87,12 +100,21 @@ interface SettingsState {
   summaryBaseUrl: string
   terminalBackend: TerminalBackend
   terminalCwd: string
+  terminalTempDir: string
+  terminalFontFamily: string
+  terminalHomeMode: string
   terminalTimeout: number
   terminalPersistent: boolean
+  terminalSyncBackMaxBytes: number
   terminalCpu: number
   terminalMemory: number
   terminalDisk: number
   dockerImage: string
+  vercelSandboxImage: string
+  modalImage: string
+  daytonaImage: string
+  singularityImage: string
+  dockerForwardEnv: string[]
   sshHost: string
   sshUser: string
   sshPort: number
@@ -110,6 +132,8 @@ interface SettingsState {
   webExtractBackend: string
   webKeylessFallback: boolean
   webKeylessRescue: boolean
+  parallelTier: string
+  exaTier: string
   browserCloudProvider: string
   browserInactivityTimeout: number
   browserCommandTimeout: number
@@ -161,6 +185,18 @@ interface SettingsState {
   codeExecutionMode: string
   codeExecutionTimeout: number
   codeExecutionMaxToolCalls: number
+  loopWarningsEnabled: boolean
+  loopHardStopEnabled: boolean
+  nonInteractiveHardStopEnabled: boolean
+  exactFailureWarnAfter: number
+  sameToolFailureWarnAfter: number
+  idempotentWarnAfter: number
+  exactFailureHardStopAfter: number
+  sameToolFailureHardStopAfter: number
+  idempotentHardStopAfter: number
+  maxWebSearchesPerTurn: number
+  maxSubagentsPerTurn: number
+  executionGuidance: string
   mcpResultSizeChars: number
   genericResultSizeChars: number
   stallGuards: boolean
@@ -257,6 +293,11 @@ const defaults: SettingsState = {
   terminalMemory: 5120,
   terminalDisk: 51200,
   dockerImage: 'python-nodejs:20',
+  vercelSandboxImage: 'python-nodejs:20',
+  modalImage: 'nikolaik/python-nodejs:python3.11-nodejs20',
+  daytonaImage: 'nikolaik/python-nodejs:python3.11-nodejs20',
+  singularityImage: 'docker://nikolaik/python-nodejs:python3.11-nodejs20',
+  dockerForwardEnv: [],
   sshHost: '',
   sshUser: '',
   sshPort: 22,
@@ -274,6 +315,8 @@ const defaults: SettingsState = {
   webExtractBackend: 'auto',
   webKeylessFallback: true,
   webKeylessRescue: true,
+  parallelTier: 'auto',
+  exaTier: 'auto',
   browserCloudProvider: 'none',
   browserInactivityTimeout: 120,
   browserCommandTimeout: 30,
@@ -325,6 +368,18 @@ const defaults: SettingsState = {
   codeExecutionMode: 'project',
   codeExecutionTimeout: 300,
   codeExecutionMaxToolCalls: 50,
+  loopWarningsEnabled: true,
+  loopHardStopEnabled: false,
+  nonInteractiveHardStopEnabled: true,
+  exactFailureWarnAfter: 2,
+  sameToolFailureWarnAfter: 3,
+  idempotentWarnAfter: 2,
+  exactFailureHardStopAfter: 5,
+  sameToolFailureHardStopAfter: 8,
+  idempotentHardStopAfter: 5,
+  maxWebSearchesPerTurn: 50,
+  maxSubagentsPerTurn: 50,
+  executionGuidance: 'auto',
   mcpResultSizeChars: 50000,
   genericResultSizeChars: 100000,
   stallGuards: true,
@@ -760,8 +815,11 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
           {section === 'terminal' && (
             <SettingsPage title="Terminal & Sandbox" description="Select where commands run and tune the runtime envelope without hiding the security tradeoff.">
               <SettingSection title="Backend">
-                <SelectField label="Terminal backend" value={settings.terminalBackend} onChange={(v) => update('terminalBackend', v as TerminalBackend)} options={['local', 'docker', 'ssh', 'modal', 'daytona', 'singularity']} />
+                <SelectField label="Terminal backend" value={settings.terminalBackend} onChange={(v) => update('terminalBackend', v as TerminalBackend)} options={['local', 'docker', 'ssh', 'modal', 'daytona', 'vercel_sandbox', 'singularity']} />
                 <TextField label="Working directory" value={settings.terminalCwd} onChange={(v) => update('terminalCwd', v)} />
+                <TextField label="Session temp directory" value={settings.terminalTempDir} onChange={(v) => update('terminalTempDir', v)} placeholder="managed default" />
+                <TextField label="Terminal font family" value={settings.terminalFontFamily} onChange={(v) => update('terminalFontFamily', v)} placeholder="JetBrains Mono, monospace" />
+                <SelectField label="Subprocess HOME mode" value={settings.terminalHomeMode} onChange={(v) => update('terminalHomeMode', v)} options={['auto', 'real', 'profile']} />
                 <NumberField label="Command timeout" value={settings.terminalTimeout} onChange={(v) => update('terminalTimeout', v)} suffix="seconds" min={1} max={3600} />
                 <ToggleRow label="Persistent terminal state" detail="Preserve shell state where the backend supports it." enabled={settings.terminalPersistent} onChange={() => update('terminalPersistent', !settings.terminalPersistent)} />
               </SettingSection>
@@ -769,11 +827,22 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
                 <NumberField label="CPU limit" value={settings.terminalCpu} onChange={(v) => update('terminalCpu', v)} suffix="cores" min={0} max={64} />
                 <NumberField label="Memory limit" value={settings.terminalMemory} onChange={(v) => update('terminalMemory', v)} suffix="MB" min={0} max={262144} />
                 <NumberField label="Disk limit" value={settings.terminalDisk} onChange={(v) => update('terminalDisk', v)} suffix="MB" min={0} max={1048576} />
+                <NumberField label="Remote sync-back cap" value={settings.terminalSyncBackMaxBytes} onChange={(v) => update('terminalSyncBackMaxBytes', v)} suffix="bytes" min={0} max={1099511627776} />
               </SettingSection>
               <SettingSection title={settings.terminalBackend === 'docker' ? 'Docker' : settings.terminalBackend === 'ssh' ? 'SSH' : 'Backend-specific'}>
                 {settings.terminalBackend === 'docker' ? <>
                   <TextField label="Docker image" value={settings.dockerImage} onChange={(v) => update('dockerImage', v)} />
+                  <TextField label="Docker forwarded env" value={settings.dockerForwardEnv.join(', ')} onChange={(v) => update('dockerForwardEnv', v.split(',').map((item) => item.trim()).filter(Boolean))} placeholder="GITHUB_TOKEN, NPM_TOKEN" />
                   <ToggleRow label="Mount current directory" detail="Explicitly opt into sharing the launch directory with the sandbox." enabled={settings.sandboxMountCwd} onChange={() => update('sandboxMountCwd', !settings.sandboxMountCwd)} />
+                </> : ['modal', 'daytona', 'vercel_sandbox', 'singularity'].includes(settings.terminalBackend) ? <>
+                  <TextField label="Backend image" value={
+                    settings.terminalBackend === 'modal' ? settings.modalImage :
+                    settings.terminalBackend === 'daytona' ? settings.daytonaImage :
+                    settings.terminalBackend === 'singularity' ? settings.singularityImage : settings.vercelSandboxImage
+                  } onChange={(v) => {
+                    const key = settings.terminalBackend === 'modal' ? 'modalImage' : settings.terminalBackend === 'daytona' ? 'daytonaImage' : settings.terminalBackend === 'singularity' ? 'singularityImage' : 'vercelSandboxImage'
+                    update(key, v as never)
+                  }} />
                 </> : settings.terminalBackend === 'ssh' ? <>
                   <TextField label="SSH host" value={settings.sshHost} onChange={(v) => update('sshHost', v)} />
                   <TextField label="SSH user" value={settings.sshUser} onChange={(v) => update('sshUser', v)} />
@@ -837,6 +906,19 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
                 <SelectField label="Resume display" value={settings.resumeDisplay} onChange={(v) => update('resumeDisplay', v)} options={['full', 'minimal']} />
                 <ToggleRow label="Bell on complete" detail="Optional local completion signal for long-running tasks." enabled={settings.bellOnComplete} onChange={() => update('bellOnComplete', !settings.bellOnComplete)} />
                 <NumberField label="Tool preview length" value={settings.toolPreviewLength} onChange={(v) => update('toolPreviewLength', v)} suffix="chars" min={0} max={2000} />
+                <ToggleRow label="Focus view" detail="Reduce output noise for a focused command-oriented view." enabled={settings.focusView} onChange={() => update('focusView', !settings.focusView)} />
+                <ToggleRow label="Interim assistant messages" detail="Allow gateway surfaces to show natural mid-turn assistant updates." enabled={settings.interimAssistantMessages} onChange={() => update('interimAssistantMessages', !settings.interimAssistantMessages)} />
+                <ToggleRow label="Suppress warning notifications" detail="Hide automatic warning/diagnostic notices from the presentation layer." enabled={settings.suppressWarningNotifications} onChange={() => update('suppressWarningNotifications', !settings.suppressWarningNotifications)} />
+                <ToggleRow label="Show commentary" detail="Expose commentary-channel progress when the runtime provides it." enabled={settings.showCommentary} onChange={() => update('showCommentary', !settings.showCommentary)} />
+                <ToggleRow label="Vim mode" detail="Use vi-style input behavior where supported by the runtime surface." enabled={settings.vimMode} onChange={() => update('vimMode', !settings.vimMode)} />
+                <ToggleRow label="Timestamps" detail="Display timestamp metadata in transcript surfaces." enabled={settings.timestamps} onChange={() => update('timestamps', !settings.timestamps)} />
+                <TextField label="Timestamp format" value={settings.timestampFormat} onChange={(v) => update('timestampFormat', v)} />
+                <ToggleRow label="Turn summary" detail="Show a compact accounting summary after completed turns." enabled={settings.turnSummary} onChange={() => update('turnSummary', !settings.turnSummary)} />
+                <ToggleRow label="Spinner token flow" detail="Show cumulative output token flow while a turn is active." enabled={settings.spinnerTokenFlow} onChange={() => update('spinnerTokenFlow', !settings.spinnerTokenFlow)} />
+                <ToggleRow label="Bell on prompt" detail="Signal when a blocking approval/clarification prompt opens." enabled={settings.bellOnPrompt} onChange={() => update('bellOnPrompt', !settings.bellOnPrompt)} />
+                <ToggleRow label="File mutation verifier" detail="Surface advisory state when write/patch operations fail to land." enabled={settings.fileMutationVerifier} onChange={() => update('fileMutationVerifier', !settings.fileMutationVerifier)} />
+                <ToggleRow label="Credits notices" detail="Show provider credit/quota notices in supported surfaces." enabled={settings.creditsNotices} onChange={() => update('creditsNotices', !settings.creditsNotices)} />
+                <ToggleRow label="CLI multiline shortcuts" detail="Keep Ctrl+J and related multiline composer shortcuts available." enabled={settings.cliMultilineShortcuts} onChange={() => update('cliMultilineShortcuts', !settings.cliMultilineShortcuts)} />
               </SettingSection>
             </SettingsPage>
           )}
@@ -963,8 +1045,22 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
               </SettingSection>
               <SettingSection title="Code execution">
                 <SelectField label="Execution mode" value={settings.codeExecutionMode} onChange={(v) => update('codeExecutionMode', v)} options={['project', 'strict']} />
+                <SelectField label="Execution guidance" value={settings.executionGuidance} onChange={(v) => update('executionGuidance', v)} options={['auto', 'true', 'false', 'model-substrings']} />
                 <NumberField label="Execution timeout" value={settings.codeExecutionTimeout} onChange={(v) => update('codeExecutionTimeout', v)} suffix="seconds" min={1} max={3600} />
                 <NumberField label="Max tool calls" value={settings.codeExecutionMaxToolCalls} onChange={(v) => update('codeExecutionMaxToolCalls', v)} suffix="calls" min={0} max={10000} />
+              </SettingSection>
+              <SettingSection title="Tool-loop guardrails">
+                <ToggleRow label="Warnings enabled" detail="Inject warnings into tool results when repeated-failure patterns are detected." enabled={settings.loopWarningsEnabled} onChange={() => update('loopWarningsEnabled', !settings.loopWarningsEnabled)} />
+                <ToggleRow label="Hard stops" detail="Enable hard-stop thresholds in supervised runtime contexts." enabled={settings.loopHardStopEnabled} onChange={() => update('loopHardStopEnabled', !settings.loopHardStopEnabled)} />
+                <ToggleRow label="Non-interactive hard stops" detail="Enable stricter loop stops for unattended gateway/cron execution." enabled={settings.nonInteractiveHardStopEnabled} onChange={() => update('nonInteractiveHardStopEnabled', !settings.nonInteractiveHardStopEnabled)} />
+                <NumberField label="Exact failure warning" value={settings.exactFailureWarnAfter} onChange={(v) => update('exactFailureWarnAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="Same-tool warning" value={settings.sameToolFailureWarnAfter} onChange={(v) => update('sameToolFailureWarnAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="No-progress warning" value={settings.idempotentWarnAfter} onChange={(v) => update('idempotentWarnAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="Exact failure hard stop" value={settings.exactFailureHardStopAfter} onChange={(v) => update('exactFailureHardStopAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="Same-tool hard stop" value={settings.sameToolFailureHardStopAfter} onChange={(v) => update('sameToolFailureHardStopAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="No-progress hard stop" value={settings.idempotentHardStopAfter} onChange={(v) => update('idempotentHardStopAfter', v)} suffix="repeats" min={1} max={100} />
+                <NumberField label="Max web searches / turn" value={settings.maxWebSearchesPerTurn} onChange={(v) => update('maxWebSearchesPerTurn', v)} suffix="calls" min={0} max={10000} />
+                <NumberField label="Max subagents / turn" value={settings.maxSubagentsPerTurn} onChange={(v) => update('maxSubagentsPerTurn', v)} suffix="agents" min={0} max={10000} />
               </SettingSection>
               <SettingSection title="Anti-stall">
                 <ToggleRow label="Stall guards" detail="Break repeated identical tool calls and trigger bounded continuation recovery." enabled={settings.stallGuards} onChange={() => update('stallGuards', !settings.stallGuards)} />
@@ -1085,12 +1181,21 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
     terminal: {
       backend: settings.terminalBackend,
       cwd: settings.terminalCwd,
+      temp_dir: settings.terminalTempDir,
+      font_family: settings.terminalFontFamily,
+      home_mode: settings.terminalHomeMode,
       timeout: settings.terminalTimeout,
       persistent: settings.terminalPersistent,
+      sync_back_max_bytes: settings.terminalSyncBackMaxBytes,
       cpu: settings.terminalCpu,
       memory: settings.terminalMemory,
       disk: settings.terminalDisk,
       docker_image: settings.dockerImage,
+      vercel_sandbox_image: settings.vercelSandboxImage,
+      modal_image: settings.modalImage,
+      daytona_image: settings.daytonaImage,
+      singularity_image: settings.singularityImage,
+      docker_forward_env: settings.dockerForwardEnv,
       ssh_host: settings.sshHost || null,
       ssh_user: settings.sshUser || null,
       ssh_port: settings.sshPort,
@@ -1122,6 +1227,19 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       bell_on_complete: settings.bellOnComplete,
       tool_preview_length: settings.toolPreviewLength,
       runtime_footer: settings.runtimeFooter,
+      focus_view: settings.focusView,
+      interim_assistant_messages: settings.interimAssistantMessages,
+      suppress_warning_notifications: settings.suppressWarningNotifications,
+      show_commentary: settings.showCommentary,
+      vim_mode: settings.vimMode,
+      timestamps: settings.timestamps,
+      timestamp_format: settings.timestampFormat,
+      turn_summary: settings.turnSummary,
+      spinner_token_flow: settings.spinnerTokenFlow,
+      bell_on_prompt: settings.bellOnPrompt,
+      file_mutation_verifier: settings.fileMutationVerifier,
+      credits_notices: settings.creditsNotices,
+      cli_multiline_shortcuts: settings.cliMultilineShortcuts,
       skin: settings.theme,
     },
     voice: {
@@ -1134,6 +1252,7 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       extract_backend: settings.webExtractBackend,
       keyless_fallback: settings.webKeylessFallback,
       keyless_rescue: settings.webKeylessRescue,
+      provider_tier: { parallel: settings.parallelTier, exa: settings.exaTier },
       browser_cloud_provider: settings.browserCloudProvider,
       image_provider: settings.imageProvider,
     },
@@ -1185,6 +1304,26 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
         timeout: settings.codeExecutionTimeout,
         max_tool_calls: settings.codeExecutionMaxToolCalls,
       },
+      tool_loop_guardrails: {
+        warnings_enabled: settings.loopWarningsEnabled,
+        hard_stop_enabled: settings.loopHardStopEnabled,
+        non_interactive_hard_stop_enabled: settings.nonInteractiveHardStopEnabled,
+        warn_after: {
+          exact_failure: settings.exactFailureWarnAfter,
+          same_tool_failure: settings.sameToolFailureWarnAfter,
+          idempotent_no_progress: settings.idempotentWarnAfter,
+        },
+        hard_stop_after: {
+          exact_failure: settings.exactFailureHardStopAfter,
+          same_tool_failure: settings.sameToolFailureHardStopAfter,
+          idempotent_no_progress: settings.idempotentHardStopAfter,
+        },
+        loop_caps: {
+          max_web_searches: settings.maxWebSearchesPerTurn,
+          max_subagents: settings.maxSubagentsPerTurn,
+        },
+      },
+      execution_guidance: settings.executionGuidance,
       tool_budget: {
         generic_result_size_chars: settings.genericResultSizeChars,
         mcp_result_size_chars: settings.mcpResultSizeChars,
@@ -1219,6 +1358,7 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       max_snapshots: settings.maxSnapshots,
       clear_on_exit: settings.clearOnExit,
     },
+    timezone: settings.timezone,
     ui: {
       theme: settings.theme,
       accent: settings.accent,

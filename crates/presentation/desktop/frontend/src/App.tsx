@@ -11,6 +11,7 @@ import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
 import { navigationItems } from './navigation'
 import { runtime } from './services/runtime'
+import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from './services/ui-preferences'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
 
 const now = Date.now()
@@ -71,13 +72,26 @@ function App() {
   const [status, setStatus] = useState<AgentStatusSnapshot>(fallbackStatus)
   const [running, setRunning] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
-  const [agentPanelOpen, setAgentPanelOpen] = useState(true)
-  const [dockOpen, setDockOpen] = useState(false)
+  const initialUiPreferences = useMemo(() => readUiLayoutPreferences(), [])
+  const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
+  const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
+  const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
   }, [mode])
+
+  useEffect(() => {
+    const preferences = readUiLayoutPreferences()
+    applyUiLayoutPreferences(preferences)
+    return subscribeUiPreferences(() => {
+      const next = readUiLayoutPreferences()
+      applyUiLayoutPreferences(next)
+      setLeftPanelOpen(next.leftSidebarVisible)
+      setAgentPanelOpen(next.agentInspectorVisible)
+      setDockOpen(next.bottomDockVisible)
+    })
+  }, [])
 
   useEffect(() => {
     persistUiState(sessionStorageKey, sessionId)

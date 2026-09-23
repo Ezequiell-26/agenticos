@@ -1318,3 +1318,6 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 @media (max-width:900px){.mcp-manager{grid-template-columns:220px minmax(0,1fr)}.mcp-manager__stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:680px){.mcp-manager{display:flex;flex-direction:column;height:auto}.mcp-manager__rail{border-right:0;border-bottom:1px solid #242424;max-height:235px}.mcp-manager__list{grid-template-columns:repeat(2,minmax(0,1fr))}.mcp-manager__header{align-items:flex-start;flex-direction:column}.mcp-manager__actions{justify-content:flex-start}.mcp-manager__stat-grid,.mcp-manager__resource-grid{grid-template-columns:1fr}.mcp-manager__policy-list>div{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.mcp-manager *{scroll-behavior:auto!important;transition:none!important}}
+
+.run-timeline .state-pill--failed{color:#d2d2d2;border-color:#4b4b4b;background:#151515}
+.run-timeline .state-pill--cancelled{color:#888;border-color:#333;background:#101010}

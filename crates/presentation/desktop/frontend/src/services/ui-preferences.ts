@@ -1,5 +1,13 @@
 export const UI_PREFERENCES_STORAGE_KEY = 'agenticos.ui.hermes-settings-v2'
 
+export interface UiPreferences extends UiLayoutPreferences {
+  theme: string
+  accent: string
+  density: string
+  uiScale: number
+  fontSize: number
+}
+
 export interface UiLayoutPreferences {
   leftSidebarVisible: boolean
   agentInspectorVisible: boolean
@@ -13,7 +21,12 @@ export interface UiLayoutPreferences {
   inspectorWidth: number
 }
 
-export const defaultUiLayoutPreferences: UiLayoutPreferences = {
+export const defaultUiPreferences: UiPreferences = {
+  theme: 'Monochrome',
+  accent: 'White',
+  density: 'Comfortable',
+  uiScale: 100,
+  fontSize: 13,
   leftSidebarVisible: true,
   agentInspectorVisible: true,
   bottomDockVisible: false,
@@ -26,19 +39,37 @@ export const defaultUiLayoutPreferences: UiLayoutPreferences = {
   inspectorWidth: 320,
 }
 
-export function readUiLayoutPreferences(): UiLayoutPreferences {
+export function readUiPreferences(): UiPreferences {
   try {
     const raw = window.localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
-    if (!raw) return defaultUiLayoutPreferences
-    const parsed = JSON.parse(raw) as { settings?: Partial<UiLayoutPreferences> }
-    return { ...defaultUiLayoutPreferences, ...(parsed.settings ?? {}) }
+    if (!raw) return defaultUiPreferences
+    const parsed = JSON.parse(raw) as { settings?: Partial<UiPreferences> }
+    return { ...defaultUiPreferences, ...(parsed.settings ?? {}) }
   } catch {
-    return defaultUiLayoutPreferences
+    return defaultUiPreferences
   }
 }
 
-export function applyUiLayoutPreferences(preferences: UiLayoutPreferences) {
+export function readUiLayoutPreferences(): UiLayoutPreferences {
+  const preferences = readUiPreferences()
+  const {
+    theme: _theme,
+    accent: _accent,
+    density: _density,
+    uiScale: _uiScale,
+    fontSize: _fontSize,
+    ...layout
+  } = preferences
+  return layout
+}
+
+export function applyUiPreferences(preferences: UiPreferences) {
   const root = document.documentElement
+  root.dataset.agenticosTheme = preferences.theme.toLowerCase().replace(/\s+/g, '-')
+  root.dataset.agenticosAccent = preferences.accent.toLowerCase()
+  root.dataset.agenticosDensity = preferences.density.toLowerCase()
+  root.style.setProperty('--agenticos-ui-scale', String(preferences.uiScale / 100))
+  root.style.setProperty('--agenticos-font-size', preferences.fontSize + 'px')
   root.dataset.agenticosSidebar = preferences.leftSidebarVisible ? 'visible' : 'hidden'
   root.dataset.agenticosInspector = preferences.agentInspectorVisible ? 'visible' : 'hidden'
   root.dataset.agenticosDock = preferences.bottomDockVisible ? 'visible' : 'hidden'
@@ -49,6 +80,11 @@ export function applyUiLayoutPreferences(preferences: UiLayoutPreferences) {
   root.dataset.agenticosNotifications = preferences.notificationPosition
   root.style.setProperty('--agenticos-sidebar-width', preferences.sidebarWidth + 'px')
   root.style.setProperty('--agenticos-inspector-width', preferences.inspectorWidth + 'px')
+}
+
+export function applyUiLayoutPreferences(preferences: UiLayoutPreferences) {
+  const current = readUiPreferences()
+  applyUiPreferences({ ...current, ...preferences })
 }
 
 export function subscribeUiPreferences(onChange: () => void) {

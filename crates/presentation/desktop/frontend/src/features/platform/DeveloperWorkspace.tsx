@@ -95,6 +95,7 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
   const [visualPrompt, setVisualPrompt] = useState('')
   const [browserUrl, setBrowserUrl] = useState('http://localhost:5173')
   const [designSelection, setDesignSelection] = useState<string[]>(['Hero'])
+  const [designModeEnabled, setDesignModeEnabled] = useState(true)
   const [voiceQueue, setVoiceQueue] = useState<string[]>([])
   const [autonomy, setAutonomy] = useState<'suggest' | 'supervised' | 'autonomous'>('supervised')
   const [sandbox, setSandbox] = useState<'local' | 'worktree' | 'cloud'>('worktree')
@@ -254,9 +255,9 @@ export function DeveloperWorkspace({ onAction }: { onAction: (message: string) =
       {tab === 'design' && (
         <div className="developer-pro-grid">
           <Panel title="Visual design mode">
-            <div className="developer-design-toolbar"><label>Browser URL<input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Browser URL" /></label><button className="studio-button" type="button" onClick={() => onAction('Navigate browser staged in preview')}><Icon name="globe" size={13} /> Open</button><button className="studio-button" type="button" onClick={() => onAction('Screenshot evidence staged in preview')}><Icon name="archive" size={13} /> Capture</button></div>
+            <div className="developer-design-toolbar"><label>Browser URL<input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Browser URL" /></label><button className={designModeEnabled ? "studio-button studio-button--active" : "studio-button"} type="button" aria-pressed={designModeEnabled} onClick={() => setDesignModeEnabled((value) => !value)}><Icon name="layout" size={13} /> {designModeEnabled ? "Design mode on" : "Design mode off"}</button><button className="studio-button" type="button" onClick={() => onAction('Navigate browser staged in preview')}><Icon name="globe" size={13} /> Open</button><button className="studio-button" type="button" onClick={() => onAction('Screenshot evidence staged in preview')}><Icon name="archive" size={13} /> Capture</button></div>
             <div className="developer-browser-frame">
-              <div className="developer-browser-frame__chrome"><span className="developer-browser-dot" /><span>{browserUrl}</span><Tag label="Preview browser" /></div>
+              <div className="developer-browser-frame__chrome"><span className="developer-browser-dot" /><span>{browserUrl}</span><Tag label={designModeEnabled ? "Design mode" : "Browse mode"} /></div>
               <div className="developer-browser-frame__canvas"><div className="developer-browser-mock"><span className="eyebrow">Live UI preview</span><h2>Point. Draw. Describe.</h2><p>Visual instructions become scoped engineering tasks without leaving the developer workspace.</p><div className="developer-mock-grid"><span>Hero</span><span>Navigation</span><span>Composer</span><span>Responsive</span></div></div></div>
             </div>
             <div className="developer-design-targets">

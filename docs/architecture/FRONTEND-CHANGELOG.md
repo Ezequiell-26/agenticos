@@ -713,3 +713,10 @@ Verification status:
 - Reused existing preview datasets; no runtime/backend calls were introduced.
 - Added responsive layout rules for narrower desktop widths.
 - Verification status: implementation committed to feature branch; build/browser/CI evidence still pending.
+
+
+## 2026-09-24 — Governance UX layer
+- Added Approval Center with risk, scope, policy, decision and reason surfaces.
+- Added Permissions Matrix with actor/resource/operation/scope inspection and policy comparison controls.
+- Kept all actions presentation-only; no runtime authorization is granted by the UI.
+- Verification status: build/browser/CI evidence pending.

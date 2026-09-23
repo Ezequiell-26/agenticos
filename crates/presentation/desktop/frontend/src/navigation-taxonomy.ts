@@ -27,7 +27,7 @@ export const navigationSections: NavigationSectionMeta[] = [
 ]
 
 const workspaceIds: ReadonlySet<RailMode> = new Set([
-  'overview', 'chat', 'projects', 'files', 'developer-workspace', 'git-control', 'sessions', 'notifications',
+  'project-control', 'overview', 'chat', 'projects', 'files', 'developer-workspace', 'git-control', 'sessions', 'notifications',
 ])
 
 const buildIds: ReadonlySet<RailMode> = new Set([

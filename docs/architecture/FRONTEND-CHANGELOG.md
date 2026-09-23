@@ -989,3 +989,10 @@ Verification status:
 - Added a unified intelligence surface for Context, Knowledge, Memory, Research, Prompts, Evaluations and token optimization.
 - Added explicit context budget controls and the four-stage optimization contract: noise trim, deduplication, structural compaction and dynamic budget trim.
 - Kept retrieval, memory persistence, evaluation results and token limits runtime-authoritative.
+
+
+## Project Control Center — 2026-09-24
+
+- Added a workspace-level project control surface for project identity, current branch, tasks, environment, layout and recovery context.
+- Added direct launch cards into Developer, Mission, Execution, Intelligence, Governance and Integration workspaces.
+- Kept project/branch/environment changes as presentation intents until runtime project services are connected.

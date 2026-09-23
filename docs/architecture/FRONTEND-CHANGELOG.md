@@ -583,3 +583,13 @@ Verification status:
 - Heavy workspace surfaces remain lazy-loaded.
 - Verification still pending for fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility.
 
+## 2026-09-24 — Configuration architecture hardening + editor modularization
+
+- Consolidated high-level Control Center persistence behind `features/settings/settings-engine.ts`.
+- Control Center scope is now real application state for Global / Project / Session / Agent, with explicit Save/Discard semantics and local history/restore.
+- Avoided React state-updater side effects during persistence, keeping snapshot creation deterministic under Strict Mode.
+- Added `features/editor/CodeEditorSurface.tsx` as the reusable Files workspace editor surface.
+- The editor remains dependency-light and is isolated behind its own feature boundary for future language-server integration.
+- Added compact configuration history UI.
+- Static source audits passed after the hardening pass; runtime/build/browser verification remains pending.
+

@@ -113,7 +113,6 @@ export default function SettingsSurface({ notify }: SettingsSurfaceProps) {
   const [defaultModel, setDefaultModel] = useState('Auto route')
   const [defaultAgent, setDefaultAgent] = useState('Builder')
   const [defaultMode, setDefaultMode] = useState('Agent')
-  const [defaultMode, setDefaultMode] = useState('Agent')
   const [theme, setTheme] = useState('Monochrome')
   const [density, setDensity] = useState('Comfortable')
   const [fontSize, setFontSize] = useState('13')

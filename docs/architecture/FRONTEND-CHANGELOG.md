@@ -1045,3 +1045,10 @@ Verification status:
 - Added the existing Workspace Setup, QA & Readiness and Wake Word & Presence modes to the canonical RailMode union.
 - This removes type-level drift between navigation metadata, platform mode registration and the already implemented PlatformSurface routes.
 - No new UI surface, runtime capability, provider, credential or persistence behavior was introduced.
+
+
+## 2026-09-24 — Focus mode keyboard hardening
+
+- Fixed the Focus Mode keyboard handler so its Escape recovery observes the current focus state instead of a stale initial closure.
+- Added a polite live-region label to the runtime status chip so state changes are exposed to assistive technology.
+- No runtime service or persistence behavior changed.

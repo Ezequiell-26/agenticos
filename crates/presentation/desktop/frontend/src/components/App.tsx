@@ -144,7 +144,7 @@ function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [focusMode])
 
   const visibleTitle = useMemo(() => navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center', [mode])
 
@@ -253,7 +253,7 @@ function App() {
             <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
               <Icon name="history" size={15} /><span className="notification-badge">2</span>
             </button>
-            <span className="runtime-chip">
+            <span className="runtime-chip" aria-live="polite" aria-label={'Runtime ' + (status.provider === 'Runtime offline' ? 'offline' : 'connected') + ', state ' + status.state}>
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
               {status.state}
             </span>

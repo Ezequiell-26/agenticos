@@ -78,7 +78,7 @@ import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
-import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, batchJobs, learningSignals, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {

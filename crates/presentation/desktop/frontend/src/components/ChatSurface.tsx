@@ -45,6 +45,17 @@ const slashCommands = [
   ['/mcp', 'Inspect MCP servers.'],
   ['/browser', 'Open browser control.'],
   ['/gateway', 'Inspect messaging gateway.'],
+  ['/model', 'Switch or inspect the active model profile.'],
+  ['/goal', 'Define an outcome and success criteria for a long-running mission.'],
+  ['/parallel', 'Delegate the task across isolated agent lanes.'],
+  ['/design', 'Open browser Design Mode and visual targeting.'],
+  ['/appshot', 'Attach an application screenshot with visible text context.'],
+  ['/skill-creator', 'Create a reusable skill from the current workflow.'],
+  ['/eval', 'Run or inspect evaluation suites for the current task.'],
+  ['/handoff', 'Package context, artifacts and state for another agent or device.'],
+  ['/resume', 'Resume the current task from its latest checkpoint.'],
+  ['/commit', 'Prepare a reviewable commit from the current change set.'],
+  ['/pr', 'Prepare a pull request handoff from the current branch.'],
 ] as const
 
 function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {

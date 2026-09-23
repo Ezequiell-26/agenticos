@@ -1078,3 +1078,14 @@ Verification status:
 - Added a presentation-only terminal clear control and a polite output log region.
 - No runtime process attachment, command execution, provider, credential or persistence behavior was introduced.
 - Verification: source inspection; fresh frontend production build still required after the latest syntax repair.
+
+
+## 2026-09-24 — Frontend interaction resilience pass
+
+- Hardened Command Palette focus lifecycle, keyboard navigation, option linkage and focus restoration.
+- Hardened Workspace Sidebar and Quick Actions dismissal behavior, selected conversation semantics and menu state.
+- Hardened Chat composer slash-command navigation with Arrow/Home/End-friendly selection semantics, active-option linkage and live notices.
+- Hardened the existing application error boundary so Retry remounts the UI tree and technical exception text is kept out of the product surface.
+- Hardened Workspace Dock tab/panel semantics and selected problem state.
+- All changes remain presentation-only; runtime execution, credentials, network, provider routing and persistence contracts were not introduced.
+- Verification: source inspection completed for changed surfaces; production build/browser/Tauri verification remains outstanding until CI reports the latest branch state.

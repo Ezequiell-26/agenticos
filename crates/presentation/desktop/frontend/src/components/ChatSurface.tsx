@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
 import ChatEnhancementDock from './ChatEnhancementDock'
+import AgentRunDrawer from '../features/chat/AgentRunDrawer'
 import AgentModeStrip, { type AgentMode } from '../features/chat/AgentModeStrip'
 
 interface ChatSurfaceProps {
@@ -52,6 +53,8 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [rememberContext, setRememberContext] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<string[]>([])
   const [notice, setNotice] = useState('')
+  const [runDrawerOpen, setRunDrawerOpen] = useState(false)
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
@@ -107,7 +110,17 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
         <div className="chat-header__actions">
           <div className="model-chip"><span className="status-dot status-dot--live" /><select value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></div>
           <button className={`soft-button ${advancedOpen ? 'soft-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls"><Icon name="settings" size={14} />Controls</button>
+          <button className={`soft-button ${runDrawerOpen ? 'soft-button--active' : ''}`} type="button" title="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} />Trace</button>
           <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
+          <div className="session-menu-wrap">
+            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
+            {sessionMenuOpen && <div className="session-menu" role="menu">
+              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
+              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
+              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
+              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
+            </div>}
+          </div>
           <button className="icon-button" aria-label="Open command palette" title="Open command palette" onClick={onOpenPalette} type="button"><Icon name="command" size={17} /></button>
         </div>
       </header>
@@ -183,6 +196,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
         </div>
         {notice && <div className="composer-notice">{notice}</div>}
       </footer>
+      <AgentRunDrawer open={runDrawerOpen} running={running} onAction={setNotice} onClose={() => setRunDrawerOpen(false)} />
     </section>
   )
 }

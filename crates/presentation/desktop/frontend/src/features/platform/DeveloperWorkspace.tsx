@@ -26,7 +26,7 @@ const patchStack = [
   ['Patch 03', 'Developer Workspace', 'review', '+1,139 / -108'],
 ]
 const testSuites = [
-  ['TypeScript', 'tsc --noEmit', 'required', 'pending'],
+  ['TypeScript', 'tsc --noEmit', 'required', 'passed'],
   ['Frontend build', 'vite build', 'required', 'pending'],
   ['Interaction', 'keyboard + menus', 'recommended', 'pending'],
   ['Accessibility', 'semantics + focus', 'required', 'pending'],

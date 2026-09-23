@@ -571,3 +571,15 @@ Verification status:
 - Static source audit: 101 ControlState fields, 101 defaults, zero missing/duplicate fields, 10 unique domains, zero unknown icon names.
 - Unverified: fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility audit.
 
+## 2026-09-24 — Scoped settings engine + lightweight editor
+
+- Added `features/settings/settings-engine.ts` as the typed local settings store for high-level Control Center state.
+- Control Center now has real Global / Project / Session / Agent stores instead of treating scope as a display-only toggle.
+- Added explicit draft/commit behavior: changes are local drafts until Save; Discard restores the last committed store.
+- Added local configuration history with up to 20 snapshots and one-click restore from the Control Center.
+- Migrates the previous `agenticos.ui.control-center-v1` flat snapshot into the Project scope when present.
+- Added reusable `features/editor/CodeEditorSurface.tsx` and moved the Files workspace onto that surface.
+- Editor surface remains dependency-light and supports in-file search, match counts, line focus, wrap, optional minimap and Ctrl/Cmd+F / Ctrl/Cmd+S actions.
+- Heavy workspace surfaces remain lazy-loaded.
+- Verification still pending for fresh TypeScript/Vite CI, browser/Tauri rendering and accessibility.
+

@@ -2,7 +2,7 @@ name: AgentiCOS CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "architecture/**"]
   pull_request:
 
 permissions:
@@ -18,78 +18,60 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version: 22
           package-manager-cache: false
-
       - name: Install
         run: npm ci --no-audit --no-fund
-
       - name: Verify durable AI continuity
-        run: echo "Skipping continuity verify for new MIT-based crates"
-
+        run: npm run continuity:verify
       - name: Verify project-state consistency
-        run: echo "Skipping state verify for new MIT-based crates"
-
+        run: npm run state:verify
       - name: Verify architecture, types and tests
-        run: echo "Skipping verify for new MIT-based crates"
-
-      - name: Validate implementation state manifest
-        run: echo "Skipping state validation for new crates"
-
+        run: npm run verify
       - name: Dependency audit
         run: npm audit --audit-level=high
 
-      - name: Check dependency tree
-        run: npm ls --depth=0
-
   verify-rust:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Cache cargo index
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Format check
         run: cargo fmt --all -- --check
-
-      - name: Compile workspace (optimized)
+      - name: Compile workspace
         run: cargo check --workspace --all-targets
-
-      - name: Test workspace (optimized)
+      - name: Test workspace
         run: cargo test --workspace --all-targets
-
       - name: Run concurrency stress tests
         run: cargo test -p concurrency-stress -- --nocapture
-
       - name: Clippy
-        run: cargo clippy --workspace --all-targets
-
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Verify architecture boundaries
+        run: npm run architecture:boundaries
+      - name: Verify dependency tree cleanliness
+        run: node scripts/verify-cargo-dependencies.mjs
       - name: Verify architecture workspace shape
         run: |
           test -f Cargo.toml
@@ -97,4 +79,8 @@ jobs:
           test -f protocols/schemas/event-envelope.schema.json
           test -f reference/manifests/implementation-state.json
           test -f reference/manifests/mit-repositories.json
+          test -f reference/manifests/architecture-dag.json
+          test -d crates/brain
+          test -d crates/mcp
+          test -d crates/resilience
           echo "Rust architecture foundation: PASS"

@@ -152,7 +152,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                 ['PV-001','Provider registry + model catalog','provider_registry_and_model_catalog_compose_across_multiple_providers','Register providers/models and verify cross-provider catalog composition','Ready','registry'],
                 ['PV-002','Declared failover order','provider_failover_follows_declared_order','Advance primary → fallback-a → fallback-b in declared order','Ready','failover'],
                 ['PV-003','Failover disabled','auto_failover_disabled_does_not_advance_to_fallback','Keep the primary route when automatic failover is disabled','Ready','failover'],
-                ['PV-004','Health-driven selection','health_check_drives_failover_selection','Skip unhealthy/degraded routes and select the healthy fallback','Ready','health'],
+                ['PV-004','Health-driven selection','health_check_drives_failover_selection','Skip unhealthy/degraded routes and select the healthy fallback','Attention','health'],
                 ['PV-005','Resilient retry + quota','retry_policy_and_quota_state_can_be_combined_for_resilient_provider_work','Combine bounded exponential retry with quota state','Ready','resilience'],
                 ['PV-006','Provider-scoped credentials','credential_pool_keeps_credentials_scoped_to_their_provider','Keep credential lookup isolated to its provider','Ready','security'],
                 ['PV-007','Deterministic transport','http_model_provider_executes_against_a_deterministic_local_provider','Execute a deterministic OpenAI-compatible local test response','Ready','transport'],

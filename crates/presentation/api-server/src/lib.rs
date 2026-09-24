@@ -33,8 +33,7 @@ impl RuntimeState {
             .unwrap_or_else(|_| DEFAULT_PROVIDER_URL.to_string());
         let provider_name = std::env::var("AGENTICOS_PROVIDER_NAME")
             .unwrap_or_else(|_| "openai-compatible".to_string());
-        let model =
-            std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
         let api_key = std::env::var("AGENTICOS_API_KEY")
             .ok()
             .filter(|value| !value.trim().is_empty());
@@ -230,10 +229,7 @@ async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
-async fn get_tool(
-    tool_name: web::Path<String>,
-    state: web::Data<RuntimeState>,
-) -> impl Responder {
+async fn get_tool(tool_name: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
     let name = tool_name.into_inner();
     let tools = state.tools.read().await;
     match tools.get_tool(&name) {
@@ -246,8 +242,7 @@ async fn get_tool(
 }
 
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
-    let host =
-        std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("AGENTICOS_BIND_PORT")
         .ok()
         .and_then(|value| value.parse::<u16>().ok())

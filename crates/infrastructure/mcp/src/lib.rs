@@ -132,6 +132,12 @@ struct CachedTools {
     tools: Vec<McpTool>,
 }
 
+#[derive(Debug)]
+struct ActiveSession {
+    client: Arc<Mutex<StdioClient>>,
+    last_used: Instant,
+}
+
 /// Server registry plus lazy, reusable stdio client operations.
 #[derive(Clone, Debug)]
 pub struct McpManager {
@@ -142,6 +148,8 @@ pub struct McpManager {
     tools_cache: Arc<RwLock<HashMap<String, CachedTools>>>,
     concurrency: Arc<Semaphore>,
     tool_cache_ttl: Duration,
+    max_active_sessions: usize,
+    max_tool_cache_entries: usize,
 }
 
 impl McpManager {
@@ -155,6 +163,8 @@ impl McpManager {
             tools_cache: Arc::new(RwLock::new(HashMap::new())),
             concurrency: Arc::new(Semaphore::new(mcp_concurrency_limit())),
             tool_cache_ttl: mcp_tool_cache_ttl(),
+            max_active_sessions: mcp_max_active_sessions(),
+            max_tool_cache_entries: mcp_max_tool_cache_entries(),
         }
     }
 
@@ -330,13 +340,15 @@ impl McpManager {
     ///
     /// Discovery is cached and the stdio process is reused across calls.
     pub async fn list_tools(&self, server_id: &str) -> Result<Vec<McpTool>, McpError> {
+        if let Some(tools) = self.cached_tools(server_id).await {
+            return Ok(tools);
+        }
+
         let _permit = self
             .concurrency
             .acquire()
             .await
             .map_err(|_| McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string()))?;
-
-        if let Some(tools) = self.cached_tools(server_id).await {
             return Ok(tools);
         }
 
@@ -351,6 +363,7 @@ impl McpManager {
             Ok(response) => {
                 let tools = parse_tools(response)?;
                 self.store_tools_cache(server_id, tools.clone()).await;
+                self.touch_session(server_id).await;
                 Ok(tools)
             }
             Err(error) => {
@@ -397,6 +410,7 @@ impl McpManager {
         match response {
             Ok(response) => {
                 if let Some(result) = response.result {
+                    self.touch_session(server_id).await;
                     return Ok(result);
                 }
                 if let Some(error) = response.error {
@@ -417,14 +431,30 @@ impl McpManager {
     }
 
     async fn cached_tools(&self, server_id: &str) -> Option<Vec<McpTool>> {
-        let cache = self.tools_cache.read().await;
-        cache.get(server_id).and_then(|entry| {
-            (entry.fetched_at.elapsed() <= self.tool_cache_ttl).then(|| entry.tools.clone())
-        })
+        let mut cache = self.tools_cache.write().await;
+        let is_fresh = cache
+            .get(server_id)
+            .map(|entry| entry.fetched_at.elapsed() <= self.tool_cache_ttl)
+            .unwrap_or(false);
+        if !is_fresh {
+            cache.remove(server_id);
+            return None;
+        }
+        cache.get(server_id).map(|entry| entry.tools.clone())
     }
 
     async fn store_tools_cache(&self, server_id: &str, tools: Vec<McpTool>) {
-        self.tools_cache.write().await.insert(
+        let mut cache = self.tools_cache.write().await;
+        if !cache.contains_key(server_id) && cache.len() >= self.max_tool_cache_entries {
+            if let Some(oldest_key) = cache
+                .iter()
+                .min_by_key(|(_, entry)| entry.fetched_at)
+                .map(|(key, _)| key.clone())
+            {
+                cache.remove(&oldest_key);
+            }
+        }
+        cache.insert(
             server_id.to_string(),
             CachedTools {
                 fetched_at: Instant::now(),
@@ -437,8 +467,12 @@ impl McpManager {
         &self,
         server: &McpServerDefinition,
     ) -> Result<Arc<Mutex<StdioClient>>, McpError> {
-        if let Some(session) = self.sessions.read().await.get(&server.server_id).cloned() {
-            return Ok(session);
+        {
+            let mut sessions = self.sessions.write().await;
+            if let Some(entry) = sessions.get_mut(&server.server_id) {
+                entry.last_used = Instant::now();
+                return Ok(entry.client.clone());
+            }
         }
 
         let mut client = StdioClient::spawn(server, self.timeout_for(server)).await?;
@@ -446,11 +480,35 @@ impl McpManager {
         let session = Arc::new(Mutex::new(client));
 
         let mut sessions = self.sessions.write().await;
-        if let Some(existing) = sessions.get(&server.server_id).cloned() {
-            return Ok(existing);
+        if let Some(existing) = sessions.get_mut(&server.server_id) {
+            existing.last_used = Instant::now();
+            return Ok(existing.client.clone());
         }
-        sessions.insert(server.server_id.clone(), session.clone());
+
+        if sessions.len() >= self.max_active_sessions {
+            if let Some(oldest_key) = sessions
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_used)
+                .map(|(key, _)| key.clone())
+            {
+                sessions.remove(&oldest_key);
+            }
+        }
+
+        sessions.insert(
+            server.server_id.clone(),
+            ActiveSession {
+                client: session.clone(),
+                last_used: Instant::now(),
+            },
+        );
         Ok(session)
+    }
+
+    async fn touch_session(&self, server_id: &str) {
+        if let Some(entry) = self.sessions.write().await.get_mut(server_id) {
+            entry.last_used = Instant::now();
+        }
     }
 
     async fn drop_session(&self, server_id: &str) {
@@ -768,4 +826,21 @@ fn mcp_tool_cache_ttl() -> Duration {
         .unwrap_or(300_000)
         .clamp(1_000, 3_600_000);
     Duration::from_millis(ttl_ms)
+}
+
+
+fn mcp_max_active_sessions() -> usize {
+    std::env::var("AGENTICOS_MCP_MAX_ACTIVE_SESSIONS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(32)
+        .clamp(1, 256)
+}
+
+fn mcp_max_tool_cache_entries() -> usize {
+    std::env::var("AGENTICOS_MCP_TOOL_CACHE_MAX_ENTRIES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(256)
+        .clamp(8, 2048)
 }

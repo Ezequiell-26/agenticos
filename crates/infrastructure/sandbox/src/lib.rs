@@ -225,6 +225,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_shell_control_operators() {
+        let sandbox = ProcessSandbox::default();
+        let result = sandbox
+            .execute_command(
+                "git --version && echo unsafe",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await;
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
+    }
+
+    #[tokio::test]
     async fn executes_allowlisted_command() {
         let sandbox = ProcessSandbox::default();
         let result = sandbox

@@ -8,6 +8,7 @@ actix-cors = { workspace = true }
 actix-web = { workspace = true }
 agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
+agenticos-execution = { path = "../../application/execution" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-memory = { path = "../../infrastructure/memory" }

@@ -100,7 +100,8 @@ impl ProviderPlatform {
                 .credentials
                 .get_for_provider(&provider.provider_id)
                 .await
-                .is_empty();
+                .is_empty()
+                || allows_anonymous_provider(&provider.base_url);
             let health = self
                 .health
                 .get(&provider.provider_id)
@@ -148,13 +149,16 @@ impl ProviderPlatform {
                 model: effective_model,
                 ..request.clone()
             };
-            if !self
+            let credential = self
                 .credentials
                 .get_for_provider(&provider.provider_id)
                 .await
-                .iter()
-                .any(|credential| credential.expires_at == 0 || credential.expires_at > unix_time())
-            {
+                .into_iter()
+                .find(|credential| {
+                    credential.expires_at == 0 || credential.expires_at > unix_time()
+                });
+
+            if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
                 continue;
             }
 
@@ -168,21 +172,11 @@ impl ProviderPlatform {
                     max_backoff_ms: 4_000,
                     exponential_backoff: true,
                 });
-            let credential = self
-                .credentials
-                .get_for_provider(&provider.provider_id)
-                .await
-                .into_iter()
-                .find(|credential| {
-                    credential.expires_at == 0 || credential.expires_at > unix_time()
-                })
-                .ok_or(ContractError::MissingCapability)?;
-
             for attempt in 0..policy.max_attempts.max(1) {
                 let client = AuthenticatedOpenAiProvider::new(
                     provider.provider_id.clone(),
                     provider.base_url.clone(),
-                    credential.value.clone(),
+                    credential.as_ref().map(|value| value.value.clone()),
                 );
                 match client.execute(routed_request.clone()).await {
                     Ok(response) => {
@@ -272,12 +266,12 @@ impl Default for ProviderPlatform {
 struct AuthenticatedOpenAiProvider {
     provider_id: String,
     base_url: String,
-    api_key: String,
+    api_key: Option<String>,
     client: reqwest::Client,
 }
 
 impl AuthenticatedOpenAiProvider {
-    fn new(provider_id: String, base_url: String, api_key: String) -> Self {
+    fn new(provider_id: String, base_url: String, api_key: Option<String>) -> Self {
         Self {
             provider_id,
             base_url: normalize_chat_url(&base_url),
@@ -294,16 +288,19 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        let response = self
+        let mut request = self
             .client
             .post(&self.base_url)
-            .bearer_auth(&self.api_key)
             .json(&serde_json::json!({
                 "model": request.model,
                 "messages": [{"role": "user", "content": request.input}],
                 "stream": false,
                 "request_id": request.request_id
-            }))
+            }));
+        if let Some(api_key) = &self.api_key {
+            request = request.bearer_auth(api_key);
+        }
+        let response = request
             .send()
             .await
             .map_err(|error| {
@@ -374,4 +371,22 @@ impl ModelProvider for ProviderPlatform {
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         self.execute_routed(request).await
     }
+}
+
+
+fn allows_anonymous_provider(base_url: &str) -> bool {
+    let explicit = std::env::var("AGENTICOS_ALLOW_ANONYMOUS_PROVIDER")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if explicit {
+        return true;
+    }
+
+    let normalized = base_url.trim().trim_end_matches('/');
+    normalized.starts_with("http://127.0.0.1:")
+        || normalized.starts_with("http://localhost")
+        || normalized.starts_with("https://127.0.0.1:")
+        || normalized.starts_with("https://localhost")
+        || normalized.starts_with("http://[::1]:")
+        || normalized.starts_with("https://[::1]:")
 }

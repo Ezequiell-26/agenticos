@@ -10,12 +10,14 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
+use agenticos_execution::SecureToolService;
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
 };
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityType, ContractError, ModelProvider, ModelRequest, RunId, RunState,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, ModelProvider, ModelRequest,
+    RunId, RunState,
     Sandbox, SandboxStatus,
 };
 use agenticos_memory::PersistentMemoryStore;
@@ -51,6 +53,7 @@ pub struct RuntimeState {
     workflows: Arc<WorkflowEngine>,
     capabilities: Arc<CapabilityManager>,
     sandbox: Arc<ProcessSandbox>,
+    secure_tools: Arc<SecureToolService>,
     reasoning: Arc<ReasoningEngine>,
     model: String,
 }
@@ -94,6 +97,11 @@ impl RuntimeState {
         ));
 
         let provider = Arc::new(ProviderPlatform::from_env().await?);
+        let sandbox = Arc::new(ProcessSandbox::new(SandboxPolicy::default()));
+        let secure_tools = Arc::new(SecureToolService::new(
+            capabilities.clone(),
+            sandbox.clone(),
+        ));
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
@@ -131,7 +139,8 @@ impl RuntimeState {
             scheduler: Arc::new(JobScheduler::default()),
             workflows: Arc::new(WorkflowEngine::default()),
             capabilities,
-            sandbox: Arc::new(ProcessSandbox::new(SandboxPolicy::default())),
+            sandbox,
+            secure_tools,
             reasoning: Arc::new(ReasoningEngine::new(EngineConfig {
                 max_steps: 12,
                 enable_learning: true,
@@ -756,6 +765,96 @@ async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
     }
 }
 
+async fn list_capabilities(state: web::Data<RuntimeState>) -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "grants": state.capabilities.list_grants().await,
+    }))
+}
+
+async fn issue_capability(
+    request: web::Json<CreateCapabilityRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let capability_type = match request.capability_type.trim().to_ascii_lowercase().as_str() {
+        "read" => CapabilityType::Read,
+        "write" => CapabilityType::Write,
+        "execute" => CapabilityType::Execute,
+        "admin" => CapabilityType::Admin,
+        _ => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "capability_type must be read, write, execute or admin".to_string(),
+                code: "INVALID_CAPABILITY_TYPE",
+            });
+        }
+    };
+
+    let grant = CapabilityGrant {
+        capability_type,
+        resource: request.resource.trim().to_string(),
+        permission: request.permission.trim().to_string(),
+        expires_at: request.expires_at.unwrap_or(0),
+        grant_id: request.grant_id.trim().to_string(),
+    };
+
+    match state.capabilities.issue(grant.clone()).await {
+        Ok(grant_id) => HttpResponse::Created().json(serde_json::json!({
+            "grant_id": grant_id,
+            "capability_type": format!("{:?}", grant.capability_type),
+            "resource": grant.resource,
+            "permission": grant.permission,
+            "expires_at": grant.expires_at,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CAPABILITY_ISSUE_FAILED",
+        }),
+    }
+}
+
+async fn revoke_capability(
+    grant_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.capabilities.revoke(&grant_id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CAPABILITY_NOT_FOUND",
+        }),
+    }
+}
+
+async fn execute_tool(
+    request: web::Json<ToolExecutionRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.command.trim().is_empty() || request.session_id.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "session_id and command are required".to_string(),
+            code: "INVALID_TOOL_REQUEST",
+        });
+    }
+
+    match state
+        .secure_tools
+        .execute_command(
+            request.session_id.trim(),
+            request.user_id.as_deref(),
+            request.grant_id.trim(),
+            request.command.trim(),
+            request.timeout_ms,
+        )
+        .await
+    {
+        Ok(result) if result.success => HttpResponse::Ok().json(result),
+        Ok(result) => HttpResponse::BadRequest().json(result),
+        Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
+            error: error.to_string(),
+            code: "TOOL_EXECUTION_DENIED",
+        }),
+    }
+}
+
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);
     let status: SandboxStatus = state
@@ -830,6 +929,13 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/memory", web::post().to(upsert_memory))
             .route("/api/memory/{namespace}/{key}", web::delete().to(delete_memory))
             .route("/api/memory/purge", web::post().to(purge_memory))
+            .route("/api/capabilities", web::get().to(list_capabilities))
+            .route("/api/capabilities", web::post().to(issue_capability))
+            .route(
+                "/api/capabilities/{grant_id}",
+                web::delete().to(revoke_capability),
+            )
+            .route("/api/tools/execute", web::post().to(execute_tool))
             .route("/api/sandbox/status", web::get().to(sandbox_status))
     })
     .bind((host, port))?

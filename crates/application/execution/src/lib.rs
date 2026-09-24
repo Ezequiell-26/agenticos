@@ -866,3 +866,141 @@ mod tests {
         });
     }
 }
+
+
+/// Capability-gated tool execution service.
+#[derive(Debug, Clone)]
+pub struct SecureToolService {
+    capabilities: Arc<agenticos_security::CapabilityManager>,
+    sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
+    pipeline: Arc<agenticos_kernel::ToolExecutionPipeline>,
+}
+
+impl SecureToolService {
+    /// Construct a secure tool service with a policy hook.
+    pub fn new(
+        capabilities: Arc<agenticos_security::CapabilityManager>,
+        sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
+    ) -> Self {
+        let pipeline = agenticos_kernel::ToolExecutionPipeline::new().add_pre_hook(Arc::new(
+            agenticos_kernel::PermissionPolicyHook::new()
+                .allow_tool("process.execute".to_string()),
+        ));
+        Self {
+            capabilities,
+            sandbox,
+            pipeline: Arc::new(pipeline),
+        }
+    }
+
+    /// Execute a command after validating an execute capability.
+    pub async fn execute_command(
+        &self,
+        session_id: &str,
+        user_id: Option<&str>,
+        grant_id: &str,
+        command: &str,
+        timeout_ms: Option<u64>,
+    ) -> Result<agenticos_kernel::ToolExecutionResult, ContractError> {
+        let authorized = self
+            .capabilities
+            .authorize(
+                grant_id,
+                agenticos_contracts::CapabilityType::Execute,
+                "process/command",
+                "process.execute",
+            )
+            .await?;
+
+        if !authorized {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let context = agenticos_kernel::ToolExecutionContext::new(
+            "process.execute".to_string(),
+            serde_json::json!({
+                "command": command,
+                "timeout_ms": timeout_ms,
+            }),
+            session_id.to_string(),
+        );
+
+        let sandbox = self.sandbox.clone();
+        let command = command.to_string();
+        let result = self
+            .pipeline
+            .execute(context, move |_context| {
+                let sandbox = sandbox.clone();
+                let command = command.clone();
+                async move {
+                    match sandbox
+                        .execute_command(
+                            &command,
+                            timeout_ms,
+                            None,
+                            &["process.execute".to_string()],
+                        )
+                        .await
+                    {
+                        Ok(response) if response.success => {
+                            agenticos_kernel::ToolExecutionResult::success(response.output)
+                        }
+                        Ok(response) => agenticos_kernel::ToolExecutionResult::failure(
+                            response
+                                .error
+                                .unwrap_or_else(|| "process execution failed".to_string()),
+                        ),
+                        Err(error) => {
+                            agenticos_kernel::ToolExecutionResult::failure(error.to_string())
+                        }
+                    }
+                }
+            })
+            .await;
+
+        let _ = user_id;
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod secure_tool_tests {
+    use super::*;
+    use agenticos_contracts::CapabilityIssuer;
+
+    #[tokio::test]
+    async fn command_requires_execute_grant() {
+        let capabilities = Arc::new(agenticos_security::CapabilityManager::new());
+        let sandbox = Arc::new(agenticos_sandbox::ProcessSandbox::default());
+        let service = SecureToolService::new(capabilities, sandbox);
+
+        let result = service
+            .execute_command("session-1", None, "missing", "git --version", None)
+            .await;
+        assert!(matches!(result, Err(ContractError::MissingCapability)));
+    }
+
+    #[tokio::test]
+    async fn command_executes_with_grant() {
+        let capabilities = Arc::new(agenticos_security::CapabilityManager::new());
+        capabilities
+            .issue(agenticos_contracts::CapabilityGrant {
+                capability_type: agenticos_contracts::CapabilityType::Execute,
+                resource: "process/*".to_string(),
+                permission: "process.execute".to_string(),
+                expires_at: 0,
+                grant_id: "grant-1".to_string(),
+            })
+            .await
+            .unwrap();
+
+        let sandbox = Arc::new(agenticos_sandbox::ProcessSandbox::default());
+        let service = SecureToolService::new(capabilities, sandbox);
+
+        let result = service
+            .execute_command("session-1", None, "grant-1", "git --version", None)
+            .await
+            .unwrap();
+        assert!(result.success);
+    }
+}

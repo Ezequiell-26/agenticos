@@ -5666,7 +5666,7 @@ Test procedure"#;
             .unwrap();
         drop(first);
 
-        let second = KernelRuntime::minimal(event_store, snapshot_store);
+        let second = KernelRuntime::minimal(event_store.clone(), snapshot_store.clone());
         second.cancel_run(&run_id).await.unwrap();
 
         let recovered = second.get_or_recover_run(&run_id).await.unwrap();

@@ -132,7 +132,10 @@ impl EvaluationRegistry {
 
     /// Open a SQLite-backed registry and recover cases/results.
     pub async fn open(database_url: &str) -> Result<Self, String> {
-        let db = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
+        let db = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
             .await
             .map_err(|error| format!("evaluation database connection failed: {error}"))?;
         sqlx::query("CREATE TABLE IF NOT EXISTS evaluation_cases (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL)")

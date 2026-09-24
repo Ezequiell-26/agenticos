@@ -68,9 +68,14 @@ impl CapabilityManager {
 
     /// Open a SQLite-backed capability manager and recover grants/approvals.
     pub async fn open(database_url: &str) -> Result<Self, ContractError> {
-        let db = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url).await.map_err(|error| {
-            ContractError::ParseError(format!("security database connection failed: {error}"))
-        })?;
+        let db = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("security database connection failed: {error}"))
+            })?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS capability_grants (grant_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",

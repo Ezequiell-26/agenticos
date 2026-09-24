@@ -357,6 +357,145 @@ impl AgentTool for WorkspaceTool {
     }
 }
 
+#[derive(Clone, Debug)]
+struct TerminalTool {
+    terminal: Arc<TerminalManager>,
+    capabilities: Arc<CapabilityManager>,
+    operation: &'static str,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for TerminalTool {
+    fn tool_id(&self) -> &str {
+        self.operation
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        #[derive(Debug, Deserialize)]
+        struct OpenArgs {
+            command: String,
+            cwd: Option<String>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct InputArgs {
+            terminal_id: String,
+            input: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ReadArgs {
+            terminal_id: String,
+            after: Option<i64>,
+            limit: Option<u32>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct CloseArgs {
+            terminal_id: String,
+        }
+
+        let (required_type, resource, permission) = match self.operation {
+            "terminal.open" => (CapabilityType::Execute, "terminal/*".to_string(), "terminal.open"),
+            "terminal.write" => {
+                let args = serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
+                })?;
+                (
+                    CapabilityType::Write,
+                    format!("terminal/{}", args.terminal_id),
+                    "terminal.write",
+                )
+            }
+            "terminal.read" => {
+                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
+                })?;
+                (
+                    CapabilityType::Read,
+                    format!("terminal/{}", args.terminal_id),
+                    "terminal.read",
+                )
+            }
+            "terminal.close" => {
+                let args = serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
+                })?;
+                (
+                    CapabilityType::Execute,
+                    format!("terminal/{}", args.terminal_id),
+                    "terminal.close",
+                )
+            }
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        if !self
+            .capabilities
+            .authorize(&request.grant_id, required_type, &resource, permission)
+            .await?
+        {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let result = match self.operation {
+            "terminal.open" => {
+                let args = serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.open arguments: {error}"))
+                })?;
+                serde_json::to_value(
+                    self.terminal
+                        .create(&args.command, args.cwd.as_deref())
+                        .await
+                        .map_err(ContractError::ParseError)?,
+                )
+                .map_err(|error| ContractError::ParseError(error.to_string()))?
+            }
+            "terminal.write" => {
+                let args = serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
+                })?;
+                self.terminal
+                    .write_input(&args.terminal_id, &args.input)
+                    .await
+                    .map_err(ContractError::ParseError)?;
+                serde_json::json!({
+                    "terminal_id": args.terminal_id,
+                    "written": true,
+                })
+            }
+            "terminal.read" => {
+                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
+                })?;
+                serde_json::json!({
+                    "terminal_id": args.terminal_id,
+                    "events": self
+                        .terminal
+                        .read_output(&args.terminal_id, args.after.unwrap_or(0), args.limit.unwrap_or(128))
+                        .await
+                        .map_err(ContractError::ParseError)?,
+                })
+            }
+            "terminal.close" => {
+                let args = serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
+                })?;
+                serde_json::json!({
+                    "terminal_id": args.terminal_id,
+                    "closed": self.terminal.close(&args.terminal_id).await.map_err(ContractError::ParseError)?,
+                })
+            }
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: result.to_string(),
+            success: true,
+            error: None,
+            metadata: Some(format!("capability-gated terminal tool {}", self.operation)),
+        })
+    }
+}
+
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
@@ -562,6 +701,36 @@ impl RuntimeState {
                 .await
                 .map_err(|error| {
                     ContractError::ParseError(format!("Git tool registration failed: {error}"))
+                })?;
+        }
+
+        for (tool_id, name, capability) in [
+            ("terminal.open", "Open terminal session", "terminal.open"),
+            ("terminal.write", "Write terminal input", "terminal.write"),
+            ("terminal.read", "Read terminal output", "terminal.read"),
+            ("terminal.close", "Close terminal session", "terminal.close"),
+        ] {
+            tool_runtime
+                .register(
+                    ToolEntry {
+                        tool_id: tool_id.to_string(),
+                        name: name.to_string(),
+                        description: name.to_string(),
+                        capabilities: vec!["terminal".to_string()],
+                        required_permissions: vec![],
+                        context_requirements: vec![format!("capability:{capability}")],
+                    },
+                    Arc::new(TerminalTool {
+                        terminal: terminal.clone(),
+                        capabilities: capabilities.clone(),
+                        operation: tool_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "terminal tool registration failed: {error}"
+                    ))
                 })?;
         }
 

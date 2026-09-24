@@ -77,7 +77,10 @@ impl WorkflowEngine {
 
     /// Open a SQLite-backed workflow engine and recover definitions/state.
     pub async fn open(database_url: &str) -> Result<Self, String> {
-        let db = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
+        let db = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
             .await
             .map_err(|error| format!("workflow database connection failed: {error}"))?;
         sqlx::query(

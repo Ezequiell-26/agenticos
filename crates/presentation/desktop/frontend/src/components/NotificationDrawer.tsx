@@ -88,6 +88,7 @@ export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavi
   return (
     <div className="notification-drawer-backdrop" role="presentation" onMouseDown={onClose}>
       <section
+        id="agenticos-notification-drawer"
         ref={dialogRef}
         className="notification-drawer"
         role="dialog"

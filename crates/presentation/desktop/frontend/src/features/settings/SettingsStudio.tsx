@@ -284,6 +284,13 @@ export interface SettingsState {
   unauthorizedDmBehavior: string
   unauthorizedDmOverrides: string
   quickCommands: string
+  memoryWriteApproval: boolean
+  memoryNudgeInterval: number
+  memoryFlushMinTurns: number
+  fileReadMaxChars: number
+  contextFileMaxChars: number
+  envSubstitutionEnabled: boolean
+  envSubstitutionTemplate: string
 }
 
 interface SettingsSurfaceProps {
@@ -547,6 +554,13 @@ const defaults: SettingsState = {
   unauthorizedDmBehavior: 'pair',
   unauthorizedDmOverrides: '{}',
   quickCommands: 'status = agenticos status\ndisk = df -h /\ngpu = nvidia-smi',
+  memoryWriteApproval: false,
+  memoryNudgeInterval: 10,
+  memoryFlushMinTurns: 6,
+  fileReadMaxChars: 100000,
+  contextFileMaxChars: 20000,
+  envSubstitutionEnabled: true,
+  envSubstitutionTemplate: '${OPENAI_API_KEY} / ${CUSTOM_ENDPOINT}',
 }
 
 const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName; group: string }> = [
@@ -1442,6 +1456,8 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.sshHost = readString(terminal, 'ssh_host', current.sshHost)
     next.sshUser = readString(terminal, 'ssh_user', current.sshUser)
     next.sshPort = readNumber(terminal, 'ssh_port', current.sshPort)
+    next.fileReadMaxChars = readNumber(terminal, 'file_read_max_chars', current.fileReadMaxChars)
+    next.contextFileMaxChars = readNumber(terminal, 'context_file_max_chars', current.contextFileMaxChars)
   }
   if (memory) {
     next.memoryEnabled = readBoolean(memory, 'memory_enabled', current.memoryEnabled)
@@ -1449,6 +1465,9 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.memoryCharLimit = readNumber(memory, 'memory_char_limit', current.memoryCharLimit)
     next.userCharLimit = readNumber(memory, 'user_char_limit', current.userCharLimit)
     next.sessionRecall = readBoolean(memory, 'session_recall', current.sessionRecall)
+    next.memoryWriteApproval = readBoolean(memory, 'write_approval', current.memoryWriteApproval)
+    next.memoryNudgeInterval = readNumber(memory, 'nudge_interval', current.memoryNudgeInterval)
+    next.memoryFlushMinTurns = readNumber(memory, 'flush_min_turns', current.memoryFlushMinTurns)
   }
   if (compression) {
     next.compressionEnabled = readBoolean(compression, 'enabled', current.compressionEnabled)
@@ -1685,6 +1704,11 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.unauthorizedDmOverrides = readString(hermesGateway, 'unauthorized_dm_overrides', current.unauthorizedDmOverrides)
   }
   if (hermes) next.quickCommands = readString(hermes, 'quick_commands', current.quickCommands)
+  const hermesEnvironment = hermes && isRecord(hermes.environment) ? hermes.environment : undefined
+  if (hermesEnvironment) {
+    next.envSubstitutionEnabled = readBoolean(hermesEnvironment, 'substitution_enabled', current.envSubstitutionEnabled)
+    next.envSubstitutionTemplate = readString(hermesEnvironment, 'template', current.envSubstitutionTemplate)
+  }
 
   if (typeof payload.timezone === 'string') next.timezone = payload.timezone
   if (hermesUi) {
@@ -1765,6 +1789,8 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       ssh_host: settings.sshHost || null,
       ssh_user: settings.sshUser || null,
       ssh_port: settings.sshPort,
+      file_read_max_chars: settings.fileReadMaxChars,
+      context_file_max_chars: settings.contextFileMaxChars,
     },
     memory: {
       memory_enabled: settings.memoryEnabled,
@@ -1772,6 +1798,9 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       memory_char_limit: settings.memoryCharLimit,
       user_char_limit: settings.userCharLimit,
       session_recall: settings.sessionRecall,
+      write_approval: settings.memoryWriteApproval,
+      nudge_interval: settings.memoryNudgeInterval,
+      flush_min_turns: settings.memoryFlushMinTurns,
     },
     compression: {
       enabled: settings.compressionEnabled,
@@ -2017,6 +2046,10 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
         unauthorized_dm_overrides: settings.unauthorizedDmOverrides,
       },
       quick_commands: settings.quickCommands,
+      environment: {
+        substitution_enabled: settings.envSubstitutionEnabled,
+        template: settings.envSubstitutionTemplate,
+      },
     },
     timezone: settings.timezone,
     ui: {

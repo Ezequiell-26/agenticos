@@ -96,3 +96,5 @@ The frontend verification contract additionally requires browser verification wh
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+<!-- formatter-trigger -->

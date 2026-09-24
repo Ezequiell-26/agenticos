@@ -23,10 +23,7 @@ fn configure_runtime_storage(app: &tauri::App) -> Result<(), String> {
     }
 
     if std::env::var_os("AGENTICOS_ARTIFACT_ROOT").is_none() {
-        std::env::set_var(
-            "AGENTICOS_ARTIFACT_ROOT",
-            app_data_dir.join("artifacts"),
-        );
+        std::env::set_var("AGENTICOS_ARTIFACT_ROOT", app_data_dir.join("artifacts"));
     }
 
     Ok(())
@@ -36,12 +33,13 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            configure_runtime_storage(app)
-                .map_err(std::io::Error::other)?;
+            configure_runtime_storage(app).map_err(std::io::Error::other)?;
 
             let runtime =
                 tauri::async_runtime::block_on(agenticos_api_server::RuntimeState::from_env())
-                    .map_err(|error| format!("failed to initialize AgentiCOS backend runtime: {error}"))?;
+                    .map_err(|error| {
+                        format!("failed to initialize AgentiCOS backend runtime: {error}")
+                    })?;
 
             std::thread::spawn(move || {
                 tauri::async_runtime::block_on(async move {

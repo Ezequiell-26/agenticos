@@ -54,10 +54,14 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
           }}
           placeholder="Search features…"
           aria-label="Search features"
+          role="combobox"
+          aria-controls="agenticos-feature-results"
+          aria-expanded="true"
+          aria-autocomplete="list"
           aria-activedescendant={filtered[selectedIndex] ? 'feature-' + filtered[selectedIndex].id : undefined}
         />
       </div>
-      <div className="navigation-launcher__body">
+      <div id="agenticos-feature-results" className="navigation-launcher__body" role="listbox" aria-label="AgentiCOS feature results">
         {sectionOrder.map((sectionId) => {
           const meta = navigationSections.find((item) => item.id === sectionId)
           const items = filtered.filter((item) => getNavigationSection(item.id) === sectionId)

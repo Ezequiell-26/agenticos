@@ -43,8 +43,9 @@ impl ProviderRegistry {
 
     /// List all providers.
     pub async fn list(&self) -> Vec<ProviderEntry> {
-        let providers = self.providers.read().await;
-        providers.values().cloned().collect()
+        let mut providers: Vec<_> = self.providers.read().await.values().cloned().collect();
+        providers.sort_by(|left, right| left.provider_id.cmp(&right.provider_id));
+        providers
     }
 }
 
@@ -83,18 +84,21 @@ impl ModelCatalog {
 
     /// List all models.
     pub async fn list(&self) -> Vec<ModelEntry> {
-        let models = self.models.read().await;
-        models.values().cloned().collect()
+        let mut models: Vec<_> = self.models.read().await.values().cloned().collect();
+        models.sort_by(|left, right| left.model_id.cmp(&right.model_id));
+        models
     }
 
     /// List models by provider.
     pub async fn list_by_provider(&self, provider_id: &str) -> Vec<ModelEntry> {
         let models = self.models.read().await;
-        models
+        let mut models: Vec<_> = models
             .values()
             .filter(|m| m.provider_id == provider_id)
             .cloned()
-            .collect()
+            .collect();
+        models.sort_by(|left, right| left.model_id.cmp(&right.model_id));
+        models
     }
 }
 
@@ -134,11 +138,13 @@ impl CredentialPool {
     /// Get credentials for a provider.
     pub async fn get_for_provider(&self, provider_id: &str) -> Vec<Credential> {
         let credentials = self.credentials.read().await;
-        credentials
+        let mut credentials: Vec<_> = credentials
             .values()
             .filter(|c| c.provider_id == provider_id)
             .cloned()
-            .collect()
+            .collect();
+        credentials.sort_by(|left, right| left.credential_id.cmp(&right.credential_id));
+        credentials
     }
 
     /// Remove expired credentials.

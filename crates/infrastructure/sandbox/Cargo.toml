@@ -8,7 +8,7 @@ license.workspace = true
 agenticos-contracts = { path = "../../domain/contracts" }
 async-trait = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "process", "time"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "process", "time", "io-util"] }
 uuid = { workspace = true, features = ["v4"] }
 
 [lints]

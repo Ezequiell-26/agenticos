@@ -57,6 +57,12 @@ const AgentMissionControl = lazy(() => import('./AgentMissionControl').then((mod
 const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => ({ default: module.KnowledgeStudio })))
 const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
 const FeatureWorkbench = lazy(() => import('./FeatureWorkbench'))
+const GENERIC_FEATURE_MODES: ReadonlySet<PlatformMode> = new Set<PlatformMode>([
+  'terminal', 'evaluations', 'versions', 'audit', 'notifications', 'sessions', 'logs', 'analytics',
+  'batch', 'learning', 'playground', 'routing', 'token-observatory', 'toolsets', 'execution',
+  'webhooks', 'imports', 'media', 'wake',
+])
+
 const AgentStudio = lazy(() => import('../agents/AgentStudio'))
 const ArtifactViewer = lazy(() => import('../artifacts/ArtifactViewer'))
 const ProviderStudio = lazy(() => import('../providers/ProviderStudio'))
@@ -135,12 +141,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     )
   }
 
-  const genericModes = new Set<PlatformMode>([
-    'terminal', 'evaluations', 'versions', 'audit', 'notifications', 'sessions', 'logs', 'analytics',
-    'batch', 'learning', 'playground', 'routing', 'token-observatory', 'toolsets', 'execution',
-    'webhooks', 'imports', 'media', 'wake',
-  ])
-
   if (mode === 'overview') return (
     <Shell>
       <WorkspaceOverview onAction={notify} />
@@ -151,6 +151,13 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   if (mode === 'runs') return (
     <Shell>
       <RunTimeline onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'tasks') return (
+    <Shell>
+      <TaskExecutionCenter onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -288,7 +295,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     </Shell>
   )
 
-  if (genericModes.has(mode)) return (
+  if (GENERIC_FEATURE_MODES.has(mode)) return (
     <Shell>
       <FeatureWorkbench mode={mode} onAction={notify} />
       <Toast message={notice} />

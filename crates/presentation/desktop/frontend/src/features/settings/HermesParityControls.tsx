@@ -53,6 +53,21 @@ export default function HermesParityControls({ settings, update }: { settings: S
         <div><span>Execution</span><strong>Presentation preview only</strong></div>
       </div>
 
+      <ParitySection title="Memory safety & context-file limits" icon="database">
+        <ParityToggle label="Require memory write approval" detail="Stage memory writes for explicit approval instead of silently persisting them." enabled={settings.memoryWriteApproval} onChange={() => update('memoryWriteApproval', !settings.memoryWriteApproval)} />
+        <ParityNumber label="Memory nudge interval" value={settings.memoryNudgeInterval} suffix="turns" min={0} max={100} onChange={(v) => update('memoryNudgeInterval', v)} />
+        <ParityNumber label="Memory flush minimum turns" value={settings.memoryFlushMinTurns} suffix="turns" min={0} max={100} onChange={(v) => update('memoryFlushMinTurns', v)} />
+        <ParityNumber label="File read maximum" value={settings.fileReadMaxChars} suffix="chars" min={1000} max={1000000} onChange={(v) => update('fileReadMaxChars', v)} />
+        <ParityNumber label="Context file maximum" value={settings.contextFileMaxChars} suffix="chars" min={1000} max={500000} onChange={(v) => update('contextFileMaxChars', v)} />
+        <div className="settings-info-banner"><span><Icon name="shield" size={15} /></span><div><strong>Context-bloat protection</strong><small>Read limits and context-file truncation protect the model context window; runtime owns actual truncation, file access and memory persistence.</small></div></div>
+      </ParitySection>
+
+      <ParitySection title="Environment variable substitution" icon="terminal">
+        <ParityToggle label="Enable ${VAR_NAME} substitution" detail="Allow portable config templates to reference environment variables without storing secret values in the frontend." enabled={settings.envSubstitutionEnabled} onChange={() => update('envSubstitutionEnabled', !settings.envSubstitutionEnabled)} />
+        <ParityText label="Safe template preview" value={settings.envSubstitutionTemplate} placeholder="${API_KEY} / ${CUSTOM_ENDPOINT}" onChange={(v) => update('envSubstitutionTemplate', v)} />
+        <div className="settings-info-banner"><span><Icon name="lock" size={15} /></span><div><strong>Never render secret values</strong><small>Only variable references are modeled here. Environment resolution and secret access remain runtime-owned.</small></div></div>
+      </ParitySection>
+
       <ParitySection title="Context engine & credential pools" icon="database">
         <ParitySelect label="Context engine" value={settings.contextEngine} onChange={(v) => update('contextEngine', v)} options={['compressor', 'lcm', 'custom-plugin']} />
         <ParitySelect label="Memory provider" value={settings.memoryProvider} onChange={(v) => update('memoryProvider', v)} options={['builtin', 'local', 'plugin', 'custom']} />

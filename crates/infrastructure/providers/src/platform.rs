@@ -2184,7 +2184,7 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
     }
 
 #[cfg(test)]
-mod tests 
+mod tests {
     #[tokio::test]
     async fn provider_update_without_new_api_key_keeps_existing_credential() {
         let platform = ProviderPlatform::new();

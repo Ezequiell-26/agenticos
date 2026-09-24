@@ -25,6 +25,7 @@ export default function ActivityRail({ active, onChange }: ActivityRailProps) {
           type="button"
           aria-label="Open all AgentiCOS features"
           aria-expanded={launcherOpen}
+          aria-controls="agenticos-navigation-launcher"
           onClick={() => setLauncherOpen((value) => !value)}
         >A</button>
         {launcherOpen && <NavigationLauncher active={active} onChange={(mode) => { onChange(mode); setLauncherOpen(false) }} onClose={() => setLauncherOpen(false)} />}
@@ -62,6 +63,7 @@ export default function ActivityRail({ active, onChange }: ActivityRailProps) {
           className={launcherOpen ? 'rail-button rail-button--muted rail-button--active' : 'rail-button rail-button--muted'}
           aria-label="Open all features"
           aria-expanded={launcherOpen}
+          aria-controls="agenticos-navigation-launcher"
           title="All features"
           onClick={() => setLauncherOpen((value) => !value)}
           type="button"

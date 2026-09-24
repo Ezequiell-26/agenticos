@@ -226,7 +226,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
               </div>
             </div>
             <div className="callout"><Icon name="shield" size={14} /><span>Live health, circuit state and incident persistence must come from the provider runtime adapter; this timeline is a UI contract preview.</span></div>
-          </div>
+          </div>}
 
           {tab === 'Quotas' && (
             <div className="provider-quota-grid">

@@ -237,7 +237,7 @@ impl JobScheduler {
         .bind(record.lease_owner.as_deref())
         .bind(record.lease_token as i64)
         .bind(record.lease_expires_at as i64)
-        .execute(db)
+        .execute(db.as_ref())
         .await
         .map_err(|error| format!("scheduler persistence failed: {error}"))?;
         Ok(())
@@ -386,7 +386,7 @@ impl JobScheduler {
             .bind(job_id)
             .bind(now as i64)
             .bind(previous.spec.max_attempts.max(1) as i64)
-            .execute(db)
+            .execute(db.as_ref())
             .await
             .map_err(|error| format!("scheduler claim persistence failed: {error}"))?;
 
@@ -479,7 +479,7 @@ impl JobScheduler {
                 .bind(job_id)
                 .bind(current_owner)
                 .bind(expected_token as i64)
-                .execute(db)
+                .execute(db.as_ref())
                 .await
                 .map_err(|error| format!("scheduler completion persistence failed: {error}"))?;
             if updated.rows_affected() != 1 {
@@ -520,7 +520,7 @@ impl JobScheduler {
                 "UPDATE scheduler_jobs SET state = 'Cancelled', lease_owner = NULL, lease_expires_at = 0 WHERE job_id = ? AND state NOT IN ('Succeeded', 'Failed', 'Cancelled')",
             )
             .bind(job_id)
-            .execute(db)
+            .execute(db.as_ref())
             .await
             .map_err(|error| format!("scheduler cancellation persistence failed: {error}"))?;
             if updated.rows_affected() != 1 {

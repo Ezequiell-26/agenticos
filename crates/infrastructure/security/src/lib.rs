@@ -136,7 +136,7 @@ impl CapabilityManager {
         )
         .bind(&grant.grant_id)
         .bind(payload)
-        .execute(db)
+        .execute(db.as_ref())
         .await
         .map_err(|error| ContractError::ParseError(format!("grant persistence failed: {error}")))?;
         Ok(())
@@ -148,7 +148,7 @@ impl CapabilityManager {
         };
         sqlx::query("DELETE FROM capability_grants WHERE grant_id = ?")
             .bind(grant_id)
-            .execute(db)
+            .execute(db.as_ref())
             .await
             .map_err(|error| {
                 ContractError::ParseError(format!("grant deletion failed: {error}"))
@@ -168,7 +168,7 @@ impl CapabilityManager {
         )
         .bind(&request.approval_id)
         .bind(payload)
-        .execute(db)
+        .execute(db.as_ref())
         .await
         .map_err(|error| ContractError::ParseError(format!("approval persistence failed: {error}")))?;
         Ok(())

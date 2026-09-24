@@ -3,7 +3,7 @@ use crate::{
     RetryManager,
 };
 use agenticos_contracts::{
-    ContractError, Credential, HealthCheck, HealthStatus, ModelProvider, ModelRequest,
+    ContractError, Credential, HealthCheck, HealthStatus, ModelEntry, ModelProvider, ModelRequest,
     ModelResponse, ProviderEntry,
 };
 use serde::{Deserialize, Serialize};

@@ -125,7 +125,10 @@ export default function CommandPalette({
           <input
             ref={inputRef}
             aria-label="Search commands"
+            role="combobox"
             aria-controls="command-palette-results"
+            aria-expanded="true"
+            aria-autocomplete="list"
             aria-autocomplete="list"
             aria-expanded="true"
             aria-activedescendant={filtered[selectedIndex] ? 'command-' + filtered[selectedIndex].id : undefined}

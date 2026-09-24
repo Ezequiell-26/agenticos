@@ -206,11 +206,9 @@ impl MinimalAgentLoop {
             let mut next_prompts = Vec::new();
 
             for (ii, tc) in tool_calls.iter().enumerate() {
-                if tc.tool_name == "no_tool" {
-                    continue;
-                }
-
-                if self.config.verbose {
+                // "no_tool" is an internal sentinel; handlers may use it to
+                // explicitly terminate deterministic or custom agent loops.
+                if self.config.verbose && tc.tool_name != "no_tool" {
                     println!("🛠️ Tool: `{}`", tc.tool_name);
                     println!(
                         "📥 args: {}",

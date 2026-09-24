@@ -305,13 +305,16 @@ impl QualityGateEvaluator {
                 (true, "All tests pass".to_string())
             }
             QualityGateType::NoErrors => {
-                // Placeholder: would check for errors in output
+                let normalized = context.output.to_ascii_lowercase();
+                let explicit_clean =
+                    normalized.contains("no error") || normalized.contains("no errors");
+                let has_error = normalized.contains("error") && !explicit_clean;
                 (
-                    context.output.is_empty() || !context.output.contains("error"),
-                    if context.output.is_empty() || !context.output.contains("error") {
-                        "No errors found".to_string()
-                    } else {
+                    !has_error,
+                    if has_error {
                         "Errors found in output".to_string()
+                    } else {
+                        "No errors found".to_string()
                     },
                 )
             }

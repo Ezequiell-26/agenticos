@@ -1093,12 +1093,7 @@ impl ProviderPlatform {
             return Err(ContractError::MissingCapability);
         }
 
-        let client = AuthenticatedOpenAiProvider::new(
-            provider.provider_id.clone(),
-            provider.base_url.clone(),
-            credential.as_ref().map(|value| value.value.clone()),
-        )?;
-        let models = client.list_models().await?;
+        let models = list_provider_models(&provider, credential.as_ref()).await?;
 
         let normalized_models = models
             .into_iter()
@@ -1952,6 +1947,91 @@ async fn execute_protocol(
     }
 }
 
+async fn list_provider_models(
+    provider: &ProviderEntry,
+    credential: Option<&Credential>,
+) -> Result<Vec<String>, ContractError> {
+    match detect_protocol(provider) {
+        ProviderProtocol::AnthropicMessages => {
+            if provider.models.is_empty() {
+                return Err(ContractError::ParseError(
+                    "Anthropic model discovery requires configured models".to_string(),
+                ));
+            }
+            Ok(provider.models.clone())
+        }
+        ProviderProtocol::Gemini => {
+            let client = reqwest::Client::new();
+            let base = provider.base_url.trim_end_matches('/');
+            let raw = if base.ends_with("/models") {
+                base.to_string()
+            } else if base.ends_with("/v1beta") || base.ends_with("/v1") {
+                format!("{base}/models")
+            } else {
+                format!("{base}/v1beta/models")
+            };
+            let mut url = reqwest::Url::parse(&raw).map_err(|error| {
+                ContractError::ParseError(format!("invalid Gemini models endpoint: {error}"))
+            })?;
+            if let Some(key) = credential.map(|value| value.value.as_str()) {
+                url.query_pairs_mut().append_pair("key", key);
+            }
+
+            let response = client.get(url).send().await.map_err(|error| {
+                ContractError::ParseError(format!("Gemini model discovery failed: {error}"))
+            })?;
+            let status = response.status();
+            let body = response.text().await.map_err(|error| {
+                ContractError::ParseError(format!(
+                    "Gemini model discovery response failed: {error}"
+                ))
+            })?;
+            if !status.is_success() {
+                return Err(ContractError::ParseError(format!(
+                    "provider_http_status={}; Gemini model discovery returned HTTP {status}: {body}",
+                    status.as_u16()
+                )));
+            }
+
+            parse_gemini_models(&body)
+        }
+        ProviderProtocol::OpenAiChat | ProviderProtocol::OpenAiResponses => {
+            let client = AuthenticatedOpenAiProvider::new(
+                provider.provider_id.clone(),
+                provider.base_url.clone(),
+                credential.map(|value| value.value.clone()),
+            )?;
+            client.list_models().await
+        }
+    }
+}
+
+fn parse_gemini_models(body: &str) -> Result<Vec<String>, ContractError> {
+    let json = serde_json::from_str::<serde_json::Value>(body).map_err(|error| {
+        ContractError::ParseError(format!("invalid Gemini model catalog: {error}"))
+    })?;
+    let values = json
+        .get("models")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| {
+            ContractError::ParseError(
+                "Gemini model catalog response has no models array".to_string(),
+            )
+        })?;
+
+    Ok(values
+        .iter()
+        .filter_map(|item| {
+            item.get("baseModelId")
+                .and_then(|value| value.as_str())
+                .or_else(|| item.get("name").and_then(|value| value.as_str()))
+        })
+        .filter_map(|value| value.strip_prefix("models/").unwrap_or(value).split(':').next())
+        .map(ToOwned::to_owned)
+        .filter(|value| !value.is_empty())
+        .collect())
+}
+
 fn normalize_endpoint(base_url: &str, v1_path: &str, terminal_path: &str) -> String {
     let trimmed = base_url.trim_end_matches('/');
     if trimmed.ends_with(terminal_path) {
@@ -2073,8 +2153,38 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
         || normalized.starts_with("https://[::1]:")
 }
 
+    #[test]
+    fn gemini_model_catalog_normalizes_resource_names() {
+        let body = r#"{
+            "models": [
+                {"name":"models/gemini-3.8-flash","baseModelId":"gemini-3.8-flash"},
+                {"name":"models/gemini-special:001"}
+            ]
+        }"#;
+        let models = parse_gemini_models(body).unwrap();
+        assert_eq!(
+            models,
+            vec!["gemini-3.8-flash".to_string(), "gemini-special".to_string()]
+        );
+    }
+
+    #[test]
+    fn anthropic_discovery_uses_configured_models() {
+        let provider = ProviderEntry {
+            provider_id: "anthropic".to_string(),
+            name: "Anthropic".to_string(),
+            base_url: "https://api.anthropic.com/v1".to_string(),
+            models: vec!["claude-sonnet-5".to_string()],
+            capabilities: vec!["anthropic".to_string()],
+        };
+        assert_eq!(
+            futures::executor::block_on(list_provider_models(&provider, None)).unwrap(),
+            vec!["claude-sonnet-5".to_string()]
+        );
+    }
+
 #[cfg(test)]
-mod tests {
+mod tests 
     #[tokio::test]
     async fn provider_update_without_new_api_key_keeps_existing_credential() {
         let platform = ProviderPlatform::new();

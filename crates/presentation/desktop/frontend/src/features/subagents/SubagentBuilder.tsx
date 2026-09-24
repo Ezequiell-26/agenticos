@@ -106,6 +106,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   const [tab, setTab] = useState<Tab>('Task')
   const [query, setQuery] = useState('')
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeChildRuns, setRuntimeChildRuns] = useState<Record<string, string>>({})
 
   const current = items.find((item) => item.id === selectedId) ?? items[0]
 
@@ -181,15 +182,45 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     }).then(() => onAction('New subagent created in runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime subagent creation failed'))
   }
 
-  function run() {
+  async function run() {
+    const parentRunId = window.prompt('Parent run_id for this delegated worker')?.trim()
+    if (!parentRunId || !current) return
     patch({ status: 'Running' })
     setTab('Run')
-    onAction(current.name + ' started in preview')
+    try {
+      const child = await runtime.subagents.delegate(parentRunId, {
+        agent_id: current.id,
+        objective: current.task,
+        parent_depth: 0,
+      })
+      const childRunId = typeof child.child_run_id === 'string' ? child.child_run_id : typeof child.run_id === 'string' ? child.run_id : ''
+      if (!childRunId) throw new Error('Runtime did not return a child run id')
+      setRuntimeChildRuns((runs) => ({ ...runs, [current.id]: childRunId }))
+      onAction(current.name + ' delegated to runtime as ' + childRunId)
+    } catch (error) {
+      patch({ status: 'Ready' })
+      onAction(error instanceof Error ? error.message : 'Runtime subagent delegation failed')
+    }
   }
 
-  function stop() {
-    patch({ status: 'Ready' })
-    onAction(current.name + ' stopped in preview')
+  async function stop() {
+    const childRunId = runtimeChildRuns[current.id]
+    if (!childRunId) {
+      onAction('No runtime child run is associated with this specialist')
+      return
+    }
+    try {
+      await runtime.runs.cancel(childRunId)
+      setRuntimeChildRuns((runs) => {
+        const next = { ...runs }
+        delete next[current.id]
+        return next
+      })
+      patch({ status: 'Ready' })
+      onAction(current.name + ' cancelled in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime subagent cancellation failed')
+    }
   }
 
   return (
@@ -211,7 +242,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
 
       <section className="subagent-builder__workspace">
         <header className="subagent-builder__header">
-          <div><span className="eyebrow">{current.status} · isolated context</span><h2>{current.name}</h2><p>{current.role} · {current.model}</p></div>
+          <div><span className="eyebrow">{current.status} · {runtimeChildRuns[current.id] ? 'runtime child run' : 'isolated context'}</span><h2>{current.name}</h2><p>{current.role} · {current.model}</p></div>
           <div className="subagent-builder__actions">
             <button className="studio-button" type="button" onClick={() => onAction('Subagent message composer opened in preview')}><Icon name="message" size={13} /> Message</button>
             {current.status === 'Running'

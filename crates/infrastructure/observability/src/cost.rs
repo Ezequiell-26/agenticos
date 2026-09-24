@@ -167,7 +167,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let record = ledger.record("r1","p","m",500_000,10).await.unwrap();
+        let record = ledger.record("r1", "p", "m", 500_000, 10).await.unwrap();
         assert!((record.cost_usd - 1.0).abs() < f64::EPSILON);
         ledger.record("r1", "p", "m", 500_000, 10).await.unwrap();
         assert_eq!(ledger.summary_since(0).await.unwrap().0, 500_000);

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import Icon from './Icon'
+import './KeyboardShortcuts.css'
 
 interface KeyboardShortcutsProps {
   open: boolean

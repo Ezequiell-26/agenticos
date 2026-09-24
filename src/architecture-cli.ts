@@ -11,7 +11,7 @@ try {
   const registry = await loadContractRegistry();
   assertContractRegistry(registry);
   console.log(
-    "Architecture foundation: PASS | contracts: " + registry.contracts.length + " | sequential gate: PASS",
+    "Architecture foundation: PASS | contracts: " + registry.contracts.length + " | capability-driven gate: PASS",
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

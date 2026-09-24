@@ -111,7 +111,8 @@
   ],
   "policy": {
     "architecture_only": true,
-    "implementation_requires_step_unlock": true,
+    "implementation_requires_step_unlock": false,
+    "capability_level_verification": true,
     "canonical_agent_loop_modification_requires_adr": true,
     "future_scope_preimplementation_forbidden": true,
     "reference_first": true,

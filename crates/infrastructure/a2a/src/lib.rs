@@ -412,3 +412,140 @@ mod tests {
         assert_eq!(view.id, "task-1");
     }
 }
+
+
+/// HTTP client for the AgentiCOS A2A boundary.
+#[derive(Clone, Debug)]
+pub struct A2aClient {
+    client: reqwest::Client,
+    endpoint: String,
+    protocol_version: String,
+}
+
+impl A2aClient {
+    /// Build an A2A client from a discovered Agent Card.
+    pub fn from_agent_card(card: &AgentCard) -> Result<Self, String> {
+        let interface = card
+            .supported_interfaces
+            .iter()
+            .find(|interface| {
+                interface.protocol_binding.eq_ignore_ascii_case(A2A_PROTOCOL_BINDING)
+                    && interface.protocol_version == A2A_PROTOCOL_VERSION
+            })
+            .or_else(|| card.supported_interfaces.first())
+            .ok_or_else(|| "Agent Card declares no supported interfaces".to_string())?;
+
+        let endpoint = reqwest::Url::parse(&interface.url)
+            .map_err(|error| format!("invalid A2A interface URL: {error}"))?
+            .to_string();
+
+        let client = reqwest::Client::builder()
+            .user_agent(format!("AgentiCOS-A2A/{}", env!("CARGO_PKG_VERSION")))
+            .build()
+            .map_err(|error| format!("A2A HTTP client initialization failed: {error}"))?;
+
+        Ok(Self {
+            client,
+            endpoint,
+            protocol_version: interface.protocol_version.clone(),
+        })
+    }
+
+    /// Discover and create a client from an Agent Card URL.
+    pub async fn discover(card_url: &str) -> Result<Self, String> {
+        let client = reqwest::Client::new();
+        let response = client
+            .get(card_url)
+            .send()
+            .await
+            .map_err(|error| format!("A2A Agent Card request failed: {error}"))?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "A2A Agent Card request returned HTTP {}",
+                response.status()
+            ));
+        }
+        let card = response
+            .json::<AgentCard>()
+            .await
+            .map_err(|error| format!("invalid A2A Agent Card: {error}"))?;
+        Self::from_agent_card(&card)
+    }
+
+    async fn call(
+        &self,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, String> {
+        if method.trim().is_empty() {
+            return Err("A2A method must not be empty".to_string());
+        }
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Value::String(format!("a2a-{}", uuid::Uuid::new_v4())),
+            method: method.to_string(),
+            params,
+        };
+
+        let response = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("A2A-Protocol-Version", &self.protocol_version)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|error| format!("A2A request failed: {error}"))?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "A2A request returned HTTP {}",
+                response.status()
+            ));
+        }
+
+        let envelope = response
+            .json::<JsonRpcResponse>()
+            .await
+            .map_err(|error| format!("invalid A2A JSON-RPC response: {error}"))?;
+
+        if let Some(error) = envelope.error {
+            return Err(format!("A2A error {}: {}", error.code, error.message));
+        }
+
+        envelope
+            .result
+            .ok_or_else(|| "A2A response contains neither result nor error".to_string())
+    }
+
+    /// Send a message to the remote agent and obtain its task.
+    pub async fn send_message(&self, message: A2aMessage) -> Result<TaskView, String> {
+        let value = self
+            .call("message/send", serde_json::json!({ "message": message }))
+            .await?;
+        serde_json::from_value(value).map_err(|error| format!("invalid A2A task response: {error}"))
+    }
+
+    /// Retrieve a remote task by id.
+    pub async fn get_task(&self, task_id: &str) -> Result<TaskView, String> {
+        if task_id.trim().is_empty() || task_id.len() > 256 {
+            return Err("invalid A2A task id".to_string());
+        }
+        let value = self
+            .call("tasks/get", serde_json::json!({ "id": task_id }))
+            .await?;
+        serde_json::from_value(value).map_err(|error| format!("invalid A2A task response: {error}"))
+    }
+
+    /// Cancel a remote task by id.
+    pub async fn cancel_task(&self, task_id: &str) -> Result<TaskView, String> {
+        if task_id.trim().is_empty() || task_id.len() > 256 {
+            return Err("invalid A2A task id".to_string());
+        }
+        let value = self
+            .call("tasks/cancel", serde_json::json!({ "id": task_id }))
+            .await?;
+        serde_json::from_value(value).map_err(|error| format!("invalid A2A task response: {error}"))
+    }
+}

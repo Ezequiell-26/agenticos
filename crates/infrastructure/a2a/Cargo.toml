@@ -8,7 +8,9 @@ license.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
+reqwest = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+uuid = { workspace = true }
 
 [lints]
 workspace = true

@@ -255,7 +255,7 @@ impl EventStore for InMemoryEventStore {
             .cloned()
             .collect())
     }
-    
+
     async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
         let store = self.events.read().await;
         let mut stream_ids = store.keys().cloned().collect::<Vec<_>>();
@@ -928,7 +928,7 @@ impl EventStore for SqliteEventStore {
             })
             .collect())
     }
-    
+
     async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
         let rows = sqlx::query_scalar::<_, String>(
             "SELECT DISTINCT stream_id FROM events WHERE stream_id LIKE 'run:%' ORDER BY stream_id ASC",
@@ -3360,11 +3360,9 @@ impl SqliteMemory {
             .unwrap()
             .as_secs();
 
-        let mut tx = self
-            .db
-            .begin()
-            .await
-            .map_err(|e| ContractError::ParseError(format!("Failed to begin memory transaction: {}", e)))?;
+        let mut tx = self.db.begin().await.map_err(|e| {
+            ContractError::ParseError(format!("Failed to begin memory transaction: {}", e))
+        })?;
 
         sqlx::query(
             r#"
@@ -3396,9 +3394,9 @@ impl SqliteMemory {
         .await
         .map_err(|e| ContractError::ParseError(format!("Failed to insert into FTS5: {}", e)))?;
 
-        tx.commit()
-            .await
-            .map_err(|e| ContractError::ParseError(format!("Failed to commit memory transaction: {}", e)))?;
+        tx.commit().await.map_err(|e| {
+            ContractError::ParseError(format!("Failed to commit memory transaction: {}", e))
+        })?;
 
         Ok(())
     }

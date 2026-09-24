@@ -80,9 +80,9 @@ impl ProviderPlatform {
 
     /// Open a SQLite-backed provider platform and recover provider configuration.
     pub async fn open(database_url: &str) -> Result<Self, ContractError> {
-        let db = SqlitePool::connect(database_url)
-            .await
-            .map_err(|error| ContractError::ParseError(format!("provider database connection failed: {error}")))?;
+        let db = SqlitePool::connect(database_url).await.map_err(|error| {
+            ContractError::ParseError(format!("provider database connection failed: {error}"))
+        })?;
 
         sqlx::query(
             r#"
@@ -97,7 +97,9 @@ impl ProviderPlatform {
         )
         .execute(&db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("provider schema initialization failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!("provider schema initialization failed: {error}"))
+        })?;
 
         sqlx::query(
             r#"
@@ -112,7 +114,11 @@ impl ProviderPlatform {
         )
         .execute(&db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("provider credential schema initialization failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!(
+                "provider credential schema initialization failed: {error}"
+            ))
+        })?;
 
         sqlx::query(
             r#"
@@ -125,7 +131,11 @@ impl ProviderPlatform {
         )
         .execute(&db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("provider fallback schema initialization failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!(
+                "provider fallback schema initialization failed: {error}"
+            ))
+        })?;
 
         let provider_rows = sqlx::query_as::<_, (String, String, String, String, String)>(
             "SELECT provider_id, name, base_url, models, capabilities FROM providers ORDER BY provider_id",
@@ -148,11 +158,16 @@ impl ProviderPlatform {
 
         for (provider_id, name, base_url, models_json, capabilities_json) in provider_rows {
             let models = serde_json::from_str::<Vec<String>>(&models_json).map_err(|error| {
-                ContractError::ParseError(format!("invalid persisted models for {provider_id}: {error}"))
+                ContractError::ParseError(format!(
+                    "invalid persisted models for {provider_id}: {error}"
+                ))
             })?;
-            let capabilities = serde_json::from_str::<Vec<String>>(&capabilities_json).map_err(|error| {
-                ContractError::ParseError(format!("invalid persisted capabilities for {provider_id}: {error}"))
-            })?;
+            let capabilities =
+                serde_json::from_str::<Vec<String>>(&capabilities_json).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "invalid persisted capabilities for {provider_id}: {error}"
+                    ))
+                })?;
             platform
                 .registry
                 .register(ProviderEntry {
@@ -196,9 +211,12 @@ impl ProviderPlatform {
             .map_err(|error| ContractError::ParseError(format!("credential recovery failed: {error}")))?;
 
             for (provider_id, credential_type, encrypted_value, expires_at, scope) in rows {
-                let value = decrypt_provider_secret(secret_key, &encrypted_value).map_err(|error| {
-                    ContractError::ParseError(format!("credential recovery failed for {provider_id}: {error}"))
-                })?;
+                let value =
+                    decrypt_provider_secret(secret_key, &encrypted_value).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "credential recovery failed for {provider_id}: {error}"
+                        ))
+                    })?;
                 platform
                     .credentials
                     .add(Credential {
@@ -223,7 +241,11 @@ impl ProviderPlatform {
 
             for (primary_provider, fallback_json, auto_failover) in rows {
                 let fallback_providers = serde_json::from_str::<Vec<String>>(&fallback_json)
-                    .map_err(|error| ContractError::ParseError(format!("invalid persisted fallback config: {error}")))?;
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid persisted fallback config: {error}"
+                        ))
+                    })?;
                 platform
                     .fallbacks
                     .set_config(agenticos_contracts::FallbackConfig {
@@ -382,14 +404,18 @@ impl ProviderPlatform {
         };
 
         if let Some(db) = self.db.as_ref() {
-            let mut tx = db
-                .begin()
-                .await
-                .map_err(|error| ContractError::ParseError(format!("provider transaction failed: {error}")))?;
-            let models_json = serde_json::to_string(&normalized_entry.models)
-                .map_err(|error| ContractError::ParseError(format!("provider model serialization failed: {error}")))?;
-            let capabilities_json = serde_json::to_string(&normalized_entry.capabilities)
-                .map_err(|error| ContractError::ParseError(format!("provider capability serialization failed: {error}")))?;
+            let mut tx = db.begin().await.map_err(|error| {
+                ContractError::ParseError(format!("provider transaction failed: {error}"))
+            })?;
+            let models_json = serde_json::to_string(&normalized_entry.models).map_err(|error| {
+                ContractError::ParseError(format!("provider model serialization failed: {error}"))
+            })?;
+            let capabilities_json =
+                serde_json::to_string(&normalized_entry.capabilities).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "provider capability serialization failed: {error}"
+                    ))
+                })?;
 
             sqlx::query(
                 "INSERT INTO providers (provider_id, name, base_url, models, capabilities) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET name = excluded.name, base_url = excluded.base_url, models = excluded.models, capabilities = excluded.capabilities",
@@ -413,7 +439,11 @@ impl ProviderPlatform {
                     .bind(&provider_id)
                     .execute(&mut *tx)
                     .await
-                    .map_err(|error| ContractError::ParseError(format!("provider credential cleanup failed: {error}")))?;
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "provider credential cleanup failed: {error}"
+                        ))
+                    })?;
 
                 if let Some(secret_key) = self.secret_key.as_ref() {
                     let encrypted = encrypt_provider_secret(
@@ -430,9 +460,9 @@ impl ProviderPlatform {
                     .map_err(|error| ContractError::ParseError(format!("provider credential persistence failed: {error}")))?;
                 }
             }
-            tx.commit()
-                .await
-                .map_err(|error| ContractError::ParseError(format!("provider transaction commit failed: {error}")))?;
+            tx.commit().await.map_err(|error| {
+                ContractError::ParseError(format!("provider transaction commit failed: {error}"))
+            })?;
         }
 
         self.catalog.remove_by_provider(&provider_id).await;
@@ -477,8 +507,10 @@ impl ProviderPlatform {
         config: agenticos_contracts::FallbackConfig,
     ) -> Result<(), ContractError> {
         if let Some(db) = self.db.as_ref() {
-            let fallback_json = serde_json::to_string(&config.fallback_providers)
-                .map_err(|error| ContractError::ParseError(format!("fallback serialization failed: {error}")))?;
+            let fallback_json =
+                serde_json::to_string(&config.fallback_providers).map_err(|error| {
+                    ContractError::ParseError(format!("fallback serialization failed: {error}"))
+                })?;
             sqlx::query(
                 "INSERT INTO provider_fallback_configs (primary_provider, fallback_providers, auto_failover) VALUES (?, ?, ?) ON CONFLICT(primary_provider) DO UPDATE SET fallback_providers = excluded.fallback_providers, auto_failover = excluded.auto_failover",
             )
@@ -705,28 +737,35 @@ impl ProviderPlatform {
     /// Remove a provider and all runtime state associated with it.
     pub async fn unregister(&self, provider_id: &str) -> Result<bool, ContractError> {
         if let Some(db) = self.db.as_ref() {
-            let mut tx = db
-                .begin()
-                .await
-                .map_err(|error| ContractError::ParseError(format!("provider delete transaction failed: {error}")))?;
+            let mut tx = db.begin().await.map_err(|error| {
+                ContractError::ParseError(format!("provider delete transaction failed: {error}"))
+            })?;
             let result = sqlx::query("DELETE FROM providers WHERE provider_id = ?")
                 .bind(provider_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|error| ContractError::ParseError(format!("provider deletion failed: {error}")))?;
+                .map_err(|error| {
+                ContractError::ParseError(format!("provider deletion failed: {error}"))
+            })?;
             sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
                 .bind(provider_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|error| ContractError::ParseError(format!("provider credential deletion failed: {error}")))?;
+                .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider credential deletion failed: {error}"
+                ))
+            })?;
             sqlx::query("DELETE FROM provider_fallback_configs WHERE primary_provider = ?")
                 .bind(provider_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|error| ContractError::ParseError(format!("fallback deletion failed: {error}")))?;
-            tx.commit()
-                .await
-                .map_err(|error| ContractError::ParseError(format!("provider delete commit failed: {error}")))?;
+                .map_err(|error| {
+                ContractError::ParseError(format!("fallback deletion failed: {error}"))
+            })?;
+            tx.commit().await.map_err(|error| {
+                ContractError::ParseError(format!("provider delete commit failed: {error}"))
+            })?;
             if result.rows_affected() == 0 {
                 return Ok(false);
             }
@@ -912,18 +951,27 @@ fn hex_decode(value: &str) -> Result<Vec<u8>, ContractError> {
     }
     let bytes = value.as_bytes();
     if bytes.len() % 2 != 0 {
-        return Err(ContractError::ParseError("encrypted provider secret is malformed".to_string()));
+        return Err(ContractError::ParseError(
+            "encrypted provider secret is malformed".to_string(),
+        ));
     }
     let mut decoded = Vec::with_capacity(bytes.len() / 2);
     for pair in bytes.chunks_exact(2) {
-        let hi = nibble(pair[0]).ok_or_else(|| ContractError::ParseError("encrypted provider secret is malformed".to_string()))?;
-        let lo = nibble(pair[1]).ok_or_else(|| ContractError::ParseError("encrypted provider secret is malformed".to_string()))?;
+        let hi = nibble(pair[0]).ok_or_else(|| {
+            ContractError::ParseError("encrypted provider secret is malformed".to_string())
+        })?;
+        let lo = nibble(pair[1]).ok_or_else(|| {
+            ContractError::ParseError("encrypted provider secret is malformed".to_string())
+        })?;
         decoded.push((hi << 4) | lo);
     }
     Ok(decoded)
 }
 
-fn encrypt_provider_secret(secret_key: &ProviderSecretKey, plaintext: &str) -> Result<String, ContractError> {
+fn encrypt_provider_secret(
+    secret_key: &ProviderSecretKey,
+    plaintext: &str,
+) -> Result<String, ContractError> {
     use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
     use ring::rand::{SecureRandom, SystemRandom};
 
@@ -931,9 +979,9 @@ fn encrypt_provider_secret(secret_key: &ProviderSecretKey, plaintext: &str) -> R
         .map_err(|_| ContractError::ParseError("invalid provider secret key".to_string()))?;
     let key = LessSafeKey::new(unbound);
     let mut nonce_bytes = [0_u8; 12];
-    SystemRandom::new()
-        .fill(&mut nonce_bytes)
-        .map_err(|_| ContractError::ParseError("provider secret nonce generation failed".to_string()))?;
+    SystemRandom::new().fill(&mut nonce_bytes).map_err(|_| {
+        ContractError::ParseError("provider secret nonce generation failed".to_string())
+    })?;
 
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
     let mut ciphertext = plaintext.as_bytes().to_vec();
@@ -945,12 +993,17 @@ fn encrypt_provider_secret(secret_key: &ProviderSecretKey, plaintext: &str) -> R
     Ok(hex_encode(&encoded))
 }
 
-fn decrypt_provider_secret(secret_key: &ProviderSecretKey, encoded: &str) -> Result<String, ContractError> {
+fn decrypt_provider_secret(
+    secret_key: &ProviderSecretKey,
+    encoded: &str,
+) -> Result<String, ContractError> {
     use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 
     let bytes = hex_decode(encoded)?;
     if bytes.len() < 12 + 16 {
-        return Err(ContractError::ParseError("encrypted provider secret is too short".to_string()));
+        return Err(ContractError::ParseError(
+            "encrypted provider secret is too short".to_string(),
+        ));
     }
     let unbound = UnboundKey::new(&AES_256_GCM, &secret_key.0)
         .map_err(|_| ContractError::ParseError("invalid provider secret key".to_string()))?;

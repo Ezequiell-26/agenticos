@@ -1404,7 +1404,8 @@ async fn scheduler_worker(state: RuntimeState) {
             let started_job = match state
                 .scheduler
                 .start_as(&queued_job.spec.job_id, worker_id.clone(), 30)
-                .await {
+                .await
+            {
                 Ok(job) => job,
                 Err(error) => {
                     tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");

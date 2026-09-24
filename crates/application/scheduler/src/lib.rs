@@ -108,12 +108,11 @@ impl JobScheduler {
         .await
         .map_err(|error| format!("scheduler schema initialization failed: {error}"))?;
 
-        let columns = sqlx::query_as::<_, (String,)>(
-            "SELECT name FROM pragma_table_info('scheduler_jobs')",
-        )
-        .fetch_all(&db)
-        .await
-        .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
+        let columns =
+            sqlx::query_as::<_, (String,)>("SELECT name FROM pragma_table_info('scheduler_jobs')")
+                .fetch_all(&db)
+                .await
+                .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
         let has_column = |name: &str| columns.iter().any(|(column,)| column == name);
         if !has_column("lease_owner") {
             sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT")
@@ -320,7 +319,8 @@ impl JobScheduler {
 
     /// Claim a job for execution using a stable local owner.
     pub async fn start(&self, job_id: &str) -> Result<JobRecord, String> {
-        self.start_as(job_id, "local-scheduler".to_string(), 30).await
+        self.start_as(job_id, "local-scheduler".to_string(), 30)
+            .await
     }
 
     /// Claim a job with an owner lease and fencing token.
@@ -349,15 +349,9 @@ impl JobScheduler {
             .cloned()
             .ok_or_else(|| "job not found".to_string())?;
         let now = unix_time();
-        let expired_lease = previous.state == JobState::Running
-            && previous.lease_expires_at <= now;
-        if !matches!(previous.state, JobState::Pending | JobState::Ready)
-            && !expired_lease
-        {
-            return Err(format!(
-                "job cannot start from state {:?}",
-                previous.state
-            ));
+        let expired_lease = previous.state == JobState::Running && previous.lease_expires_at <= now;
+        if !matches!(previous.state, JobState::Pending | JobState::Ready) && !expired_lease {
+            return Err(format!("job cannot start from state {:?}", previous.state));
         }
         if !dependencies_satisfied {
             return Err("job dependencies are not satisfied".to_string());
@@ -447,7 +441,10 @@ impl JobScheduler {
             .cloned()
             .ok_or_else(|| "job not found".to_string())?;
         if previous.state != JobState::Running {
-            return Err(format!("job cannot complete from state {:?}", previous.state));
+            return Err(format!(
+                "job cannot complete from state {:?}",
+                previous.state
+            ));
         }
 
         if let (Some(expected_owner), Some(expected_token), Some(current_owner)) =
@@ -669,7 +666,7 @@ mod tests {
                 second.lease_owner.as_deref(),
                 Some(second.lease_token),
                 true,
-                None
+                None,
             )
             .await
             .unwrap();

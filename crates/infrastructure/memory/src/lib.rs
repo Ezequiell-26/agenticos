@@ -288,7 +288,6 @@ mod tests {
     }
 }
 
-
 /// Persistent, namespace-aware long-term memory record.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct PersistentMemoryRecord {
@@ -519,7 +518,8 @@ mod persistent_memory_tests {
 
     #[tokio::test]
     async fn persists_and_searches_records() {
-        let path = std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = PersistentMemoryStore::new(&url).await.unwrap();
         store
@@ -536,7 +536,11 @@ mod persistent_memory_tests {
 
         assert_eq!(store.list("project:test", 10).await.unwrap().len(), 1);
         assert_eq!(
-            store.search("project:test", "resilient", 10).await.unwrap().len(),
+            store
+                .search("project:test", "resilient", 10)
+                .await
+                .unwrap()
+                .len(),
             1
         );
         assert!(store.get("project:test", "goal").await.unwrap().is_some());
@@ -546,7 +550,8 @@ mod persistent_memory_tests {
 
     #[tokio::test]
     async fn expired_records_are_not_returned() {
-        let path = std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = PersistentMemoryStore::new(&url).await.unwrap();
         let expired = SystemTime::now()

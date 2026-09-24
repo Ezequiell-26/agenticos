@@ -686,8 +686,18 @@ async fn list_memory(
     }
 
     let limit = query.limit.unwrap_or(100).clamp(1, 500);
-    let result = match query.q.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
-        Some(search) => state.persistent_memory.search(namespace, search, limit).await,
+    let result = match query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(search) => {
+            state
+                .persistent_memory
+                .search(namespace, search, limit)
+                .await
+        }
         None => state.persistent_memory.list(namespace, limit).await,
     };
 
@@ -927,7 +937,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/memory", web::get().to(list_memory))
             .route("/api/memory", web::post().to(upsert_memory))
-            .route("/api/memory/{namespace}/{key}", web::delete().to(delete_memory))
+            .route(
+                "/api/memory/{namespace}/{key}",
+                web::delete().to(delete_memory),
+            )
             .route("/api/memory/purge", web::post().to(purge_memory))
             .route("/api/capabilities", web::get().to(list_capabilities))
             .route("/api/capabilities", web::post().to(issue_capability))

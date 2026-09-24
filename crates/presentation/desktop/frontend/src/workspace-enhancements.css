@@ -1958,3 +1958,33 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
   .topbar__right .soft-button:nth-of-type(n+3) { display: none; }
   .topbar__right .notification-button { display: grid; }
 }
+
+.navigation-launcher__filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px 10px;
+  border-bottom: 1px solid #1d1d1d;
+}
+.navigation-launcher__filters [role="tab"] {
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #5d5d5d;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.navigation-launcher__filters [role="tab"][aria-selected="true"],
+.navigation-launcher__filters [role="tab"]:hover {
+  border-color: #2b2b2b;
+  background: #151515;
+  color: #e4e4e4;
+}
+.navigation-launcher__filters [role="tab"]:focus-visible {
+  outline: 1px solid #696969;
+  outline-offset: 1px;
+}
+.navigation-launcher__favorite { margin-left: auto; }

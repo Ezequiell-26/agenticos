@@ -1655,7 +1655,7 @@ async fn scheduler_worker(state: RuntimeState) {
         for queued_job in ready_jobs {
             let started_job = match state
                 .scheduler
-                .start_as(&queued_job.spec.job_id, worker_id.clone(), 30)
+                .start_as(&queued_job.spec.job_id, worker_id.clone(), 120)
                 .await
             {
                 Ok(job) => job,
@@ -1752,7 +1752,44 @@ async fn scheduler_worker(state: RuntimeState) {
 
             let session_id = format!("run:{}", started_job.spec.run_id);
             let agent = state.session_agent(&session_id, None).await;
-            match agent.execute_turn(&started_job.spec.task).await {
+
+            // Keep the worker lease alive while a model/tool turn is running.
+            let heartbeat_scheduler = state.scheduler.clone();
+            let heartbeat_job_id = started_job.spec.job_id.clone();
+            let heartbeat_owner = started_job
+                .lease_owner
+                .clone()
+                .unwrap_or_else(|| worker_id.clone());
+            let heartbeat_token = started_job.lease_token;
+            let heartbeat = tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    match heartbeat_scheduler
+                        .renew_as(
+                            &heartbeat_job_id,
+                            &heartbeat_owner,
+                            heartbeat_token,
+                            120,
+                        )
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(error) => {
+                            tracing::warn!(
+                                job_id = %heartbeat_job_id,
+                                %error,
+                                "scheduler lease heartbeat failed"
+                            );
+                            break;
+                        }
+                    }
+                }
+            });
+
+            let execution_result = agent.execute_turn(&started_job.spec.task).await;
+            heartbeat.abort();
+
+            match execution_result {
                 Ok(response) => {
                     if let Some(run_id) = run_id {
                         if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {

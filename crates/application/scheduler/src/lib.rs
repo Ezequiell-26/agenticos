@@ -441,6 +441,67 @@ impl JobScheduler {
         Ok(result)
     }
 
+    /// Renew an active lease while preserving ownership through its fencing token.
+    pub async fn renew_as(
+        &self,
+        job_id: &str,
+        owner_id: &str,
+        lease_token: u64,
+        lease_seconds: u64,
+    ) -> Result<JobRecord, String> {
+        if owner_id.trim().is_empty() {
+            return Err("lease owner is required".to_string());
+        }
+
+        let mut jobs = self.jobs.write().await;
+        let previous = jobs
+            .get(job_id)
+            .cloned()
+            .ok_or_else(|| "job not found".to_string())?;
+
+        if previous.state != JobState::Running {
+            return Err(format!(
+                "job cannot renew from state {:?}",
+                previous.state
+            ));
+        }
+        if previous.lease_owner.as_deref() != Some(owner_id)
+            || previous.lease_token != lease_token
+        {
+            return Err("job lease ownership lost".to_string());
+        }
+
+        let now = unix_time();
+        if previous.lease_expires_at <= now {
+            return Err("job lease already expired".to_string());
+        }
+
+        let next_expiration = now.saturating_add(lease_seconds.max(1));
+
+        if let Some(db) = &self.db {
+            let updated = sqlx::query(
+                "UPDATE scheduler_jobs SET lease_expires_at = ? WHERE job_id = ? AND state = 'Running' AND lease_owner = ? AND lease_token = ? AND lease_expires_at > ?",
+            )
+            .bind(next_expiration as i64)
+            .bind(job_id)
+            .bind(owner_id)
+            .bind(lease_token as i64)
+            .bind(now as i64)
+            .execute(db.as_ref())
+            .await
+            .map_err(|error| format!("scheduler lease renewal persistence failed: {error}"))?;
+
+            if updated.rows_affected() != 1 {
+                return Err("job lease ownership lost before renewal".to_string());
+            }
+        }
+
+        let mut result = previous;
+        result.lease_expires_at = next_expiration;
+        jobs.insert(job_id.to_string(), result.clone());
+        Ok(result)
+    }
+
     /// Finish a job without lease validation (primarily for single-process callers).
     pub async fn complete(
         &self,
@@ -706,6 +767,62 @@ mod tests {
             )
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn lease_renewal_prevents_reclaim() {
+        let scheduler = JobScheduler::new();
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "renew-job".into(),
+                run_id: "run".into(),
+                task: "work".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 3,
+            })
+            .await
+            .unwrap();
+
+        let first = scheduler
+            .start_as("renew-job", "worker-a".into(), 2)
+            .await
+            .unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+        let renewed = scheduler
+            .renew_as(
+                "renew-job",
+                "worker-a",
+                first.lease_token,
+                3,
+            )
+            .await
+            .unwrap();
+        assert!(renewed.lease_expires_at > first.lease_expires_at);
+
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        assert!(
+            scheduler
+                .start_as("renew-job", "worker-b".into(), 2)
+                .await
+                .is_err(),
+            "a live renewed lease must block takeover"
+        );
+
+        assert!(
+            scheduler
+                .renew_as(
+                    "renew-job",
+                    "worker-b",
+                    first.lease_token,
+                    2,
+                )
+                .await
+                .is_err(),
+            "renewal with a stale owner must be rejected"
+        );
     }
 
     #[tokio::test]

@@ -58,10 +58,13 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
     <div className="skills-studio">
       <aside className="skills-studio__sidebar">
         <div className="skills-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search skills…" aria-label="Search skills" /></div>
-        <div className="skills-tabs" role="tablist" aria-label="Skill catalog">
-          {(['Discover', 'Installed', 'Updates'] as SkillTab[]).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? 'skills-tab skills-tab--active' : 'skills-tab'} onClick={() => setTab(item)}>{item}</button>)}
+        <div className="skills-tabs" role="tablist" aria-label="Skill catalog" aria-orientation="horizontal">
+          {(['Discover', 'Installed', 'Updates'] as SkillTab[]).map((item, index, tabs) => <button key={item} id={'skills-tab-' + item.toLowerCase()} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="skills-list-panel" className={tab === item ? 'skills-tab skills-tab--active' : 'skills-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+            const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('skills-tab-' + next.toLowerCase())?.focus()) }
+          }}>{item}</button>)}
         </div>
-        <div className="skills-list">
+        <div id="skills-list-panel" className="skills-list" role="tabpanel" aria-labelledby={'skills-tab-' + tab.toLowerCase()} tabIndex={0}>
           {visible.map((skill) => <button type="button" key={skill.name} className={current.name === skill.name ? 'skill-list-row skill-list-row--active' : 'skill-list-row'} onClick={() => setSelected(skill.name)}><span className="skill-list-icon"><Icon name={skill.category === 'Design' ? 'layout' : skill.category === 'Automation' ? 'activity' : 'spark'} size={13} /></span><span><strong>{skill.name}</strong><small>{skill.category} · v{skill.version}</small></span><span className={enabled.has(skill.name) ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
           {visible.length === 0 && <div className="skills-empty">No skills match the current filter.</div>}
         </div>

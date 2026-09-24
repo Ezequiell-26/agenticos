@@ -135,7 +135,11 @@ impl RuntimeState {
             provider,
             kernel,
             subagents,
-            scheduler: Arc::new(JobScheduler::default()),
+            scheduler: Arc::new(
+                JobScheduler::open(&database_url)
+                    .await
+                    .map_err(ContractError::ParseError)?,
+            ),
             workflows: Arc::new(WorkflowEngine::default()),
             capabilities,
             sandbox,

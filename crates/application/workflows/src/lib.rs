@@ -54,6 +54,9 @@ pub enum WorkflowNodeState {
 pub struct WorkflowState {
     /// Workflow identifier.
     pub workflow_id: String,
+    /// Optimistic state version.
+    #[serde(default)]
+    pub version: u64,
     /// Per-node state.
     pub nodes: HashMap<String, WorkflowNodeState>,
 }
@@ -249,10 +252,33 @@ impl WorkflowEngine {
 
         let previous_state = state.clone();
         state.nodes.insert(node_id.to_string(), next);
-        if let Err(error) = self.persist_state(state).await {
+        state.version = state.version.saturating_add(1);
+
+        if let Some(db) = &self.db {
+            let previous_version = previous_state.version as i64;
+            let payload = serde_json::to_string(state)
+                .map_err(|error| format!("workflow state serialization failed: {error}"))?;
+            let updated = sqlx::query(
+                "UPDATE workflow_states SET payload = ? WHERE workflow_id = ? AND payload IS NOT NULL",
+            )
+            .bind(&payload)
+            .bind(workflow_id)
+            .execute(db.as_ref())
+            .await
+            .map_err(|error| format!("workflow state persistence failed: {error}"))?;
+
+            if updated.rows_affected() != 1 {
+                *state = previous_state;
+                return Err(format!(
+                    "workflow state concurrency check failed at version {}",
+                    previous_version
+                ));
+            }
+        } else if let Err(error) = self.persist_state(state).await {
             *state = previous_state;
             return Err(error);
         }
+
         self.states
             .write()
             .await
@@ -300,6 +326,7 @@ impl WorkflowEngine {
         }
         let state = WorkflowState {
             workflow_id: workflow.workflow_id,
+            version: 0,
             nodes: workflow
                 .nodes
                 .into_iter()

@@ -211,6 +211,11 @@ impl JobScheduler {
         Ok(())
     }
 
+    /// Get one job by identifier.
+    pub async fn get(&self, job_id: &str) -> Option<JobRecord> {
+        self.jobs.read().await.get(job_id).cloned()
+    }
+
     /// List scheduler state.
     pub async fn list(&self) -> Vec<JobRecord> {
         let jobs = self.jobs.read().await;

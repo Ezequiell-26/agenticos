@@ -45,6 +45,23 @@ export interface AgentStatusSnapshot {
   latencyMs?: number
 }
 
+export interface RuntimeHealth {
+  status: string
+  service?: string
+  backend?: string
+  database?: string
+  provider_configured?: boolean
+  sandbox?: string | null
+  [key: string]: unknown
+}
+
+export interface RuntimeReadiness {
+  status: string
+  provider_configured: boolean
+  healthy_provider: boolean
+  [key: string]: unknown
+}
+
 export interface ConversationSummary {
   id: string
   title: string
@@ -59,6 +76,20 @@ export interface RuntimeModel {
   name: string
   context_window?: number | null
   capabilities: string[]
+}
+
+export interface RuntimeModelResponse extends RuntimeApiRecord {
+  response?: string
+  request_id?: string
+  model?: string
+  tokens?: number
+}
+
+export interface RuntimeStreamEvent {
+  type: 'message' | 'done' | 'error'
+  request_id?: string
+  delta?: string
+  error?: string
 }
 
 export interface RuntimeProviderRegistration {
@@ -82,6 +113,7 @@ export interface RuntimeQuota {
   requests_per_minute?: number | null
   tokens_per_minute?: number | null
   current_usage: number
+  current_token_usage?: number
 }
 
 export interface RuntimeRetryPolicy {
@@ -121,7 +153,15 @@ export interface RuntimeSearchResult {
   count: number
 }
 
+export interface RuntimeWorkerJob extends RuntimeApiRecord {
+  worker_id?: string
+}
+
 export interface RuntimeServices {
+  health: {
+    get(): Promise<RuntimeHealth>
+    ready(): Promise<RuntimeReadiness>
+  }
   chat: {
     sendMessage(sessionId: string, message: string, options?: { model?: string }): Promise<ChatMessage>
   }
@@ -134,6 +174,13 @@ export interface RuntimeServices {
   }
   models: {
     list(): Promise<RuntimeModel[]>
+    execute(model: string, input: string, parameters?: string, requestId?: string): Promise<RuntimeModelResponse>
+    stream(
+      model: string,
+      input: string,
+      parameters?: string,
+      requestId?: string,
+    ): AsyncGenerator<RuntimeStreamEvent, void, unknown>
   }
   providers: {
     list(): Promise<RuntimeProviderStatus[]>
@@ -151,7 +198,7 @@ export interface RuntimeServices {
   }
   tools: {
     list(): Promise<RuntimeApiRecord[]>
-    call(request: { tool_id: string; agent_id: string; grant_id: string; parameters?: RuntimeApiRecord }): Promise<RuntimeApiRecord>
+    call(request: { tool_id: string; agent_id: string; grant_id: string; parameters?: unknown }): Promise<RuntimeApiRecord>
     execute(request: { session_id: string; user_id?: string; grant_id: string; command: string; timeout_ms?: number }): Promise<RuntimeApiRecord>
   }
   mcp: {
@@ -165,7 +212,7 @@ export interface RuntimeServices {
   }
   runs: {
     list(): Promise<RuntimeRun[]>
-    create(objective: string, runId?: string): Promise<RuntimeRun>
+    create(objective: string, runId?: string, idempotencyKey?: string): Promise<RuntimeRun>
     get(runId: string): Promise<RuntimeRun>
     cancel(runId: string): Promise<RuntimeApiRecord>
     snapshot(runId: string): Promise<RuntimeApiRecord>
@@ -183,6 +230,11 @@ export interface RuntimeServices {
     create(job: RuntimeApiRecord): Promise<RuntimeApiRecord>
     get(jobId: string): Promise<RuntimeApiRecord>
     cancel(jobId: string): Promise<RuntimeApiRecord>
+  }
+  workers: {
+    claim(workerId: string, leaseSeconds?: number): Promise<RuntimeWorkerJob | null>
+    heartbeat(jobId: string, request: { worker_id: string; lease_token: number; lease_seconds?: number }): Promise<RuntimeWorkerJob>
+    complete(jobId: string, request: { worker_id: string; lease_token: number; success: boolean; output?: string; error?: string }): Promise<RuntimeApiRecord>
   }
   workflows: {
     list(): Promise<RuntimeApiRecord[]>
@@ -219,13 +271,13 @@ export interface RuntimeServices {
   evaluation: {
     cases(): Promise<RuntimeApiRecord[]>
     create(testCase: RuntimeApiRecord): Promise<RuntimeApiRecord>
-    run(caseId: string): Promise<RuntimeApiRecord>
+    run(caseId: string, output: string): Promise<RuntimeApiRecord>
     result(caseId: string): Promise<RuntimeApiRecord>
   }
   terminal: {
-    list(): Promise<RuntimeApiRecord[]>
+    list(grantId?: string): Promise<RuntimeApiRecord[]>
     create(request: { command: string; cwd?: string; grant_id: string }): Promise<RuntimeApiRecord>
-    get(terminalId: string): Promise<RuntimeApiRecord>
+    get(terminalId: string, grantId: string): Promise<RuntimeApiRecord>
     input(terminalId: string, input: string, grantId: string): Promise<RuntimeApiRecord>
     output(terminalId: string, grantId: string, after?: number, limit?: number): Promise<RuntimeApiRecord>
     close(terminalId: string, grantId: string): Promise<RuntimeApiRecord>
@@ -233,8 +285,9 @@ export interface RuntimeServices {
   }
   artifacts: {
     create(request: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    upload(content: Blob | ArrayBuffer, options?: { kind?: string; mimeType?: string; runId?: string; trusted?: boolean; expiresAt?: number; metadata?: RuntimeApiRecord }): Promise<RuntimeApiRecord>
     get(artifactId: string): Promise<RuntimeApiRecord>
-    content(artifactId: string): Promise<RuntimeApiRecord>
+    content(artifactId: string): Promise<Blob>
     remove(artifactId: string): Promise<void>
   }
   reasoning: {
@@ -255,6 +308,5 @@ export interface RuntimeServices {
     status(): Promise<RuntimeApiRecord>
   }
 }
-
 
 export type ChatSendOptions = { model?: string }

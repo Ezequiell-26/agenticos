@@ -34,7 +34,7 @@ const routingRules = [
 
 export default function ProviderStudio({ onAction }: { onAction: (message: string) => void }) {
   const [tab, setTab] = useState<ProviderTab>('Overview')
-  const [selected, setSelected] = useState(providers[0].name)
+  const [selected, setSelected] = useState<string>(providers[0].name)
   const [query, setQuery] = useState('')
   const [compare, setCompare] = useState<string[]>([])
   const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])
@@ -83,7 +83,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
             </div>
             <div className="provider-account-layout">
               <div className="provider-account-list">
-                {accounts.map(([name, label, auth, state, modelsCount, quota, role]) => <button type="button" key={name} className={selectedAccount === name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(name)}>
+                {accounts.map(([name, label, , state]) => <button type="button" key={name} className={selectedAccount === name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(name)}>
                   <span className="provider-account-icon"><Icon name={name === 'Local runtime' ? 'terminal' : 'network'} size={14} /></span>
                   <span><strong>{name}</strong><small>{label}</small></span>
                   <span className={state === 'Configured' || state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span>

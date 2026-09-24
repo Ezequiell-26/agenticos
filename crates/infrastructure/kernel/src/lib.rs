@@ -2838,13 +2838,8 @@ impl ReactAgent {
         // Reserve the turn atomically so concurrent requests cannot reuse the same turn.
         let current_turn = {
             let mut inner = self.inner.lock().unwrap();
-            if inner.current_turn >= self.max_turns {
-                return Err(ContractError::ParseError(
-                    "Maximum turns reached".to_string(),
-                ));
-            }
             let turn = inner.current_turn;
-            inner.current_turn += 1;
+            inner.current_turn = inner.current_turn.saturating_add(1);
             turn
         };
 
@@ -2944,7 +2939,7 @@ impl ReactAgent {
 
         // Store user input in SQLite memory if available
         if let Some(memory) = &memory {
-            let msg_id = format!("user-{}", current_turn);
+            let msg_id = format!("user-{}", uuid::Uuid::new_v4());
             memory
                 .store_message(&msg_id, &session_id, "user", input)
                 .await
@@ -2976,7 +2971,7 @@ impl ReactAgent {
 
         // Store assistant thought in SQLite memory if available
         if let Some(memory) = &memory {
-            let msg_id = format!("assistant-{}", current_turn);
+            let msg_id = format!("assistant-{}", uuid::Uuid::new_v4());
             memory
                 .store_message(&msg_id, &session_id, "assistant", &thought)
                 .await
@@ -3330,7 +3325,7 @@ impl ReactAgent {
     /// Restore the durable turn count when rebuilding a session after restart.
     pub fn restore_turn_count(&self, turns: usize) {
         let mut inner = self.inner.lock().unwrap();
-        inner.current_turn = turns.min(self.max_turns);
+        inner.current_turn = turns;
     }
 
     /// Get current turn count.
@@ -3344,7 +3339,10 @@ impl ReactAgent {
         inner.current_turn = inner.current_turn.saturating_add(1);
     }
 
-    /// Check if agent has reached max turns.
+    /// Report whether the soft session turn budget has been reached.
+    ///
+    /// This is an observability signal only; long-lived sessions are not
+    /// forcibly terminated by the counter.
     pub fn is_finished(&self) -> bool {
         self.current_turn() >= self.max_turns
     }

@@ -160,7 +160,25 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     setItems((list) => [next, ...list])
     setSelectedId(id)
     setTab('Task')
-    void runtime.subagents.create(next as unknown as Record<string, unknown>).then(() => onAction('New subagent created in runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime subagent creation failed'))
+    void runtime.subagents.create({
+      agent_id: next.id,
+      role: next.role,
+      capabilities: [
+        ...(next.canWrite ? ['write'] : []),
+        ...(next.canNetwork ? ['network'] : []),
+        ...(next.canDelegate ? ['delegate'] : []),
+        ...(next.requiresApproval ? ['approval'] : []),
+      ],
+      providers: [],
+      skills: [],
+      sandbox_profile: 'default',
+      budget: {
+        max_tokens: next.contextBudget,
+        max_wall_seconds: Math.max(60, next.maxTurns * 120),
+        max_tool_calls: Math.max(1, next.maxTurns * 4),
+        max_depth: 2,
+      },
+    }).then(() => onAction('New subagent created in runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime subagent creation failed'))
   }
 
   function run() {

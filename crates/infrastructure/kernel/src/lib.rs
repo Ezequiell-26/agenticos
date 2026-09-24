@@ -751,10 +751,16 @@ impl KernelRuntime {
                 .await?;
             for event in events {
                 // Apply event effects (simplified for smoke test)
-                if event.event_type == "RunStateChanged" {
+                if event.event_type == "RunStateChanged"
+                    || event.event_type == "RunCancellationRequested"
+                {
                     let data: serde_json::Value = serde_json::from_str(&event.data)
                         .map_err(|_| ContractError::IncompatibleVersion)?;
-                    if let Some(to_str) = data["to"].as_str() {
+                    if let Some(to_str) = data
+                        .get("to")
+                        .or_else(|| data.get("state"))
+                        .and_then(|value| value.as_str())
+                    {
                         run.state = match to_str {
                             "Created" => RunState::Created,
                             "Admitted" => RunState::Admitted,
@@ -766,6 +772,9 @@ impl KernelRuntime {
                             "Cancelled" => RunState::Cancelled,
                             _ => return Err(ContractError::IncompatibleVersion),
                         };
+                        if event.event_type == "RunCancellationRequested" {
+                            run.cancellation.cancel();
+                        }
                         run.version += 1;
                     }
                 }
@@ -780,10 +789,16 @@ impl KernelRuntime {
             for event in events {
                 if event.event_type == "RunCreated" {
                     run.version = 1;
-                } else if event.event_type == "RunStateChanged" {
+                } else if event.event_type == "RunStateChanged"
+                    || event.event_type == "RunCancellationRequested"
+                {
                     let data: serde_json::Value = serde_json::from_str(&event.data)
                         .map_err(|_| ContractError::IncompatibleVersion)?;
-                    if let Some(to_str) = data["to"].as_str() {
+                    if let Some(to_str) = data
+                        .get("to")
+                        .or_else(|| data.get("state"))
+                        .and_then(|value| value.as_str())
+                    {
                         run.state = match to_str {
                             "Created" => RunState::Created,
                             "Admitted" => RunState::Admitted,
@@ -795,6 +810,9 @@ impl KernelRuntime {
                             "Cancelled" => RunState::Cancelled,
                             _ => return Err(ContractError::IncompatibleVersion),
                         };
+                        if event.event_type == "RunCancellationRequested" {
+                            run.cancellation.cancel();
+                        }
                         run.version += 1;
                         run.fencing_token += 1;
                     }
@@ -5653,6 +5671,15 @@ Test procedure"#;
 
         let recovered = second.get_or_recover_run(&run_id).await.unwrap();
         assert_eq!(recovered.state, RunState::Cancelling);
+        drop(second);
+
+        let third = KernelRuntime::minimal(
+            event_store.clone(),
+            snapshot_store.clone(),
+        );
+        let recovered_after_restart = third.get_or_recover_run(&run_id).await.unwrap();
+        assert_eq!(recovered_after_restart.state, RunState::Cancelling);
+        assert!(recovered_after_restart.cancellation.is_cancelled());
     }
 
     #[tokio::test]

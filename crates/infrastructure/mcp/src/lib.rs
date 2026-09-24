@@ -212,7 +212,7 @@ impl McpManager {
         .bind(&server.server_id)
         .bind(&server.name)
         .bind(transport)
-        .bind(i64::from(server.enabled))
+        .bind(if server.enabled { 1_i64 } else { 0_i64 })
         .bind(server.timeout_ms.map(|value| value as i64))
         .execute(db)
         .await
@@ -312,15 +312,18 @@ impl McpManager {
                 })),
             )
             .await?;
-        response.result.ok_or_else(|| {
-            response
-                .error
-                .map(|error| McpError::Rpc {
-                    code: error.code,
-                    message: error.message,
-                })
-                .unwrap_or_else(|| McpError::InvalidConfiguration("MCP response contained neither result nor error".to_string()))
-        })
+        if let Some(result) = response.result {
+            return Ok(result);
+        }
+        if let Some(error) = response.error {
+            return Err(McpError::Rpc {
+                code: error.code,
+                message: error.message,
+            });
+        }
+        Err(McpError::InvalidConfiguration(
+            "MCP response contained neither result nor error".to_string(),
+        ))
     }
 
     async fn get_enabled(&self, server_id: &str) -> Result<McpServerDefinition, McpError> {

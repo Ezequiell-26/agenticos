@@ -149,7 +149,7 @@ export class AgenticosRuntime implements RuntimeServices {
     get: async (): Promise<AgentStatusSnapshot> => {
       try {
         const data = await this.transport.get<RuntimeApiRecord>('/api/agent/status')
-        const providers = arrayOfRecords(data.providers).filter(isRecord) as RuntimeProviderStatus[]
+        const providers = arrayOfRecords(data.providers).map((entry) => entry as unknown as RuntimeProviderStatus)
         const configured = providers.filter((provider) => provider.configured)
         return {
           agentName: readString(data, 'agent_name') ?? 'AgentiCOS',

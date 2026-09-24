@@ -33,7 +33,7 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 | --- | --- | --- | --- |
 | Runs | existing surface | run lifecycle | connected concept, broader services pending |
 | Run Control Center | RunControlCenter | graph, retry, checkpoints, handoffs, artifacts | preview |
-| Tasks | existing surface | objectives, dependencies, handoffs | preview |
+| Tasks | TaskExecutionCenter via PlatformSurface | objectives, execution queue, terminals, approvals, logs and evidence | preview |
 | Background Agents | existing surface | long-running isolated jobs | preview |
 | Cloud Agents | CloudAgentsWorkspace | remote agents and follow-ups | preview |
 | Remote Control Center | RemoteControlCenter | remote session monitoring, device pairing, approvals, notifications and resume workflow | preview |
@@ -48,13 +48,13 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 
 | Surface | Frontend surface | Main concerns | Backend status |
 | --- | --- | --- | --- |
-| Providers & Models | FrontendCompletenessStudio | catalog, routes, quotas | first provider boundary connected |
+| Providers & Models | ProviderStudio via PlatformSurface | catalog, routes, quotas, fallback and capabilities | first provider boundary connected |
 | Routing Studio | AdvancedStudio | routing and fallback | preview |
 | Model Playground | AdvancedStudio | model comparison | preview |
 | Token Observatory | AdvancedStudio | budgets and optimization | preview |
 | Tools | ToolPolicyStudio | scopes, risk, approvals | preview |
 | Toolsets | existing surface | grouped capabilities | preview |
-| Skills | FrontendCompletenessStudio | installable capabilities | preview |
+| Skills | SkillsStudio via PlatformSurface | installable capabilities and configuration | preview |
 | MCP Servers | McpManager | tool servers and auth | preview |
 | Browser | BrowserWorkspace | navigation, DOM, console, network | preview |
 | Computer Use | ComputerUseWorkspace | desktop automation and recording | preview |
@@ -75,7 +75,7 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 | Approval Center | ApprovalCenter | human gates | preview |
 | Security Center | SecurityCenter | sandbox, data, network, secrets | preview |
 | Hooks & Policies | HookManager | pre/post action governance | preview |
-| Evaluations | evaluation surface | repeatable suites | preview |
+| Evaluations | FeatureWorkbench via PlatformSurface | repeatable suites, baselines, comparisons and evidence | preview |
 | QA & Readiness | FrontendQAHarness | visual/accessibility/readiness evidence | preview |
 | Observability | FinalControlSuite | metrics, traces, events | preview |
 | Logs & Traces | existing surface | structured diagnostics | preview |
@@ -92,11 +92,11 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 
 | Surface | Frontend surface | Main concerns | Backend status |
 | --- | --- | --- | --- |
-| Sessions | existing surface | history and lifecycle | history endpoint exists; broader branching pending |
+| Sessions | FeatureWorkbench via PlatformSurface | history, lifecycle, search and export presentation | history endpoint exists; broader branching pending |
 | Session Replay Studio | SessionReplayStudio | trajectory timeline, forks, replay | preview |
 | Knowledge Studio | KnowledgeStudio | sources, retrieval, provenance | preview |
 | Memory Studio | MemoryStudio | persistent memory | backend foundation exists; UI adapter pending |
-| Notifications | existing surface | approvals and alerts | preview |
+| Notifications | FeatureWorkbench via PlatformSurface | priority inbox, source filters and read state | preview |
 | Customization | FinalControlSuite | themes, keymaps, layouts | preview |
 | Help & Documentation | FinalControlSuite | contextual help | preview |
 | Workspace Setup | FrontendCompletenessStudio | setup checklist | preview |
@@ -173,3 +173,19 @@ All 98 navigation surfaces are now explicitly assigned to one of the seven navig
 ## Remote control and shell orientation — 2026-09-24
 
 Added a dedicated Remote Control Center and a persistent workspace command strip. The strip exposes project, branch, runtime, current surface, verification and agent-policy context without moving runtime authority into React state. Remote sessions, devices, approvals and notification preferences remain presentation-only until typed runtime contracts exist.
+
+## Latest route ownership audit — 2026-09-24
+
+The canonical navigation registry contains 98 surfaces: 91 typed `PlatformMode` surfaces, six `StudioSurface` modes (`files`, `terminal`, `runs`, `agents`, `artifacts`, `settings`), and one App-shell mode (`chat`).
+
+All 91 `PlatformMode` values now have an explicit owner path in `PlatformSurface`:
+
+- dedicated control/workbench components for complex capabilities;
+- `FeatureWorkbench` for platform capabilities that need a coherent presentation surface but do not yet justify a separate feature module.
+
+Current generic `FeatureWorkbench` modes:
+`evaluations`, `versions`, `audit`, `notifications`, `sessions`, `logs`, `analytics`, `batch`, `learning`, `playground`, `routing`, `token-observatory`, `toolsets`, `execution`, `webhooks`, `imports`, `media`, `wake`.
+
+The previous broad fallback that rendered `Security Center` for unrelated unhandled platform modes has been removed. Source audit result: **0 missing platform owners and 0 invalid non-platform owners**.
+
+This is a source-structure result. Frontend build, browser verification, accessibility execution and Tauri rendering remain evidence gates, not implied by route coverage.

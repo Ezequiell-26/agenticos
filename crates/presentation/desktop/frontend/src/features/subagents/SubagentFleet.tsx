@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
 import './SubagentFleet.css'
 import SubagentBuilder from './SubagentBuilder'
 
@@ -14,6 +15,28 @@ const fleetLanes = [
 
 export default function SubagentFleet({ onAction }: { onAction: (message: string) => void }) {
   const [policy, setPolicy] = useState<FleetPolicy>('Balanced')
+  const [runtimeAgents, setRuntimeAgents] = useState<ReadonlyArray<readonly [string, string, string, string, string]>>(fleetLanes)
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.subagents.list().then((agents) => {
+      if (cancelled || agents.length === 0) return
+      const mapped = agents.map((agent, index) => {
+        const name = typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1)
+        const role = typeof agent.role === 'string' ? agent.role : 'Runtime specialist'
+        const capabilityCount = Array.isArray(agent.capabilities) ? agent.capabilities.length : 0
+        const budget = agent.budget && typeof agent.budget === 'object' && typeof (agent.budget as Record<string, unknown>).max_tokens === 'number'
+          ? Math.round(Number((agent.budget as Record<string, unknown>).max_tokens) / 1000) + 'k'
+          : 'budgeted'
+        return [name, role, 'Runtime', 'Ready', budget, String(capabilityCount)] as const
+      })
+      setRuntimeAgents(mapped)
+    }).catch(() => {
+      // Keep the presentation catalog while the runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
   const [parallelism, setParallelism] = useState(3)
   const [autoHandoff, setAutoHandoff] = useState(true)
 
@@ -26,7 +49,7 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
           <p>Coordinate specialist agents as isolated workers, tune dispatch policy, and open the detailed builder without collapsing fleet-level operations into one profile.</p>
         </div>
         <div className="subagent-fleet__actions">
-          <span className="state-pill state-pill--completed">Runtime boundary</span>
+          <span className="state-pill state-pill--completed">{runtimeSyncing ? 'Syncing runtime' : 'Runtime boundary'}</span>
           <button className={autoHandoff ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setAutoHandoff((value) => !value)}>
             <Icon name="branch" size={12} /> {autoHandoff ? 'Auto handoff' : 'Manual handoff'}
           </button>
@@ -35,7 +58,7 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
       </header>
 
       <div className="platform-metrics">
-        <div className="platform-metric"><span>Specialists</span><strong>4</strong><small>2 ready · 1 running · 1 idle</small></div>
+        <div className="platform-metric"><span>Specialists</span><strong>{runtimeAgents.length}</strong><small>{runtimeAgents.length} runtime definitions available</small></div>
         <div className="platform-metric"><span>Parallelism</span><strong>{parallelism}</strong><small>of 4 lanes allowed in preview</small></div>
         <div className="platform-metric"><span>Context budget</span><strong>102k</strong><small>across active workers</small></div>
         <div className="platform-metric"><span>Handoff policy</span><strong>{autoHandoff ? 'Automatic' : 'Manual'}</strong><small>Explicit package required</small></div>
@@ -61,11 +84,11 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
         </article>
 
         <article className="subagent-fleet__lanes">
-          <div className="surface-block__heading"><span>Live lanes</span><span className="mono-text">4 configured</span></div>
-          {fleetLanes.map(([lane, name, role, status, budget]) => (
+          <div className="surface-block__heading"><span>Live lanes</span><span className="mono-text">{runtimeAgents.length} runtime configured</span></div>
+          {runtimeAgents.map(([lane, name, model, status, budget]) => (
             <button type="button" className="fleet-lane" key={lane} onClick={() => onAction(name + ' opened in specialist builder preview')}>
               <span className={'fleet-lane__status fleet-lane__status--' + status.toLowerCase()}><Icon name={status === 'Running' ? 'activity' : status === 'Ready' ? 'check' : 'clock'} size={11} /></span>
-              <span><strong>{lane} · {name}</strong><small>{role} · {budget} context · {status}</small></span>
+              <span><strong>{lane} · {name}</strong><small>{model} · {budget} budget · {status}</small></span>
               <Icon name="chevron-right" size={12} />
             </button>
           ))}

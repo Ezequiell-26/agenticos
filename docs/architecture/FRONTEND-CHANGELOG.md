@@ -1126,3 +1126,9 @@ Verification status:
 - Added a typed, fail-safe portable-to-settings mapper that preserves unspecified preferences while importing supported model, agent, tools, terminal, context, runtime, automation, security, gateway and Hermes parity fields.
 - Kept the existing internal `{ settings, profiles, activeProfileId }` import format compatible.
 - Verification status: awaiting GitHub Actions TypeScript/Rust gates.
+
+## 2026-09-24 — Provider Studio JSX build repair
+
+- Reworked the provider quota panel JSX into explicit nested elements after CI reported a parser failure at the quota block.
+- Preserved the same presentation-only quota data and interaction surface; no provider runtime behavior changed.
+- Verification status: awaiting the latest GitHub Actions build and continuity gates.

@@ -2130,3 +2130,67 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
 @media (max-width: 560px) {
   .notification-drawer { top: 48px; right: 8px; width: calc(100vw - 16px); }
 }
+
+.code-editor-find-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #242424;
+  border-radius: 7px;
+  background: #101010;
+}
+.code-editor-find-tools input {
+  width: 150px;
+  min-width: 80px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #252525;
+  border-radius: 5px;
+  outline: none;
+  background: #151515;
+  color: #e8e8e8;
+  font-size: 9px;
+}
+.code-editor-find-tools input:focus {
+  border-color: #4a4a4a;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.05);
+}
+.code-editor-goto {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #1c1c1c;
+  background: #101010;
+}
+.code-editor-goto label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #777;
+  font-size: 8px;
+}
+.code-editor-goto input {
+  width: 72px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #292929;
+  border-radius: 5px;
+  background: #151515;
+  color: #eee;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.editor-status__dirty {
+  color: #d7d7d7;
+}
+.feature-workbench [role="tabpanel"]:focus-visible {
+  outline: 1px solid #454545;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+@media (max-width: 760px) {
+  .code-editor-find-tools { flex-wrap: wrap; }
+  .code-editor-find-tools input { width: 120px; }
+}

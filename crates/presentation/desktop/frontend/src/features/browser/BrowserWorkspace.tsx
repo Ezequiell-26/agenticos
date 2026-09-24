@@ -105,10 +105,13 @@ export default function BrowserWorkspace({ onAction }: { onAction: (message: str
         </div>
 
         <aside className="browser-inspector">
-          <div className="browser-inspector__tabs" role="tablist" aria-label="Browser inspector">
-            {(['Page', 'DOM', 'Console', 'Network', 'Storage'] as BrowserTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'browser-inspector__tab browser-inspector__tab--active' : 'browser-inspector__tab'} onClick={() => setTab(item)}>{item}</button>)}
+          <div className="browser-inspector__tabs" role="tablist" aria-label="Browser inspector" aria-orientation="horizontal">
+            {(['Page', 'DOM', 'Console', 'Network', 'Storage'] as BrowserTab[]).map((item, index, tabs) => <button type="button" key={item} id={'browser-tab-' + item.toLowerCase()} role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="browser-tabpanel" className={tab === item ? 'browser-inspector__tab browser-inspector__tab--active' : 'browser-inspector__tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+              const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+              if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('browser-tab-' + next.toLowerCase())?.focus()) }
+            }}>{item}</button>)}
           </div>
-          <div className="browser-inspector__body">
+          <div id="browser-tabpanel" className="browser-inspector__body" role="tabpanel" aria-labelledby={'browser-tab-' + tab.toLowerCase()} tabIndex={0}>
             {tab === 'Page' && <div className="browser-inspector-stack"><Metric label="URL" value={url} /><Metric label="Viewport" value={viewport} /><Metric label="DOM nodes" value="412" /><Metric label="Session" value={recording ? 'Recording' : 'Idle'} /><div className="callout"><Icon name="globe" size={13} /><span>Browser actions are visual previews; no live browser session is opened by the frontend.</span></div></div>}
             {tab === 'DOM' && <div className="browser-tree">{dom.map(([name, type, meta]) => <button type="button" key={name} onClick={() => setActionTarget(name)}><span>{name}</span><div><strong>{type}</strong><small>{meta}</small></div><Icon name="chevron-right" size={12} /></button>)}</div>}
             {tab === 'Console' && <div className="browser-log-list"><div className="browser-inspector-filter"><select value={consoleLevel} onChange={(event)=>setConsoleLevel(event.target.value)} aria-label="Console level"><option>All</option><option>INFO</option><option>DEBUG</option><option>WARN</option></select></div>{filteredConsole.map(([level, message, detail]) => <div key={message}><span className="mono-text">{level}</span><div><strong>{message}</strong><small>{detail}</small></div></div>)}</div>}

@@ -5,15 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-agenticos-contracts = { path = "../../domain/contracts" }
-async-trait = { workspace = true }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-reqwest = { workspace = true }
-
-[dev-dependencies]
-tokio = { version = "1.0", features = ["sync", "rt-multi-thread", "macros"] }
+agenticos-providers = { path = "../providers" }
 
 [lints]
 workspace = true

@@ -4,7 +4,7 @@
 //! Durable, bounded interactive terminal sessions.
 
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -104,7 +104,7 @@ impl TerminalManager {
             .await
             .map_err(|error| format!("terminal root canonicalization failed: {error}"))?;
 
-        let pool = SqlitePool::connect(database_url)
+        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
             .await
             .map_err(|error| format!("terminal database connection failed: {error}"))?;
 

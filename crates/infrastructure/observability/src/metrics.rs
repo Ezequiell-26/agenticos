@@ -462,8 +462,7 @@ impl RuntimeMetrics {
 
     /// Accumulate model latency.
     pub fn record_llm_latency(&self, latency_ms: u64) {
-        self.llm_latency_ms
-            .fetch_add(latency_ms, Ordering::Relaxed);
+        self.llm_latency_ms.fetch_add(latency_ms, Ordering::Relaxed);
     }
 
     /// Return an immutable metrics snapshot.

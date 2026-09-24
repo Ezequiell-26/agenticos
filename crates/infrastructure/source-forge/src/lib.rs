@@ -530,7 +530,7 @@ impl GitHubSourceClient {
             .request(format!("/repos/{repo_id}/contents/{path}"))
             .header("Accept", "application/vnd.github.raw");
         if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
-            if reference.len() > 256 || reference.contains(['\\r', '\\n']) {
+            if reference.len() > 256 || reference.contains(['\r', '\n']) {
                 return Err(SourceForgeError::InvalidSource(
                     "invalid Git reference".to_string(),
                 ));

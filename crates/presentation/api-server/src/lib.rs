@@ -2898,9 +2898,6 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                 }
             }
 }
- }
-    }
-}
 
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);

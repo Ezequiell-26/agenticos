@@ -165,8 +165,9 @@ impl EvaluationRegistry {
         }
         let mut results = HashMap::with_capacity(result_rows.len());
         for (case_id, payload) in result_rows {
-            let result = serde_json::from_str(&payload)
-                .map_err(|error| format!("invalid persisted evaluation result {case_id}: {error}"))?;
+            let result = serde_json::from_str(&payload).map_err(|error| {
+                format!("invalid persisted evaluation result {case_id}: {error}")
+            })?;
             results.insert(case_id, result);
         }
 
@@ -178,7 +179,9 @@ impl EvaluationRegistry {
     }
 
     async fn persist_case(&self, case: &EvaluationCase) -> Result<(), String> {
-        let Some(db) = &self.db else { return Ok(()); };
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
         let payload = serde_json::to_string(case)
             .map_err(|error| format!("evaluation case serialization failed: {error}"))?;
         sqlx::query(
@@ -223,8 +226,12 @@ impl EvaluationRegistry {
         if let Err(error) = self.persist_case(&case).await {
             let mut cases = self.cases.write().await;
             match previous {
-                Some(previous) => { cases.insert(case.case_id.clone(), previous); }
-                None => { cases.remove(&case.case_id); }
+                Some(previous) => {
+                    cases.insert(case.case_id.clone(), previous);
+                }
+                None => {
+                    cases.remove(&case.case_id);
+                }
             }
             return Err(error);
         }
@@ -239,11 +246,7 @@ impl EvaluationRegistry {
     }
 
     /// Evaluate a registered case and persist its latest result.
-    pub async fn evaluate(
-        &self,
-        case_id: &str,
-        output: &str,
-    ) -> Result<EvaluationResult, String> {
+    pub async fn evaluate(&self, case_id: &str, output: &str) -> Result<EvaluationResult, String> {
         let case = self
             .cases
             .read()
@@ -310,7 +313,8 @@ mod tests {
 
     #[tokio::test]
     async fn registry_recovers_cases_and_results() {
-        let path = std::env::temp_dir().join(format!("agenticos-evaluation-{}.db", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-evaluation-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let first = EvaluationRegistry::open(&url).await.unwrap();
         first.register(case()).await.unwrap();

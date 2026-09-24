@@ -290,10 +290,9 @@ impl ProviderPlatform {
 
         if platform.secret_key.is_none() {
             let db = platform.db.as_ref().expect("provider db");
-            let credential_count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM provider_credentials"
-            )
-            .fetch_one(db.as_ref())
+            let credential_count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM provider_credentials")
+                    .fetch_one(db.as_ref())
             .await
             .map_err(|error| {
                 ContractError::ParseError(format!(
@@ -410,17 +409,15 @@ impl ProviderPlatform {
             return Ok(());
         };
 
-        let quota = self
-            .quotas
-            .get_state(provider_id)
-            .await
-            .map(|(value, window_started_at, token_usage)| PersistedQuota {
+        let quota = self.quotas.get_state(provider_id).await.map(
+            |(value, window_started_at, token_usage)| PersistedQuota {
                 requests_per_minute: value.requests_per_minute,
                 tokens_per_minute: value.tokens_per_minute,
                 current_usage: value.current_usage,
                 window_started_at,
                 token_usage,
-            });
+            },
+        );
         let retry = self
             .retries
             .get_policy(provider_id)
@@ -1046,10 +1043,7 @@ impl ProviderPlatform {
     }
 
     /// Refresh the model catalog from an OpenAI-compatible provider.
-    pub async fn refresh_models(
-        &self,
-        provider_id: &str,
-    ) -> Result<Vec<String>, ContractError> {
+    pub async fn refresh_models(&self, provider_id: &str) -> Result<Vec<String>, ContractError> {
         let provider = self
             .registry
             .get(provider_id)
@@ -1060,9 +1054,7 @@ impl ProviderPlatform {
             .get_for_provider(provider_id)
             .await
             .into_iter()
-            .find(|credential| {
-                credential.expires_at == 0 || credential.expires_at > unix_time()
-            });
+            .find(|credential| credential.expires_at == 0 || credential.expires_at > unix_time());
         if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
             return Err(ContractError::MissingCapability);
         }
@@ -1146,7 +1138,10 @@ impl ProviderPlatform {
                     provider_id: provider_id.to_string(),
                     status: HealthStatus::Healthy,
                     last_check: unix_time(),
-                    message: Some(format!("provider reachable; {} models discovered", models.len())),
+                    message: Some(format!(
+                        "provider reachable; {} models discovered",
+                        models.len()
+                    )),
                 };
                 self.health.update(check.clone()).await?;
                 self.persist_runtime_state(provider_id).await?;
@@ -1325,7 +1320,9 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
         if self.base_url.ends_with("/v1") {
             return self.base_url.clone() + "/models";
         }
-        self.base_url.clone().replace("/chat/completions", "/models")
+        self.base_url
+            .clone()
+            .replace("/chat/completions", "/models")
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
@@ -1626,15 +1623,21 @@ mod tests {
 
     #[test]
     fn provider_http_retry_classification_is_transient_only() {
-        assert!(super::is_retryable_provider_error(&ContractError::ParseError(
-            "provider_http_status=429; provider returned HTTP 429".to_string()
-        )));
-        assert!(super::is_retryable_provider_error(&ContractError::ParseError(
-            "provider_http_status=503; provider returned HTTP 503".to_string()
-        )));
-        assert!(!super::is_retryable_provider_error(&ContractError::ParseError(
-            "provider_http_status=400; provider returned HTTP 400".to_string()
-        )));
+        assert!(super::is_retryable_provider_error(
+            &ContractError::ParseError(
+                "provider_http_status=429; provider returned HTTP 429".to_string()
+            )
+        ));
+        assert!(super::is_retryable_provider_error(
+            &ContractError::ParseError(
+                "provider_http_status=503; provider returned HTTP 503".to_string()
+            )
+        ));
+        assert!(!super::is_retryable_provider_error(
+            &ContractError::ParseError(
+                "provider_http_status=400; provider returned HTTP 400".to_string()
+            )
+        ));
     }
 
     #[test]

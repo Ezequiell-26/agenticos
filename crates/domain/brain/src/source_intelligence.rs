@@ -161,17 +161,16 @@ impl SourceIntelligenceEngine {
     }
 
     /// Register repository metadata obtained from an external source adapter.
-    pub async fn register_metadata(
-        &self,
-        metadata: RepositoryMetadata,
-    ) -> Result<(), BrainError> {
+    pub async fn register_metadata(&self, metadata: RepositoryMetadata) -> Result<(), BrainError> {
         if metadata.repo_id.trim().is_empty() || metadata.url.trim().is_empty() {
             return Err(BrainError::SourceIntelligenceError(
                 "repository metadata requires repo_id and url".to_string(),
             ));
         }
         let mut registry = self.registry.write().await;
-        if !registry.contains_key(&metadata.repo_id) && registry.len() >= self.config.max_repositories {
+        if !registry.contains_key(&metadata.repo_id)
+            && registry.len() >= self.config.max_repositories
+        {
             return Err(BrainError::ResourceLimitExceeded(
                 "maximum repository count reached".to_string(),
             ));
@@ -192,17 +191,36 @@ impl SourceIntelligenceEngine {
     ) -> Result<RepositoryAnalysis, BrainError> {
         let metadata = self.get_metadata(repo_id).await?;
         let mut capabilities = Vec::new();
-        let corpus = documents.values().map(String::as_str).collect::<Vec<_>>().join("\n");
+        let corpus = documents
+            .values()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join("\n");
         let corpus_lower = corpus.to_ascii_lowercase();
 
         let patterns = [
-            ("http-client", ["reqwest", "axios", "httpx", "requests", "fetch("]),
-            ("async-runtime", ["tokio", "asyncio", "async fn", "async def"]),
+            (
+                "http-client",
+                ["reqwest", "axios", "httpx", "requests", "fetch("],
+            ),
+            (
+                "async-runtime",
+                ["tokio", "asyncio", "async fn", "async def"],
+            ),
             ("mcp", ["model context protocol", "mcp-server", "mcp::"]),
-            ("agent-orchestration", ["subagent", "multi-agent", "langchain", "autogen", "crewai"]),
+            (
+                "agent-orchestration",
+                ["subagent", "multi-agent", "langchain", "autogen", "crewai"],
+            ),
             ("workflow", ["workflow", "dag", "state machine"]),
-            ("database", ["sqlx", "sqlite", "postgres", "mysql", "prisma", "redis"]),
-            ("vector-search", ["qdrant", "chroma", "vector database", "embedding"]),
+            (
+                "database",
+                ["sqlx", "sqlite", "postgres", "mysql", "prisma", "redis"],
+            ),
+            (
+                "vector-search",
+                ["qdrant", "chroma", "vector database", "embedding"],
+            ),
             ("cli", ["clap", "argparse", "commander", "cobra"]),
         ];
 
@@ -423,7 +441,8 @@ impl SourceIntelligenceEngine {
             .trim_start_matches("http://github.com/")
             .trim_start_matches("github.com/")
             .to_string();
-        if repo_id.split('/').count() != 2 || repo_id.split('/').any(|part| part.trim().is_empty()) {
+        if repo_id.split('/').count() != 2 || repo_id.split('/').any(|part| part.trim().is_empty())
+        {
             return Err(BrainError::SourceIntelligenceError(
                 "invalid GitHub repository source".to_string(),
             ));

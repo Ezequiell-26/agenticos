@@ -245,10 +245,7 @@ impl JobScheduler {
         Ok(())
     }
 
-    fn dependency_cycle_exists(
-        jobs: &HashMap<String, JobRecord>,
-        candidate: &JobSpec,
-    ) -> bool {
+    fn dependency_cycle_exists(jobs: &HashMap<String, JobRecord>, candidate: &JobSpec) -> bool {
         let mut stack = candidate.dependencies.clone();
         let mut visited = HashSet::new();
 
@@ -284,9 +281,11 @@ impl JobScheduler {
         if spec.dependencies.len() > 128 {
             return Err("job dependency count exceeds supported limits".to_string());
         }
-        if spec.dependencies.iter().any(|dependency| {
-            dependency.trim().is_empty() || dependency.len() > 128
-        }) {
+        if spec
+            .dependencies
+            .iter()
+            .any(|dependency| dependency.trim().is_empty() || dependency.len() > 128)
+        {
             return Err("job dependency identifier is invalid".to_string());
         }
         if spec
@@ -498,7 +497,8 @@ impl JobScheduler {
         if previous.state != JobState::Running {
             return Err(format!("job cannot renew from state {:?}", previous.state));
         }
-        if previous.lease_owner.as_deref() != Some(owner_id) || previous.lease_token != lease_token {
+        if previous.lease_owner.as_deref() != Some(owner_id) || previous.lease_token != lease_token
+        {
             return Err("job lease ownership lost".to_string());
         }
 

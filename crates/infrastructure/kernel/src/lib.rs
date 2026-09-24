@@ -336,10 +336,7 @@ impl SqliteIdempotencyStore {
         }
     }
 
-    async fn load(
-        &self,
-        key: &str,
-    ) -> Result<Option<IdempotencyRecord>, ContractError> {
+    async fn load(&self, key: &str) -> Result<Option<IdempotencyRecord>, ContractError> {
         let row = sqlx::query_as::<_, (String, String, String, Option<String>)>(
             "SELECT idempotency_key, fingerprint, status, result
              FROM idempotency_records
@@ -411,11 +408,7 @@ impl SqliteIdempotencyStore {
     }
 
     /// Mark an operation completed and cache its result.
-    pub async fn mark_completed(
-        &self,
-        key: &str,
-        result: String,
-    ) -> Result<(), ContractError> {
+    pub async fn mark_completed(&self, key: &str, result: String) -> Result<(), ContractError> {
         let updated = sqlx::query(
             "UPDATE idempotency_records SET status = 'completed', result = ?
              WHERE idempotency_key = ?",
@@ -5849,10 +5842,8 @@ Test procedure"#;
 
     #[tokio::test]
     async fn sqlite_idempotency_deduplicates_and_recovers() {
-        let path = std::env::temp_dir().join(format!(
-            "agenticos-idempotency-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-idempotency-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = SqliteIdempotencyStore::new(&url, 600).await.unwrap();
@@ -5865,7 +5856,10 @@ Test procedure"#;
         drop(first);
 
         let second = SqliteIdempotencyStore::new(&url, 600).await.unwrap();
-        let recovered = second.check_or_record("key-1", "fingerprint").await.unwrap();
+        let recovered = second
+            .check_or_record("key-1", "fingerprint")
+            .await
+            .unwrap();
         assert_eq!(recovered.status, IdempotencyStatus::Completed);
         assert_eq!(recovered.result.as_deref(), Some("cached-result"));
         assert!(matches!(
@@ -5898,10 +5892,7 @@ Test procedure"#;
         assert_eq!(recovered.state, RunState::Cancelling);
         drop(second);
 
-        let third = KernelRuntime::minimal(
-            event_store.clone(),
-            snapshot_store.clone(),
-        );
+        let third = KernelRuntime::minimal(event_store.clone(), snapshot_store.clone());
         let recovered_after_restart = third.get_or_recover_run(&run_id).await.unwrap();
         assert_eq!(recovered_after_restart.state, RunState::Cancelling);
         assert!(recovered_after_restart.cancellation.is_cancelled());

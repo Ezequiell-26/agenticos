@@ -82,7 +82,9 @@ fn spawn_authenticated_models_server(
     expected_auth: &'static str,
 ) -> (String, thread::JoinHandle<()>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind auth model server");
-    let address = listener.local_addr().expect("read auth model server address");
+    let address = listener
+        .local_addr()
+        .expect("read auth model server address");
 
     let handle = thread::spawn(move || {
         if let Ok((mut stream, _)) = listener.accept() {
@@ -90,9 +92,7 @@ fn spawn_authenticated_models_server(
             let read = stream.read(&mut request).expect("read model request");
             let request = String::from_utf8_lossy(&request[..read]);
             assert!(
-                request
-                    .lines()
-                    .any(|line| line.trim() == expected_auth),
+                request.lines().any(|line| line.trim() == expected_auth),
                 "expected auth header was not sent: {request}"
             );
 
@@ -107,7 +107,9 @@ Connection: close
                 body.len(),
                 body
             );
-            stream.write_all(response.as_bytes()).expect("write model response");
+            stream
+                .write_all(response.as_bytes())
+                .expect("write model response");
             stream.flush().expect("flush model response");
         }
     });

@@ -206,9 +206,7 @@ impl QuotaTracker {
     }
 
     fn refresh_window(state: &mut QuotaState, now: u64) {
-        if state.window_started_at == 0
-            || now.saturating_sub(state.window_started_at) >= 60
-        {
+        if state.window_started_at == 0 || now.saturating_sub(state.window_started_at) >= 60 {
             state.window_started_at = now;
             state.quota.current_usage = 0;
             state.token_usage = 0;

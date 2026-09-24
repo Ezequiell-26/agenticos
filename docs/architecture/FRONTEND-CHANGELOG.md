@@ -1101,3 +1101,14 @@ Verification status:
 - Corrected the provider verification contract count from 12 to the actual 8 mapped integration tests.
 - Removed an unused TypeScript type from the provider evidence ledger under the repository's noUnusedLocals policy.
 - Verification status: source audits remain clean; CI and production/browser/Tauri evidence are still governed by the latest workflow results.
+
+## 2026-09-24 — Hermes parity configuration expansion
+
+- Added a dedicated Hermes Parity settings surface for advanced runtime-configuration concepts confirmed against the current Hermes configuration reference.
+- Added UI controls for context-engine selection, memory-provider selection, credential-pool rotation, fallback-model routing and auxiliary reasoning effort.
+- Added independently configurable auxiliary contracts for web extraction, approval, session search, skills hub, MCP dispatch, memory flush and vision download timeout.
+- Added advanced TTS/voice-mode controls, CLI skin/personality metadata, per-platform tool-progress overrides and web crawl/search-mode controls.
+- Added streaming timeout layers, gateway buffering/cursor controls, per-user group-session policy, unauthorized-DM policy/overrides and zero-LLM quick-command definitions.
+- Persisted the new fields through the local settings engine and included them in the portable raw configuration snapshot.
+- Preserved the presentation/runtime boundary: credentials, shell execution, provider calls, context-engine activation and gateway authorization remain runtime-owned.
+- Verification status: source-level integration only. Production build, browser/Tauri execution, accessibility execution and Step 25 runtime acceptance remain unverified.

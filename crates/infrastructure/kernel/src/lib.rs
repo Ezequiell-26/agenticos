@@ -220,236 +220,6 @@ impl Default for InMemoryEventStore {
 }
 
 #[async_trait::async_trait]
-
-
-    async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
-        let store = self.events.read().await;
-        let mut stream_ids = store.keys().cloned().collect::<Vec<_>>();
-        stream_ids.sort();
-        Ok(stream_ids)
-    }
-}![forbid(unsafe_code)]
-#![allow(missing_docs)]
-#![allow(missing_debug_implementations)]
-#![allow(
-    clippy::new_without_default,
-    clippy::manual_clamp,
-    clippy::unwrap_or_default,
-    clippy::single_char_add_str,
-    clippy::unnecessary_sort_by,
-    clippy::await_holding_lock,
-    clippy::unnecessary_map_or,
-    clippy::redundant_closure,
-    clippy::needless_borrow,
-    clippy::unnecessary_filter_map
-)]
-
-//! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
-
-pub use agenticos_context::{ContextBudget, ContextEngine};
-use agenticos_contracts::{
-    CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
-    EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
-    OutboxEntry, OutboxStatus, OutboxStore, ResourceUsage, RunId, RunState, Saga, SagaCoordinator,
-    SagaStatus, SagaStep, SagaStepStatus, SagaStepType, Sandbox, SandboxRequest, SandboxResponse,
-    SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore,
-};
-
-// pub use agenticos_sandbox::{ProcessSandbox, SandboxConfig, SandboxFactory};
-
-pub mod session_event_log;
-pub use session_event_log::{SessionEvent, SessionEventLog};
-
-pub mod tool_execution_pipeline;
-pub use tool_execution_pipeline::{
-    PermissionPolicyHook, PostExecutionHook, PreExecutionHook, PreExecutionHookResult,
-    ToolExecutionContext, ToolExecutionPipeline, ToolExecutionResult,
-};
-
-pub mod llm_router;
-pub use llm_router::{
-    Capability, KeyStatus, LLMRouter, ModelEntry, ProviderType, RateLimit, UsageLedger,
-};
-
-pub mod bandit_scoring;
-pub use bandit_scoring::{BanditScore, ModelStats, ThompsonSamplingBandit};
-
-pub mod quota_engine;
-pub use quota_engine::{CooldownLadder, CooldownStep, QuotaEngine};
-
-pub mod provider_adapters;
-pub use provider_adapters::{
-    ChatCompletionRequest, ChatCompletionResponse, ChatMessage, Choice, GoogleProvider,
-    GroqProvider, Provider, ProviderError, ProviderRegistry, StreamChoice, StreamChunk, Usage,
-};
-
-pub mod streaming_pipeline;
-pub use streaming_pipeline::{
-    BasicStreamingPipeline, SSEEncoder, SSEEvent, SSEMessage, StreamingContext, StreamingPipeline,
-};
-
-pub mod soul;
-pub use soul::{Milestone, SkillEntry, Soul};
-
-pub mod minimal_agent_loop;
-pub use minimal_agent_loop::{
-    AgentLoopConfig, ExitReason, LLMClient, LLMResponse, MinimalAgentLoop, StepOutcome, ToolCall,
-    ToolHandler,
-};
-
-pub mod natural_language_builder;
-pub use natural_language_builder::{
-    AgentDescription, AgentRegistry, BuilderError, BuilderLLMClient, GeneratedAgent,
-    GenerationResult, NLToolDefinition, NaturalLanguageBuilder, SimpleNaturalLanguageBuilder,
-    Workflow, WorkflowStep,
-};
-
-pub mod self_improving_agent;
-pub use self_improving_agent::{
-    AutonomousConfig, ContinualHarness, ContinualHarnessManager, Goal, GoalManager, GoalStatus,
-    Heartbeat, HeartbeatManager, QualityContext, QualityGate, QualityGateEvaluator,
-    QualityGateResult, QualityGateType, Refinement, RefinementType,
-};
-
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
-
-/// Pure transition validator for the durable Run state machine.
-pub fn validate_transition(from: RunState, to: RunState) -> Result<(), ContractError> {
-    let allowed = matches!(
-        (from, to),
-        (RunState::Created, RunState::Admitted)
-            | (RunState::Admitted, RunState::Waiting)
-            | (RunState::Admitted, RunState::Running)
-            | (RunState::Waiting, RunState::Running)
-            | (RunState::Running, RunState::Waiting)
-            | (RunState::Running, RunState::Cancelling)
-            | (RunState::Cancelling, RunState::Cancelled)
-            | (RunState::Running, RunState::Completed)
-            | (RunState::Running, RunState::Failed)
-            | (RunState::Waiting, RunState::Cancelled)
-            | (RunState::Waiting, RunState::Failed)
-    );
-    allowed
-        .then_some(())
-        .ok_or(ContractError::IncompatibleVersion)
-}
-
-/// Kernel identity container used during bootstrap.
-#[derive(Clone, Debug)]
-pub struct KernelIdentity {
-    /// Stable run identity.
-    pub run_id: RunId,
-    /// Current lifecycle state.
-    pub state: RunState,
-}
-
-/// Durable run state with versioning for optimistic concurrency.
-#[derive(Clone, Debug)]
-pub struct DurableRun {
-    /// Run identifier.
-    pub run_id: RunId,
-    /// Current lifecycle state.
-    pub state: RunState,
-    /// Optimistic version for concurrency control.
-    pub version: u64,
-    /// Monotonic fencing token for ownership.
-    pub fencing_token: u64,
-    /// Current lease holder if any.
-    pub lease: Option<LeaseRecord>,
-    /// Cancellation token.
-    pub cancellation: CancellationToken,
-}
-
-impl DurableRun {
-    /// Create a new durable run.
-    pub fn new(run_id: RunId) -> Self {
-        Self {
-            run_id,
-            state: RunState::Created,
-            version: 0,
-            fencing_token: 0,
-            lease: None,
-            cancellation: CancellationToken::new(),
-        }
-    }
-
-    /// Attempt a state transition with version check.
-    pub fn transition(&mut self, to: RunState, expected_version: u64) -> Result<(), ContractError> {
-        if self.version != expected_version {
-            return Err(ContractError::IncompatibleVersion);
-        }
-        validate_transition(self.state, to)?;
-        self.state = to;
-        self.version += 1;
-        self.fencing_token += 1;
-        Ok(())
-    }
-
-    /// Acquire a lease for this run.
-    pub fn acquire_lease(
-        &mut self,
-        owner_id: String,
-        expires_at: u64,
-    ) -> Result<(), ContractError> {
-        self.fencing_token += 1;
-        self.lease = Some(LeaseRecord {
-            resource_id: self.run_id.as_str().to_string(),
-            owner_id,
-            fencing_token: self.fencing_token,
-            expires_at,
-        });
-        Ok(())
-    }
-
-    /// Check if the current lease is valid.
-    pub fn lease_valid(&self, owner_id: &str, current_time: u64) -> bool {
-        match &self.lease {
-            Some(lease) => {
-                lease.owner_id == owner_id
-                    && lease.expires_at > current_time
-                    && lease.fencing_token == self.fencing_token
-            }
-            None => false,
-        }
-    }
-
-    /// Request cancellation of this run.
-    pub fn request_cancellation(&mut self) -> Result<(), ContractError> {
-        validate_transition(self.state, RunState::Cancelling)?;
-        self.state = RunState::Cancelling;
-        self.cancellation.cancel();
-        self.version += 1;
-        Ok(())
-    }
-}
-
-/// In-memory event store implementation for testing and development.
-#[derive(Debug)]
-pub struct InMemoryEventStore {
-    events: Arc<RwLock<HashMap<String, Vec<SerializedEvent>>>>,
-}
-
-impl InMemoryEventStore {
-    /// Create a new in-memory event store.
-    pub fn new() -> Self {
-        Self {
-            events: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-}
-
-impl Default for InMemoryEventStore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait::async_trait]
 impl EventStore for InMemoryEventStore {
     async fn append(
         &self,
@@ -484,6 +254,13 @@ impl EventStore for InMemoryEventStore {
             .skip(after_version as usize)
             .cloned()
             .collect())
+    }
+    
+    async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
+        let store = self.events.read().await;
+        let mut stream_ids = store.keys().cloned().collect::<Vec<_>>();
+        stream_ids.sort();
+        Ok(stream_ids)
     }
 }
 
@@ -1151,7 +928,7 @@ impl EventStore for SqliteEventStore {
             })
             .collect())
     }
-
+    
     async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
         let rows = sqlx::query_scalar::<_, String>(
             "SELECT DISTINCT stream_id FROM events WHERE stream_id LIKE 'run:%' ORDER BY stream_id ASC",

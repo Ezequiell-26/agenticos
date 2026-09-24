@@ -4,7 +4,8 @@
 //! typed tool registry boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    AgentTool, ContractError, PolicyDecision, PolicyEngine, ToolEntry, ToolRequest, ToolResponse,
+    AgentTool, CapabilityType, ContractError, PolicyDecision, PolicyEngine, ToolEntry, ToolRequest,
+    ToolResponse,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -63,12 +64,27 @@ impl Default for ToolRegistry {
 #[derive(Debug)]
 pub struct BasicPolicyEngine {
     registry: Arc<ToolRegistry>,
+    capabilities: Option<Arc<agenticos_security::CapabilityManager>>,
 }
 
 impl BasicPolicyEngine {
     /// Create a new basic policy engine.
     pub fn new(registry: Arc<ToolRegistry>) -> Self {
-        Self { registry }
+        Self {
+            registry,
+            capabilities: None,
+        }
+    }
+
+    /// Create a policy engine backed by the central capability manager.
+    pub fn with_capabilities(
+        registry: Arc<ToolRegistry>,
+        capabilities: Arc<agenticos_security::CapabilityManager>,
+    ) -> Self {
+        Self {
+            registry,
+            capabilities: Some(capabilities),
+        }
     }
 
     /// Create with a tool registry.
@@ -86,29 +102,68 @@ impl PolicyEngine for BasicPolicyEngine {
             return Ok(PolicyDecision::Denied("Tool not found".to_string()));
         }
 
-        // Check if tool has required permissions
+        // Check required permissions against an issued, scoped, time-valid grant.
         if let Some(tool) = self.registry.get(&request.tool_id).await {
-            if !tool.required_permissions.is_empty() {
-                // In a real implementation, we would check the grant_id against required permissions
-                // For now, we'll approve if the grant is provided
+            for permission in &tool.required_permissions {
                 if request.grant_id.is_empty() {
                     return Ok(PolicyDecision::Denied(
                         "Required permissions not granted".to_string(),
                     ));
                 }
+                let Some(capabilities) = &self.capabilities else {
+                    return Ok(PolicyDecision::RequiresApproval(
+                        "A central capability manager is required for protected tools".to_string(),
+                    ));
+                };
+                let capability_type = capability_type_for_permission(permission);
+                let allowed = capabilities
+                    .authorize(
+                        &request.grant_id,
+                        capability_type,
+                        &format!("tool/{}", request.tool_id),
+                        permission,
+                    )
+                    .await?;
+                if !allowed {
+                    return Ok(PolicyDecision::Denied(format!(
+                        "Capability grant does not authorize permission '{}'",
+                        permission
+                    )));
+                }
             }
         }
 
         Ok(PolicyDecision::Approved)
+
+fn capability_type_for_permission(permission: &str) -> CapabilityType {
+    let normalized = permission.to_ascii_lowercase();
+    if normalized.starts_with("admin.") { CapabilityType::Admin }
+    else if normalized.starts_with("write.") { CapabilityType::Write }
+    else if normalized.starts_with("read.") { CapabilityType::Read }
+    else { CapabilityType::Execute }
+}
+
     }
 
     async fn check_capability(
         &self,
-        _grant_id: &str,
+        grant_id: &str,
         capability: &str,
     ) -> Result<bool, ContractError> {
-        // Simple implementation - in production this would check actual capability grants
-        Ok(!capability.is_empty())
+        if grant_id.trim().is_empty() || capability.trim().is_empty() {
+            return Ok(false);
+        }
+        let Some(capabilities) = &self.capabilities else {
+            return Ok(false);
+        }
+        capabilities
+            .authorize(
+                grant_id,
+                capability_type_for_permission(capability),
+                &format!("tool/{}", capability),
+                capability,
+            )
+            .await
     }
 }
 
@@ -210,6 +265,56 @@ mod tests {
             let decision = engine.evaluate(&request).await.unwrap();
             assert!(matches!(decision, PolicyDecision::Approved));
         });
+    }
+
+    #[tokio::test]
+    async fn protected_policy_requires_matching_capability() {
+        let registry = Arc::new(ToolRegistry::new());
+        registry
+            .register(ToolEntry {
+                tool_id: "protected-tool".to_string(),
+                name: "Protected".to_string(),
+                description: "Protected tool".to_string(),
+                capabilities: vec!["execute".to_string()],
+                required_permissions: vec!["execute.run".to_string()],
+                context_requirements: vec![],
+            })
+            .await
+            .unwrap();
+
+        let capabilities = Arc::new(agenticos_security::CapabilityManager::new());
+        let engine = BasicPolicyEngine::with_capabilities(registry, capabilities.clone());
+        let request = ToolRequest {
+            request_id: "req-protected".to_string(),
+            tool_id: "protected-tool".to_string(),
+            parameters: "{}".to_string(),
+            agent_id: "agent-1".to_string(),
+            grant_id: "missing".to_string(),
+        };
+        assert!(matches!(
+            engine.evaluate(&request).await.unwrap(),
+            PolicyDecision::Denied(_)
+        ));
+
+        use agenticos_contracts::CapabilityIssuer;
+        capabilities
+            .issue(agenticos_contracts::CapabilityGrant {
+                capability_type: CapabilityType::Execute,
+                resource: "tool/protected-tool".to_string(),
+                permission: "execute.run".to_string(),
+                expires_at: 0,
+                grant_id: "grant-protected".to_string(),
+            })
+            .await
+            .unwrap();
+        let request = ToolRequest {
+            grant_id: "grant-protected".to_string(),
+            ..request
+        };
+        assert!(matches!(
+            engine.evaluate(&request).await.unwrap(),
+            PolicyDecision::Approved
+        ));
     }
 
     #[test]

@@ -1472,3 +1472,11 @@ Verification status:
 - Added the AgentiCOS serif wordmark empty state with a hint line for new sessions, matching the reference.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite (29 tests) pass; full overlay sweep (palette, layouts, customize, context menu, model picker) verified in the browser preview.
+
+## 2026-09-25 — Frontend technical cleanup: unused Tailwind integration removed
+
+- Technical audit of the frontend stack: 115 TSX components, 12 TS modules and 35 CSS files — zero `.js`/`.jsx` sources, zero `any` typings, zero debug `console.log` calls (only two `console.error` in error boundaries), strict TypeScript (`strict`, `noUnusedLocals`, `noUnusedParameters`) and no duplicated helpers.
+- Removed the inert Tailwind CSS integration: `tailwindcss` and `@tailwindcss/postcss` were configured in PostCSS but no CSS file imports Tailwind, no `@tailwind`/`@apply`/`@theme` directives exist and no TSX uses utility classes, so both packages and the PostCSS plugin entry were dead build weight. `autoprefixer` + `postcss` remain as the active CSS pipeline.
+- Visual output is byte-identical: the production bundle hash (`index-D_OjoF9l.js`) is unchanged before and after the removal.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite pass after the cleanup; `dist/index.html` is generated for the Tauri `frontendDist` and the browser preview is visually identical.

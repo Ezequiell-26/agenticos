@@ -2231,7 +2231,11 @@ fn openai_responses_input_content(
                 "type": "input_text",
                 "text": text,
             }),
-            NormalizedInputPart::Image { mime_type, data, detail } => serde_json::json!({
+            NormalizedInputPart::Image {
+                mime_type,
+                data,
+                detail,
+            } => serde_json::json!({
                 "type": "input_image",
                 "image_url": format!("data:{mime_type};base64,{data}"),
                 "detail": detail.unwrap_or_else(|| "auto".to_string()),
@@ -2295,7 +2299,9 @@ fn gemini_message_parts(
             NormalizedInputPart::Text { text } => serde_json::json!({
                 "text": text,
             }),
-            NormalizedInputPart::Image { mime_type, data, .. } => serde_json::json!({
+            NormalizedInputPart::Image {
+                mime_type, data, ..
+            } => serde_json::json!({
                 "inline_data": {
                     "mime_type": mime_type,
                     "data": data,

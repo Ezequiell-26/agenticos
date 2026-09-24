@@ -30,8 +30,8 @@ use agenticos_contracts::{
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
-    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
-    Skill, SqliteSnapshotStore,
+    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, Skill, SqliteEventStore,
+    SqliteMemory, SqliteSnapshotStore,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
@@ -465,9 +465,10 @@ impl AgentTool for TerminalTool {
                 .map_err(|error| ContractError::ParseError(error.to_string()))?
             }
             "terminal.write" => {
-                let args = serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
+                    })?;
                 self.terminal
                     .write_input(&args.terminal_id, &args.input)
                     .await
@@ -478,9 +479,10 @@ impl AgentTool for TerminalTool {
                 })
             }
             "terminal.read" => {
-                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
+                    })?;
                 serde_json::json!({
                     "terminal_id": args.terminal_id,
                     "events": self
@@ -491,9 +493,10 @@ impl AgentTool for TerminalTool {
                 })
             }
             "terminal.close" => {
-                let args = serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
+                    })?;
                 serde_json::json!({
                     "terminal_id": args.terminal_id,
                     "closed": self.terminal.close(&args.terminal_id).await.map_err(ContractError::ParseError)?,

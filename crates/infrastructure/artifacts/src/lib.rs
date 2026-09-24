@@ -76,7 +76,10 @@ impl ArtifactStore {
         tokio::fs::create_dir_all(&root)
             .await
             .map_err(|error| format!("artifact root initialization failed: {error}"))?;
-        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
             .await
             .map_err(|error| format!("artifact database connection failed: {error}"))?;
         sqlx::query(
@@ -284,7 +287,11 @@ impl ArtifactStore {
     ///
     /// The limit is bounded by the caller so a large artifact store cannot
     /// materialize an unbounded metadata response in memory.
-    pub async fn list(&self, run_id: Option<&str>, limit: usize) -> Result<Vec<ArtifactRecord>, String> {
+    pub async fn list(
+        &self,
+        run_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ArtifactRecord>, String> {
         let limit = limit.clamp(1, 500) as i64;
         let rows = if let Some(run_id) = run_id.filter(|value| !value.trim().is_empty()) {
             sqlx::query_as::<_, (String,)>(

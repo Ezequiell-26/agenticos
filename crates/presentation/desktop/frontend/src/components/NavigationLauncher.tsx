@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
 import { navigationItems, type RailMode } from '../navigation'
 import { navigationSections, getNavigationSection } from '../navigation-taxonomy'
@@ -13,12 +13,17 @@ const sectionOrder = navigationSections.map((section) => section.id)
 
 export default function NavigationLauncher({ active, onChange, onClose }: NavigationLauncherProps) {
   const [query, setQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return normalized
       ? navigationItems.filter((item) => (item.label + ' ' + item.detail).toLowerCase().includes(normalized))
       : navigationItems
   }, [query])
+
+  useEffect(() => { setSelectedIndex(0); itemRefs.current = [] }, [query])
+  useEffect(() => { itemRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' }) }, [selectedIndex])
 
   return (
     <div className="navigation-launcher" role="dialog" aria-label="All AgentiCOS features">
@@ -28,7 +33,29 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
       </div>
       <div className="navigation-launcher__search">
         <Icon name="search" size={14} />
-        <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search features…" aria-label="Search features" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              onClose()
+            } else if (event.key === 'ArrowDown' && filtered.length > 0) {
+              event.preventDefault()
+              setSelectedIndex((index) => (index + 1) % filtered.length)
+            } else if (event.key === 'ArrowUp' && filtered.length > 0) {
+              event.preventDefault()
+              setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
+            } else if (event.key === 'Enter' && filtered[selectedIndex]) {
+              event.preventDefault()
+              onChange(filtered[selectedIndex].id)
+            }
+          }}
+          placeholder="Search features…"
+          aria-label="Search features"
+          aria-activedescendant={filtered[selectedIndex] ? 'feature-' + filtered[selectedIndex].id : undefined}
+        />
       </div>
       <div className="navigation-launcher__body">
         {sectionOrder.map((sectionId) => {
@@ -39,7 +66,10 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
             <section key={sectionId} className="navigation-launcher__group">
               <div className="navigation-launcher__group-title"><strong>{meta.label}</strong><small>{meta.detail}</small></div>
               {items.map((item) => (
-                <button key={item.id} type="button" className={active === item.id ? 'navigation-launcher__item navigation-launcher__item--active' : 'navigation-launcher__item'} onClick={() => onChange(item.id)}>
+                <button id={'feature-' + item.id} key={item.id} type="button" className={(active === item.id ? 'navigation-launcher__item navigation-launcher__item--active' : 'navigation-launcher__item') + (filtered[selectedIndex]?.id === item.id ? ' navigation-launcher__item--keyboard-active' : '')} onClick={() => onChange(item.id)} ref={(element) => {
+                  const index = filtered.findIndex((candidate) => candidate.id === item.id)
+                  if (index >= 0) itemRefs.current[index] = element
+                }}>
                   <span className="navigation-launcher__item-icon"><Icon name={item.icon} size={14} /></span>
                   <span><strong>{item.label}</strong><small>{item.detail}</small></span>
                   {active === item.id && <span className="status-dot status-dot--live" />}

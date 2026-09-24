@@ -63,7 +63,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
       // Keep the local workflow draft while runtime is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
     return () => { cancelled = true }
-  }, [onAction])
+  }, [])
 
   const selected = steps.find((step) => step.id === selectedId) ?? steps[0]
 

@@ -388,10 +388,7 @@ impl ModelProvider for HttpModelProvider {
             Ok(resp) => {
                 let status = resp.status();
                 let body = resp.text().await.map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "Provider response read failed: {}",
-                        error
-                    ))
+                    ContractError::ParseError(format!("Provider response read failed: {}", error))
                 })?;
 
                 if !status.is_success() {

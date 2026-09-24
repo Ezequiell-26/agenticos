@@ -33,15 +33,18 @@ impl RuntimeState {
             .unwrap_or_else(|_| DEFAULT_PROVIDER_URL.to_string());
         let provider_name = std::env::var("AGENTICOS_PROVIDER_NAME")
             .unwrap_or_else(|_| "openai-compatible".to_string());
-        let model = std::env::var("AGENTICOS_MODEL")
-            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+        let model =
+            std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
         let api_key = std::env::var("AGENTICOS_API_KEY")
             .ok()
             .filter(|value| !value.trim().is_empty());
 
         let provider = api_key.map(|key| {
-            Arc::new(OpenAiCompatibleProvider::new(provider_url, provider_name.clone(), key))
-                as Arc<dyn ModelProvider>
+            Arc::new(OpenAiCompatibleProvider::new(
+                provider_url,
+                provider_name.clone(),
+                key,
+            )) as Arc<dyn ModelProvider>
         });
 
         Ok(Self {
@@ -67,7 +70,10 @@ impl RuntimeState {
         }
 
         let mut sessions = self.sessions.write().await;
-        sessions.entry(session_id.to_string()).or_insert_with(|| agent.clone()).clone()
+        sessions
+            .entry(session_id.to_string())
+            .or_insert_with(|| agent.clone())
+            .clone()
     }
 
     fn configured(&self) -> bool {
@@ -76,7 +82,10 @@ impl RuntimeState {
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatRequest { message: String, session_id: Option<String> }
+struct ChatRequest {
+    message: String,
+    session_id: Option<String>,
+}
 
 #[derive(Debug, Serialize)]
 struct ChatResponse {
@@ -97,7 +106,10 @@ struct StatusResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct ErrorResponse { error: String, code: &'static str }
+struct ErrorResponse {
+    error: String,
+    code: &'static str,
+}
 
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
@@ -112,7 +124,11 @@ async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
 async fn agent_status(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(StatusResponse {
         agent_name: "AgentiCOS".to_string(),
-        state: if state.configured() { "ready" } else { "configuration_required" },
+        state: if state.configured() {
+            "ready"
+        } else {
+            "configuration_required"
+        },
         provider: state.provider_name.clone(),
         model: state.model.clone(),
         configured: state.configured(),
@@ -137,7 +153,9 @@ async fn agent_chat(
         });
     }
 
-    let session_id = request.session_id.clone()
+    let session_id = request
+        .session_id
+        .clone()
         .filter(|id| !id.trim().is_empty())
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let agent = state.session_agent(&session_id).await;
@@ -174,7 +192,10 @@ async fn conversation_history(
 }
 
 #[derive(Debug, Deserialize)]
-struct SearchQuery { q: String, limit: Option<usize> }
+struct SearchQuery {
+    q: String,
+    limit: Option<usize>,
+}
 
 async fn conversation_search(
     query: web::Query<SearchQuery>,
@@ -203,7 +224,10 @@ async fn conversation_search(
 
 async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
     let tools = state.tools.read().await.get_all_tools();
-    HttpResponse::Ok().json(serde_json::json!({ "tools": tools, "count": tools.len() }))
+    HttpResponse::Ok().json(serde_json::json!({
+        "tools": tools,
+        "count": tools.len()
+    }))
 }
 
 async fn get_tool(
@@ -222,9 +246,12 @@ async fn get_tool(
 }
 
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
-    let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = std::env::var("AGENTICOS_BIND_PORT").ok()
-        .and_then(|value| value.parse::<u16>().ok()).unwrap_or(8080);
+    let host =
+        std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = std::env::var("AGENTICOS_BIND_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(8080);
     let data = web::Data::new(state);
 
     HttpServer::new(move || {
@@ -234,8 +261,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
-            .route("/api/conversations/{session_id}/history", web::get().to(conversation_history))
-            .route("/api/conversations/search", web::get().to(conversation_search))
+            .route(
+                "/api/conversations/{session_id}/history",
+                web::get().to(conversation_history),
+            )
+            .route(
+                "/api/conversations/search",
+                web::get().to(conversation_search),
+            )
             .route("/api/tools", web::get().to(list_tools))
             .route("/api/tools/{tool_name}", web::get().to(get_tool))
     })
@@ -252,28 +285,46 @@ struct OpenAiCompatibleProvider {
 
 impl OpenAiCompatibleProvider {
     fn new(base_url: String, provider_id: String, api_key: String) -> Self {
-        Self { base_url, provider_id, api_key }
+        Self {
+            base_url,
+            provider_id,
+            api_key,
+        }
     }
 }
 
 #[derive(Debug, Serialize)]
-struct OpenAiMessage<'a> { role: &'a str, content: &'a str }
+struct OpenAiMessage<'a> {
+    role: &'a str,
+    content: &'a str,
+}
 
 #[derive(Debug, Deserialize)]
-struct OpenAiResponse { choices: Vec<OpenAiChoice>, usage: Option<OpenAiUsage> }
+struct OpenAiResponse {
+    choices: Vec<OpenAiChoice>,
+    usage: Option<OpenAiUsage>,
+}
 
 #[derive(Debug, Deserialize)]
-struct OpenAiChoice { message: OpenAiMessageOwned }
+struct OpenAiChoice {
+    message: OpenAiMessageOwned,
+}
 
 #[derive(Debug, Deserialize)]
-struct OpenAiMessageOwned { content: Option<String> }
+struct OpenAiMessageOwned {
+    content: Option<String>,
+}
 
 #[derive(Debug, Deserialize)]
-struct OpenAiUsage { total_tokens: Option<u64> }
+struct OpenAiUsage {
+    total_tokens: Option<u64>,
+}
 
 #[async_trait]
 impl ModelProvider for OpenAiCompatibleProvider {
-    fn provider_id(&self) -> &str { &self.provider_id }
+    fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         let model = if request.model == "default" {
@@ -293,21 +344,31 @@ impl ModelProvider for OpenAiCompatibleProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|error| ContractError::ParseError(format!("Provider request failed: {error}")))?;
+            .map_err(|error| {
+                ContractError::ParseError(format!("Provider request failed: {error}"))
+            })?;
 
         let status = response.status();
-        let text = response.text().await
-            .map_err(|error| ContractError::ParseError(format!("Provider response read failed: {error}")))?;
+        let text = response.text().await.map_err(|error| {
+            ContractError::ParseError(format!("Provider response read failed: {error}"))
+        })?;
         if !status.is_success() {
-            return Err(ContractError::ParseError(format!("Provider returned HTTP {status}: {text}")));
+            return Err(ContractError::ParseError(format!(
+                "Provider returned HTTP {status}: {text}"
+            )));
         }
 
-        let parsed: OpenAiResponse = serde_json::from_str(&text)
-            .map_err(|error| ContractError::ParseError(format!("Invalid OpenAI-compatible response: {error}")))?;
-        let output = parsed.choices.first()
+        let parsed: OpenAiResponse = serde_json::from_str(&text).map_err(|error| {
+            ContractError::ParseError(format!("Invalid OpenAI-compatible response: {error}"))
+        })?;
+        let output = parsed
+            .choices
+            .first()
             .and_then(|choice| choice.message.content.clone())
             .filter(|content| !content.trim().is_empty())
-            .ok_or_else(|| ContractError::ParseError("Provider returned no message content".to_string()))?;
+            .ok_or_else(|| {
+                ContractError::ParseError("Provider returned no message content".to_string())
+            })?;
 
         Ok(ModelResponse {
             request_id: request.request_id,

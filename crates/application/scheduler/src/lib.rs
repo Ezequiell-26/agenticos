@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -245,10 +245,49 @@ impl JobScheduler {
         Ok(())
     }
 
+    fn dependency_cycle_exists(
+        jobs: &HashMap<String, JobRecord>,
+        candidate: &JobSpec,
+    ) -> bool {
+        let mut stack = candidate.dependencies.clone();
+        let mut visited = HashSet::new();
+
+        while let Some(job_id) = stack.pop() {
+            if job_id == candidate.job_id {
+                return true;
+            }
+            if !visited.insert(job_id.clone()) {
+                continue;
+            }
+            if let Some(job) = jobs.get(&job_id) {
+                stack.extend(job.spec.dependencies.iter().cloned());
+            }
+        }
+
+        false
+    }
+
     /// Add a job if the identifier is unique.
     pub async fn enqueue(&self, spec: JobSpec) -> Result<(), String> {
         if spec.job_id.trim().is_empty() || spec.run_id.trim().is_empty() {
             return Err("job_id and run_id are required".to_string());
+        }
+        if spec.job_id.len() > 128 || spec.run_id.len() > 256 {
+            return Err("job_id or run_id exceeds supported limits".to_string());
+        }
+        if spec.task.trim().is_empty() {
+            return Err("job task must not be empty".to_string());
+        }
+        if spec.task.len() > 100_000 {
+            return Err("job task exceeds supported limits".to_string());
+        }
+        if spec.dependencies.len() > 128 {
+            return Err("job dependency count exceeds supported limits".to_string());
+        }
+        if spec.dependencies.iter().any(|dependency| {
+            dependency.trim().is_empty() || dependency.len() > 128
+        }) {
+            return Err("job dependency identifier is invalid".to_string());
         }
         if spec
             .dependencies
@@ -257,18 +296,15 @@ impl JobScheduler {
         {
             return Err("job cannot depend on itself".to_string());
         }
-        if spec
-            .dependencies
-            .iter()
-            .collect::<std::collections::HashSet<_>>()
-            .len()
-            != spec.dependencies.len()
-        {
+        if spec.dependencies.iter().collect::<HashSet<_>>().len() != spec.dependencies.len() {
             return Err("job dependencies must be unique".to_string());
         }
         let mut jobs = self.jobs.write().await;
         if jobs.contains_key(&spec.job_id) {
             return Err(format!("job '{}' already exists", spec.job_id));
+        }
+        if Self::dependency_cycle_exists(&jobs, &spec) {
+            return Err("job dependencies would introduce a cycle".to_string());
         }
         let state = if spec.dependencies.is_empty() {
             JobState::Ready
@@ -655,6 +691,37 @@ impl Default for JobScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn scheduler_rejects_dependency_cycles() {
+        let scheduler = JobScheduler::new();
+
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "cycle-a".into(),
+                run_id: "run".into(),
+                task: "a".into(),
+                dependencies: vec!["cycle-b".into()],
+                priority: 1,
+                max_attempts: 1,
+            })
+            .await
+            .unwrap();
+
+        let error = scheduler
+            .enqueue(JobSpec {
+                job_id: "cycle-b".into(),
+                run_id: "run".into(),
+                task: "b".into(),
+                dependencies: vec!["cycle-a".into()],
+                priority: 1,
+                max_attempts: 1,
+            })
+            .await
+            .expect_err("cycle should be rejected");
+
+        assert!(error.contains("cycle"));
+    }
 
     #[tokio::test]
     async fn sqlite_scheduler_recovers_jobs_after_restart() {

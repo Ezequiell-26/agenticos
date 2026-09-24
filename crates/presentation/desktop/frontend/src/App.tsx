@@ -11,7 +11,7 @@ import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
 import WorkspaceCommandStrip from './components/WorkspaceCommandStrip'
-import { navigationItems } from './navigation'
+import { navigationItems, primaryRailIds } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from './services/ui-preferences'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
@@ -80,6 +80,7 @@ function App() {
   const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
   const [focusMode, setFocusMode] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -143,6 +144,25 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
         event.preventDefault()
         setAgentPanelOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && /^[1-9]$/.test(event.key)) {
+        const primaryItems = navigationItems.filter((item) => primaryRailIds.has(item.id))
+        const target = primaryItems[Number(event.key) - 1]
+        if (target) {
+          event.preventDefault()
+          setMode(target.id)
+          setPaletteOpen(false)
+          setGlobalSearchOpen(false)
+        }
+        return
+      }
+      if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target as HTMLElement | null
+        if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return
+        event.preventDefault()
+        setShortcutsOpen((open) => !open)
+        return
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -313,6 +333,7 @@ function App() {
         onSelectMode={(nextMode) => { setMode(nextMode); setPaletteOpen(false) }}
         open={paletteOpen}
       />
+      <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   )
 }

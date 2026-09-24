@@ -301,6 +301,7 @@ impl QuotaTracker {
         state.quota.current_usage = state.quota.current_usage.saturating_add(1);
         Ok(())
     }
+}
 
 impl Default for QuotaTracker {
     fn default() -> Self {
@@ -734,6 +735,54 @@ mod tests {
             server.await.unwrap();
         });
     }
+    #[tokio::test]
+    async fn quota_window_enforces_request_limit() {
+        let tracker = Arc::new(QuotaTracker::new());
+        tracker
+            .set_quota(QuotaInfo {
+                provider_id: "limited".to_string(),
+                requests_per_minute: Some(2),
+                tokens_per_minute: None,
+                current_usage: 0,
+            })
+            .await
+            .unwrap();
+
+        tracker.consume_request("limited").await.unwrap();
+        tracker.consume_request("limited").await.unwrap();
+        let error = tracker
+            .consume_request("limited")
+            .await
+            .expect_err("third request should exceed the configured limit");
+
+        assert!(error.to_string().contains("quota exceeded"));
+        assert_eq!(
+            tracker.get("limited").await.unwrap().current_usage,
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn quota_window_resets_after_persisted_window_expires() {
+        let tracker = QuotaTracker::new();
+        tracker
+            .restore_quota(
+                QuotaInfo {
+                    provider_id: "resettable".to_string(),
+                    requests_per_minute: Some(10),
+                    tokens_per_minute: None,
+                    current_usage: 9,
+                },
+                unix_time().saturating_sub(61),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(tracker.get("resettable").await.unwrap().current_usage, 0);
+        tracker.consume_request("resettable").await.unwrap();
+        assert_eq!(tracker.get("resettable").await.unwrap().current_usage, 1);
+    }
+
     #[test]
     fn test_health_checker() {
         let rt = test_runtime();

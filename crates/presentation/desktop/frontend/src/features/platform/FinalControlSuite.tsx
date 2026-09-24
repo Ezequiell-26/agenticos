@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { Panel, Metric, MetricCard, Tag } from './PlatformPrimitives'
 import { runtime } from '../../services/runtime'

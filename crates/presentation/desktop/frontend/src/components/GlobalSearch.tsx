@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import type { ConversationSummary } from '../types/runtime'
 import { navigationItems, type RailMode } from '../navigation'
 import Icon, { type IconName } from './Icon'
@@ -44,6 +45,7 @@ export default function GlobalSearch({
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const dialogRef = useRef<HTMLElement>(null)
 
   const items = useMemo<SearchItem[]>(() => [
     ...navigationItems.map((item) => ({ id: `nav-${item.id}`, label: item.label, detail: item.detail, group: item.group, icon: item.icon, mode: item.id })),
@@ -65,6 +67,8 @@ export default function GlobalSearch({
       .filter((item) => `${item.label} ${item.detail} ${item.group}`.toLowerCase().includes(term))
       .slice(0, 30)
   }, [items, query])
+
+  useFocusTrap(open, dialogRef, inputRef)
 
   useEffect(() => {
     if (!open) return
@@ -103,7 +107,7 @@ export default function GlobalSearch({
 
   return (
     <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={dialogRef} className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
         <div className="global-search__head">
           <Icon name="search" size={17} />
           <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anything in AgentiCOS…" aria-label="Search anything in AgentiCOS" />

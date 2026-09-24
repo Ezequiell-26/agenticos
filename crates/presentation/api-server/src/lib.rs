@@ -231,6 +231,14 @@ impl RuntimeState {
         agent.set_memory(self.memory.clone());
         agent.set_model_provider(self.provider.clone());
 
+        if let Ok(history) = self.memory.get_session_history(session_id, 256).await {
+            let completed_turns = history
+                .iter()
+                .filter(|message| message.role == "user")
+                .count();
+            agent.restore_turn_count(completed_turns);
+        }
+
         let mut sessions = self.sessions.write().await;
         sessions
             .entry(agent_key)

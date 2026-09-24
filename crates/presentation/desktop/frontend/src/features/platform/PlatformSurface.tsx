@@ -56,6 +56,15 @@ const TaskExecutionCenter = lazy(() => import('./TaskExecutionCenter').then((mod
 const AgentMissionControl = lazy(() => import('./AgentMissionControl').then((module) => ({ default: module.AgentMissionControl })))
 const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => ({ default: module.KnowledgeStudio })))
 const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
+const FeatureWorkbench = lazy(() => import('./FeatureWorkbench'))
+const AgentStudio = lazy(() => import('../agents/AgentStudio'))
+const ArtifactViewer = lazy(() => import('../artifacts/ArtifactViewer'))
+const ProviderStudio = lazy(() => import('../providers/ProviderStudio'))
+const RunTimeline = lazy(() => import('../runs/RunTimeline'))
+const SkillsStudio = lazy(() => import('../skills/SkillsStudio'))
+const ToolsStudio = lazy(() => import('../tools/ToolsStudio'))
+const WorkflowBuilder = lazy(() => import('../workflows/WorkflowBuilder'))
+const SettingsControlCenter = lazy(() => import('../settings/SettingsControlCenter'))
 import './FinalControlSuite.css'
 import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
@@ -102,6 +111,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [notificationsRead, setNotificationsRead] = useState(() => new Set(notifications.filter((item) => item[4]).map((item) => item[0])))
   const [wakeEnabled, setWakeEnabled] = useState(true)
   const [selectedTask, setSelectedTask] = useState(tasks[0][0])
+  const [artifactSelected, setArtifactSelected] = useState('agenticos-command-center.png')
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -127,7 +137,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     )
   }
 
-  if (mode === 'skills' || mode === 'providers' || mode === 'plugins' || mode === 'onboarding') {
+  if (mode === 'plugins' || mode === 'onboarding') {
     return (
       <Shell>
         <FrontendCompletenessStudio mode={mode} onAction={notify} />
@@ -135,6 +145,166 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
       </Shell>
     )
   }
+
+  const genericModes = new Set<PlatformMode>([
+    'terminal', 'evaluations', 'versions', 'audit', 'notifications', 'sessions', 'logs', 'analytics',
+    'batch', 'learning', 'playground', 'routing', 'token-observatory', 'toolsets', 'execution',
+    'webhooks', 'imports', 'media', 'wake',
+  ])
+
+  if (mode === 'overview') return (
+    <Shell>
+      <WorkspaceOverview onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'runs') return (
+    <Shell>
+      <RunTimeline onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'agents') return (
+    <Shell>
+      <AgentStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'artifacts') return (
+    <Shell>
+      <ArtifactViewer selected={artifactSelected} onSelect={setArtifactSelected} onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'providers') return (
+    <Shell>
+      <ProviderStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'skills') return (
+    <Shell>
+      <SkillsStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'settings') return (
+    <Shell>
+      <SettingsControlCenter notify={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'permissions') return (
+    <Shell>
+      <PermissionsMatrix onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'canvas') return (
+    <Shell>
+      <CanvasStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'commands') return (
+    <Shell>
+      <CommandStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'subagents') return (
+    <Shell>
+      <SubagentFleet onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'cloud') return (
+    <Shell>
+      <CloudAgentsWorkspace onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'remote-control') return (
+    <Shell>
+      <RemoteControlCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'computer') return (
+    <Shell>
+      <ComputerUseWorkspace onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'operations') return (
+    <Shell>
+      <OperationsCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'kanban') return (
+    <Shell>
+      <KanbanBoard onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'credentials') return (
+    <Shell>
+      <CredentialManager onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'hooks') return (
+    <Shell>
+      <HookManager onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'marketplace') return (
+    <Shell>
+      <MarketplaceStudio onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'security') return (
+    <Shell>
+      <SecurityCenter onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'homeassistant' || mode === 'social') return (
+    <Shell>
+      <IntegrationCatalogSurface mode={mode} onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (genericModes.has(mode)) return (
+    <Shell>
+      <FeatureWorkbench mode={mode} onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
 
   function toggle(setter: (value: Set<string>) => void, current: Set<string>, value: string) {
     const next = new Set(current)
@@ -400,10 +570,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   return (
     <Shell>
-      {renderHeader('Security boundary', 'Security Center', 'Human approvals, sandboxing, secret hygiene, network permissions and data controls.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Security policy saved in local preview')}><Icon name="shield" size={14} /> Save policy</button>)}
-      <div className="security-banner"><div><strong>Fail-closed execution</strong><span>Presentation policy only until runtime enforcement is connected.</span></div><span className="state-pill state-pill--completed">Protected</span></div>
-      <div className="security-grid">{securityPolicies.map(([name, detail]) => <div className="security-row" key={name}><div><strong>{name}</strong><span>{detail}</span></div><button className={`switch ${enabledPolicies.has(name) ? 'switch--on' : ''}`} type="button" role="switch" aria-checked={enabledPolicies.has(name)} onClick={() => toggle(setEnabledPolicies, enabledPolicies, name)}><span /></button></div>)}</div>
-      <div className="platform-grid platform-grid--2"><Panel title="Permission tiers"><Metric label="Read operations" value="Auto" /><Metric label="Write operations" value="Confirm" /><Metric label="Network operations" value="Confirm" /><Metric label="Destructive operations" value="Block" /></Panel><Panel title="Data handling"><Metric label="Credentials in UI" value="Never" /><Metric label="Local presentation state" value="Allowed" /><Metric label="Persistent telemetry" value="Off" /><Metric label="Rollback" value="Preferred" /></Panel></div>
+      <FeatureWorkbench mode={mode} onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

@@ -25,7 +25,7 @@ const defaultModels = ['GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']
 const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Minimal', 'Low', 'Medium', 'High', 'Extra high', 'Maximum', 'Ultra']
-const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
+const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first'] as const
 const slashCommands = [
   ['/plan', 'Create a step-by-step plan without editing.'],
   ['/review', 'Review the current workspace for issues.'],
@@ -83,7 +83,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [reasoningOn, setReasoningOn] = useState(true)
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.3')
-  const [responseFormat, setResponseFormat] = useState(responseFormats[0])
+  const [responseFormat, setResponseFormat] = useState<ChatSendOptions['responseFormat']>(responseFormats[0])
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashIndex, setSlashIndex] = useState(0)
   const [showReasoning, setShowReasoning] = useState(true)

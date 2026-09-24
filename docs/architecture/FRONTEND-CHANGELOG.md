@@ -1208,3 +1208,13 @@ Verification status:
 - Fixed the successful continuity verifier output to report `journalEntries.length` after the journal parser was migrated from physical lines to semantic entries.
 - This was the only failure remaining after the strict schema migration validation itself completed successfully.
 - Verification status: awaiting the next CI run; the prior CI run reached this line without a continuity validation error.
+
+## 2026-09-24 — Frontend TypeScript build hardening
+
+- Repaired the concrete TypeScript diagnostics exposed by the frontend production build after continuity validation passed through the journal migration boundary.
+- Restored the missing KeyboardShortcuts import in App.tsx.
+- Fixed the ChatSurface response-copy callback so copyResponse is consumed by message bubbles instead of being referenced out of scope/unused.
+- Removed unused lazy surface imports and the unused evaluationRuns fixture binding from PlatformSurface.tsx.
+- Widened Provider Studio account selection state from a literal provider name to string.
+- Added explicit SettingsScope typing to the imported scope map in settings-engine.ts.
+- Verification status: source fixes applied; awaiting the next GitHub Actions frontend and Rust gates.

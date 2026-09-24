@@ -449,7 +449,7 @@ impl ProviderPlatform {
     }
 
     async fn apply_env(&self) -> Result<(), ContractError> {
-        if let Ok(raw) = std::env::var("AGENTICOS_PROVIDERS_JSON") {
+        let primary_provider = if let Ok(raw) = std::env::var("AGENTICOS_PROVIDERS_JSON") {
             let configured = serde_json::from_str::<Vec<EnvProvider>>(&raw).map_err(|error| {
                 ContractError::ParseError(format!(
                     "AGENTICOS_PROVIDERS_JSON must be a JSON array: {error}"
@@ -460,6 +460,8 @@ impl ProviderPlatform {
                     "AGENTICOS_PROVIDERS_JSON must contain at least one provider".to_string(),
                 ));
             }
+
+            let first_provider_id = configured[0].provider_id.trim().to_string();
             for provider in configured {
                 self.register(
                     ProviderEntry {
@@ -473,27 +475,35 @@ impl ProviderPlatform {
                 )
                 .await?;
             }
-            return Ok(());
-        }
 
-        let provider_id = std::env::var("AGENTICOS_PROVIDER_NAME")
-            .unwrap_or_else(|_| "openai-compatible".to_string());
-        let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
-            .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
-        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
-        let key = std::env::var("AGENTICOS_API_KEY").ok();
+            std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or(first_provider_id)
+        } else {
+            let provider_id = std::env::var("AGENTICOS_PROVIDER_NAME")
+                .unwrap_or_else(|_| "openai-compatible".to_string());
+            let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
+                .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
+            let model =
+                std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+            let key = std::env::var("AGENTICOS_API_KEY").ok();
 
-        self.register(
-            ProviderEntry {
-                provider_id: provider_id.clone(),
-                name: "Environment provider".to_string(),
-                base_url,
-                models: vec![model],
-                capabilities: vec!["chat".to_string()],
-            },
-            key,
-        )
-        .await?;
+            self.register(
+                ProviderEntry {
+                    provider_id: provider_id.clone(),
+                    name: "Environment provider".to_string(),
+                    base_url,
+                    models: vec![model],
+                    capabilities: vec!["chat".to_string()],
+                },
+                key,
+            )
+            .await?;
+
+            provider_id
+        };
 
         if let Ok(raw) = std::env::var("AGENTICOS_FALLBACK_PROVIDERS") {
             let fallback_providers: Vec<String> = raw
@@ -502,12 +512,14 @@ impl ProviderPlatform {
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
                 .collect();
+
             if !fallback_providers.is_empty() {
                 let auto_failover = std::env::var("AGENTICOS_AUTO_FAILOVER")
                     .map(|value| value.eq_ignore_ascii_case("true"))
                     .unwrap_or(true);
+
                 self.set_fallback_config(agenticos_contracts::FallbackConfig {
-                    primary_provider: provider_id,
+                    primary_provider,
                     fallback_providers,
                     auto_failover,
                 })
@@ -517,7 +529,6 @@ impl ProviderPlatform {
 
         Ok(())
     }
-
     /// Register a provider and its optional secret.
     pub async fn register(
         &self,

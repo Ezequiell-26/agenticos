@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "status": "planned",
+  "status": "active",
   "purpose": "Explicit machine-readable register of concrete runtime gaps discovered during architecture audit. These are not production-complete until the authorized integration slice verifies them.",
   "baseline_commit": "bc9b21324b072cc5df068a47d7bf1571399f6304",
-  "next_authorized_step": "runtime-integration-vertical-slice-1",
+  "development_model": "capability-driven-continuous",
   "gaps": [
     {
       "id": "agentengine-model-loop",
@@ -61,7 +61,7 @@
     }
   ],
   "verification_policy": {
-    "close_only_after": "All required checks for runtime-integration-vertical-slice-1 pass and the evidence is recorded in implementation-state and the operation journal.",
+    "close_only_after": "The affected capability's contract, integration, persistence/security requirements and verification evidence are complete.",
     "production_complete_definition": "Feature completion requires user reachability, contract connection, persistence where appropriate, security, observability, failure tolerance, tests and documentation."
   }
 }

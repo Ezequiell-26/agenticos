@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import type { ChatMessage, ConversationSummary } from '../types/runtime'
+import type { ChatMessage, ChatSendOptions, ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import AgentRunDrawer from '../features/chat/AgentRunDrawer'
 import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
@@ -10,7 +10,8 @@ interface ChatSurfaceProps {
   messages: ChatMessage[]
   disabled?: boolean
   running: boolean
-  onSend: (message: string) => Promise<void>
+  onSend: (message: string, options?: ChatSendOptions) => Promise<void>
+  availableModels?: string[]
   onStop: () => void
   onOpenPalette: () => void
   sessions?: ConversationSummary[]
@@ -20,7 +21,7 @@ interface ChatSurfaceProps {
   onToggleBrowserPanel?: () => void
 }
 
-const models = ['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']
+const defaultModels = ['GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']
 const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
 const effortLevels = ['Minimal', 'Low', 'Medium', 'High', 'Extra high', 'Maximum', 'Ultra']
@@ -59,9 +60,10 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   )
 }
 
-export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession, browserPanelVisible = false, onToggleBrowserPanel }: ChatSurfaceProps) {
+export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession, browserPanelVisible = false, onToggleBrowserPanel, availableModels = [] }: ChatSurfaceProps) {
   const [draft, setDraft] = useState('')
-  const [model, setModel] = useState(models[0])
+  const modelOptions = useMemo(() => Array.from(new Set(['Auto route', ...(availableModels.length > 0 ? availableModels : defaultModels)])), [availableModels])
+  const [model, setModel] = useState('Auto route')
   const [agent, setAgent] = useState(agents[0])
   const [agentMode, setAgentMode] = useState<AgentMode>('Agent')
   const [contextScope, setContextScope] = useState(contextScopes[0])
@@ -104,9 +106,13 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
   const filteredModels = useMemo(() => {
     const term = modelQuery.trim().toLowerCase()
-    return models.filter((item) => !term || item.toLowerCase().includes(term))
-  }, [modelQuery])
+    return modelOptions.filter((item) => !term || item.toLowerCase().includes(term))
+  }, [modelOptions, modelQuery])
   const effortLabel = effort === 'Ultra' ? 'Ultra→Max' : effort
+
+  useEffect(() => {
+    if (model !== 'Auto route' && !modelOptions.includes(model)) setModel('Auto route')
+  }, [model, modelOptions])
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -209,7 +215,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     setDraft('')
     setSlashOpen(false)
     try {
-      await onSend(message)
+      await onSend(message, { model: model === 'Auto route' ? undefined : model })
     } catch {
       setDraft(message)
       setNotice('Request failed. Your message was restored.')

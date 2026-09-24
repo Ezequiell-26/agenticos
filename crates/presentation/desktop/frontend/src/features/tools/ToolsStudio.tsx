@@ -173,7 +173,7 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
     <div className="tools-studio">
       <aside className="tools-studio__sidebar">
         <div className="tools-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tools…" aria-label="Search tools" /></div>
-        <div className="tools-tabs" role="tablist" aria-label="Tool registry filters" aria-orientation="horizontal">
+        <div className="tools-tabs" role="tablist" aria-label={`Tool registry filters · ${runtimeSyncing ? 'syncing' : 'runtime'}`} aria-orientation="horizontal">
           {(['All', 'Enabled', 'Risk'] as ToolTab[]).map((item, index, tabs) => <button key={item} id={'tools-tab-' + item.toLowerCase()} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="tools-list-panel" className={tab === item ? 'tools-tab tools-tab--active' : 'tools-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
             const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
             if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('tools-tab-' + next.toLowerCase())?.focus()) }

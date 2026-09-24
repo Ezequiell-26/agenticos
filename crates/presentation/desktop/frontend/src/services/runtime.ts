@@ -571,6 +571,28 @@ export class AgenticosRuntime implements RuntimeServices {
   readonly sandbox = {
     status: async () => this.transport.get<RuntimeApiRecord>('/api/sandbox/status'),
   }
+
+  readonly a2a = {
+    agentCard: async () => this.transport.get<RuntimeApiRecord>('/.well-known/agent-card.json'),
+    sendMessage: async (message: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/a2a', {
+      jsonrpc: '2.0',
+      id: 'ui-' + Date.now(),
+      method: 'message/send',
+      params: { message },
+    }).then((response) => isRecord(response) && isRecord(response.result) ? response.result : response),
+    getTask: async (taskId: string) => this.transport.post<RuntimeApiRecord>('/a2a', {
+      jsonrpc: '2.0',
+      id: 'ui-' + Date.now(),
+      method: 'tasks/get',
+      params: { id: taskId },
+    }).then((response) => isRecord(response) && isRecord(response.result) ? response.result : response),
+    cancelTask: async (taskId: string) => this.transport.post<RuntimeApiRecord>('/a2a', {
+      jsonrpc: '2.0',
+      id: 'ui-' + Date.now(),
+      method: 'tasks/cancel',
+      params: { id: taskId },
+    }).then((response) => isRecord(response) && isRecord(response.result) ? response.result : response),
+  }
 }
 
 export const runtime = new AgenticosRuntime()

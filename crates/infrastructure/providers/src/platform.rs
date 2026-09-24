@@ -1,5 +1,6 @@
 use crate::{
-    CredentialPool, HealthChecker, ModelCatalog, ProviderRegistry, QuotaTracker, RetryManager,
+    CredentialPool, FallbackManager, HealthChecker, ModelCatalog, ProviderRegistry, QuotaTracker,
+    RetryManager,
 };
 use agenticos_contracts::{
     ContractError, Credential, HealthCheck, HealthStatus, ModelProvider, ModelRequest,
@@ -44,6 +45,7 @@ pub struct ProviderPlatform {
     quotas: Arc<QuotaTracker>,
     health: Arc<HealthChecker>,
     retries: Arc<RetryManager>,
+    fallbacks: Arc<FallbackManager>,
 }
 
 impl ProviderPlatform {
@@ -56,6 +58,7 @@ impl ProviderPlatform {
             quotas: Arc::new(QuotaTracker::new()),
             health: Arc::new(HealthChecker::new()),
             retries: Arc::new(RetryManager::new()),
+            fallbacks: Arc::new(FallbackManager::new()),
         }
     }
 
@@ -162,6 +165,22 @@ impl ProviderPlatform {
         Ok(())
     }
 
+    /// Configure explicit provider failover order.
+    pub async fn set_fallback_config(
+        &self,
+        config: agenticos_contracts::FallbackConfig,
+    ) -> Result<(), ContractError> {
+        self.fallbacks.set_config(config).await
+    }
+
+    /// Get explicit failover configuration for a primary provider.
+    pub async fn get_fallback_config(
+        &self,
+        primary_provider: &str,
+    ) -> Option<agenticos_contracts::FallbackConfig> {
+        self.fallbacks.get_config(primary_provider).await
+    }
+
     /// List provider status without exposing API keys.
     pub async fn list_status(&self) -> Vec<ProviderStatus> {
         let providers = self.registry.list().await;
@@ -196,9 +215,37 @@ impl ProviderPlatform {
         request: ModelRequest,
     ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
+        let primary_provider = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| providers.first().map(|provider| provider.provider_id.clone()));
+
+        let mut ordered_ids = Vec::new();
+        if let Some(primary) = primary_provider.as_deref() {
+            ordered_ids.push(primary.to_string());
+            if let Some(config) = self.fallbacks.get_config(primary).await {
+                if config.auto_failover {
+                    ordered_ids.extend(config.fallback_providers);
+                }
+            }
+        }
+        for provider in &providers {
+            if !ordered_ids.iter().any(|id| id == &provider.provider_id) {
+                ordered_ids.push(provider.provider_id.clone());
+            }
+        }
+
+        let provider_by_id: std::collections::HashMap<_, _> = providers
+            .into_iter()
+            .map(|provider| (provider.provider_id.clone(), provider))
+            .collect();
+
         let mut healthy = Vec::new();
         let mut other = Vec::new();
-        for provider in providers {
+        for provider_id in ordered_ids {
+            let Some(provider) = provider_by_id.get(&provider_id).cloned() else {
+                continue;
+            };
             if self.health.is_healthy(&provider.provider_id).await {
                 healthy.push(provider);
             } else {
@@ -350,7 +397,7 @@ impl ProviderPlatform {
         platform
             .register(
                 ProviderEntry {
-                    provider_id,
+                    provider_id: provider_id.clone(),
                     name: "Environment provider".to_string(),
                     base_url,
                     models: vec![model],
@@ -359,6 +406,28 @@ impl ProviderPlatform {
                 key,
             )
             .await?;
+
+        if let Ok(raw) = std::env::var("AGENTICOS_FALLBACK_PROVIDERS") {
+            let fallback_providers: Vec<String> = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect();
+            if !fallback_providers.is_empty() {
+                let auto_failover = std::env::var("AGENTICOS_AUTO_FAILOVER")
+                    .map(|value| value.eq_ignore_ascii_case("true"))
+                    .unwrap_or(true);
+                platform
+                    .set_fallback_config(agenticos_contracts::FallbackConfig {
+                        primary_provider: provider_id,
+                        fallback_providers,
+                        auto_failover,
+                    })
+                    .await?;
+            }
+        }
+
         Ok(platform)
     }
 

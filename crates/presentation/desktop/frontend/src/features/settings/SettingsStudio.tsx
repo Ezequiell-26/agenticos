@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import Icon, { type IconName } from '../../components/Icon'
+import HermesParityControls from './HermesParityControls'
 import { UI_PREFERENCES_STORAGE_KEY, applyUiPreferences, emitUiPreferencesChanged } from '../../services/ui-preferences'
 
 type SectionId =
   | 'overview' | 'profiles' | 'models' | 'agent' | 'tools' | 'terminal' | 'context'
   | 'compression' | 'display' | 'layout' | 'voice' | 'web' | 'browser' | 'gateway' | 'mcp' | 'automation'
-  | 'runtime' | 'security' | 'shortcuts' | 'advanced'
+  | 'runtime' | 'security' | 'shortcuts' | 'hermes' | 'advanced'
 
 type Theme = 'Monochrome' | 'Graphite' | 'Paper' | 'High contrast'
 type Accent = 'White' | 'Silver' | 'Blue' | 'Violet' | 'Green'
@@ -26,7 +27,7 @@ interface Profile {
   mcpCount: number
 }
 
-interface SettingsState {
+export interface SettingsState {
   theme: Theme
   accent: Accent
   density: Density
@@ -220,6 +221,64 @@ interface SettingsState {
   disabledToolsets: string[]
   multiplexProfiles: boolean
   profileRouting: string
+  contextEngine: string
+  memoryProvider: string
+  credentialPoolStrategy: string
+  auxiliaryReasoningEffort: string
+  fallbackModelProvider: string
+  fallbackModel: string
+  fallbackModelBaseUrl: string
+  auxWebExtractProvider: string
+  auxWebExtractModel: string
+  auxWebExtractBaseUrl: string
+  auxWebExtractTimeout: number
+  auxApprovalProvider: string
+  auxApprovalModel: string
+  auxApprovalBaseUrl: string
+  auxApprovalTimeout: number
+  auxSessionSearchProvider: string
+  auxSessionSearchModel: string
+  auxSessionSearchBaseUrl: string
+  auxSessionSearchTimeout: number
+  auxSkillsHubProvider: string
+  auxSkillsHubModel: string
+  auxSkillsHubBaseUrl: string
+  auxSkillsHubTimeout: number
+  auxMcpProvider: string
+  auxMcpModel: string
+  auxMcpBaseUrl: string
+  auxMcpTimeout: number
+  auxFlushProvider: string
+  auxFlushModel: string
+  auxFlushBaseUrl: string
+  auxFlushTimeout: number
+  visionDownloadTimeout: number
+  ttsBaseUrl: string
+  ttsVoiceId: string
+  ttsModelId: string
+  ttsRefAudio: string
+  ttsRefText: string
+  ttsDevice: string
+  voiceRecordKey: string
+  voiceMaxRecordingSeconds: number
+  voiceAutoTts: boolean
+  voiceSilenceThreshold: number
+  voiceSilenceDuration: number
+  cliSkin: string
+  personalityPreset: string
+  toolProgressOverrides: string
+  webCrawlBackend: string
+  parallelSearchMode: string
+  firecrawlApiUrl: string
+  streamReadTimeout: number
+  streamStaleTimeout: number
+  apiTimeout: number
+  gatewayBufferThreshold: number
+  gatewayCursor: string
+  groupSessionsPerUser: boolean
+  unauthorizedDmBehavior: string
+  unauthorizedDmOverrides: string
+  quickCommands: string
 }
 
 interface SettingsSurfaceProps {
@@ -420,6 +479,64 @@ const defaults: SettingsState = {
   disabledToolsets: [],
   multiplexProfiles: false,
   profileRouting: 'sticky active profile',
+  contextEngine: 'compressor',
+  memoryProvider: 'builtin',
+  credentialPoolStrategy: 'fill_first',
+  auxiliaryReasoningEffort: 'provider-default',
+  fallbackModelProvider: 'auto',
+  fallbackModel: '',
+  fallbackModelBaseUrl: '',
+  auxWebExtractProvider: 'auto',
+  auxWebExtractModel: '',
+  auxWebExtractBaseUrl: '',
+  auxWebExtractTimeout: 360,
+  auxApprovalProvider: 'auto',
+  auxApprovalModel: '',
+  auxApprovalBaseUrl: '',
+  auxApprovalTimeout: 30,
+  auxSessionSearchProvider: 'auto',
+  auxSessionSearchModel: '',
+  auxSessionSearchBaseUrl: '',
+  auxSessionSearchTimeout: 30,
+  auxSkillsHubProvider: 'auto',
+  auxSkillsHubModel: '',
+  auxSkillsHubBaseUrl: '',
+  auxSkillsHubTimeout: 30,
+  auxMcpProvider: 'auto',
+  auxMcpModel: '',
+  auxMcpBaseUrl: '',
+  auxMcpTimeout: 30,
+  auxFlushProvider: 'auto',
+  auxFlushModel: '',
+  auxFlushBaseUrl: '',
+  auxFlushTimeout: 30,
+  visionDownloadTimeout: 30,
+  ttsBaseUrl: '',
+  ttsVoiceId: '',
+  ttsModelId: '',
+  ttsRefAudio: '',
+  ttsRefText: '',
+  ttsDevice: 'cpu',
+  voiceRecordKey: 'ctrl+b',
+  voiceMaxRecordingSeconds: 120,
+  voiceAutoTts: false,
+  voiceSilenceThreshold: 200,
+  voiceSilenceDuration: 3,
+  cliSkin: 'default',
+  personalityPreset: 'default',
+  toolProgressOverrides: '{}',
+  webCrawlBackend: 'auto',
+  parallelSearchMode: 'agentic',
+  firecrawlApiUrl: '',
+  streamReadTimeout: 120,
+  streamStaleTimeout: 180,
+  apiTimeout: 1800,
+  gatewayBufferThreshold: 40,
+  gatewayCursor: ' ▉',
+  groupSessionsPerUser: true,
+  unauthorizedDmBehavior: 'pair',
+  unauthorizedDmOverrides: '{}',
+  quickCommands: 'status = agenticos status\ndisk = df -h /\ngpu = nvidia-smi',
 }
 
 const sections: Array<{ id: SectionId; label: string; detail: string; icon: IconName; group: string }> = [
@@ -442,6 +559,7 @@ const sections: Array<{ id: SectionId; label: string; detail: string; icon: Icon
   { id: 'security', label: 'Security & Privacy', detail: 'Approvals, redaction and recovery', icon: 'lock', group: 'Operations' },
   { id: 'runtime', label: 'Runtime & Liveness', detail: 'Limits, spillover, code execution and anti-stall', icon: 'activity', group: 'Advanced' },
   { id: 'shortcuts', label: 'Shortcuts', detail: 'Keymap and custom workspace commands', icon: 'command', group: 'Advanced' },
+  { id: 'hermes', label: 'Hermes Parity', detail: 'Advanced runtime compatibility controls', icon: 'layers', group: 'Advanced' },
   { id: 'advanced', label: 'Advanced / Raw Config', detail: 'Portable snapshot and expert controls', icon: 'sliders', group: 'Advanced' },
 ]
 
@@ -1150,6 +1268,8 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
             </SettingsPage>
           )}
 
+          {section === 'hermes' && <HermesParityControls settings={settings} update={update} />}
+
           {section === 'advanced' && (
             <SettingsPage title="Advanced / Raw Config" description="Expert mode for portable configuration snapshots, environment placeholders and diagnostics.">
               <SettingSection title="Portable configuration">
@@ -1393,6 +1513,100 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       checkpoints_enabled: settings.checkpointsEnabled,
       max_snapshots: settings.maxSnapshots,
       clear_on_exit: settings.clearOnExit,
+    },
+    hermes_parity: {
+      context: {
+        engine: settings.contextEngine,
+        memory_provider: settings.memoryProvider,
+        auxiliary_reasoning_effort: settings.auxiliaryReasoningEffort,
+      },
+      credential_pool: {
+        strategy: settings.credentialPoolStrategy,
+      },
+      fallback_model: {
+        provider: settings.fallbackModelProvider,
+        model: settings.fallbackModel,
+        base_url: settings.fallbackModelBaseUrl,
+      },
+      auxiliary: {
+        web_extract: {
+          provider: settings.auxWebExtractProvider,
+          model: settings.auxWebExtractModel,
+          base_url: settings.auxWebExtractBaseUrl,
+          timeout: settings.auxWebExtractTimeout,
+        },
+        approval: {
+          provider: settings.auxApprovalProvider,
+          model: settings.auxApprovalModel,
+          base_url: settings.auxApprovalBaseUrl,
+          timeout: settings.auxApprovalTimeout,
+        },
+        session_search: {
+          provider: settings.auxSessionSearchProvider,
+          model: settings.auxSessionSearchModel,
+          base_url: settings.auxSessionSearchBaseUrl,
+          timeout: settings.auxSessionSearchTimeout,
+        },
+        skills_hub: {
+          provider: settings.auxSkillsHubProvider,
+          model: settings.auxSkillsHubModel,
+          base_url: settings.auxSkillsHubBaseUrl,
+          timeout: settings.auxSkillsHubTimeout,
+        },
+        mcp: {
+          provider: settings.auxMcpProvider,
+          model: settings.auxMcpModel,
+          base_url: settings.auxMcpBaseUrl,
+          timeout: settings.auxMcpTimeout,
+        },
+        flush_memories: {
+          provider: settings.auxFlushProvider,
+          model: settings.auxFlushModel,
+          base_url: settings.auxFlushBaseUrl,
+          timeout: settings.auxFlushTimeout,
+        },
+        vision: {
+          download_timeout: settings.visionDownloadTimeout,
+        },
+      },
+      tts: {
+        base_url: settings.ttsBaseUrl,
+        voice_id: settings.ttsVoiceId,
+        model_id: settings.ttsModelId,
+        ref_audio: settings.ttsRefAudio,
+        ref_text: settings.ttsRefText,
+        device: settings.ttsDevice,
+      },
+      voice: {
+        record_key: settings.voiceRecordKey,
+        max_recording_seconds: settings.voiceMaxRecordingSeconds,
+        auto_tts: settings.voiceAutoTts,
+        silence_threshold: settings.voiceSilenceThreshold,
+        silence_duration: settings.voiceSilenceDuration,
+      },
+      display: {
+        skin: settings.cliSkin,
+        personality: settings.personalityPreset,
+        tool_progress_overrides: settings.toolProgressOverrides,
+      },
+      web: {
+        crawl_backend: settings.webCrawlBackend,
+        parallel_search_mode: settings.parallelSearchMode,
+        firecrawl_api_url: settings.firecrawlApiUrl,
+      },
+      streaming: {
+        read_timeout: settings.streamReadTimeout,
+        stale_timeout: settings.streamStaleTimeout,
+        api_timeout: settings.apiTimeout,
+        gateway_buffer_threshold: settings.gatewayBufferThreshold,
+        gateway_cursor: settings.gatewayCursor,
+      },
+      gateway: {
+        group_sessions_per_user: settings.groupSessionsPerUser,
+        unauthorized_dm_behavior: settings.unauthorizedDmBehavior,
+        unauthorized_dm_overrides: settings.unauthorizedDmOverrides,
+      },
+      quick_commands: settings.quickCommands,
     },
     timezone: settings.timezone,
     ui: {

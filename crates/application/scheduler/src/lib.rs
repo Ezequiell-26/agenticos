@@ -67,13 +67,6 @@ pub struct JobScheduler {
 }
 
 impl JobScheduler {
-    /// Create an empty scheduler.
-    pub fn new() -> Self {
-        Self {
-            jobs: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
     pub fn new() -> Self {
         Self {
             jobs: Arc::new(RwLock::new(HashMap::new())),

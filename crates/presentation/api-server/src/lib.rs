@@ -275,19 +275,24 @@ impl AgentTool for WorkspaceTool {
 
         let value = match self.operation {
             "fs.read" => {
-                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid fs.read arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid fs.read arguments: {error}"))
+                    })?;
                 serde_json::json!({
                     "path": args.path,
                     "content": self.workspace.read_text(&args.path).await.map_err(ContractError::ParseError)?,
                 })
             }
             "fs.write" => {
-                let args = serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid fs.write arguments: {error}"))
-                })?;
-                self.workspace.write_text(&args.path, &args.content).await.map_err(ContractError::ParseError)?;
+                let args =
+                    serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid fs.write arguments: {error}"))
+                    })?;
+                self.workspace
+                    .write_text(&args.path, &args.content)
+                    .await
+                    .map_err(ContractError::ParseError)?;
                 serde_json::json!({
                     "path": args.path,
                     "written": true,
@@ -295,9 +300,10 @@ impl AgentTool for WorkspaceTool {
                 })
             }
             "fs.list" => {
-                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid fs.list arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!("invalid fs.list arguments: {error}"))
+                    })?;
                 serde_json::json!({
                     "path": args.path,
                     "entries": self.workspace.list(&args.path).await.map_err(ContractError::ParseError)?,
@@ -473,7 +479,9 @@ impl RuntimeState {
                 )
                 .await
                 .map_err(|error| {
-                    ContractError::ParseError(format!("workspace tool registration failed: {error}"))
+                    ContractError::ParseError(format!(
+                        "workspace tool registration failed: {error}"
+                    ))
                 })?;
         }
 
@@ -503,9 +511,7 @@ impl RuntimeState {
                 )
                 .await
                 .map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "Git tool registration failed: {error}"
-                    ))
+                    ContractError::ParseError(format!("Git tool registration failed: {error}"))
                 })?;
         }
 
@@ -1013,7 +1019,11 @@ async fn get_artifact_content(
         record.size_bytes,
     );
 
-    match state.artifacts.read_range(&id, requested_range.clone()).await {
+    match state
+        .artifacts
+        .read_range(&id, requested_range.clone())
+        .await
+    {
         Ok(bytes) => {
             let mut response = HttpResponse::Ok();
             response.content_type(record.mime_type);
@@ -1625,11 +1635,11 @@ async fn a2a_rpc(
         "message/send" => {
             let params =
                 match serde_json::from_value::<A2aSendMessageParams>(request.params.clone()) {
-                Ok(value) => value,
-                Err(error) => {
-                    return a2a_error(request.id.clone(), -32602, error.to_string());
-                }
-            };
+                    Ok(value) => value,
+                    Err(error) => {
+                        return a2a_error(request.id.clone(), -32602, error.to_string());
+                    }
+                };
 
             let objective = text_from_message(&params.message);
             if objective.trim().is_empty() {
@@ -1649,12 +1659,12 @@ async fn a2a_rpc(
                 .context_id
                 .clone()
                 .unwrap_or_else(|| format!("context-{}", uuid::Uuid::new_v4()));
-                let run_id = match RunId::new(format!("a2a-{task_id}")) {
+                    let run_id = match RunId::new(format!("a2a-{task_id}")) {
                 Ok(value) => value,
                 Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
             };
 
-                let created = match state.kernel.create_run(run_id.clone()).await {
+                    let created = match state.kernel.create_run(run_id.clone()).await {
                 Ok(value) => value,
                 Err(error) => {
                     return a2a_error(request.id.clone(), -32001, error.to_string());

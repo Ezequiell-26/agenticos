@@ -606,9 +606,7 @@ fn normalize_github_repo(source: &str) -> Result<String, SourceForgeError> {
     let parts = value.split('/').collect::<Vec<_>>();
     if parts.len() != 2
         || parts.iter().any(|part| {
-            part.is_empty()
-                || part.len() > 128
-                || part.contains(['\\', '?', '#', ' ', '\r', '\n'])
+            part.is_empty() || part.len() > 128 || part.contains(['\\', '?', '#', ' ', '\r', '\n'])
         })
     {
         return Err(SourceForgeError::InvalidSource(source.trim().to_string()));

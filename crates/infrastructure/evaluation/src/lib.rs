@@ -301,10 +301,7 @@ mod tests {
     #[test]
     fn replay_evaluator_rejects_missing_fragment_and_oversized_output() {
         let result = ReplayEvaluator::new()
-            .evaluate(
-                &case(),
-                &format!("hello {}", "x".repeat(120)),
-            )
+            .evaluate(&case(), &format!("hello {}", "x".repeat(120)))
             .unwrap();
 
         assert!(!result.passed);

@@ -476,7 +476,6 @@ struct WorkflowTransitionRequest {
 }
 
 
-
 #[derive(Debug, Deserialize)]
 struct MemorySearchQuery {
     namespace: String,

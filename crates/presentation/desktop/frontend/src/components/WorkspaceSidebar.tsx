@@ -38,35 +38,6 @@ export default function WorkspaceSidebar({
   if (menuOpen && activeMenuButton) triggerRef.current = activeMenuButton
   useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: () => setMenuOpen(null) })
 
-  /*
-    if (!menuOpen) return
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      const current = menuButtonRefs.current[menuOpen]
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setMenuOpen(null)
-        current?.focus()
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        const menu = current?.parentElement?.querySelector<HTMLElement>('[role="menu"]')
-        if (!menu) return
-        const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
-        const index = items.indexOf(document.activeElement as HTMLButtonElement)
-        const nextIndex = event.key === 'ArrowDown'
-          ? (index + 1 + items.length) % items.length
-          : (index - 1 + items.length) % items.length
-        event.preventDefault()
-        items[nextIndex]?.focus()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.requestAnimationFrame(() => {
-      const menu = menuButtonRefs.current[menuOpen]?.parentElement?.querySelector<HTMLElement>('[role="menu"]')
-      menu?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
-    })
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }
-  */
-
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return conversations

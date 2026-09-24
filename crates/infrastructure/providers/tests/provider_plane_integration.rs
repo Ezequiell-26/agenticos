@@ -6,7 +6,7 @@ use agenticos_contracts::{
 };
 use agenticos_providers::{
     CredentialPool, FallbackManager, HealthChecker, HttpModelProvider, ModelCatalog,
-    ProviderRegistry, QuotaTracker, RetryManager,
+    ProviderPlatform, ProviderRegistry, QuotaTracker, RetryManager,
 };
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -295,6 +295,68 @@ async fn multi_provider_orchestration_selects_healthy_provider_and_executes_tran
         .metadata
         .as_deref()
         .is_some_and(|value| value.contains("fallback")));
+}
+
+#[tokio::test]
+async fn provider_platform_executes_through_fallback_after_primary_transport_failure() {
+    let (primary_base_url, primary_server) = spawn_http_response_server_with_status(
+        "503 Service Unavailable",
+        r#"{"error":{"message":"primary unavailable"}}"#,
+    );
+    let (fallback_base_url, fallback_server) = spawn_http_response_server(
+        r#"{"choices":[{"message":{"content":"platform-fallback-ok"}}],"usage":{"total_tokens":13}}"#,
+    );
+
+    let platform = ProviderPlatform::new();
+    platform
+        .register(
+            provider_with_base_url("primary", primary_base_url, &["model-primary"]),
+            None,
+        )
+        .await
+        .expect("register primary provider");
+    platform
+        .register(
+            provider_with_base_url("fallback", fallback_base_url, &["model-fallback"]),
+            None,
+        )
+        .await
+        .expect("register fallback provider");
+
+    let response = platform
+        .execute(
+            ModelRequest {
+                request_id: "platform-fallback-1".to_string(),
+                model: "default".to_string(),
+                input: "hello".to_string(),
+                parameters: None,
+            },
+        )
+        .await
+        .expect("platform should recover through fallback provider");
+
+    primary_server.join().expect("join primary server");
+    fallback_server.join().expect("join fallback server");
+
+    assert_eq!(response.request_id, "platform-fallback-1");
+    assert_eq!(response.output, "platform-fallback-ok");
+    assert_eq!(response.tokens_used, Some(13));
+    assert!(response
+        .metadata
+        .as_deref()
+        .is_some_and(|value| value.contains("fallback")));
+
+    let statuses = platform.list_status().await;
+    let primary = statuses
+        .iter()
+        .find(|status| status.provider_id == "primary")
+        .expect("primary status should be present");
+    let fallback = statuses
+        .iter()
+        .find(|status| status.provider_id == "fallback")
+        .expect("fallback status should be present");
+    assert_eq!(primary.health, "Degraded");
+    assert_eq!(fallback.health, "Healthy");
 }
 
 #[tokio::test]

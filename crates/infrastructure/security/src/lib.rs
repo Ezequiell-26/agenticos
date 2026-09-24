@@ -7,6 +7,7 @@
 //! not represented by this crate.
 
 use agenticos_contracts::{CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError};
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -52,6 +53,7 @@ pub struct ApprovalRequest {
 pub struct CapabilityManager {
     grants: Arc<RwLock<HashMap<String, CapabilityGrant>>>,
     approvals: Arc<RwLock<HashMap<String, ApprovalRequest>>>,
+    db: Option<Arc<sqlx::SqlitePool>>,
 }
 
 impl CapabilityManager {
@@ -60,7 +62,108 @@ impl CapabilityManager {
         Self {
             grants: Arc::new(RwLock::new(HashMap::new())),
             approvals: Arc::new(RwLock::new(HashMap::new())),
+            db: None,
         }
+    }
+
+    /// Open a SQLite-backed capability manager and recover grants/approvals.
+    pub async fn open(database_url: &str) -> Result<Self, ContractError> {
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("security database connection failed: {error}")))?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS capability_grants (grant_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("capability schema initialization failed: {error}")))?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS approval_requests (approval_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("approval schema initialization failed: {error}")))?;
+
+        let grant_rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT grant_id, payload FROM capability_grants",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("grant recovery failed: {error}")))?;
+        let approval_rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT approval_id, payload FROM approval_requests",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("approval recovery failed: {error}")))?;
+
+        let mut grants = HashMap::with_capacity(grant_rows.len());
+        for (grant_id, payload) in grant_rows {
+            let grant: CapabilityGrant = serde_json::from_str(&payload)
+                .map_err(|error| ContractError::ParseError(format!("invalid persisted grant {grant_id}: {error}")))?;
+            grants.insert(grant_id, grant);
+        }
+
+        let mut approvals = HashMap::with_capacity(approval_rows.len());
+        for (approval_id, payload) in approval_rows {
+            let request: ApprovalRequest = serde_json::from_str(&payload)
+                .map_err(|error| ContractError::ParseError(format!("invalid persisted approval {approval_id}: {error}")))?;
+            approvals.insert(approval_id, request);
+        }
+
+        Ok(Self {
+            grants: Arc::new(RwLock::new(grants)),
+            approvals: Arc::new(RwLock::new(approvals)),
+            db: Some(Arc::new(db)),
+        })
+    }
+
+    async fn persist_grant(&self, grant: &CapabilityGrant) -> Result<(), ContractError> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let payload = serde_json::to_string(grant)
+            .map_err(|error| ContractError::ParseError(format!("grant serialization failed: {error}")))?;
+        sqlx::query(
+            "INSERT INTO capability_grants (grant_id, payload) VALUES (?, ?) ON CONFLICT(grant_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&grant.grant_id)
+        .bind(payload)
+        .execute(db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("grant persistence failed: {error}")))?;
+        Ok(())
+    }
+
+    async fn delete_grant(&self, grant_id: &str) -> Result<(), ContractError> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        sqlx::query("DELETE FROM capability_grants WHERE grant_id = ?")
+            .bind(grant_id)
+            .execute(db)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("grant deletion failed: {error}")))?;
+        Ok(())
+    }
+
+    async fn persist_approval(&self, request: &ApprovalRequest) -> Result<(), ContractError> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let payload = serde_json::to_string(request)
+            .map_err(|error| ContractError::ParseError(format!("approval serialization failed: {error}")))?;
+        sqlx::query(
+            "INSERT INTO approval_requests (approval_id, payload) VALUES (?, ?) ON CONFLICT(approval_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&request.approval_id)
+        .bind(payload)
+        .execute(db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("approval persistence failed: {error}")))?;
+        Ok(())
     }
 
     /// Validate an issued grant for a concrete capability and resource.
@@ -113,6 +216,10 @@ impl CapabilityManager {
             .write()
             .await
             .insert(request.approval_id.clone(), request.clone());
+        if let Err(error) = self.persist_approval(&request).await {
+            let _ = self.approvals.write().await.remove(&request.approval_id);
+            tracing::error!(error = ?error, approval_id = %request.approval_id, "failed to persist approval request");
+        }
         request
     }
 
@@ -142,7 +249,10 @@ impl CapabilityManager {
         } else {
             ApprovalState::Denied
         };
-        Ok(request.clone())
+        let snapshot = request.clone();
+        drop(approvals);
+        self.persist_approval(&snapshot).await?;
+        Ok(snapshot)
     }
 
     /// List pending approvals, expiring stale entries first.
@@ -207,16 +317,17 @@ impl CapabilityIssuer for CapabilityManager {
             .write()
             .await
             .insert(request.grant_id.clone(), request.clone());
+        self.persist_grant(&request).await?;
         Ok(request.grant_id)
     }
 
     async fn revoke(&self, grant_id: &str) -> Result<(), ContractError> {
-        self.grants
-            .write()
-            .await
-            .remove(grant_id)
-            .map(|_| ())
-            .ok_or(ContractError::MissingCapability)
+        let removed = self.grants.write().await.remove(grant_id).is_some();
+        if !removed {
+            return Err(ContractError::MissingCapability);
+        }
+        self.delete_grant(grant_id).await?;
+        Ok(())
     }
 
     async fn validate_with_expiry(&self, grant_id: &str) -> Result<bool, ContractError> {

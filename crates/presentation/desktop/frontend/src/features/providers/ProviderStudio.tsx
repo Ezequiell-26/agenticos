@@ -53,6 +53,14 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [verificationFilter, setVerificationFilter] = useState<'All' | 'Ready' | 'Attention'>('All')
   const [verificationResults, setVerificationResults] = useState<Record<string, 'Passed' | 'Pending' | 'Needs review'>>({})
   const [healthWindow, setHealthWindow] = useState<'15m' | '1h' | '24h'>('1h')
+  const [resiliencePolicy, setResiliencePolicy] = useState({
+    autoFailover: true,
+    healthBased: true,
+    circuitBreaker: true,
+    boundedRetries: true,
+    maxAttempts: 3,
+    cooldownMs: 5000,
+  })
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
@@ -184,6 +192,29 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                   ['10:57','Recovered','Primary route accepted after bounded retry','recovery'],
                   ['10:41','Warning','Quota pressure reached 70%','quota'],
                 ].map(([time,status,detail,kind]) => <div className="provider-health__event" key={time + detail}><span className="provider-health__time">{time}</span><span className={status === 'Healthy' || status === 'Recovered' ? 'provider-health__status provider-health__status--ok' : 'provider-health__status provider-health__status--warn'}>{status}</span><div><strong>{detail}</strong><small>{kind} · window {healthWindow}</small></div><button className="icon-button" type="button" aria-label={'Inspect ' + detail} title="Inspect event" onClick={() => onAction('Health event opened in preview')}><Icon name="chevron-right" size={13} /></button></div>)}
+              </div>
+            </div>
+            <div className="provider-resilience-policy">
+              <div className="provider-resilience-policy__head"><div><span className="eyebrow">Policy editor</span><strong>Resilience controls</strong><small>Shape the presentation contract that the runtime adapter will enforce later.</small></div><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Resilience policy saved in preview')}><Icon name="check" size={13} /> Save policy</button></div>
+              <div className="provider-resilience-policy__grid">
+                {[
+                  ['autoFailover','Automatic failover','Advance to the next compatible route after a bounded failure.'],
+                  ['healthBased','Health-aware selection','Avoid routes that are unhealthy or degraded.'],
+                  ['circuitBreaker','Circuit breaker','Stop repeatedly hitting a failing provider.'],
+                  ['boundedRetries','Bounded retries','Keep retry attempts finite and evidence-aware.'],
+                ].map(([key,label,detail]) => {
+                  const enabled = resiliencePolicy[key as keyof typeof resiliencePolicy] as boolean
+                  return <button key={key} type="button" className={enabled ? 'provider-policy-row provider-policy-row--on' : 'provider-policy-row'} onClick={() => setResiliencePolicy((current) => ({ ...current, [key]: !enabled }))}>
+                    <span className="provider-policy-row__switch"><span /></span>
+                    <span><strong>{label}</strong><small>{detail}</small></span>
+                    <Tag label={enabled ? 'On' : 'Off'} />
+                  </button>
+                })}
+              </div>
+              <div className="provider-resilience-policy__numbers">
+                <label><span>Max attempts</span><input aria-label="Maximum retry attempts" type="number" min="1" max="8" value={resiliencePolicy.maxAttempts} onChange={(event) => setResiliencePolicy((current) => ({ ...current, maxAttempts: Math.min(8, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
+                <label><span>Cooldown (ms)</span><input aria-label="Provider cooldown milliseconds" type="number" min="0" max="60000" step="1000" value={resiliencePolicy.cooldownMs} onChange={(event) => setResiliencePolicy((current) => ({ ...current, cooldownMs: Math.min(60000, Math.max(0, Number(event.target.value) || 0)) }))} /></label>
+                <div><span>Route order</span><strong>Primary → Fallback → Local</strong></div>
               </div>
             </div>
             <div className="callout"><Icon name="shield" size={14} /><span>Live health, circuit state and incident persistence must come from the provider runtime adapter; this timeline is a UI contract preview.</span></div>

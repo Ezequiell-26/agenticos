@@ -97,12 +97,6 @@ impl ContextEngine {
             }
             selected_indices.push(index);
             used = used.saturating_add(message.token_count);
-            if selected_indices.len()
-                >= budget.min_recent_messages.max(1)
-                    + messages.iter().filter(|m| m.role == "system").count()
-            {
-                break;
-            }
         }
 
         selected_indices.sort_unstable();
@@ -150,6 +144,28 @@ mod tests {
     fn budget_leaves_output_and_safety_margin() {
         let budget = ContextBudget::new(1000, 200);
         assert_eq!(budget.max_input_tokens(), 750);
+    }
+
+    #[test]
+    fn prepare_uses_remaining_budget_after_minimum_recent_messages() {
+        let engine = ContextEngine::new();
+        let budget = ContextBudget {
+            context_window_tokens: 120,
+            reserved_output_tokens: 10,
+            safety_margin_tokens: 10,
+            min_recent_messages: 1,
+        };
+        let messages = vec![
+            message("system", "system", 20),
+            message("a", "user", 20),
+            message("b", "assistant", 20),
+            message("c", "user", 20),
+            message("d", "assistant", 20),
+        ];
+
+        let plan = engine.prepare(&messages, budget);
+        assert_eq!(plan.dropped_tokens, 0);
+        assert_eq!(plan.messages.len(), 5);
     }
 
     #[test]

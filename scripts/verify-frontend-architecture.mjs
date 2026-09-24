@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 const required = [
   "crates/presentation/desktop/frontend/package.json",
@@ -286,6 +286,57 @@ if (
 ) {
   console.error(
     "FRONTEND ARCHITECTURE: FAIL — workspace surface loading must provide a real skeleton state.",
+  );
+  process.exit(1);
+}
+
+
+function collectFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = directory + "/" + entry.name;
+    if (entry.isDirectory()) files.push(...collectFiles(fullPath));
+    else if (entry.isFile() && fullPath.endsWith(".tsx")) files.push(fullPath);
+  }
+  return files;
+}
+
+const frontendTsxFiles = collectFiles("crates/presentation/desktop/frontend/src");
+const semanticViolations = [];
+const directNetworkViolations = [];
+
+for (const file of frontendTsxFiles) {
+  const raw = readFileSync(file, "utf8");
+  const source = raw
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  if (source.includes('role="tablist"') && !source.includes('role="tab"')) {
+    semanticViolations.push(file + " declares a tablist without a tab");
+  }
+  if (source.includes('role="tab"') && !source.includes("aria-selected")) {
+    semanticViolations.push(file + " declares a tab without aria-selected");
+  }
+  if (source.includes('role="menu"') && !source.includes('role="menuitem"')) {
+    semanticViolations.push(file + " declares a menu without menuitems");
+  }
+  if (/\bfetch\s*\(/.test(source) && !file.includes("/services/")) {
+    directNetworkViolations.push(file);
+  }
+}
+
+if (semanticViolations.length > 0) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — cross-surface ARIA semantics are incomplete:\n" +
+      semanticViolations.join("\n"),
+  );
+  process.exit(1);
+}
+
+if (directNetworkViolations.length > 0) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — TSX surfaces must not perform direct network calls:\n" +
+      directNetworkViolations.join("\n"),
   );
   process.exit(1);
 }

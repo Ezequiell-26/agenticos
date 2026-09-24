@@ -1,7 +1,7 @@
 //! Resource Governor - Resource management and optimization
 
 use super::BrainError;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -49,9 +49,7 @@ pub struct TokenOptimizer {
 
 /// Context deduplicator
 #[derive(Debug)]
-pub struct ContextDeduplicator {
-    seen_contexts: Arc<RwLock<HashMap<u64, u64>>>,
-}
+pub struct ContextDeduplicator;
 
 /// Context compressor
 #[derive(Debug)]
@@ -284,25 +282,19 @@ impl TokenOptimizer {
 
 impl ContextDeduplicator {
     fn new() -> Self {
-        Self {
-            seen_contexts: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self
     }
 
     /// Remove duplicate content from context
     pub async fn deduplicate(&self, context: &str) -> Result<String, BrainError> {
-        let mut seen = self.seen_contexts.write().await;
-        let lines: Vec<&str> = context.lines().collect();
+        let mut seen = HashSet::new();
         let mut unique_lines = Vec::new();
-        let mut hash = 0u64;
 
-        for line in &lines {
+        for line in context.lines() {
             let line_hash = self.hash_line(line);
-            if let std::collections::hash_map::Entry::Vacant(e) = seen.entry(line_hash) {
-                e.insert(1);
-                unique_lines.push(*line);
+            if seen.insert(line_hash) {
+                unique_lines.push(line);
             }
-            hash = hash.wrapping_add(line_hash);
         }
 
         Ok(unique_lines.join("\n"))
@@ -358,11 +350,33 @@ impl CacheManager {
 
     /// Put a value in cache
     pub async fn put(&self, key: String, data: Vec<u8>, size_mb: u64) -> Result<(), BrainError> {
-        let current_size = self.current_size_mb.load(Ordering::Relaxed);
+        if size_mb > self.max_size_mb {
+            return Err(BrainError::ResourceLimitExceeded(format!(
+                "cache entry exceeds cache capacity: {} > {} MB",
+                size_mb, self.max_size_mb
+            )));
+        }
 
-        // Evict if necessary
-        if current_size + size_mb > self.max_size_mb {
-            self.evict().await?;
+        {
+            let mut cache = self.cache.write().await;
+            if let Some(previous) = cache.remove(&key) {
+                self.current_size_mb
+                    .fetch_sub(previous.size_mb, Ordering::Relaxed);
+            }
+        }
+
+        loop {
+            let current_size = self.current_size_mb.load(Ordering::Relaxed);
+            if current_size.saturating_add(size_mb) <= self.max_size_mb {
+                break;
+            }
+
+            let evicted = self.evict().await?;
+            if evicted == 0 {
+                return Err(BrainError::ResourceLimitExceeded(
+                    "cache cannot free enough capacity".to_string(),
+                ));
+            }
         }
 
         let entry = CacheEntry {
@@ -397,25 +411,23 @@ impl CacheManager {
         let mut evicted = 0;
         let mut current_size = self.current_size_mb.load(Ordering::Relaxed);
 
-        // Collect keys to evict
-        let mut keys_to_evict: Vec<String> = Vec::new();
+        // Select least-used entries until the cache falls to half capacity.
+        let mut keys_to_evict: Vec<(String, u64)> = Vec::new();
         {
             let mut entries: Vec<_> = cache.iter().collect();
-            entries.sort_by_key(|(_, entry)| entry.access_count);
+            entries.sort_by_key(|(_, entry)| (entry.access_count, entry.last_accessed));
 
             for (key, entry) in entries {
                 if current_size <= self.max_size_mb / 2 {
                     break;
                 }
-                current_size -= entry.size_mb;
-                keys_to_evict.push(key.clone());
+                keys_to_evict.push((key.clone(), entry.size_mb));
+                current_size = current_size.saturating_sub(entry.size_mb);
             }
         }
 
-        // Evict collected keys
-        for key in keys_to_evict {
-            if let Some(entry) = cache.remove(&key) {
-                current_size -= entry.size_mb;
+        for (key, _) in keys_to_evict {
+            if cache.remove(&key).is_some() {
                 evicted += 1;
             }
         }

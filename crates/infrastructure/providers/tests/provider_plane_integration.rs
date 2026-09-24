@@ -424,6 +424,45 @@ async fn credential_pool_keeps_credentials_scoped_to_their_provider() {
 }
 
 #[tokio::test]
+async fn provider_http_failure_can_be_followed_by_successful_fallback_transport() {
+    let (primary_base_url, primary_server) = spawn_http_response_server_with_status(
+        "503 Service Unavailable",
+        r#"{"error":{"message":"primary unavailable"}}"#,
+    );
+    let (fallback_base_url, fallback_server) = spawn_http_response_server(
+        r#"{"choices":[{"message":{"content":"fallback-success"}}],"usage":{"total_tokens":11}}"#,
+    );
+
+    let primary = HttpModelProvider::new("primary".to_string(), primary_base_url);
+    let fallback = HttpModelProvider::new("fallback".to_string(), fallback_base_url);
+
+    let request = ModelRequest {
+        request_id: "failover-transport-1".to_string(),
+        model: "test-model".to_string(),
+        input: "hello".to_string(),
+        parameters: None,
+    };
+
+    let primary_result = primary.execute(request.clone()).await;
+    assert!(primary_result.is_err(), "primary transport failure must remain an error");
+
+    let fallback_result = fallback
+        .execute(request)
+        .await
+        .expect("fallback transport should recover the request");
+
+    primary_server.join().expect("join primary test server");
+    fallback_server.join().expect("join fallback test server");
+
+    assert_eq!(fallback_result.output, "fallback-success");
+    assert_eq!(fallback_result.tokens_used, Some(11));
+    assert!(fallback_result
+        .metadata
+        .as_deref()
+        .is_some_and(|value| value.contains("fallback")));
+}
+
+#[tokio::test]
 async fn http_model_provider_propagates_non_success_status_to_resilience_layer() {
     let (base_url, server) = spawn_http_response_server_with_status(
         "503 Service Unavailable",

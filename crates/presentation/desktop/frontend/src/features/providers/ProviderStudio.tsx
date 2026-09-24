@@ -1,17 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import ProviderAcceptanceBoard from './ProviderAcceptanceBoard'
 import ProviderCapabilityMatrix from './ProviderCapabilityMatrix'
 import ProviderEvidenceLedger from './ProviderEvidenceLedger'
 import ProviderRouteSimulator from './ProviderRouteSimulator'
 import './ProviderResilience.css'
+import { runtime } from '../../services/runtime'
 
 type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Verification' | 'Quotas' | 'Accounts'
 
 const providers = [
-  { name: 'Primary Route', type: 'Gateway', health: 'Healthy', models: 12, latency: '142 ms', load: 68, quota: '68%' },
-  { name: 'Fallback Route', type: 'Gateway', health: 'Healthy', models: 7, latency: '188 ms', load: 41, quota: '41%' },
-  { name: 'Local Route', type: 'Local', health: 'Degraded', models: 4, latency: 'On demand', load: 22, quota: '—' },
+  { id: 'primary-route', name: 'Primary Route', type: 'Gateway', health: 'Healthy', models: 12, latency: '142 ms', load: 68, quota: '68%' },
+  { id: 'fallback-route', name: 'Fallback Route', type: 'Gateway', health: 'Healthy', models: 7, latency: '188 ms', load: 41, quota: '41%' },
+  { id: 'local-route', name: 'Local Route', type: 'Local', health: 'Degraded', models: 4, latency: 'On demand', load: 22, quota: '—' },
 ]
 
 const models = [
@@ -47,6 +48,8 @@ const resilienceScenarios = [
 
 export default function ProviderStudio({ onAction }: { onAction: (message: string) => void }) {
   const [tab, setTab] = useState<ProviderTab>('Overview')
+  const [liveProviders, setLiveProviders] = useState(providers)
+  const [liveModels, setLiveModels] = useState(models)
   const [selected, setSelected] = useState<string>(providers[0].name)
   const [query, setQuery] = useState('')
   const [compare, setCompare] = useState<string[]>([])
@@ -66,8 +69,72 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
     cooldownMs: 5000,
   })
 
-  const provider = providers.find((item) => item.name === selected) ?? providers[0]
-  const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
+  const provider = liveProviders.find((item) => item.name === selected) ?? liveProviders[0]
+  const visibleModels = useMemo(() => liveModels.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [liveModels, query])
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.providers.list().then((remoteProviders) => {
+      if (cancelled || remoteProviders.length === 0) return
+      const mapped = remoteProviders.map((item, index) => ({
+        id: item.provider_id,
+        name: item.name || item.provider_id,
+        type: item.provider_id === 'local' || item.name.toLowerCase().includes('local') ? 'Local' : 'Gateway',
+        health: item.health === 'Healthy' ? 'Healthy' : item.health === 'Degraded' ? 'Degraded' : item.health === 'Unhealthy' ? 'Unhealthy' : 'Unknown',
+        models: item.models.length,
+        latency: 'Runtime',
+        load: item.requests_per_minute ? Math.min(100, Math.round((item.requests_used / item.requests_per_minute) * 100)) : 0,
+        quota: item.requests_per_minute ? `${Math.min(100, Math.round((item.requests_used / item.requests_per_minute) * 100))}%` : '—',
+      }))
+      setLiveProviders(mapped)
+      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+      const first = mapped[indexOfFirstProvider(mapped)]
+      void loadProviderModels(first?.id)
+    }).catch(() => {
+      // Static catalog stays available when the local runtime has not started.
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const current = liveProviders.find((item) => item.name === selected)
+    if (current) void loadProviderModels(current.id)
+  }, [liveProviders, selected])
+
+  async function loadProviderModels(providerId?: string) {
+    if (!providerId) return
+    try {
+      const remoteModels = await runtime.providers.models(providerId)
+      const source = remoteModels.length > 0 ? remoteModels : []
+      if (source.length > 0) {
+        const current = liveProviders.find((item) => item.id === providerId)
+        setLiveModels(source.map((name) => [name, 'Runtime', 'Auto', 'Live', current?.name ?? providerId] as const))
+      }
+    } catch {
+      // Preserve the local fallback catalog on transient runtime errors.
+    }
+  }
+
+  async function testProvider() {
+    try {
+      const health = await runtime.providers.health(provider.id)
+      setLiveProviders((current) => current.map((item) => item.id === provider.id ? { ...item, health: health.status } : item))
+      onAction(`${provider.name} health: ${health.status}`)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Provider health check failed')
+    }
+  }
+
+  async function refreshProviderModels() {
+    try {
+      const refreshed = await runtime.providers.refreshModels(provider.id)
+      if (refreshed.length > 0) setLiveModels(refreshed.map((name) => [name, 'Runtime', 'Auto', 'Live', provider.name] as const))
+      setLiveProviders((current) => current.map((item) => item.id === provider.id ? { ...item, models: refreshed.length || item.models, health: 'Healthy' } : item))
+      onAction(`${provider.name}: ${refreshed.length || 0} models available`)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Model refresh failed')
+    }
+  }
 
   function toggleCompare(name: string) {
     setCompare((current) => current.includes(name) ? current.filter((item) => item !== name) : [...current.slice(-2), name])
@@ -77,14 +144,14 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
     <div className="provider-studio">
       <aside className="provider-studio__sidebar">
         <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{providers.length}</span></div>
-        {providers.map((item) => <button type="button" key={item.name} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
+        {liveProviders.map((item) => <button type="button" key={item.id} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
         <button className="studio-button" type="button" onClick={() => onAction('Provider route creation opened in preview')}><Icon name="plus" size={13} /> Add route</button>
       </aside>
 
       <section className="provider-studio__main">
         <div className="provider-studio__head">
           <div><span className="eyebrow">{provider.type}</span><h2>{provider.name}</h2><small>{provider.health} · {provider.models} models · {provider.latency}</small></div>
-          <div className="provider-studio__actions"><button className="studio-button" type="button" onClick={() => onAction('Provider test started in preview')}><Icon name="play" size={13} /> Test</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Provider configuration opened in preview')}><Icon name="settings" size={13} /> Configure</button></div>
+          <div className="provider-studio__actions"><button className="studio-button" type="button" onClick={() => void testProvider()}><Icon name="play" size={13} /> Test</button><button className="studio-button studio-button--active" type="button" onClick={() => void refreshProviderModels()}><Icon name="refresh" size={13} /> Refresh models</button></div>
         </div>
 
         <div className="provider-studio__tabs" role="tablist" aria-label="Provider details" aria-orientation="horizontal">

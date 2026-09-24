@@ -228,7 +228,23 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
             <div className="callout"><Icon name="shield" size={14} /><span>Live health, circuit state and incident persistence must come from the provider runtime adapter; this timeline is a UI contract preview.</span></div>
           </div>
 
-          {tab === 'Quotas' && <div className="provider-quota-grid"><MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" /><MetricCard label="Monthly budget" value="41%" sub="shared account preview" /><MetricCard label="Requests" value="2,184" sub="rolling period" /><MetricCard label="Tokens" value="3.2M" sub="input + output preview" /><div className="provider-quota-bars">{[['Primary',68],['Fallback',41],['Local',22]].map(([name, value]) => <div key={name}><span>{name}</span><div className="progress"><span style={{ width: value + '%' }} /></div><small>{value}%</small></div>)}</div></div>}
+          {tab === 'Quotas' && (
+            <div className="provider-quota-grid">
+              <MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" />
+              <MetricCard label="Monthly budget" value="41%" sub="shared account preview" />
+              <MetricCard label="Requests" value="2,184" sub="rolling period" />
+              <MetricCard label="Tokens" value="3.2M" sub="input + output preview" />
+              <div className="provider-quota-bars">
+                {[['Primary', 68], ['Fallback', 41], ['Local', 22]].map(([name, value]) => (
+                  <div key={name}>
+                    <span>{name}</span>
+                    <div className="progress"><span style={{ width: String(value) + '%' }} /></div>
+                    <small>{value}%</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {tab === 'Accounts' && <div className="provider-account-center">
             <div className="provider-account-toolbar">

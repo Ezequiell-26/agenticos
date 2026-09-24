@@ -17,6 +17,7 @@ const CommandStudio = lazy(() => import('../commands/CommandStudio'))
 const SubagentFleet = lazy(() => import('../subagents/SubagentFleet'))
 const CloudAgentsWorkspace = lazy(() => import('../cloud/CloudAgentsWorkspace'))
 const ComputerUseWorkspace = lazy(() => import('../computer/ComputerUseWorkspace'))
+const RemoteControlCenter = lazy(() => import('./RemoteControlCenter'))
 const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
 const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
@@ -73,6 +74,7 @@ import './IntegrationControlCenter.css'
 import './GovernanceControlCenter.css'
 import './IntelligenceControlCenter.css'
 import './ProjectControlCenter.css'
+import './RemoteControlCenter.css'
 import './DesignSystemStudio.css'
 import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
@@ -318,6 +320,13 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     <Shell>
       {renderHeader('Remote execution', 'Cloud Agents', 'Inspect remote agent environments, artifacts and desktop handoff state.', <span className="state-pill state-pill--pending">Preview</span>)}
       <CloudAgentsWorkspace onAction={notify} />
+      <Toast message={notice} />
+    </Shell>
+  )
+
+  if (mode === 'remote-control') return (
+    <Shell>
+      <RemoteControlCenter onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )

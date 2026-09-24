@@ -27,8 +27,8 @@ use agenticos_memory::PersistentMemoryStore;
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec};
-use agenticos_tools::ToolRegistry;
 use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_tools::ToolRegistry;
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -385,7 +385,11 @@ async fn create_provider(
     let name = request.name.trim();
     let base_url = request.base_url.trim();
 
-    if provider_id.is_empty() || name.is_empty() || base_url.is_empty() || request.models.is_empty() {
+    if provider_id.is_empty()
+        || name.is_empty()
+        || base_url.is_empty()
+        || request.models.is_empty()
+    {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "provider_id, name, base_url and at least one model are required".to_string(),
             code: "INVALID_PROVIDER",
@@ -423,7 +427,11 @@ async fn create_provider(
         });
     }
 
-    match state.provider.register(entry, request.api_key.clone()).await {
+    match state
+        .provider
+        .register(entry, request.api_key.clone())
+        .await
+    {
         Ok(()) => {
             let status = state
                 .provider

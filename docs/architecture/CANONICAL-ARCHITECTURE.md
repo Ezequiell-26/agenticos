@@ -335,15 +335,17 @@ Never call a check verified without recorded evidence.
 Before an AI agent modifies the repository it must:
 
 1. read current project state;
-2. read implementation-state;
+2. read implementation-state and identify relevant workstreams/capabilities;
 3. read the latest operation journal;
-4. read the relevant architecture document;
+4. read the relevant architecture and contract evidence;
 5. inspect the current code/evidence;
-6. identify the single authorized step;
-7. implement only that scope;
-8. verify the change;
-9. record the operation;
-10. state exactly one next step.
+6. declare the concrete capability/file scope and dependencies;
+7. implement the smallest coherent vertical slice;
+8. verify the affected capability and run broader checks when relevant;
+9. record the operation and evidence;
+10. state the next concrete actions and unresolved risks.
+
+Independent workstreams may proceed in parallel. A failing check blocks the affected capability or release path, not unrelated capabilities.
 
 Destructive changes require explicit authorization, rollback metadata and impact evidence.
 

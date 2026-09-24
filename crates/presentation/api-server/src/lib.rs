@@ -956,6 +956,38 @@ async fn list_providers(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+async fn refresh_provider_models(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    match state.provider.refresh_models(&provider_id).await {
+        Ok(models) => HttpResponse::Ok().json(serde_json::json!({
+            "provider_id": provider_id,
+            "models": models,
+            "count": models.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_MODEL_REFRESH_FAILED",
+        }),
+    }
+}
+
+async fn check_provider_health(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    match state.provider.check_health(&provider_id).await {
+        Ok(check) => HttpResponse::Ok().json(check),
+        Err(error) => HttpResponse::ServiceUnavailable().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_HEALTH_CHECK_FAILED",
+        }),
+    }
+}
+
 async fn get_provider_quota(
     provider_id: web::Path<String>,
     state: web::Data<RuntimeState>,
@@ -2603,6 +2635,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/providers/{provider_id}/models",
                 web::get().to(list_provider_models),
+            )
+            .route(
+                "/api/providers/{provider_id}/models/refresh",
+                web::post().to(refresh_provider_models),
+            )
+            .route(
+                "/api/providers/{provider_id}/health",
+                web::post().to(check_provider_health),
             )
             .route("/api/models", web::get().to(list_models))
             .route("/api/runs", web::get().to(list_runs))

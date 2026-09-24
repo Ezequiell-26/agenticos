@@ -196,16 +196,8 @@ impl SourceIntelligenceEngine {
 
         {
             let mut registry = engine.registry.write().await;
-            for (
-                repo_id,
-                url,
-                default_branch,
-                last_indexed,
-                license,
-                language,
-                stars,
-                status,
-            ) in rows {
+            for (repo_id, url, default_branch, last_indexed, license, language, stars, status) in
+                rows {
                 let parsed_time = DateTime::parse_from_rfc3339(&last_indexed)
                     .map(|value| value.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now());

@@ -248,6 +248,7 @@ function assertArchitectureCompletenessManifest(value: {
   policy: {
     architecture_only: boolean;
     implementation_requires_step_unlock: boolean;
+    capability_level_verification: boolean;
     canonical_agent_loop_modification_requires_adr: boolean;
     future_scope_preimplementation_forbidden: boolean;
     reference_first: boolean;

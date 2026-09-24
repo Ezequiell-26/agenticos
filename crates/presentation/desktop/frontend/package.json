@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:contracts": "node ../../../../scripts/verify-frontend-architecture.mjs",
+    "check": "npm run test:contracts && npm run build"
   },
   "dependencies": {
     "react": "^18.3.1",

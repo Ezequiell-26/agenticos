@@ -584,10 +584,33 @@ mod tests {
     fn test_http_model_provider() {
         let rt = test_runtime();
         rt.block_on(async {
-            let provider = HttpModelProvider::new(
-                "http-provider".to_string(),
-                "https://api.example.com".to_string(),
-            );
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::net::TcpListener;
+
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let (reader, mut writer) = stream.into_split();
+                let mut reader = BufReader::new(reader);
+                let mut line = String::new();
+                while reader.read_line(&mut line).await.unwrap() > 0 {
+                    if line == "\r\n" {
+                        break;
+                    }
+                    line.clear();
+                }
+                let body = r#"{"choices":[{"message":{"content":"local fixture response"}}],"usage":{"total_tokens":7}}"#;
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                writer.write_all(response.as_bytes()).await.unwrap();
+            });
+
+            let provider =
+                HttpModelProvider::new("http-provider".to_string(), format!("http://{}", address));
 
             let request = ModelRequest {
                 request_id: "req-1".to_string(),
@@ -599,11 +622,11 @@ mod tests {
             let response = provider.execute(request).await.unwrap();
 
             assert_eq!(response.request_id, "req-1");
-            // HTTP provider makes real calls, so we don't assert specific output
-            assert!(!response.output.is_empty());
+            assert_eq!(response.output, "local fixture response");
+            assert_eq!(response.tokens_used, Some(7));
+            server.await.unwrap();
         });
     }
-
     #[test]
     fn test_health_checker() {
         let rt = test_runtime();

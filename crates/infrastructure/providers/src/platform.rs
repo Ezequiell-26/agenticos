@@ -452,15 +452,16 @@ impl ProviderPlatform {
                     })?;
 
                 let encrypted = encrypt_provider_secret(secret_key, provided_key)?;
-                    sqlx::query(
-                        "INSERT INTO provider_credentials (provider_id, credential_type, encrypted_value, expires_at, scope) VALUES (?, 'api_key', ?, 0, NULL)",
-                    )
-                    .bind(&provider_id)
-                    .bind(encrypted)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(|error| ContractError::ParseError(format!("provider credential persistence failed: {error}")))?;
-                }
+                sqlx::query(
+                    "INSERT INTO provider_credentials (provider_id, credential_type, encrypted_value, expires_at, scope) VALUES (?, 'api_key', ?, 0, NULL)",
+                )
+                .bind(&provider_id)
+                .bind(encrypted)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("provider credential persistence failed: {error}"))
+                })?;
             }
             tx.commit().await.map_err(|error| {
                 ContractError::ParseError(format!("provider transaction commit failed: {error}"))

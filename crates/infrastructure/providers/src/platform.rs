@@ -25,6 +25,14 @@ pub struct ProviderStatus {
     pub models: Vec<String>,
     /// Health status.
     pub health: String,
+    /// Requests consumed during the active quota window.
+    pub requests_used: u64,
+    /// Configured requests-per-minute limit.
+    pub requests_per_minute: Option<u32>,
+    /// Tokens consumed during the active quota window.
+    pub tokens_used: u64,
+    /// Configured tokens-per-minute limit.
+    pub tokens_per_minute: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -804,12 +812,22 @@ impl ProviderPlatform {
                 .await
                 .map(|check| format!("{:?}", check.status))
                 .unwrap_or_else(|| "Unknown".to_string());
+            let (quota, tokens_used) = self
+                .quotas
+                .get_state(&provider.provider_id)
+                .await
+                .map(|(quota, _, tokens)| (Some(quota), tokens))
+                .unwrap_or((None, 0));
             result.push(ProviderStatus {
                 provider_id: provider.provider_id,
                 name: provider.name,
                 configured,
                 models: provider.models,
                 health,
+                requests_used: quota.as_ref().map(|value| value.current_usage).unwrap_or(0),
+                requests_per_minute: quota.as_ref().and_then(|value| value.requests_per_minute),
+                tokens_used,
+                tokens_per_minute: quota.as_ref().and_then(|value| value.tokens_per_minute),
             });
         }
         result

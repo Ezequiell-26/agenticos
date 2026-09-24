@@ -143,3 +143,20 @@
 .provider-evidence-ledger__empty{padding:18px;text-align:center;color:#555;font-size:7px}
 @media (max-width:900px){.provider-route-simulator__result{grid-template-columns:1fr}.provider-route-simulator__routes{grid-template-columns:1fr}.provider-route-simulator__trace{grid-template-columns:1fr 1fr}.provider-evidence-ledger__head{flex-direction:column}}
 @media (max-width:600px){.provider-route-simulator__trace{grid-template-columns:1fr}.provider-evidence-row{grid-template-columns:45px minmax(0,1fr) 12px}.provider-evidence-row .state-pill{display:none}.provider-capability-matrix__head{flex-direction:column}}
+
+.provider-acceptance-board{border:1px solid #202020;border-radius:11px;background:#0d0d0d;overflow:hidden}
+.provider-acceptance-board__head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:13px;border-bottom:1px solid #1d1d1d}
+.provider-acceptance-board__head h3{margin:3px 0 4px;color:#c0c0c0;font-size:13px}
+.provider-acceptance-board__head small{display:block;max-width:720px;color:#5f5f5f;font-size:7px;line-height:1.5}
+.provider-acceptance-board__score{display:flex;align-items:baseline;gap:4px;white-space:nowrap}
+.provider-acceptance-board__score strong{color:#eee;font-size:22px;letter-spacing:-.04em}
+.provider-acceptance-board__score span{color:#555;font:7px ui-monospace,SFMono-Regular,Menlo,monospace}
+.provider-acceptance-board__list{display:grid}
+.provider-acceptance-row{display:grid;grid-template-columns:50px minmax(0,1fr) 72px 12px;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #191919}
+.provider-acceptance-row:last-child{border-bottom:0}
+.provider-acceptance-row>span:nth-child(2){display:flex;flex-direction:column;gap:3px;min-width:0}
+.provider-acceptance-row strong{color:#999;font-size:8px}
+.provider-acceptance-row small{color:#555;font-size:6px;line-height:1.4}
+.provider-acceptance-row__id{color:#666;font:7px ui-monospace,SFMono-Regular,Menlo,monospace}
+.provider-acceptance-row .state-pill{justify-self:start}
+@media (max-width:700px){.provider-acceptance-board__head{flex-direction:column}.provider-acceptance-row{grid-template-columns:45px minmax(0,1fr) 12px}.provider-acceptance-row .state-pill{display:none}}

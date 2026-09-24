@@ -888,7 +888,8 @@ assert_eq!(
         .expect("quota state should exist")
         .current_usage,
     1
-);
+    );
+}
 
 #[tokio::test]
 async fn provider_platform_persists_active_quota_window_across_restart() {

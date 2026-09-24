@@ -1154,3 +1154,10 @@ Verification status:
 - Added tolerant journal-sequence parsing for legacy lines that contain multiple JSON objects separated by a literal `\\n`, without rewriting the historical journal contents.
 - Preserved strict evidence enforcement for all completed records at or after the cutoff.
 - Verification status: awaiting the CI run for the corrected verifier.
+
+## 2026-09-24 — Continuity separator parsing correction
+
+- Corrected the legacy journal separator parser to recognize the actual stored `\\n` sequence (one backslash plus `n`) between concatenated historical JSON objects.
+- Source-level simulation against the current journal now parses all 126 journal entries without malformed-record errors and finds zero current/future completed entries missing required evidence.
+- The historical Agent Builder record remains unchanged and is correctly treated as pre-cutoff; strict evidence enforcement remains active after the cutoff.
+- Verification status: source simulation passed; awaiting GitHub Actions confirmation.

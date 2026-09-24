@@ -221,28 +221,48 @@ if (!strictJournalSchemaActive) {
   fail(`strict journal schema migration operation ${EVIDENCE_POLICY_FIRST_OPERATION} was not found`);
 }
 
-const ordered = [...state.steps].sort((a, b) => a.number - b.number);
-for (let i = 1; i < ordered.length; i += 1) {
-  if (ordered[i].status === "verified" && ordered[i - 1].status !== "verified") {
-    fail(`verified step ${ordered[i].id} precedes an unverified predecessor`);
-  }
-}
-const active = ordered.filter((step) => ["in_progress", "verifying", "correcting"].includes(step.status));
-if (active.length > 1) fail("multiple implementation steps are active");
+if (state.schema_version !== 2) fail("unsupported implementation-state schema");
+if (state.mode !== "capability-driven-continuous") fail("implementation-state must use capability-driven continuous mode");
+if (state.policy?.sequential_implementation !== false) fail("sequential implementation mode must be disabled");
+if (state.policy?.parallel_workstreams_allowed !== true) fail("parallel workstreams must be enabled");
+if (!state.current_operation || typeof state.current_operation.id !== "string") fail("current_operation is missing");
+if (!Array.isArray(state.workstreams) || state.workstreams.length === 0) fail("workstreams are missing");
+if (!Array.isArray(state.capabilities) || state.capabilities.length === 0) fail("capabilities are missing");
+if (!Array.isArray(state.backlog)) fail("backlog is missing");
 
-const current = ordered.find((step) => step.id === state.current_step);
-if (!current) fail("current_step is not declared in implementation-state");
+const workstreamIds = new Set();
+const activeWorkstreams = [];
+for (const workstream of state.workstreams) {
+  if (!workstream || typeof workstream.id !== "string" || !workstream.id.trim()) fail("workstream id is invalid");
+  if (workstreamIds.has(workstream.id)) fail("duplicate workstream id: " + workstream.id);
+  workstreamIds.add(workstream.id);
+  if (!["P0", "P1", "P2", "P3"].includes(workstream.priority)) fail("invalid priority for workstream " + workstream.id);
+  if (!["planned", "in_progress", "verifying", "blocked", "completed"].includes(workstream.status)) fail("invalid workstream status for " + workstream.id);
+  if (["in_progress", "verifying"].includes(workstream.status)) activeWorkstreams.push(workstream.id);
+}
+if (activeWorkstreams.length === 0) fail("no active workstream is declared");
+
+const capabilityIds = new Set();
+const capabilityStatuses = new Set(["planned", "in_progress", "implemented-unverified", "verified", "verified-historical", "blocked"]);
+for (const capability of state.capabilities) {
+  if (!capability || typeof capability.id !== "string" || !capability.id.trim()) fail("capability id is invalid");
+  if (capabilityIds.has(capability.id)) fail("duplicate capability id: " + capability.id);
+  capabilityIds.add(capability.id);
+  if (!capabilityStatuses.has(capability.status)) fail("invalid capability status for " + capability.id);
+}
+
+if (!Array.isArray(state.verification?.required_checks) || state.verification.required_checks.length === 0) fail("verification checks are missing");
+if (!Array.isArray(state.current_operation.next_actions) && state.current_operation.status === "completed") {
+  fail("completed operation must declare next_actions");
+}
 
 const projectState = await readText("reference/PROJECT-STATE.md");
-if (!projectState.includes("## Next authorized progression")) fail("PROJECT-STATE.md has no next-step section");
+if (!projectState.includes("## Active workstreams")) fail("PROJECT-STATE.md has no active workstreams section");
 if (!projectState.includes("## Verification truth")) fail("PROJECT-STATE.md has no verification-truth section");
 if (!projectState.includes("## Anti-regression rule")) fail("PROJECT-STATE.md has no anti-regression section");
-if (!projectState.includes("- Current implementation step: `" + current.id + "`")) {
-  fail("PROJECT-STATE.md current step disagrees with implementation-state");
-}
-if (!projectState.includes("- Current step status: `" + current.status + "`")) {
-  fail("PROJECT-STATE.md current status disagrees with implementation-state");
-}
+if (!projectState.includes("- Current focus: " + state.current_operation.focus)) fail("PROJECT-STATE.md current focus disagrees with implementation-state");
+if (!projectState.includes("- Current operation status: " + state.current_operation.status)) fail("PROJECT-STATE.md current status disagrees with implementation-state");
+
 
 let gitStatus;
 try {

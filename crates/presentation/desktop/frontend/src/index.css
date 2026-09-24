@@ -1804,3 +1804,10 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .runtime-chip{padding:5px 7px}
   .runtime-chip{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+
+.slash-command-menu button.slash-command--active{background:#171717;color:#eee}
+.slash-command-menu button kbd{justify-self:end;min-width:28px;text-align:center;color:#555;background:#111}
+@media (max-width:560px){
+  .slash-command-menu{left:6px;right:6px}
+  .slash-command-menu button{grid-template-columns:64px minmax(0,1fr) 30px}
+}

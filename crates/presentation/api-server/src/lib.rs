@@ -15,8 +15,8 @@ use agenticos_brain::{
     CapabilityRegistry,
 };
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, ModelProvider, ModelRequest,
-    RunId, RunState, Sandbox, SandboxStatus,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState, Sandbox,
+    SandboxStatus,
 };
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
@@ -27,9 +27,9 @@ use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
-use agenticos_scheduler::{JobScheduler, JobSpec};
+use agenticos_scheduler::{JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
-use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowState};
+use agenticos_workflows::{WorkflowDefinition, WorkflowEngine};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1706,20 +1706,23 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                         bearer_token(req.request()).is_some_and(|value| value == token)
                     });
 
-                if !authorized {
-                    let response = req.into_response(
-                        HttpResponse::Unauthorized()
-                            .json(serde_json::json!({
-                                "error": "authentication required",
-                                "code": "AUTHENTICATION_REQUIRED"
-                            }))
-                            .map_into_boxed_body(),
-                    );
-                    return Box::pin(async move { Ok(response) });
-                }
+                Box::pin(async move {
+                    if !authorized {
+                        let response = req.into_response(
+                            HttpResponse::Unauthorized()
+                                .json(serde_json::json!({
+                                    "error": "authentication required",
+                                    "code": "AUTHENTICATION_REQUIRED"
+                                }))
+                                .map_into_boxed_body(),
+                        );
+                        return Ok(response);
+                    }
 
-                let future = srv.call(req);
-                Box::pin(async move { future.await.map(|response| response.map_into_boxed_body()) })
+                    srv.call(req)
+                        .await
+                        .map(|response| response.map_into_boxed_body())
+                })
             })
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))

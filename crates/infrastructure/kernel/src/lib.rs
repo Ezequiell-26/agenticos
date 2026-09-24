@@ -3124,6 +3124,12 @@ impl ReactAgent {
         }
     }
 
+    /// Restore the durable turn count when rebuilding a session after restart.
+    pub fn restore_turn_count(&self, turns: usize) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.current_turn = turns.min(self.max_turns);
+    }
+
     /// Get current turn count.
     pub fn current_turn(&self) -> usize {
         self.inner.lock().unwrap().current_turn

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { RuntimeApiRecord, RuntimeProject } from '../../types/runtime'
+import type { RuntimeApiRecord, RuntimeProject, RuntimeProviderStatus, RuntimeRun } from '../../types/runtime'
 import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
@@ -40,8 +40,8 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
   const [filter, setFilter] = useState('')
   const [runtimeProjects, setRuntimeProjects] = useState<RuntimeProject[]>([])
   const [runtimeJobs, setRuntimeJobs] = useState<RuntimeApiRecord[]>([])
-  const [runtimeRuns, setRuntimeRuns] = useState<RuntimeApiRecord[]>([])
-  const [runtimeProviders, setRuntimeProviders] = useState<RuntimeApiRecord[]>([])
+  const [runtimeRuns, setRuntimeRuns] = useState<RuntimeRun[]>([])
+  const [runtimeProviders, setRuntimeProviders] = useState<RuntimeProviderStatus[]>([])
   const [health, setHealth] = useState<RuntimeApiRecord | null>(null)
   const [readiness, setReadiness] = useState<RuntimeApiRecord | null>(null)
   const [sandbox, setSandbox] = useState<RuntimeApiRecord | null>(null)
@@ -75,8 +75,8 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
       if (cancelled) return
       const [jobs, runs, providers, healthResult, readyResult, sandboxResult] = results
       if (jobs.status === 'fulfilled') setRuntimeJobs(jobs.value)
-      if (runs.status === 'fulfilled') setRuntimeRuns(runs.value as RuntimeApiRecord[])
-      if (providers.status === 'fulfilled') setRuntimeProviders(providers.value as RuntimeApiRecord[])
+      if (runs.status === 'fulfilled') setRuntimeRuns(runs.value)
+      if (providers.status === 'fulfilled') setRuntimeProviders(providers.value)
       if (healthResult.status === 'fulfilled') setHealth(healthResult.value as RuntimeApiRecord)
       if (readyResult.status === 'fulfilled') setReadiness(readyResult.value as RuntimeApiRecord)
       if (sandboxResult.status === 'fulfilled') setSandbox(sandboxResult.value)

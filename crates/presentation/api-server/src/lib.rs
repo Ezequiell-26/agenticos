@@ -393,11 +393,18 @@ impl AgentTool for TerminalTool {
         }
 
         let (required_type, resource, permission) = match self.operation {
-            "terminal.open" => (CapabilityType::Execute, "terminal/*".to_string(), "terminal.open"),
+            "terminal.open" => (
+                CapabilityType::Execute,
+                "terminal/*".to_string(),
+                "terminal.open",
+            ),
             "terminal.write" => {
-                let args = serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid terminal.write arguments: {error}"
+                        ))
+                    })?;
                 (
                     CapabilityType::Write,
                     format!("terminal/{}", args.terminal_id),
@@ -405,9 +412,12 @@ impl AgentTool for TerminalTool {
                 )
             }
             "terminal.read" => {
-                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid terminal.read arguments: {error}"
+                        ))
+                    })?;
                 (
                     CapabilityType::Read,
                     format!("terminal/{}", args.terminal_id),
@@ -415,9 +425,12 @@ impl AgentTool for TerminalTool {
                 )
             }
             "terminal.close" => {
-                let args = serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid terminal.close arguments: {error}"
+                        ))
+                    })?;
                 (
                     CapabilityType::Execute,
                     format!("terminal/{}", args.terminal_id),
@@ -437,9 +450,12 @@ impl AgentTool for TerminalTool {
 
         let result = match self.operation {
             "terminal.open" => {
-                let args = serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid terminal.open arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid terminal.open arguments: {error}"
+                        ))
+                    })?;
                 serde_json::to_value(
                     self.terminal
                         .create(&args.command, args.cwd.as_deref())
@@ -649,7 +665,11 @@ impl RuntimeState {
             ("fs.read", "Read workspace file", "filesystem.read"),
             ("fs.write", "Write workspace file", "filesystem.write"),
             ("fs.list", "List workspace directory", "filesystem.list"),
-            ("fs.patch", "Apply exact workspace patch", "filesystem.patch"),
+            (
+                "fs.patch",
+                "Apply exact workspace patch",
+                "filesystem.patch",
+            ),
         ] {
             tool_runtime
                 .register(
@@ -728,9 +748,7 @@ impl RuntimeState {
                 )
                 .await
                 .map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "terminal tool registration failed: {error}"
-                    ))
+                    ContractError::ParseError(format!("terminal tool registration failed: {error}"))
                 })?;
         }
 
@@ -824,8 +842,7 @@ impl RuntimeState {
     }
 
     async fn load_skills() -> Vec<Skill> {
-        let root =
-            std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
+        let root = std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
         let mut directory = match tokio::fs::read_dir(&root).await {
             Ok(directory) => directory,
             Err(error) => {
@@ -1233,7 +1250,11 @@ async fn create_terminal(
         }
     }
 
-    match state.terminal.create(&request.command, request.cwd.as_deref()).await {
+    match state
+        .terminal
+        .create(&request.command, request.cwd.as_deref())
+        .await
+    {
         Ok(record) => HttpResponse::Created().json(record),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error,
@@ -1356,7 +1377,11 @@ async fn write_terminal(
         }
     }
 
-    match state.terminal.write_input(&terminal_id, &request.input).await {
+    match state
+        .terminal
+        .write_input(&terminal_id, &request.input)
+        .await
+    {
         Ok(()) => HttpResponse::NoContent().finish(),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error,

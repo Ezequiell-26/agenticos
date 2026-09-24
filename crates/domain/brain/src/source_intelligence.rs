@@ -144,11 +144,11 @@ impl SourceIntelligenceEngine {
     /// Open a SQLite-backed source intelligence registry and recover repository metadata.
     pub async fn open(database_url: &str, config: EngineConfig) -> Result<Self, BrainError> {
         let engine = Self::new(config);
-        let db = SqlitePool::connect(database_url)
-            .await
-            .map_err(|error| BrainError::SourceIntelligenceError(format!(
+        let db = SqlitePool::connect(database_url).await.map_err(|error| {
+            BrainError::SourceIntelligenceError(format!(
                 "source intelligence database connection failed: {error}"
-            )))?;
+            ))
+        })?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS source_repositories (
@@ -164,23 +164,48 @@ impl SourceIntelligenceEngine {
         )
         .execute(&db)
         .await
-        .map_err(|error| BrainError::SourceIntelligenceError(format!(
-            "source intelligence schema initialization failed: {error}"
-        )))?;
+        .map_err(|error| {
+            BrainError::SourceIntelligenceError(format!(
+                "source intelligence schema initialization failed: {error}"
+            ))
+        })?;
 
-        let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>, i64, String)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                Option<String>,
+                i64,
+                String,
+            ),
+        >(
             "SELECT repo_id, url, default_branch, last_indexed, license, language, stars, status
              FROM source_repositories ORDER BY repo_id",
         )
         .fetch_all(&db)
         .await
-        .map_err(|error| BrainError::SourceIntelligenceError(format!(
-            "source intelligence recovery failed: {error}"
-        )))?;
+        .map_err(|error| {
+            BrainError::SourceIntelligenceError(format!(
+                "source intelligence recovery failed: {error}"
+            ))
+        })?;
 
         {
             let mut registry = engine.registry.write().await;
-            for (repo_id, url, default_branch, last_indexed, license, language, stars, status) in rows {
+            for (
+                repo_id,
+                url,
+                default_branch,
+                last_indexed,
+                license,
+                language,
+                stars,
+                status,
+            ) in rows {
                 let parsed_time = DateTime::parse_from_rfc3339(&last_indexed)
                     .map(|value| value.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now());
@@ -209,24 +234,24 @@ impl SourceIntelligenceEngine {
     }
 
     fn repository_status_name(status: &RepositoryStatus) -> &'static str {
-    match status {
-        RepositoryStatus::Discovered => "discovered",
-        RepositoryStatus::Indexing => "indexing",
-        RepositoryStatus::Indexed => "indexed",
-        RepositoryStatus::Failed => "failed",
+        match status {
+            RepositoryStatus::Discovered => "discovered",
+            RepositoryStatus::Indexing => "indexing",
+            RepositoryStatus::Indexed => "indexed",
+            RepositoryStatus::Failed => "failed",
+        }
     }
-}
 
-fn parse_repository_status(status: &str) -> RepositoryStatus {
-    match status {
-        "indexing" => RepositoryStatus::Indexing,
-        "indexed" => RepositoryStatus::Indexed,
-        "failed" => RepositoryStatus::Failed,
-        _ => RepositoryStatus::Discovered,
+    fn parse_repository_status(status: &str) -> RepositoryStatus {
+        match status {
+            "indexing" => RepositoryStatus::Indexing,
+            "indexed" => RepositoryStatus::Indexed,
+            "failed" => RepositoryStatus::Failed,
+            _ => RepositoryStatus::Discovered,
+        }
     }
-}
 
-/// Discover repositories from a source (GitHub, GitLab, local git, etc.)
+    /// Discover repositories from a source (GitHub, GitLab, local git, etc.)
     pub async fn discover(&self, source: &str) -> Result<Vec<RepoId>, BrainError> {
         let discovery = self.discovery.read().await;
 

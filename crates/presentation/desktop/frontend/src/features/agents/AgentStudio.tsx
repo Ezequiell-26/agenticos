@@ -34,7 +34,7 @@ export default function AgentStudio({ onAction }: { onAction: (message: string) 
         const id = typeof agent.agent_id === 'string' ? agent.agent_id : `runtime-${index + 1}`
         const role = typeof agent.role === 'string' ? agent.role : 'Runtime agent'
         const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities.filter((item): item is string => typeof item === 'string') : []
-        return [id, role, 'Runtime-selected', capabilities.length + ' capabilities', 'Runtime', 'Runtime'] as const
+        return [id, role, 'Runtime-selected', capabilities.length + ' capabilities', 'Runtime'] as const
       })
       setProfiles(mapped)
       setSelected((currentSelected) => mapped.some((agent) => agent[0] === currentSelected) ? currentSelected : mapped[0][0])
@@ -74,7 +74,7 @@ export default function AgentStudio({ onAction }: { onAction: (message: string) 
         budget: { max_tokens: 32000, max_wall_seconds: 1800, max_tool_calls: 128, max_depth: 4 },
       })
       const refreshed = await runtime.subagents.list()
-      const mapped = refreshed.map((agent, index) => [typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1), typeof agent.role === 'string' ? agent.role : 'Runtime agent', 'Runtime-selected', Array.isArray(agent.capabilities) ? agent.capabilities.length + ' capabilities' : '0 capabilities', 'Runtime', 'Runtime'] as const)
+      const mapped = refreshed.map((agent, index) => [typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1), typeof agent.role === 'string' ? agent.role : 'Runtime agent', 'Runtime-selected', Array.isArray(agent.capabilities) ? agent.capabilities.length + ' capabilities' : '0 capabilities', 'Runtime'] as const)
       setProfiles(mapped)
       setSelected(id)
       onAction('Duplicated agent saved to runtime')

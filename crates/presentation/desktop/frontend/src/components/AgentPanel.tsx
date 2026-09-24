@@ -115,7 +115,7 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
 
       {tab === 'Task' && (
         <div id="agent-panel-task" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-task" tabIndex={0}>
-          <div className="agent-task-card><span className="eyebrow">Current objective</span><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Task TASK-104 · P1 · Builder</span></div>
+          <div className="agent-task-card"><span className="eyebrow">Current objective</span><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Task TASK-104 · P1 · Builder</span></div>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Execution steps</span><span className="mono-text">{running ? 'active' : 'preview'}</span></div>
             <div className="agent-task-list">{taskSteps.map(([name, state], index) => <div key={name}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{name}</strong><small>{state}</small></div><Icon name={state === 'Complete' ? 'check' : state === 'Running' ? 'activity' : 'clock'} size={12} /></div>)}</div>
@@ -125,7 +125,7 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
 
       {tab === 'Safety' && (
         <div id="agent-panel-safety" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-safety" tabIndex={0}>
-          <div className="safety-banner><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation-only safety indicators. Runtime authorization remains external to this component.</small></div><span>ACTIVE</span></div>
+          <div className="safety-banner"><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation-only safety indicators. Runtime authorization remains external to this component.</small></div><span>ACTIVE</span></div>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Guardrails</span><Icon name="shield" size={15} /></div>
             <div className="guardrail-list">

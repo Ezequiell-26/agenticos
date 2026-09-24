@@ -1202,3 +1202,9 @@ Verification status:
 - Removed the temporary `risk` alias so the post-anchor schema is again exact: all required fields, `deleted` array shape, rollback protections and evidence checks are mandatory.
 - All prior journal entries remain untouched and are treated as historical migration data; no record rewriting was performed.
 - Verification status: source-level migration is complete; awaiting CI confirmation.
+
+## 2026-09-24 — Continuity pass-count runtime fix
+
+- Fixed the successful continuity verifier output to report `journalEntries.length` after the journal parser was migrated from physical lines to semantic entries.
+- This was the only failure remaining after the strict schema migration validation itself completed successfully.
+- Verification status: awaiting the next CI run; the prior CI run reached this line without a continuity validation error.

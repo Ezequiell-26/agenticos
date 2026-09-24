@@ -19,6 +19,7 @@ futures = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+uuid = { workspace = true, features = ["v4"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }
 
 [lints]

@@ -343,6 +343,21 @@ struct RegisterProviderRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ProviderQuotaRequest {
+    requests_per_minute: Option<u32>,
+    tokens_per_minute: Option<u32>,
+    current_usage: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderRetryRequest {
+    max_attempts: u32,
+    initial_backoff_ms: u64,
+    max_backoff_ms: u64,
+    exponential_backoff: bool,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolExecutionRequest {
     session_id: String,
     user_id: Option<String>,
@@ -652,6 +667,161 @@ async fn list_providers(state: web::Data<RuntimeState>) -> impl Responder {
         "providers": providers,
         "count": providers.len()
     }))
+}
+
+async fn get_provider_quota(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    if state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .all(|provider| provider.provider_id != provider_id)
+    {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    match state.provider.get_quota(&provider_id).await {
+        Some(quota) => HttpResponse::Ok().json(quota),
+        None => HttpResponse::Ok().json(serde_json::json!({
+            "provider_id": provider_id,
+            "requests_per_minute": null,
+            "tokens_per_minute": null,
+            "current_usage": 0,
+        })),
+    }
+}
+
+async fn set_provider_quota(
+    provider_id: web::Path<String>,
+    request: web::Json<ProviderQuotaRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    if state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .all(|provider| provider.provider_id != provider_id)
+    {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    let current_usage = match request.current_usage {
+        Some(value) => value,
+        None => state
+            .provider
+            .get_quota(&provider_id)
+            .await
+            .map(|quota| quota.current_usage)
+            .unwrap_or(0),
+    };
+
+    let quota = agenticos_contracts::QuotaInfo {
+        provider_id: provider_id.clone(),
+        requests_per_minute: request.requests_per_minute,
+        tokens_per_minute: request.tokens_per_minute,
+        current_usage,
+    };
+
+    match state.provider.set_quota(quota.clone()).await {
+        Ok(()) => HttpResponse::Ok().json(quota),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_QUOTA_UPDATE_FAILED",
+        }),
+    }
+}
+
+async fn get_provider_retry_policy(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    if state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .all(|provider| provider.provider_id != provider_id)
+    {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    match state.provider.get_retry_policy(&provider_id).await {
+        Some(policy) => HttpResponse::Ok().json(policy),
+        None => HttpResponse::Ok().json(agenticos_contracts::RetryPolicy {
+            max_attempts: 3,
+            initial_backoff_ms: 250,
+            max_backoff_ms: 4_000,
+            exponential_backoff: true,
+        }),
+    }
+}
+
+async fn set_provider_retry_policy(
+    provider_id: web::Path<String>,
+    request: web::Json<ProviderRetryRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    if state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .all(|provider| provider.provider_id != provider_id)
+    {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    if request.max_attempts == 0 || request.max_attempts > 20 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "max_attempts must be between 1 and 20".to_string(),
+            code: "INVALID_RETRY_POLICY",
+        });
+    }
+    if request.max_backoff_ms < request.initial_backoff_ms {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "max_backoff_ms must be >= initial_backoff_ms".to_string(),
+            code: "INVALID_RETRY_POLICY",
+        });
+    }
+
+    let policy = agenticos_contracts::RetryPolicy {
+        max_attempts: request.max_attempts,
+        initial_backoff_ms: request.initial_backoff_ms,
+        max_backoff_ms: request.max_backoff_ms,
+        exponential_backoff: request.exponential_backoff,
+    };
+
+    match state
+        .provider
+        .set_retry_policy(provider_id, policy.clone())
+        .await
+    {
+        Ok(()) => HttpResponse::Ok().json(policy),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_RETRY_UPDATE_FAILED",
+        }),
+    }
 }
 
 async fn register_provider(
@@ -1835,6 +2005,22 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/providers", web::get().to(list_providers))
             .route("/api/providers", web::post().to(register_provider))
+            .route(
+                "/api/providers/{provider_id}/quota",
+                web::get().to(get_provider_quota),
+            )
+            .route(
+                "/api/providers/{provider_id}/quota",
+                web::put().to(set_provider_quota),
+            )
+            .route(
+                "/api/providers/{provider_id}/retry",
+                web::get().to(get_provider_retry_policy),
+            )
+            .route(
+                "/api/providers/{provider_id}/retry",
+                web::put().to(set_provider_retry_policy),
+            )
             .route(
                 "/api/providers/{provider_id}",
                 web::delete().to(delete_provider),

@@ -3583,6 +3583,12 @@ impl SqliteMemory {
             .unwrap()
             .as_secs();
 
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .map_err(|e| ContractError::ParseError(format!("Failed to begin memory transaction: {}", e)))?;
+
         sqlx::query(
             r#"
             INSERT INTO conversations (id, session_id, role, content, timestamp)
@@ -3594,11 +3600,10 @@ impl SqliteMemory {
         .bind(role)
         .bind(content)
         .bind(timestamp as i64)
-        .execute(&*self.db)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ContractError::ParseError(format!("Failed to store message: {}", e)))?;
 
-        // Also insert into FTS5 table
         sqlx::query(
             r#"
             INSERT INTO conversations_fts (id, session_id, role, content, timestamp)
@@ -3610,9 +3615,13 @@ impl SqliteMemory {
         .bind(role)
         .bind(content)
         .bind(timestamp as i64)
-        .execute(&*self.db)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ContractError::ParseError(format!("Failed to insert into FTS5: {}", e)))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| ContractError::ParseError(format!("Failed to commit memory transaction: {}", e)))?;
 
         Ok(())
     }

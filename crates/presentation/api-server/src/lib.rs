@@ -726,10 +726,10 @@ async fn create_run(
     };
 
     match state.kernel.create_run(run_id.clone()).await {
-        Ok(_) => {
+        Ok(created_run) => {
             if let Err(error) = state
                 .kernel
-                .transition_run(&run_id, RunState::Admitted, 1)
+                .transition_run(&run_id, RunState::Admitted, created_run.version)
                 .await
             {
                 return HttpResponse::Conflict().json(ErrorResponse {
@@ -752,14 +752,24 @@ async fn create_run(
                     run_id = %run_id.as_str(),
                     "failed to persist run objective"
                 );
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Waiting, 2)
-                    .await;
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, 3)
-                    .await;
+                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                    if let Err(transition_error) = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Waiting, current.version)
+                        .await
+                    {
+                        tracing::error!(
+                            run_id = %run_id.as_str(),
+                            %transition_error,
+                            "failed to move run into waiting state after objective persistence failure"
+                        );
+                    } else if let Ok(waiting) = state.kernel.get_or_recover_run(&run_id).await {
+                        let _ = state
+                            .kernel
+                            .transition_run(&run_id, RunState::Failed, waiting.version)
+                            .await;
+                    }
+                }
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error: error.to_string(),
                     code: "RUN_OBJECTIVE_PERSIST_FAILED",
@@ -783,14 +793,24 @@ async fn create_run(
                     run_id = %run_id.as_str(),
                     "failed to enqueue initial run job"
                 );
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Waiting, 2)
-                    .await;
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, 3)
-                    .await;
+                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                    if let Err(transition_error) = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Waiting, current.version)
+                        .await
+                    {
+                        tracing::error!(
+                            run_id = %run_id.as_str(),
+                            %transition_error,
+                            "failed to move run into waiting state after scheduler failure"
+                        );
+                    } else if let Ok(waiting) = state.kernel.get_or_recover_run(&run_id).await {
+                        let _ = state
+                            .kernel
+                            .transition_run(&run_id, RunState::Failed, waiting.version)
+                            .await;
+                    }
+                }
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error,
                     code: "RUN_JOB_ENQUEUE_FAILED",

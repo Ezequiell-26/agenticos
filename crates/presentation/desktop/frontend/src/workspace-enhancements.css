@@ -1790,3 +1790,70 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
     transition: none;
   }
 }
+
+
+/* Adjustable desktop panels. Width variables are persisted through the UI preference service. */
+.app-shell {
+  grid-template-columns:
+    64px
+    var(--agenticos-sidebar-width, 270px)
+    minmax(560px, 1fr)
+    var(--agenticos-inspector-width, 320px);
+}
+
+.workspace-sidebar,
+.agent-panel {
+  position: relative;
+}
+
+.panel-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 15;
+  width: 8px;
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  opacity: .14;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle:focus-visible,
+.agenticos-resizing-columns .panel-resize-handle {
+  opacity: .9;
+}
+
+.panel-resize-handle span {
+  width: 2px;
+  height: 42px;
+  border-radius: 999px;
+  background: #d8d8d8;
+  box-shadow: 0 0 16px rgba(255,255,255,.08);
+}
+
+.panel-resize-handle--sidebar {
+  right: -4px;
+}
+
+.panel-resize-handle--inspector {
+  left: -4px;
+}
+
+.panel-resize-handle:focus-visible {
+  outline: 1px solid #898989;
+  outline-offset: -1px;
+}
+
+.agenticos-resizing-columns,
+.agenticos-resizing-columns * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+@media (max-width: 1180px) {
+  .panel-resize-handle {
+    display: none;
+  }
+}

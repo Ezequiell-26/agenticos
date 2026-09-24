@@ -1907,6 +1907,7 @@ async fn sync_mcp_tools(
             })
         }
     }
+}
 
 async fn execute_registered_tool(
     request: web::Json<ToolCallRequest>,
@@ -1961,7 +1962,7 @@ async fn execute_registered_tool(
                 error: error.to_string(),
                 code: "TOOL_EXECUTION_DENIED",
             })
-        },
+        }
     }
 }
 

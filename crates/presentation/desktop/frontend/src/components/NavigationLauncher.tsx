@@ -110,6 +110,12 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
             } else if (event.key === 'Escape') {
               event.preventDefault()
               onClose()
+            } else if (event.key === 'Home' && filtered.length > 0) {
+              event.preventDefault()
+              setSelectedIndex(0)
+            } else if (event.key === 'End' && filtered.length > 0) {
+              event.preventDefault()
+              setSelectedIndex(filtered.length - 1)
             } else if (event.key === 'ArrowDown' && filtered.length > 0) {
               event.preventDefault()
               setSelectedIndex((index) => (index + 1) % filtered.length)

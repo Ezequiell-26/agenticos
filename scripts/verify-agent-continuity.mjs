@@ -152,14 +152,21 @@ for (const [index, line] of lines.entries()) {
     }
 
     const operationTimestamp = Date.parse(op.timestamp);
-    const evidenceRequired = operationTimestamp >= EVIDENCE_POLICY_CUTOFF;
 
     // Historical schema_version=1 records before the evidence policy cutoff
-    // remain immutable and readable. Current/future completed records must
-    // provide explicit evidence, while every completed record still needs a
-    // durable next step.
-    if (op.status === "completed" && evidenceRequired && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
-      fail(`completed operation ${operationId} has no evidence`);
+    // remain immutable and readable. They still need a durable next step, but
+    // must not be retrofitted with evidence just to satisfy a newer policy.
+    if (op.status === "completed" && operationTimestamp < EVIDENCE_POLICY_CUTOFF) {
+      if (typeof op.next_step !== "string") {
+        fail(`historical completed operation ${operationId} has no next step`);
+      }
+      continue;
+    }
+
+    // All completed records created at/after the cutoff are subject to the
+    // strict evidence contract.
+    if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
+      fail(`completed operation ${operationId} has no evidence (timestamp=${op.timestamp}, cutoff=2026-09-24T01:00:00Z)`);
     }
     if (op.status === "completed" && typeof op.next_step !== "string") {
       fail(`completed operation ${operationId} has no next step`);

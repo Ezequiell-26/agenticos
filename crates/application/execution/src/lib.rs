@@ -41,9 +41,9 @@ impl CommandHandler for BasicCommandHandler {
                         command.payload.get("objective").and_then(|v| v.as_str())
                     {
                         let run_id = RunId::new(run_id)?;
-                        self.runtime.create_run(run_id.clone()).await?;
+                        let run = self.runtime.create_run(run_id.clone()).await?;
                         self.runtime
-                            .transition_run(&run_id, RunState::Admitted, 1)
+                            .transition_run(&run_id, RunState::Admitted, run.version)
                             .await?;
 
                         Ok(CommandResult {
@@ -98,10 +98,7 @@ impl QueryHandler for BasicQueryHandler {
             "get_run_state" => {
                 if let Some(run_id) = query.parameters.get("run_id").and_then(|v| v.as_str()) {
                     let run_id = RunId::new(run_id)?;
-                    let runs = self.runtime.runs.read().await;
-                    let run = runs
-                        .get(&run_id)
-                        .ok_or(agenticos_contracts::ContractError::MissingCapability)?;
+                    let run = self.runtime.get_or_recover_run(&run_id).await?;
 
                     Ok(QueryResult {
                         data: serde_json::json!({
@@ -639,9 +636,9 @@ mod tests {
 
             // First create a run so the query can succeed
             let run_id = RunId::new("test-run-query").unwrap();
-            runtime.create_run(run_id.clone()).await.unwrap();
+            let run = runtime.create_run(run_id.clone()).await.unwrap();
             runtime
-                .transition_run(&run_id, RunState::Admitted, 1)
+                .transition_run(&run_id, RunState::Admitted, run.version)
                 .await
                 .unwrap();
 

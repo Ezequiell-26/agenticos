@@ -1112,3 +1112,10 @@ Verification status:
 - Persisted the new fields through the local settings engine and included them in the portable raw configuration snapshot.
 - Preserved the presentation/runtime boundary: credentials, shell execution, provider calls, context-engine activation and gateway authorization remain runtime-owned.
 - Verification status: source-level integration only. Production build, browser/Tauri execution, accessibility execution and Step 25 runtime acceptance remain unverified.
+
+## 2026-09-24 — Continuity evidence cutoff hardening
+
+- Simplified the historical evidence policy in the continuity verifier to an explicit cutoff predicate.
+- Completed operations at or after the cutoff continue to require non-empty evidence; historical records remain immutable while still requiring a durable next step.
+- This change preserves the strict evidence contract for all newly created operations and avoids control-flow ambiguity in CI.
+- Verification status: awaiting the new GitHub Actions run.

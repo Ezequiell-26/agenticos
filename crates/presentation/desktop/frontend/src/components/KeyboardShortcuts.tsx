@@ -32,6 +32,7 @@ const groups = [
     title: 'Interaction',
     items: [
       ['↑ / ↓', 'Move through lists and command results'],
+      ['Home / End', 'Jump to the minimum or maximum value on adjustable panels'],
       ['Enter', 'Open selected item'],
     ],
   },

@@ -10,7 +10,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock, Semaphore};
 use tokio::time::{timeout, Instant};
 use uuid::Uuid;
 
@@ -126,12 +126,22 @@ pub enum McpError {
     Timeout,
 }
 
-/// Server registry plus stdio client operations.
+#[derive(Debug, Clone)]
+struct CachedTools {
+    fetched_at: Instant,
+    tools: Vec<McpTool>,
+}
+
+/// Server registry plus lazy, reusable stdio client operations.
 #[derive(Clone, Debug)]
 pub struct McpManager {
     servers: Arc<RwLock<HashMap<String, McpServerDefinition>>>,
     db: Option<Arc<sqlx::SqlitePool>>,
     default_timeout_ms: u64,
+    sessions: Arc<RwLock<HashMap<String, Arc<Mutex<StdioClient>>>>>,
+    tools_cache: Arc<RwLock<HashMap<String, CachedTools>>>,
+    concurrency: Arc<Semaphore>,
+    tool_cache_ttl: Duration,
 }
 
 impl McpManager {
@@ -141,6 +151,10 @@ impl McpManager {
             servers: Arc::new(RwLock::new(HashMap::new())),
             db: None,
             default_timeout_ms: default_timeout_ms.clamp(1_000, 300_000),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            tools_cache: Arc::new(RwLock::new(HashMap::new())),
+            concurrency: Arc::new(Semaphore::new(mcp_concurrency_limit())),
+            tool_cache_ttl: mcp_tool_cache_ttl(),
         }
     }
 
@@ -196,6 +210,10 @@ impl McpManager {
             servers: Arc::new(RwLock::new(servers)),
             db: Some(Arc::new(db)),
             default_timeout_ms: default_timeout_ms.clamp(1_000, 300_000),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            tools_cache: Arc::new(RwLock::new(HashMap::new())),
+            concurrency: Arc::new(Semaphore::new(mcp_concurrency_limit())),
+            tool_cache_ttl: mcp_tool_cache_ttl(),
         })
     }
 
@@ -249,6 +267,7 @@ impl McpManager {
         let previous = servers.insert(server.server_id.clone(), server.clone());
         drop(servers);
 
+        self.invalidate_runtime(&server.server_id).await;
         if let Err(error) = self.persist(&server).await {
             let mut servers = self.servers.write().await;
             match previous {
@@ -273,6 +292,7 @@ impl McpManager {
         server.enabled = true;
         let snapshot = server.clone();
         drop(servers);
+        self.invalidate_runtime(&snapshot.server_id).await;
         self.persist(&snapshot).await
     }
 
@@ -285,6 +305,7 @@ impl McpManager {
         server.enabled = false;
         let snapshot = server.clone();
         drop(servers);
+        self.invalidate_runtime(&snapshot.server_id).await;
         self.persist(&snapshot).await
     }
 
@@ -292,6 +313,7 @@ impl McpManager {
     pub async fn unregister(&self, server_id: &str) -> bool {
         let removed = self.servers.write().await.remove(server_id).is_some();
         if removed {
+            self.invalidate_runtime(server_id).await;
             let _ = self.delete_persisted(server_id).await;
         }
         removed
@@ -305,15 +327,40 @@ impl McpManager {
     }
 
     /// Discover tools from an enabled MCP server.
+    ///
+    /// Discovery is cached and the stdio process is reused across calls.
     pub async fn list_tools(&self, server_id: &str) -> Result<Vec<McpTool>, McpError> {
+        let _permit = self
+            .concurrency
+            .acquire()
+            .await
+            .map_err(|_| McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string()))?;
+
+        if let Some(tools) = self.cached_tools(server_id).await {
+            return Ok(tools);
+        }
+
         let server = self.get_enabled(server_id).await?;
-        let mut client = StdioClient::spawn(&server, self.timeout_for(&server)).await?;
-        client.initialize().await?;
-        let response = client.request("tools/list", None).await?;
-        parse_tools(response)
+        let session = self.get_or_spawn_session(&server).await?;
+        let response = {
+            let mut client = session.lock().await;
+            client.request("tools/list", None).await
+        };
+
+        match response {
+            Ok(response) => {
+                let tools = parse_tools(response)?;
+                self.store_tools_cache(server_id, tools.clone()).await;
+                Ok(tools)
+            }
+            Err(error) => {
+                self.drop_session(server_id).await;
+                Err(error)
+            }
+        }
     }
 
-    /// Call a tool on an enabled MCP server.
+    /// Call a tool on an enabled MCP server using its persistent session.
     pub async fn call_tool(
         &self,
         server_id: &str,
@@ -325,30 +372,94 @@ impl McpManager {
                 "tool_name is required".to_string(),
             ));
         }
+
+        let _permit = self
+            .concurrency
+            .acquire()
+            .await
+            .map_err(|_| McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string()))?;
+
         let server = self.get_enabled(server_id).await?;
-        let mut client = StdioClient::spawn(&server, self.timeout_for(&server)).await?;
+        let session = self.get_or_spawn_session(&server).await?;
+        let response = {
+            let mut client = session.lock().await;
+            client
+                .request(
+                    "tools/call",
+                    Some(serde_json::json!({
+                        "name": tool_name,
+                        "arguments": arguments,
+                    })),
+                )
+                .await
+        };
+
+        match response {
+            Ok(response) => {
+                if let Some(result) = response.result {
+                    return Ok(result);
+                }
+                if let Some(error) = response.error {
+                    return Err(McpError::Rpc {
+                        code: error.code,
+                        message: error.message,
+                    });
+                }
+                Err(McpError::InvalidConfiguration(
+                    "MCP response contained neither result nor error".to_string(),
+                ))
+            }
+            Err(error) => {
+                self.drop_session(server_id).await;
+                Err(error)
+            }
+        }
+    }
+
+    async fn cached_tools(&self, server_id: &str) -> Option<Vec<McpTool>> {
+        let cache = self.tools_cache.read().await;
+        cache.get(server_id).and_then(|entry| {
+            (entry.fetched_at.elapsed() <= self.tool_cache_ttl).then(|| entry.tools.clone())
+        })
+    }
+
+    async fn store_tools_cache(&self, server_id: &str, tools: Vec<McpTool>) {
+        self.tools_cache.write().await.insert(
+            server_id.to_string(),
+            CachedTools {
+                fetched_at: Instant::now(),
+                tools,
+            },
+        );
+    }
+
+    async fn get_or_spawn_session(
+        &self,
+        server: &McpServerDefinition,
+    ) -> Result<Arc<Mutex<StdioClient>>, McpError> {
+        if let Some(session) = self.sessions.read().await.get(&server.server_id).cloned() {
+            return Ok(session);
+        }
+
+        let mut client = StdioClient::spawn(server, self.timeout_for(server)).await?;
         client.initialize().await?;
-        let response = client
-            .request(
-                "tools/call",
-                Some(serde_json::json!({
-                    "name": tool_name,
-                    "arguments": arguments,
-                })),
-            )
-            .await?;
-        if let Some(result) = response.result {
-            return Ok(result);
+        let session = Arc::new(Mutex::new(client));
+
+        let mut sessions = self.sessions.write().await;
+        if let Some(existing) = sessions.get(&server.server_id).cloned() {
+            return Ok(existing);
         }
-        if let Some(error) = response.error {
-            return Err(McpError::Rpc {
-                code: error.code,
-                message: error.message,
-            });
-        }
-        Err(McpError::InvalidConfiguration(
-            "MCP response contained neither result nor error".to_string(),
-        ))
+        sessions.insert(server.server_id.clone(), session.clone());
+        Ok(session)
+    }
+
+    async fn drop_session(&self, server_id: &str) {
+        self.sessions.write().await.remove(server_id);
+    }
+
+    async fn invalidate_runtime(&self, server_id: &str) {
+        self.drop_session(server_id).await;
+        self.tools_cache.write().await.remove(server_id);
     }
 
     async fn get_enabled(&self, server_id: &str) -> Result<McpServerDefinition, McpError> {
@@ -413,6 +524,7 @@ fn validate_server(server: &McpServerDefinition) -> Result<(), McpError> {
     Ok(())
 }
 
+#[derive(Debug)]
 struct StdioClient {
     child: Child,
     reader: BufReader<tokio::process::ChildStdout>,
@@ -638,4 +750,22 @@ mod tests {
         });
         assert!(result.is_err());
     }
+}
+
+
+fn mcp_concurrency_limit() -> usize {
+    std::env::var("AGENTICOS_MCP_MAX_CONCURRENCY")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(16)
+        .clamp(1, 128)
+}
+
+fn mcp_tool_cache_ttl() -> Duration {
+    let ttl_ms = std::env::var("AGENTICOS_MCP_TOOL_CACHE_TTL_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(300_000)
+        .clamp(1_000, 3_600_000);
+    Duration::from_millis(ttl_ms)
 }

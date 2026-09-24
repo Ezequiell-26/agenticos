@@ -7,9 +7,12 @@ const StudioSurface = lazy(() => import('./StudioSurface'))
 
 function SurfaceFallback() {
   return (
-    <section className="surface-loading" aria-live="polite">
-      <span className="surface-loading__spinner" />
+    <section className="surface-loading" aria-live="polite" aria-busy="true" aria-label="Loading workspace surface">
+      <div className="surface-loading__skeleton" aria-hidden="true">
+        <span /><span /><span /><span />
+      </div>
       <div>
+        <span className="eyebrow">AgentiCOS</span>
         <strong>Loading workspace surface</strong>
         <small>Only the selected feature is being loaded.</small>
       </div>

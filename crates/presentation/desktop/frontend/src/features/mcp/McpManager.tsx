@@ -37,10 +37,6 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
     return q ? servers.filter((server) => [server.name, server.detail, server.transport, server.auth].join(' ').toLowerCase().includes(q)) : servers
   }, [servers, search])
 
-  function patch(value: Partial<Server>) {
-    setServers((items) => items.map((server) => server.name === current.name ? { ...server, ...value } : server))
-  }
-
   function addServer() {
     const next: Server = { name: 'new-server', detail: 'Custom MCP endpoint', tools: 0, state: 'Draft', transport: 'stdio', auth: 'Not configured', resources: 0, risk: 'Review' }
     setServers((items) => [next, ...items])

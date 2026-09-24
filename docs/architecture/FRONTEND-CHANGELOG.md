@@ -1066,3 +1066,12 @@ Verification status:
 - Added full generic `FeatureWorkbench` state previews for Ready, Loading, Empty, Error, Offline and Approval, including recovery/reconnect presentation actions and reduced-motion behavior.
 - Preserved the runtime boundary: shortcut actions and state previews remain presentation-only.
 - Verification status: source-level audit only. Build, browser, accessibility execution and Tauri rendering remain unverified.
+
+## 2026-09-24 — Frontend interaction depth and keyboard parity
+
+- Added keyboard selection to the All Features launcher with ArrowUp/ArrowDown, Enter and Escape behavior.
+- Added active keyboard styling and `aria-activedescendant` linkage for feature search.
+- Hardened ChatSurface with slash-command keyboard navigation, real clipboard copy handling, accessible composer notices and outside/Escape dismissal for the session menu.
+- Exposed the keyboard shortcut center from the global Command Palette as well as the `?` shortcut.
+- Preserved the monochrome visual language, reduced-motion behavior and frontend/runtime boundary.
+- Verification status: source-level only. Production build, browser execution, accessibility execution and Tauri rendering remain unverified.

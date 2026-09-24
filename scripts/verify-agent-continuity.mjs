@@ -174,9 +174,14 @@ for (const { op, lineNumber } of journalEntries) {
 
   if (modern) {
     const required = continuity.required_operation_fields;
+    const fieldAliases = { risks: ["risks", "risk"] };
+
     for (const field of required) {
       if (!strictJournalSchemaActive && !(field in op)) continue;
-      if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
+      const aliases = fieldAliases[field] ?? [field];
+      if (!aliases.some((alias) => alias in op)) {
+        fail(`journal operation ${operationId} is missing ${field}`);
+      }
     }
   } else if (strictJournalSchemaActive) {
     fail(`legacy journal operation ${operationId} appears after strict schema migration`);

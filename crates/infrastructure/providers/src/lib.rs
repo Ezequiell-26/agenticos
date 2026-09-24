@@ -164,6 +164,7 @@ impl CredentialPool {
         Ok(before - credentials.len())
     }
 
+    /// Remove credentials that have already expired.
     pub async fn remove_expired(&self, now: u64) -> Result<usize, ContractError> {
         let mut credentials = self.credentials.write().await;
         let before = credentials.len();

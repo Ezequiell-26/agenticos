@@ -90,7 +90,7 @@ impl ReasoningEngine {
         }
 
         let clauses: Vec<&str> = objective
-            .split(|ch| matches!(ch, '.' | ';' | '\n'))
+            .split(['.', ';', '\n'])
             .map(str::trim)
             .filter(|clause| !clause.is_empty())
             .take(self.planner.max_steps)

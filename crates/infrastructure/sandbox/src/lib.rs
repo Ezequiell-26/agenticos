@@ -129,7 +129,7 @@ impl ProcessSandbox {
             Ok(Ok(output)) => {
                 let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
                 if !output.stderr.is_empty() {
-                    combined.push_str("\n");
+                    combined.push('\n');
                     combined.push_str(&String::from_utf8_lossy(&output.stderr));
                 }
                 combined.truncate(self.policy.max_output_bytes);

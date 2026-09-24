@@ -110,6 +110,25 @@ export default function HermesParityControls({ settings, update }: { settings: S
         <ParityNumber label="Vision download timeout" value={settings.visionDownloadTimeout} suffix="seconds" min={1} max={600} onChange={(v) => update('visionDownloadTimeout', v)} />
       </ParitySection>
 
+      <ParitySection title="Docker sandbox contract" icon="terminal">
+        <label className="settings-field">
+          <span>Docker volume mounts</span>
+          <textarea
+            className="raw-config-editor"
+            value={settings.dockerVolumes.join('\n')}
+            onChange={(event) => update('dockerVolumes', event.target.value.split('\n').map((item) => item.trim()).filter(Boolean))}
+            spellCheck={false}
+            placeholder="/host/path:/container/path[:ro]"
+            rows={5}
+          />
+        </label>
+        <ParityToggle label="Run as host user" detail="Preserve host UID/GID ownership for files created in bind mounts." enabled={settings.dockerRunAsHostUser} onChange={() => update('dockerRunAsHostUser', !settings.dockerRunAsHostUser)} />
+        <ParityText label="Docker extra arguments" value={settings.dockerExtraArgs} placeholder="Additional runtime flags; backend validates allowed arguments." onChange={(v) => update('dockerExtraArgs', v)} />
+        <ParityToggle label="Persist container across processes" detail="Request reusable Docker sandbox lifecycle where the runtime supports it." enabled={settings.dockerPersistAcrossProcesses} onChange={() => update('dockerPersistAcrossProcesses', !settings.dockerPersistAcrossProcesses)} />
+        <ParityToggle label="Orphan reaper" detail="Enable cleanup of abandoned Docker sandbox processes." enabled={settings.dockerOrphanReaper} onChange={() => update('dockerOrphanReaper', !settings.dockerOrphanReaper)} />
+        <div className="settings-info-banner"><span><Icon name="shield" size={15} /></span><div><strong>Mounts are security-sensitive</strong><small>Mount permissions, path validation and Docker flags must be enforced by the runtime. This editor is a contract preview only.</small></div></div>
+      </ParitySection>
+
       <ParitySection title="Voice runtime" icon="mic">
         <ParitySelect label="TTS provider" value={settings.ttsProvider} onChange={(v) => update('ttsProvider', v)} options={['edge', 'elevenlabs', 'openai', 'neutts']} />
         <ParityText label="TTS voice ID" value={settings.ttsVoiceId} placeholder="Provider-specific voice id" onChange={(v) => update('ttsVoiceId', v)} />

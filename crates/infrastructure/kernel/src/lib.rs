@@ -607,6 +607,17 @@ impl KernelRuntime {
         Ok(())
     }
 
+    /// Return a loaded run or recover it from durable snapshot/event state.
+    pub async fn get_or_recover_run(
+        &self,
+        run_id: &RunId,
+    ) -> Result<DurableRun, ContractError> {
+        if let Some(run) = self.runs.read().await.get(run_id).cloned() {
+            return Ok(run);
+        }
+        self.recover_run(run_id).await
+    }
+
     /// Acquire a lease for a run.
     pub async fn acquire_lease(
         &self,

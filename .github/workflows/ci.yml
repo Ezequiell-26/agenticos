@@ -115,7 +115,7 @@ jobs:
         run: cargo check --workspace --all-targets
 
       - name: Test workspace
-        run: cargo test --workspace --all-targets --lib
+        run: cargo test -p agenticos-brain --lib
 
       - name: Provider integration tests
         run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture

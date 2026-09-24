@@ -2443,7 +2443,7 @@ impl ReactAgent {
                         .map(|msg| agenticos_contracts::Message {
                             message_id: msg.id,
                             role: msg.role,
-                            content: msg.content,
+                            content: msg.content.clone(),
                             timestamp: msg.timestamp.max(0) as u64,
                             token_count: ((msg.content.chars().count() as u32).saturating_add(3) / 4)
                                 .max(1),

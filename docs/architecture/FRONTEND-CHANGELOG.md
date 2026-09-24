@@ -1455,3 +1455,12 @@ Verification status:
 - The menu opens at the cursor with viewport clamping, closes on selection, outside pointer-down or Escape, and participates in the exclusive overlay registry so it never stacks with other menus.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; menu opening, item list, status bar and session tab toggles verified in the browser preview.
+
+## 2026-09-25 — Settings modal window and Layouts customization card
+
+- Settings now opens as a separate modal window over the current surface (dimmed backdrop, floating window with the centered Ctrl+K search, category sidebar and breadcrumb content, X to close) instead of replacing the workspace; every navigation path into `settings` mode routes through the modal.
+- Added the Layouts customization card (Ctrl+Shift+V and a right-click menu entry): interface mode cards (Simple / Advanced) bound to the experience preference, sidebar-side templates (Sidebar left / Sidebar right) that really move the sidebar across the shell, Reset to defaults and Done.
+- While the card is open the shell enters a layout-editing state with dashed accent outlines around the sidebar and content zones, matching the reference.
+- Added the persisted `sidebarSide` preference applied as `data-agenticos-sidebar-side`.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; Layouts card, template switching, reset and the settings modal verified in the browser preview.

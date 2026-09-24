@@ -14,6 +14,7 @@ interface WorkspaceContextMenuProps {
   onCreateConversation: () => void
   onOpenPalette: () => void
   onOpenSettings: () => void
+  onOpenLayouts: () => void
   onAction: (message: string) => void
 }
 
@@ -25,7 +26,7 @@ interface MenuItem {
   run: () => void
 }
 
-export default function WorkspaceContextMenu({ anchor, onClose, onCreateConversation, onOpenPalette, onOpenSettings, onAction }: WorkspaceContextMenuProps) {
+export default function WorkspaceContextMenu({ anchor, onClose, onCreateConversation, onOpenPalette, onOpenSettings, onOpenLayouts, onAction }: WorkspaceContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   useExclusiveOverlay('context-menu', true, onClose)
 
@@ -70,7 +71,8 @@ export default function WorkspaceContextMenu({ anchor, onClose, onCreateConversa
     { id: 'palette', label: 'Command palette', icon: 'command', dividerAfter: true, run: onOpenPalette },
     { id: 'statusbar', label: 'Toggle status bar', icon: 'panel-right', run: toggleStatusbar },
     { id: 'profilebar', label: 'Show or hide the profile bar', icon: 'panel-left', run: toggleProfileBar },
-    { id: 'tabs', label: 'Show or hide session tabs', icon: 'copy', dividerAfter: true, run: toggleSessionTabs },
+    { id: 'tabs', label: 'Show or hide session tabs', icon: 'copy', run: toggleSessionTabs },
+    { id: 'layouts', label: 'Layouts', icon: 'sliders', dividerAfter: true, run: onOpenLayouts },
     { id: 'settings', label: 'Settings', icon: 'settings', run: onOpenSettings },
     { id: 'update', label: 'Update AgentiCOS', icon: 'cloud', run: () => onAction('Updates are managed by the desktop runtime') },
   ]

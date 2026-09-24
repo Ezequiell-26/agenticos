@@ -8,6 +8,8 @@ import Icon from './components/Icon'
 import NotificationDrawer from './components/NotificationDrawer'
 import QuickActionsMenu from './components/QuickActionsMenu'
 import StatusBar from './components/StatusBar'
+import LayoutsCard from './components/LayoutsCard'
+import SettingsWorkspace from './features/settings/SettingsWorkspace'
 import WorkspaceContextMenu, { type ContextMenuState } from './components/WorkspaceContextMenu'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
@@ -89,11 +91,22 @@ function App() {
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [toast, setToast] = useState('')
+  const [layoutsOpen, setLayoutsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const runtimeSyncSequence = useRef(0)
   useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
   useExclusiveOverlay('global-search', globalSearchOpen, () => setGlobalSearchOpen(false))
   useExclusiveOverlay('notifications', notificationsOpen, () => setNotificationsOpen(false))
   useExclusiveOverlay('shortcuts', shortcutsOpen, () => setShortcutsOpen(false))
+  useExclusiveOverlay('layouts', layoutsOpen, () => setLayoutsOpen(false))
+  useExclusiveOverlay('settings-modal', settingsOpen, () => setSettingsOpen(false))
+
+  useEffect(() => {
+    if (mode === 'settings') {
+      setSettingsOpen(true)
+      setMode('chat')
+    }
+  }, [mode])
 
   useEffect(() => {
     const onContextMenu = (event: MouseEvent) => {
@@ -186,6 +199,11 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'j') {
         event.preventDefault()
         setDockOpen((open) => !open)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        setLayoutsOpen((open) => !open)
         return
       }
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && /^[1-9]$/.test(event.key)) {
@@ -284,7 +302,7 @@ function App() {
   }
 
   return (
-    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
+    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (focusMode ? 'app-shell--focus ' : '') + (layoutsOpen ? 'app-shell--layout-editing' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <WorkspaceSidebar
         activeConversation={sessionId}
         conversations={conversations}
@@ -373,9 +391,25 @@ function App() {
           onClose={() => setContextMenu(null)}
           onCreateConversation={handleCreateConversation}
           onOpenPalette={() => setPaletteOpen(true)}
-          onOpenSettings={() => setMode('settings')}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenLayouts={() => setLayoutsOpen(true)}
           onAction={setToast}
         />
+      )}
+      {layoutsOpen && (
+        <LayoutsCard
+          experience={experience}
+          onExperienceChange={setExperience}
+          onClose={() => setLayoutsOpen(false)}
+          onAction={setToast}
+        />
+      )}
+      {settingsOpen && (
+        <div className="settings-modal-backdrop" role="presentation" onMouseDown={() => setSettingsOpen(false)}>
+          <div className="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(event) => event.stopPropagation()}>
+            <SettingsWorkspace notify={setToast} onClose={() => setSettingsOpen(false)} onNavigate={(nextMode) => { setSettingsOpen(false); setMode(nextMode) }} />
+          </div>
+        </div>
       )}
       {toast && <div className="studio-toast" role="status"><Icon name="check" size={14} /><span>{toast}</span></div>}
     </div>

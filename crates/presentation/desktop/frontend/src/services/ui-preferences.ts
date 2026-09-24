@@ -11,6 +11,8 @@ export interface UiPreferences extends UiLayoutPreferences {
   experience: ExperienceLevel
 }
 
+export type SidebarSide = 'left' | 'right'
+
 export interface UiLayoutPreferences {
   leftSidebarVisible: boolean
   agentInspectorVisible: boolean
@@ -18,6 +20,7 @@ export interface UiLayoutPreferences {
   activityRailCompact: boolean
   statusBarVisible: boolean
   sessionTabsVisible: boolean
+  sidebarSide: SidebarSide
   showTooltips: boolean
   hoverPreview: boolean
   notificationPosition: string
@@ -38,6 +41,7 @@ export const defaultUiPreferences: UiPreferences = {
   activityRailCompact: true,
   statusBarVisible: true,
   sessionTabsVisible: true,
+  sidebarSide: 'left',
   showTooltips: true,
   hoverPreview: true,
   notificationPosition: 'top-right',
@@ -95,6 +99,7 @@ export function applyUiPreferences(preferences: UiPreferences) {
   root.dataset.agenticosRail = preferences.activityRailCompact ? 'compact' : 'expanded'
   root.dataset.agenticosStatusbar = preferences.statusBarVisible ? 'visible' : 'hidden'
   root.dataset.agenticosTabs = preferences.sessionTabsVisible ? 'visible' : 'hidden'
+  root.dataset.agenticosSidebarSide = preferences.sidebarSide
   root.dataset.agenticosTooltips = preferences.showTooltips ? 'visible' : 'hidden'
   root.dataset.agenticosHoverPreview = preferences.hoverPreview ? 'visible' : 'hidden'
   root.dataset.agenticosNotifications = preferences.notificationPosition

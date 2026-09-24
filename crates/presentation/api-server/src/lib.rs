@@ -13,6 +13,10 @@ use actix_web::{
     middleware::{from_fn, Next},
     web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use agenticos_a2a::{
+    text_from_message, A2aMessage, A2aTaskRecord, A2aTaskStore, AgentCapabilities, AgentCard,
+    AgentInterface, AgentSkill, JsonRpcError, JsonRpcRequest, JsonRpcResponse, TaskState, TaskView,
+};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
@@ -131,6 +135,7 @@ pub struct RuntimeState {
     evaluation: Arc<EvaluationRegistry>,
     idempotency: Arc<SqliteIdempotencyStore>,
     source_forge: Arc<GitHubSourceClient>,
+    a2a_tasks: Arc<A2aTaskStore>,
     model: String,
 }
 
@@ -292,6 +297,11 @@ impl RuntimeState {
             source_forge: Arc::new(
                 GitHubSourceClient::from_env()
                     .map_err(|error| ContractError::ParseError(error.to_string()))?,
+            ),
+            a2a_tasks: Arc::new(
+                A2aTaskStore::open(&database_url)
+                    .await
+                    .map_err(ContractError::ParseError)?,
             ),
             model,
         })
@@ -463,6 +473,22 @@ struct AnalyzeRepositoryRequest {
 struct SourceFileQuery {
     path: String,
     reference: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct A2aSendMessageParams {
+    message: A2aMessage,
+}
+
+#[derive(Debug, Deserialize)]
+struct A2aTaskParams {
+    id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct A2aErrorBody {
+    code: i32,
+    message: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -998,6 +1024,239 @@ async fn get_evaluation_result(
 
 async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(state.metrics.snapshot())
+}
+
+fn a2a_agent_card() -> AgentCard {
+    let base_url = std::env::var("AGENTICOS_PUBLIC_BASE_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "http://localhost:8080".to_string())
+        .trim_end_matches('/')
+        .to_string();
+
+    AgentCard {
+        name: "AgentiCOS".to_string(),
+        description: "Universal durable AI agent runtime".to_string(),
+        supported_interfaces: vec![AgentInterface {
+            url: format!("{base_url}/a2a"),
+            protocol_binding: agenticos_a2a::A2A_PROTOCOL_BINDING.to_string(),
+            protocol_version: agenticos_a2a::A2A_PROTOCOL_VERSION.to_string(),
+        }],
+        provider: Some(agenticos_a2a::AgentProvider {
+            organization: "AgentiCOS".to_string(),
+            url: Some(base_url.clone()),
+        }),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        documentation_url: Some(format!("{base_url}/health")),
+        capabilities: AgentCapabilities {
+            streaming: false,
+            push_notifications: false,
+            extended_agent_card: false,
+            extensions: Vec::new(),
+        },
+        security_schemes: HashMap::new(),
+        security_requirements: Vec::new(),
+        default_input_modes: vec!["text/plain".to_string()],
+        default_output_modes: vec!["text/plain".to_string()],
+        skills: vec![AgentSkill {
+            id: "general-agent".to_string(),
+            name: "General Agent".to_string(),
+            description: "Execute durable objectives through the AgentiCOS runtime".to_string(),
+            input_modes: vec!["text/plain".to_string()],
+            output_modes: vec!["text/plain".to_string()],
+            examples: vec!["Solve this task and report the result.".to_string()],
+        }],
+        signatures: Vec::new(),
+        icon_url: None,
+    }
+}
+
+async fn a2a_agent_card() -> impl Responder {
+    HttpResponse::Ok().json(a2a_agent_card())
+}
+
+fn a2a_error(id: serde_json::Value, code: i32, message: impl Into<String>) -> HttpResponse {
+    HttpResponse::Ok().json(JsonRpcResponse {
+        jsonrpc: "2.0".to_string(),
+        id,
+        result: None,
+        error: Some(JsonRpcError {
+            code,
+            message: message.into(),
+            data: None,
+        }),
+    })
+}
+
+fn map_run_state_to_a2a(state: RunState) -> TaskState {
+    match state {
+        RunState::Created | RunState::Admitted | RunState::Waiting => TaskState::Submitted,
+        RunState::Running | RunState::Cancelling => TaskState::Working,
+        RunState::Completed => TaskState::Completed,
+        RunState::Failed => TaskState::Failed,
+        RunState::Cancelled => TaskState::Canceled,
+    }
+}
+
+async fn a2a_rpc(
+    request: web::Json<JsonRpcRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.jsonrpc != "2.0" {
+        return a2a_error(request.id.clone(), -32600, "jsonrpc must be 2.0");
+    }
+
+    match request.method.as_str() {
+        "message/send" => {
+            let params = match serde_json::from_value::<A2aSendMessageParams>(request.params.clone())
+            {
+                Ok(value) => value,
+                Err(error) => {
+                    return a2a_error(request.id.clone(), -32602, error.to_string());
+                }
+            };
+
+            let objective = text_from_message(&params.message);
+            if objective.trim().is_empty() {
+                return a2a_error(
+                    request.id.clone(),
+                    -32602,
+                    "message must contain at least one text part",
+                );
+            }
+            if objective.len() > 1_000_000 {
+                return a2a_error(request.id.clone(), -32602, "message is too large");
+            }
+
+            let task_id = format!("task-{}", uuid::Uuid::new_v4());
+            let context_id = params
+                .message
+                .context_id
+                .clone()
+                .unwrap_or_else(|| format!("context-{}", uuid::Uuid::new_v4()));
+            let run_id = match RunId::new(format!("a2a-{task_id}")) {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
+            };
+
+            let created = match state.kernel.create_run(run_id.clone()).await {
+                Ok(value) => value,
+                Err(error) => {
+                    return a2a_error(request.id.clone(), -32001, error.to_string());
+                }
+            };
+            if let Err(error) = state
+                .kernel
+                .transition_run(&run_id, RunState::Admitted, created.version)
+                .await
+            {
+                return a2a_error(request.id.clone(), -32001, error.to_string());
+            }
+
+            if let Err(error) = state
+                .memory
+                .store_message(
+                    &format!("{}-objective", run_id.as_str()),
+                    run_id.as_str(),
+                    "objective",
+                    &objective,
+                )
+                .await
+            {
+                return a2a_error(request.id.clone(), -32001, error.to_string());
+            }
+
+            let job_id = format!("a2a-job-{task_id}");
+            if let Err(error) = state
+                .scheduler
+                .enqueue(JobSpec {
+                    job_id,
+                    run_id: run_id.as_str().to_string(),
+                    task: objective,
+                    dependencies: Vec::new(),
+                    priority: 80,
+                    max_attempts: 2,
+                })
+                .await
+            {
+                return a2a_error(request.id.clone(), -32001, error);
+            }
+
+            let mut message = params.message;
+            message.context_id = Some(context_id.clone());
+            message.task_id = Some(task_id.clone());
+            let now = chrono::Utc::now().timestamp().max(0) as u64;
+            let record = A2aTaskRecord {
+                id: task_id.clone(),
+                context_id,
+                run_id: run_id.as_str().to_string(),
+                history: vec![message],
+                created_at: now,
+                updated_at: now,
+            };
+            if let Err(error) = state.a2a_tasks.put(record.clone()).await {
+                return a2a_error(request.id.clone(), -32001, error);
+            }
+
+            let view = TaskView::from_record(&record, TaskState::Submitted);
+            HttpResponse::Ok().json(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id.clone(),
+                result: Some(serde_json::to_value(view).unwrap_or_else(|_| serde_json::json!({}))),
+                error: None,
+            })
+        }
+        "tasks/get" => {
+            let params = match serde_json::from_value::<A2aTaskParams>(request.params.clone()) {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
+            };
+            let record = match state.a2a_tasks.get(&params.id).await {
+                Some(value) => value,
+                None => return a2a_error(request.id.clone(), -32004, "task not found"),
+            };
+            let run_id = match RunId::new(record.run_id.clone()) {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32001, error.to_string()),
+            };
+            let run = match state.kernel.get_or_recover_run(&run_id).await {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32001, error.to_string()),
+            };
+            let view = TaskView::from_record(&record, map_run_state_to_a2a(run.state));
+            HttpResponse::Ok().json(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id.clone(),
+                result: Some(serde_json::to_value(view).unwrap_or_else(|_| serde_json::json!({}))),
+                error: None,
+            })
+        }
+        "tasks/cancel" => {
+            let params = match serde_json::from_value::<A2aTaskParams>(request.params.clone()) {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
+            };
+            let record = match state.a2a_tasks.get(&params.id).await {
+                Some(value) => value,
+                None => return a2a_error(request.id.clone(), -32004, "task not found"),
+            };
+            let run_id = match RunId::new(record.run_id.clone()) {
+                Ok(value) => value,
+                Err(error) => return a2a_error(request.id.clone(), -32001, error.to_string()),
+            };
+            if let Err(error) = state.kernel.cancel_run(&run_id).await {
+                return a2a_error(request.id.clone(), -32001, error.to_string());
+            }
+            let view = TaskView::from_record(&record, TaskState::Canceled);
+            HttpResponse::Ok().json(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id.clone(),
+                result: Some(serde_json::to_value(view).unwrap_or_else(|_| serde_json::json!({}))),
+                error: None,
+            })
+        }
+        _ => a2a_error(request.id.clone(), -32601, "A2A method not supported"),
+    }
 }
 
 async fn readiness_check(state: web::Data<RuntimeState>) -> impl Responder {
@@ -3161,6 +3420,11 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .app_data(web::Data::new(auth_config))
             .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
+            .route(
+                "/.well-known/agent-card.json",
+                web::get().to(a2a_agent_card),
+            )
+            .route("/a2a", web::post().to(a2a_rpc))
             .route("/ready", web::get().to(readiness_check))
             .route("/api/metrics", web::get().to(runtime_metrics))
             .route(

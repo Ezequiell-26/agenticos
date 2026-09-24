@@ -1321,6 +1321,40 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn provider_update_without_new_api_key_keeps_existing_credential() {
+        let platform = ProviderPlatform::new();
+        let entry = ProviderEntry {
+            provider_id: "stable-provider".to_string(),
+            name: "Stable Provider".to_string(),
+            base_url: "https://api.example.com/v1".to_string(),
+            models: vec!["model-a".to_string()],
+            capabilities: vec!["chat".to_string()],
+        };
+
+        platform
+            .register(entry.clone(), Some("original-key".to_string()))
+            .await
+            .unwrap();
+
+        platform
+            .register(
+                ProviderEntry {
+                    name: "Updated Provider".to_string(),
+                    models: vec!["model-b".to_string()],
+                    ..entry
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        let statuses = platform.list_status().await;
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0].name, "Updated Provider");
+        assert!(statuses[0].configured);
+    }
+
     #[test]
     fn provider_http_retry_classification_is_transient_only() {
         assert!(super::is_retryable_provider_error(&ContractError::ParseError(

@@ -6,6 +6,7 @@
 use agenticos_contracts::{
     ContractError, ProtocolMessage, ProtocolSerializer, ProtocolTransport, ProtocolValidator,
 };
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -98,14 +99,14 @@ impl ProtocolValidator for BasicProtocolValidator {
 /// In-memory protocol transport.
 #[derive(Debug)]
 pub struct InMemoryProtocolTransport {
-    messages: Arc<RwLock<Vec<ProtocolMessage>>>,
+    messages: Arc<RwLock<VecDeque<ProtocolMessage>>>,
 }
 
 impl InMemoryProtocolTransport {
     /// Create a new in-memory protocol transport.
     pub fn new() -> Self {
         Self {
-            messages: Arc::new(RwLock::new(Vec::new())),
+            messages: Arc::new(RwLock::new(VecDeque::new())),
         }
     }
 
@@ -126,13 +127,13 @@ impl Default for InMemoryProtocolTransport {
 impl ProtocolTransport for InMemoryProtocolTransport {
     async fn send(&self, message: ProtocolMessage) -> Result<(), ContractError> {
         let mut messages = self.messages.write().await;
-        messages.push(message);
+        messages.push_back(message);
         Ok(())
     }
 
     async fn receive(&self) -> Result<Option<ProtocolMessage>, ContractError> {
         let mut messages = self.messages.write().await;
-        Ok(messages.pop())
+        Ok(messages.pop_front())
     }
 }
 

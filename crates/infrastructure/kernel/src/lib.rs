@@ -2590,6 +2590,7 @@ impl ReactAgent {
         current_turn: usize,
         input: &str,
         preferred_model: Option<&str>,
+        parameters: Option<&str>,
     ) -> Result<String, ContractError> {
         if let Some(provider) = model_provider {
             let system_prompt = self.build_system_prompt().await;
@@ -2597,7 +2598,7 @@ impl ReactAgent {
                 request_id: format!("think-{}", current_turn),
                 model: preferred_model.unwrap_or("default").to_string(),
                 input: format!("{}\n\nUser: {}", system_prompt, input),
-                parameters: None,
+                parameters: parameters.map(ToOwned::to_owned),
             };
 
             match provider.execute(request).await {
@@ -2842,8 +2843,17 @@ impl ReactAgent {
         format!("Observation: {}", observation)
     }
 
-    /// Execute one full ReAct loop turn.
+    /// Execute one full ReAct loop turn using default model parameters.
     pub async fn execute_turn(&self, input: &str) -> Result<String, ContractError> {
+        self.execute_turn_with_parameters(input, None).await
+    }
+
+    /// Execute one full ReAct loop turn with provider parameters encoded as JSON.
+    pub async fn execute_turn_with_parameters(
+        &self,
+        input: &str,
+        parameters: Option<String>,
+    ) -> Result<String, ContractError> {
         // Reserve the turn atomically so concurrent requests cannot reuse the same turn.
         let current_turn = {
             let mut inner = self.inner.lock().unwrap();
@@ -2975,6 +2985,7 @@ impl ReactAgent {
                 current_turn,
                 input,
                 preferred_model.as_deref(),
+                parameters.as_deref(),
             )
             .await?;
 

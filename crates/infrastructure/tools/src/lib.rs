@@ -171,27 +171,6 @@ fn capability_type_for_permission(permission: &str) -> CapabilityType {
     }
 }
 
-    async fn check_capability(
-        &self,
-        grant_id: &str,
-        capability: &str,
-    ) -> Result<bool, ContractError> {
-        if grant_id.trim().is_empty() || capability.trim().is_empty() {
-            return Ok(false);
-        }
-        let Some(capabilities) = &self.capabilities else {
-            return Ok(false);
-        }
-        capabilities
-            .authorize(
-                grant_id,
-                capability_type_for_permission(capability),
-                &format!("tool/{}", capability),
-                capability,
-            )
-            .await
-    }
-}
 
 /// Echo tool for testing.
 #[derive(Debug)]

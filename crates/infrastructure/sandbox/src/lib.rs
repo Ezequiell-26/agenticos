@@ -53,7 +53,7 @@ impl Default for SandboxPolicy {
 #[derive(Clone, Debug)]
 pub struct ProcessSandbox {
     policy: SandboxPolicy,
-    running: Arc<RwLock<bool>>,
+    active_processes: Arc<AtomicUsize>,
 }
 
 impl ProcessSandbox {
@@ -61,7 +61,7 @@ impl ProcessSandbox {
     pub fn new(policy: SandboxPolicy) -> Self {
         Self {
             policy,
-            running: Arc::new(RwLock::new(false)),
+            active_processes: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -80,7 +80,160 @@ impl ProcessSandbox {
             return Err(ContractError::MissingCapability);
         }
 
-        let executable = command.split_whitespace().next().unwrap_or_default();
+        let args: Vec<&str> = command.split_whitespace().collect();
+        let executable = args
+            .first()
+            .copied()
+            .ok_or_else(|| ContractError::ParseError("command must not be empty".to_string()))?;
+        let contains_shell_metachar = command.chars().any(|character| {
+            matches!(character, ';' | '|' | '&' | '>' | '<' | '
+        if let Some(dir) = workdir {
+            child.current_dir(dir);
+        }
+
+        self.active_processes.fetch_add(1, Ordering::AcqRel);
+        let started = Instant::now();
+        let result = timeout(Duration::from_millis(timeout_ms), child.output()).await;
+        let elapsed = started.elapsed().as_millis() as u64;
+        self.active_processes.fetch_sub(1, Ordering::AcqRel);
+
+        match result {
+            Ok(Ok(output)) => {
+                let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
+                if !output.stderr.is_empty() {
+                    combined.push_str("\n");
+                    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+                }
+                combined.truncate(self.policy.max_output_bytes);
+
+                Ok(SandboxResponse {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    success: output.status.success(),
+                    output: combined,
+                    error: if output.status.success() {
+                        None
+                    } else {
+                        Some(format!("process exited with status {}", output.status))
+                    },
+                    resource_usage: ResourceUsage {
+                        cpu_time_ms: 0,
+                        memory_used_bytes: 0,
+                        execution_time_ms: elapsed,
+                    },
+                })
+            }
+            Ok(Err(error)) => Ok(SandboxResponse {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                success: false,
+                output: String::new(),
+                error: Some(error.to_string()),
+                resource_usage: ResourceUsage {
+                    cpu_time_ms: 0,
+                    memory_used_bytes: 0,
+                    execution_time_ms: elapsed,
+                },
+            }),
+            Err(_) => Ok(SandboxResponse {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                success: false,
+                output: String::new(),
+                error: Some(format!("sandbox timeout after {timeout_ms}ms")),
+                resource_usage: ResourceUsage {
+                    cpu_time_ms: 0,
+                    memory_used_bytes: 0,
+                    execution_time_ms: elapsed,
+                },
+            }),
+        }
+    }
+}
+
+impl Default for ProcessSandbox {
+    fn default() -> Self {
+        Self::new(SandboxPolicy::default())
+    }
+}
+
+#[async_trait::async_trait]
+impl Sandbox for ProcessSandbox {
+    async fn execute(&self, request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
+        self.execute_command(
+            &request.code,
+            Some(request.timeout_ms),
+            None,
+            &request.allowed_capabilities,
+        )
+        .await
+        .map(|mut response| {
+            response.request_id = request.request_id;
+            response
+        })
+    }
+
+    async fn is_available(&self) -> Result<bool, ContractError> {
+        Ok(true)
+    }
+
+    async fn get_status(&self) -> Result<SandboxStatus, ContractError> {
+        if self.active_processes.load(Ordering::Acquire) > 0 {
+            Ok(SandboxStatus::Busy)
+        } else {
+            Ok(SandboxStatus::Ready)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn rejects_missing_process_capability() {
+        let sandbox = ProcessSandbox::default();
+        let result = sandbox
+            .execute_command("git --version", None, None, &[])
+            .await;
+        assert!(matches!(result, Err(ContractError::MissingCapability)));
+    }
+
+    #[tokio::test]
+    async fn rejects_shell_control_operators() {
+        let sandbox = ProcessSandbox::default();
+        let result = sandbox
+            .execute_command(
+                "git --version && echo unsafe",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await;
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
+    }
+
+    #[tokio::test]
+    async fn executes_allowlisted_command() {
+        let sandbox = ProcessSandbox::default();
+        let result = sandbox
+            .execute_command(
+                "git --version",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await
+            .unwrap();
+        assert!(result.success);
+    }
+}
+ | '\n' | '\r')
+                || character == char::from_u32(96).unwrap_or('\0')
+        });
+        if contains_shell_metachar {
+            return Err(ContractError::ParseError(
+                "shell metacharacters are not allowed in sandbox commands".to_string(),
+            ));
+        }
+
         if !self.policy.allowed_commands.is_empty()
             && !self
                 .policy
@@ -97,15 +250,13 @@ impl ProcessSandbox {
         let timeout_ms = timeout_ms
             .unwrap_or(self.policy.max_timeout_ms)
             .min(self.policy.max_timeout_ms);
-        let mut child = if cfg!(target_os = "windows") {
-            let mut command_builder = Command::new("cmd");
-            command_builder.args(["/C", command]);
-            command_builder
-        } else {
-            let mut command_builder = Command::new("sh");
-            command_builder.args(["-lc", command]);
-            command_builder
-        };
+        let mut command_builder = Command::new(executable);
+        if args.len() > 1 {
+            command_builder.args(&args[1..]);
+        }
+        let mut child = command_builder.spawn().map_err(|error| {
+            ContractError::ParseError(format!("sandbox process spawn failed: {error}"))
+        })?;
         child.kill_on_drop(true);
         if let Some(dir) = workdir {
             child.current_dir(dir);

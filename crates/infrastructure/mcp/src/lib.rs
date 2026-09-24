@@ -11,7 +11,7 @@ use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::RwLock;
-use tokio::time::timeout;
+use tokio::time::{timeout, Instant};
 use uuid::Uuid;
 
 /// Architectural owner of this crate.
@@ -491,6 +491,7 @@ impl StdioClient {
             method: method.to_string(),
             params,
         };
+        let expected_id = request.id.clone();
 
         let stdin = self.child.stdin.as_mut().ok_or_else(|| {
             McpError::InvalidConfiguration("MCP stdin pipe unavailable".to_string())
@@ -501,18 +502,34 @@ impl StdioClient {
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
 
-        let mut line = String::new();
-        let bytes = timeout(self.timeout, self.reader.read_line(&mut line))
-            .await
-            .map_err(|_| McpError::Timeout)?
-            .map_err(McpError::Io)?;
-        if bytes == 0 {
-            return Err(McpError::Io(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "MCP server closed stdout before returning JSON-RPC response",
-            )));
+        let deadline = Instant::now() + self.timeout;
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(McpError::Timeout);
+            }
+
+            let mut line = String::new();
+            let bytes = timeout(remaining, self.reader.read_line(&mut line))
+                .await
+                .map_err(|_| McpError::Timeout)?
+                .map_err(McpError::Io)?;
+            if bytes == 0 {
+                return Err(McpError::Io(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "MCP server closed stdout before returning JSON-RPC response",
+                )));
+            }
+
+            let response = serde_json::from_str::<JsonRpcResponse>(line.trim())
+                .map_err(McpError::Serialization)?;
+
+            // MCP servers may emit notifications or unrelated responses while
+            // processing a request. Only the matching JSON-RPC id completes it.
+            if response.id.as_deref() == Some(expected_id.as_str()) {
+                return Ok(response);
+            }
         }
-        serde_json::from_str(line.trim()).map_err(McpError::Serialization)
     }
 }
 

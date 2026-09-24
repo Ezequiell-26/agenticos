@@ -1218,3 +1218,11 @@ Verification status:
 - Widened Provider Studio account selection state from a literal provider name to string.
 - Added explicit SettingsScope typing to the imported scope map in settings-engine.ts.
 - Verification status: source fixes applied; awaiting the next GitHub Actions frontend and Rust gates.
+
+## 2026-09-24 — Hermes Docker sandbox parity expansion
+
+- Added advanced Docker sandbox configuration fields to SettingsState and the portable settings snapshot.
+- Added UI controls for Docker volume mounts, host-user execution, extra arguments, cross-process persistence and orphan cleanup.
+- Kept mount/path validation, Docker capability enforcement and authorization runtime-owned; the frontend only defines the configuration contract.
+- Verified against the current Hermes configuration reference, which documents docker_volumes plus Docker lifecycle/resource controls. citeturn543563search0turn543563search2
+- Verification status: source integration complete; awaiting the newest GitHub Actions frontend/Rust gates.

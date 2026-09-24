@@ -432,7 +432,14 @@ async fn create_run(
                     run_id = %run_id.as_str(),
                     "failed to persist run objective"
                 );
-                let _ = state.kernel.cancel_run(&run_id).await;
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Waiting, 2)
+                    .await;
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Failed, 3)
+                    .await;
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error: error.to_string(),
                     code: "RUN_OBJECTIVE_PERSIST_FAILED",
@@ -456,7 +463,14 @@ async fn create_run(
                     run_id = %run_id.as_str(),
                     "failed to enqueue initial run job"
                 );
-                let _ = state.kernel.cancel_run(&run_id).await;
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Waiting, 2)
+                    .await;
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Failed, 3)
+                    .await;
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error,
                     code: "RUN_JOB_ENQUEUE_FAILED",

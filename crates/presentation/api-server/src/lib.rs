@@ -1893,7 +1893,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                 Ok(job) => job,
                 Err(error) => {
                     tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
-                    continue;
+                    return;
                 }
             };
 
@@ -1902,7 +1902,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                     job_id = %started_job.spec.job_id,
                     "scheduler rejected execution because the job exhausted its attempts"
                 );
-                continue;
+                return;
             }
 
             let run_id = RunId::new(started_job.spec.run_id.clone()).ok();
@@ -1918,7 +1918,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                                 Some(format!("run recovery failed: {error}")),
                             )
                             .await;
-                        continue;
+                        return;
                     }
                 };
 
@@ -1931,7 +1931,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                                 .transition_run(&run_id, RunState::Cancelled, run.version)
                                 .await;
                         }
-                        continue;
+                        return;
                     }
                     RunState::Admitted | RunState::Waiting => {
                         if let Err(error) = state
@@ -1949,7 +1949,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                                     Some(error.to_string()),
                                 )
                                 .await;
-                            continue;
+                            return;
                         }
                     }
                     RunState::Created => {
@@ -1965,7 +1965,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                                 )),
                             )
                             .await;
-                        continue;
+                        return;
                     }
                     RunState::Running => {}
                     RunState::Completed | RunState::Failed => {
@@ -1977,7 +1977,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                                 Some("run already reached terminal state".to_string()),
                             )
                             .await;
-                        continue;
+                        return;
                     }
                 }
             }

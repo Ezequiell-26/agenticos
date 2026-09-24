@@ -152,11 +152,14 @@ if (continuity.policies.regression_is_blocking !== true) fail("regression blocki
 if (continuity.policies.duplicate_json_keys_are_blocking !== true) fail("duplicate JSON key protection disabled");
 if (continuity.policies.verified_slice_does_not_equal_production_completeness !== true) fail("verified-slice semantics policy disabled");
 
-// Historical journal records created before the evidence field became strict
-// remain readable; all records at/after this cutoff must provide evidence.
-const EVIDENCE_POLICY_CUTOFF = Date.parse("2026-09-24T01:00:00Z");
+// The strict journal schema was introduced at a concrete append-only operation.
+// Earlier records may use their historical schema; records from this operation
+// onward must satisfy the current required fields and evidence contract.
+const EVIDENCE_POLICY_FIRST_OPERATION = "ci-error-repair-rustfmt-continuity-2026-09-24";
 
 const ids = new Set();
+let strictJournalSchemaActive = false;
+
 for (const { op, lineNumber } of journalEntries) {
   const modern = op.schema_version === 1;
   const operationId = String(op.operation_id ?? op.operation ?? `legacy-line-${lineNumber}`).trim();
@@ -165,31 +168,28 @@ for (const { op, lineNumber } of journalEntries) {
     fail(`journal operation ${operationId} has an invalid timestamp`);
   }
 
+  if (operationId === EVIDENCE_POLICY_FIRST_OPERATION) {
+    strictJournalSchemaActive = true;
+  }
+
   if (modern) {
     const required = continuity.required_operation_fields;
-    const operationTimestamp = Date.parse(op.timestamp);
-    const historicalSchemaCompatibility = operationTimestamp < EVIDENCE_POLICY_CUTOFF;
-
     for (const field of required) {
-      if (historicalSchemaCompatibility && !(field in op)) continue;
+      if (!strictJournalSchemaActive && !(field in op)) continue;
       if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
     }
+  } else if (strictJournalSchemaActive) {
+    fail(`legacy journal operation ${operationId} appears after strict schema migration`);
   } else {
     // Historical entries predate schema_version=1. Preserve them and validate
-    // the fields that make them identifiable without forcing a rewrite of history.
+    // only the fields needed to keep their identity and status readable.
     if (typeof op.status !== "string") fail(`legacy journal operation ${operationId} has no status`);
   }
 
   if (ids.has(operationId)) fail(`duplicate operation_id: ${operationId}`);
   ids.add(operationId);
 
-  const operationTimestamp = Date.parse(op.timestamp);
-  const historicalSchemaCompatibility = operationTimestamp < EVIDENCE_POLICY_CUTOFF;
-
-  if (modern && historicalSchemaCompatibility) {
-    // Historical schema_version=1 records remain immutable. Their shape
-    // predates the strict required-field contract, so only durable identity,
-    // timestamp and completed-operation handoff semantics are enforced.
+  if (!strictJournalSchemaActive) {
     if (op.status === "completed" && typeof op.next_step !== "string") {
       fail(`historical completed operation ${operationId} has no next step`);
     }
@@ -207,14 +207,17 @@ for (const { op, lineNumber } of journalEntries) {
       }
     }
 
-    // Current/future completed records are held to the strict evidence contract.
     if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
-      fail(`completed operation ${operationId} has no evidence (timestamp=${op.timestamp}, cutoff=2026-09-24T01:00:00Z)`);
+      fail(`completed operation ${operationId} has no evidence (strict schema begins at ${EVIDENCE_POLICY_FIRST_OPERATION})`);
     }
     if (op.status === "completed" && typeof op.next_step !== "string") {
       fail(`completed operation ${operationId} has no next step`);
     }
   }
+}
+
+if (!strictJournalSchemaActive) {
+  fail(`strict journal schema migration operation ${EVIDENCE_POLICY_FIRST_OPERATION} was not found`);
 }
 
 const ordered = [...state.steps].sort((a, b) => a.number - b.number);

@@ -134,9 +134,9 @@ The remaining work to call the frontend operational rather than presentation-com
 
 ## Final source-level ownership audit — 2026-09-24
 
-The navigation registry currently contains 90 surfaces. Ownership is explicit through the shared audit utility:
+The navigation registry currently contains 98 surfaces. Ownership is explicit through the shared audit utility:
 
-- 84 `PlatformSurface` modes
+- 91 `PlatformSurface` modes
 - 6 `StudioSurface` modes: `files`, `terminal`, `runs`, `agents`, `artifacts`, `settings`
 - 1 App-shell mode: `chat`
 - 0 unowned navigation surfaces
@@ -167,7 +167,7 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 ## Taxonomy exhaustiveness audit — 2026-09-24
 
-All 97 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
+All 98 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
 
 
 ## Remote control and shell orientation — 2026-09-24

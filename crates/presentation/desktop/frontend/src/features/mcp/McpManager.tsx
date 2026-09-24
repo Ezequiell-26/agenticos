@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 import { mcpServers } from '../platform/platformData'
+import type { RuntimeApiRecord } from '../../types/runtime'
 
 type Tab = 'Overview' | 'Tools' | 'Resources' | 'Auth' | 'Policy'
 type Server = {
@@ -32,6 +33,8 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
   const [selected, setSelected] = useState(serverCatalog[0].name)
   const [tab, setTab] = useState<Tab>('Overview')
   const [search, setSearch] = useState('')
+  const [serverTools, setServerTools] = useState<RuntimeApiRecord[]>([])
+  const [toolsSyncing, setToolsSyncing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -52,6 +55,18 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
     return () => { cancelled = true }
   }, [])
   const current = servers.find((server) => server.name === selected) ?? servers[0]
+
+  useEffect(() => {
+    if (!current?.name) return
+    let cancelled = false
+    setToolsSyncing(true)
+    void runtime.mcp.tools(current.name).then((tools) => {
+      if (!cancelled) setServerTools(tools)
+    }).catch(() => {
+      if (!cancelled) setServerTools([])
+    }).finally(() => { if (!cancelled) setToolsSyncing(false) })
+    return () => { cancelled = true }
+  }, [current?.name])
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     return q ? servers.filter((server) => [server.name, server.detail, server.transport, server.auth].join(' ').toLowerCase().includes(q)) : servers
@@ -75,12 +90,12 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
       </aside>
 
       <section className="mcp-manager__workspace">
-        <header className="mcp-manager__header"><div><span className="eyebrow">{current.state} · {current.transport}</span><h2>{current.name}</h2><p>{current.detail}</p></div><div className="mcp-manager__actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' health check requested')}><Icon name="refresh" size={13} /> Health check</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.mcp.setEnabled(current.name, current.state !== 'Connected').then(() => { setServers((items) => items.map((item) => item.name === current.name ? { ...item, state: current.state === 'Connected' ? 'Disabled' : 'Connected' } : item)); onAction(`${current.name} state updated`) }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP update failed'))}><Icon name="check" size={13} /> {current.state === 'Connected' ? 'Disable' : 'Enable'}</button></div></header>
+        <header className="mcp-manager__header"><div><span className="eyebrow">{current.state} · {current.transport}</span><h2>{current.name}</h2><p>{current.detail}</p></div><div className="mcp-manager__actions"><button className="studio-button" type="button" onClick={() => void runtime.mcp.sync(current.name).then(() => runtime.mcp.tools(current.name)).then((tools) => { setServerTools(tools); onAction(current.name + ' tool catalog synced in runtime') }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP sync failed'))}><Icon name="refresh" size={13} /> Sync tools</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.mcp.setEnabled(current.name, current.state !== 'Connected').then(() => { setServers((items) => items.map((item) => item.name === current.name ? { ...item, state: current.state === 'Connected' ? 'Disabled' : 'Connected' } : item)); onAction(`${current.name} state updated`) }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP update failed'))}><Icon name="check" size={13} /> {current.state === 'Connected' ? 'Disable' : 'Enable'}</button></div></header>
         <nav className="mcp-manager__tabs" role="tablist" aria-label="MCP server details">{(['Overview','Tools','Resources','Auth','Policy'] as Tab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'mcp-manager__tab mcp-manager__tab--active' : 'mcp-manager__tab'} onClick={() => setTab(item)}>{item}</button>)}</nav>
         <div className="mcp-manager__content">
           {tab === 'Overview' && <Section title="Server overview" description="Review endpoint metadata and capability counts before the server is exposed to an agent."><div className="mcp-manager__stat-grid"><Stat label="State" value={current.state} /><Stat label="Transport" value={current.transport} /><Stat label="Tools" value={String(current.tools)} /><Stat label="Resources" value={String(current.resources)} /><Stat label="Auth" value={current.auth} /><Stat label="Risk" value={current.risk} /></div><div className="mcp-manager__capability-strip"><span>Tools</span><span>Resources</span><span>Prompts</span><span>Sampling</span><span>Progress</span></div><div className="callout"><Icon name="shield" size={14} /><span>MCP credentials and authorization are never stored in this presentation component.</span></div></Section>}
 
-          {tab === 'Tools' && <Section title="Tool registry" description="Inspect tool names, risk and whether each operation requires approval."><div className="mcp-manager__table">{['read_file','list_directory','search_code','create_issue','create_pull_request','run_command'].map((tool,index)=><div key={tool}><span>{String(index+1).padStart(2,'0')}</span><strong>{tool}</strong><small>{index < 3 ? 'read' : index === 3 ? 'write' : index === 4 ? 'write' : 'sensitive'}</small><button type="button" className="mini-chip">{index >= 3 ? 'Ask' : 'Allow'}</button></div>)}</div></Section>}
+          {tab === 'Tools' && <Section title="Tool registry" description={toolsSyncing ? 'Discovering tools from the connected MCP server.' : 'Live tool catalog returned by the MCP runtime.'}><div className="mcp-manager__table">{(serverTools.length > 0 ? serverTools : []).map((tool,index) => { const name=typeof tool.name==='string'?tool.name:`tool-${index+1}`; const description=typeof tool.description==='string'?tool.description:'Runtime MCP tool'; return <div key={name}><span>{String(index+1).padStart(2,'0')}</span><strong>{name}</strong><small>{description}</small><button type="button" className="mini-chip">{'Runtime'}</button></div>})}{!toolsSyncing && serverTools.length===0 && <div className="review-empty">No tools were returned by this MCP server.</div>}</div></Section>}
 
           {tab === 'Resources' && <Section title="Resources & prompts" description="Model resources, templates and prompt assets exposed by the server."><div className="mcp-manager__resource-grid">{[['workspace://README.md','Document'],['project://config','Structured'],['prompt://review','Prompt'],['resource://schema','Schema']].slice(0,current.resources || 2).map(([name,type])=><div key={name}><Icon name={type === 'Prompt' ? 'spark' : 'archive'} size={14} /><span><strong>{name}</strong><small>{type} · read-only preview</small></span></div>)}</div><button className="studio-button" type="button" onClick={() => onAction('MCP resource catalog refreshed in preview')}><Icon name="refresh" size={13} /> Refresh catalog</button></Section>}
 

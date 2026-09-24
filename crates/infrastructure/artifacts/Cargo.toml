@@ -1,0 +1,17 @@
+[package]
+name = "agenticos-artifacts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+agenticos-contracts = { path = "../../domain/contracts" }
+ring = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true, features = ["fs", "sync"] }
+uuid = { workspace = true }
+
+[lints]
+workspace = true

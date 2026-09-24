@@ -9,6 +9,7 @@ actix-web = { workspace = true }
 async-stream = { workspace = true }
 futures = { workspace = true }
 agenticos-a2a = { path = "../../infrastructure/a2a" }
+agenticos-artifacts = { path = "../../infrastructure/artifacts" }
 agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
 agenticos-execution = { path = "../../application/execution" }

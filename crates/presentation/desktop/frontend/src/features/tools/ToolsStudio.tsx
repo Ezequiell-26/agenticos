@@ -150,10 +150,13 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
     <div className="tools-studio">
       <aside className="tools-studio__sidebar">
         <div className="tools-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tools…" aria-label="Search tools" /></div>
-        <div className="tools-tabs" role="tablist" aria-label="Tool registry filters">
-          {(['All', 'Enabled', 'Risk'] as ToolTab[]).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? 'tools-tab tools-tab--active' : 'tools-tab'} onClick={() => setTab(item)}>{item}</button>)}
+        <div className="tools-tabs" role="tablist" aria-label="Tool registry filters" aria-orientation="horizontal">
+          {(['All', 'Enabled', 'Risk'] as ToolTab[]).map((item, index, tabs) => <button key={item} id={'tools-tab-' + item.toLowerCase()} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="tools-list-panel" className={tab === item ? 'tools-tab tools-tab--active' : 'tools-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+            const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('tools-tab-' + next.toLowerCase())?.focus()) }
+          }}>{item}</button>)}
         </div>
-        <div className="tools-list">
+        <div id="tools-list-panel" className="tools-list" role="tabpanel" aria-labelledby={'tools-tab-' + tab.toLowerCase()} tabIndex={0}>
           {visible.map((tool) => <button type="button" key={tool.name} className={current.name === tool.name ? 'tool-list-row tool-list-row--active' : 'tool-list-row'} onClick={() => setSelected(tool.name)}><span className="tool-list-icon"><Icon name={tool.name === 'terminal' ? 'terminal' : tool.name === 'git' ? 'git' : tool.name === 'browser' ? 'globe' : 'tool'} size={13} /></span><span><strong>{tool.name}</strong><small>{tool.category}</small></span><span className={'risk-pill risk-pill--' + tool.risk.toLowerCase()}>{tool.risk}</span></button>)}
         </div>
       </aside>

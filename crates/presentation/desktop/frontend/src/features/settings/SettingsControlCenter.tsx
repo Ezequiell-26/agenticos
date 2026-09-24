@@ -387,7 +387,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
           <span className="settings-control-center__deeptitle">
             <Icon name="sliders" size={14} /> Deep Configuration
           </span>
-          <span className="settings-control-center__deepmeta">193+ detailed runtime-inspired controls</span>
+          <span className="settings-control-center__deepmeta">245+ detailed runtime-inspired controls</span>
         </div>
         <SettingsStudio notify={notify} />
       </section>

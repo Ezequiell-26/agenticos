@@ -1811,3 +1811,6 @@ kbd { padding: 2px 5px; border: 1px solid #303030; border-radius: 5px; backgroun
   .slash-command-menu{left:6px;right:6px}
   .slash-command-menu button{grid-template-columns:64px minmax(0,1fr) 30px}
 }
+
+.navigation-launcher__item--keyboard-active{outline:1px solid #353535;outline-offset:-1px;background:#181818;color:#eee}
+.navigation-launcher__item--keyboard-active .navigation-launcher__item-icon{border-color:#303030;background:#151515;color:#aaa}

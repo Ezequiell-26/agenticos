@@ -166,7 +166,30 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
       next.has(name) ? next.delete(name) : next.add(name)
       return next
     })
-    onAction(name + ' tool toggled in preview')
+    onAction(name + ' tool selection updated locally; runtime tool enable/disable is policy-owned')
+  }
+
+  async function testTool() {
+    const toolId = current.name
+    if (!toolId) return
+    const agentId = window.prompt('Runtime agent_id for this tool call', 'default-agent')
+    if (!agentId) return
+    const grantId = window.prompt('Capability grant_id', '')
+    if (!grantId) return
+    const raw = window.prompt('JSON parameters', '{}') ?? '{}'
+    let parameters: unknown
+    try {
+      parameters = JSON.parse(raw)
+    } catch {
+      onAction('Invalid JSON parameters')
+      return
+    }
+    try {
+      await runtime.tools.call({ tool_id: toolId, agent_id: agentId, grant_id: grantId, parameters })
+      onAction(toolId + ' executed in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Tool execution failed')
+    }
   }
 
   return (
@@ -188,7 +211,7 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
         <div className="tools-detail-grid"><div><span>Risk</span><strong>{current.risk}</strong></div><div><span>Category</span><strong>{current.category}</strong></div><div><span>State</span><strong>{enabled.has(current.name) ? 'Enabled' : 'Disabled'}</strong></div><div><span>Approval</span><strong>{current.risk === 'Critical' ? 'Required' : 'Policy based'}</strong></div></div>
         <div className="tool-schema"><div className="surface-block__heading"><span>Schema preview</span><span className="mono-text">typed</span></div>{schemas.filter(([name]) => name.startsWith(current.name + '.')).map(([name, args, result]) => <div key={name}><strong>{name}</strong><span>{args}</span><small>{result}</small></div>)}{schemas.filter(([name]) => name.startsWith(current.name + '.')).length === 0 && <div className="review-empty">Schema details appear when the runtime registers this tool.</div>}</div>
         <div className="tool-policy-grid"><div><span>Workspace access</span><strong>Scoped</strong></div><div><span>Network access</span><strong>{current.category === 'Network' ? 'Confirm' : 'None'}</strong></div><div><span>Mutation</span><strong>{current.risk === 'Critical' ? 'Blocked by default' : 'Policy based'}</strong></div><div><span>Audit</span><strong>Recorded</strong></div></div>
-        <div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' test run opened in preview')}><Icon name="play" size={13} /> Test tool</button><button className="studio-button" type="button" onClick={() => onAction(current.name + ' schema copied')}><Icon name="copy" size={13} /> Copy schema</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(current.name + ' policy editor opened in preview')}><Icon name="shield" size={13} /> Edit policy</button></div>
+        <div className="platform-actions"><button className="studio-button" type="button" onClick={() => void testTool()}><Icon name="play" size={13} /> Test tool</button><button className="studio-button" type="button" onClick={() => onAction(current.name + ' schema copied')}><Icon name="copy" size={13} /> Copy schema</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(current.name + ' policy editor opened in preview')}><Icon name="shield" size={13} /> Edit policy</button></div>
       </section>
     </div>
   )

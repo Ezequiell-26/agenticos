@@ -1,8 +1,12 @@
-# AgentiCOS Sequential Implementation Protocol
+# AgentiCOS Legacy Sequential Implementation Protocol
+
+## Status
+
+This document is retained as historical architecture evidence. It is no longer the active development control plane. The repository now uses `reference/manifests/implementation-state.json` in capability-driven continuous mode.
 
 ## Purpose
 
-AgentiCOS is built as a sequence of independently verified vertical slices. An AI coding agent must never implement multiple future slices in one uncontrolled pass.
+The former sequential model provided useful evidence and verification discipline, but it created unnecessary coupling between unrelated capabilities. Its historical rules remain documented here for provenance only.
 
 ## State machine
 
@@ -19,7 +23,7 @@ VERIFIED
 UNLOCKED_NEXT
 ```
 
-Only `VERIFIED` can unlock the next implementation step.
+This unlock rule is historical and is not enforced by the active repository governance.
 
 ## Mandatory step transaction
 
@@ -89,4 +93,4 @@ A verified predecessor unlocks exactly one successor. Existing architectural sea
 
 ## AI agent concurrency rule
 
-Multiple AI agents may inspect the repository concurrently, but only one logical implementation step may be active. Overlapping implementation attempts must stop rather than merge incompatible assumptions.
+Multiple AI agents may inspect and implement independent workstreams concurrently. Overlapping edits still require normal Git conflict resolution, contract review and verification; unrelated work must not be artificially blocked by another workstream's CI state.

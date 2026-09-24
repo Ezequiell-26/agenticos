@@ -412,6 +412,15 @@ async fn provider_platform_executes_through_fallback_after_primary_transport_fai
         .await
         .expect("configure explicit fallback policy");
 
+    platform
+        .set_fallback_config(FallbackConfig {
+            primary_provider: "primary".to_string(),
+            fallback_providers: vec!["fallback".to_string()],
+            auto_failover: true,
+        })
+        .await
+        .expect("configure explicit fallback policy");
+
     let response = platform
         .execute(
             ModelRequest {

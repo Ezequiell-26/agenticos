@@ -1387,3 +1387,14 @@ Verification status:
 - Added repository-level contract checks that scan the complete TSX tree for broken tab/menu semantics and direct network calls from presentation surfaces.
 - Extended the frontend CI workflow with contract checks before the Vite production build and added `test:contracts` / `check` package scripts.
 - Verification status: Actions for the latest commits are queued/pending while the environment is unable to execute the repository locally; source-level audit continues to pass for navigation coverage.
+
+## 2026-09-24 — Deep whole-tree frontend audit continuation
+
+- Standardized additional complex tab surfaces across Security, Agent Studio, Tools, Skills, Memory, Browser, Operations, Provider Studio, Final Control Suite and Task Execution.
+- Added a global notification drawer with persistent read state and synchronized shell badge behavior.
+- Added advanced editor interactions: find/replace, match navigation, replace-all, go-to-line, cursor column reporting and dirty-state feedback.
+- Added runtime synchronization recovery with visible retry UX plus stale-response sequencing protection across session changes.
+- Added `test:contracts` and `check` scripts and a whole-tree TSX contract audit covering tab/menu semantics and presentation-level direct network boundaries.
+- Added launcher recent/pinned discovery and final combobox/dialog semantics across launcher, global search and command palette.
+- The frontend source tree currently contains 110 TSX components, 35 CSS files and 34 feature domains, with centralized navigation covering 98 routed modes.
+- Verification status: source audit confirms 98/98 route coverage; GitHub Actions are processing the latest main commits. Local clone execution is unavailable because the environment cannot resolve GitHub.

@@ -2173,7 +2173,9 @@ impl ReactAgent {
             if let Ok(context) = memory.get_session_history(&session_id, 100).await {
                 if !context.is_empty() {
                     let run_id = agenticos_contracts::RunId::new(format!("session:{session_id}"))
-                        .unwrap_or_else(|_| agenticos_contracts::RunId::new("session").expect("static run id"));
+                        .unwrap_or_else(|_| {
+                            agenticos_contracts::RunId::new("session").expect("static run id")
+                        });
                     let messages = context
                         .into_iter()
                         .map(|msg| agenticos_contracts::Message {
@@ -2181,7 +2183,9 @@ impl ReactAgent {
                             role: msg.role,
                             content: msg.content.clone(),
                             timestamp: msg.timestamp.max(0) as u64,
-                            token_count: ((msg.content.chars().count() as u32).saturating_add(3) / 4).max(1),
+                            token_count: ((msg.content.chars().count() as u32).saturating_add(3)
+                                / 4)
+                                .max(1),
                             run_id: run_id.clone(),
                         })
                         .collect::<Vec<_>>();

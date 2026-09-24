@@ -122,7 +122,6 @@ impl ContextEngine {
             trimmed: dropped_tokens > 0,
         }
     }
-    }
 }
 
 #[cfg(test)]

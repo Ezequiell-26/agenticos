@@ -9,7 +9,7 @@ use agenticos_contracts::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Semaphore};
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-tools";
@@ -97,14 +97,13 @@ impl BasicPolicyEngine {
 #[async_trait::async_trait]
 impl PolicyEngine for BasicPolicyEngine {
     async fn evaluate(&self, request: &ToolRequest) -> Result<PolicyDecision, ContractError> {
-        // Check if tool exists
-        if !self.registry.exists(&request.tool_id).await {
+        // Fetch metadata once; policy evaluation is on the hot path.
+        let Some(tool) = self.registry.get(&request.tool_id).await else {
             return Ok(PolicyDecision::Denied("Tool not found".to_string()));
         }
 
         // Check required permissions against an issued, scoped, time-valid grant.
-        if let Some(tool) = self.registry.get(&request.tool_id).await {
-            for permission in &tool.required_permissions {
+        for permission in &tool.required_permissions {
                 if request.grant_id.is_empty() {
                     return Ok(PolicyDecision::Denied(
                         "Required permissions not granted".to_string(),
@@ -164,6 +163,7 @@ pub struct ToolRuntime {
     registry: Arc<ToolRegistry>,
     policy: Arc<dyn PolicyEngine>,
     executors: Arc<RwLock<HashMap<String, Arc<dyn AgentTool>>>>,
+    concurrency: Arc<Semaphore>,
 }
 
 impl std::fmt::Debug for ToolRuntime {
@@ -182,6 +182,7 @@ impl ToolRuntime {
             registry,
             policy,
             executors: Arc::new(RwLock::new(HashMap::new())),
+            concurrency: Arc::new(Semaphore::new(tool_concurrency_limit())),
         }
     }
 
@@ -232,6 +233,12 @@ impl ToolRuntime {
             .get(&request.tool_id)
             .cloned()
             .ok_or(ContractError::MissingCapability)?;
+
+        let _permit = self
+            .concurrency
+            .acquire()
+            .await
+            .map_err(|_| ContractError::ParseError("tool concurrency limiter closed".to_string()))?;
 
         executor.execute(request).await
     }
@@ -567,4 +574,17 @@ mod tests {
             assert!(response.success);
         });
     }
+}
+
+
+fn tool_concurrency_limit() -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let default_limit = cores.saturating_mul(4).clamp(8, 64);
+    std::env::var("AGENTICOS_TOOL_MAX_CONCURRENCY")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default_limit)
+        .clamp(2, 128)
 }

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 
 type RunState = 'Active' | 'Completed' | 'Failed' | 'Cancelled'
@@ -18,14 +19,39 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
   const [filter, setFilter] = useState<Filter>('All')
   const [selectedId, setSelectedId] = useState(runs[0].id)
   const [view, setView] = useState<'Timeline' | 'Tools' | 'Changes'>('Timeline')
-  const selected = runs.find((run) => run.id === selectedId) ?? runs[0]
-  const visible = useMemo(() => filter === 'All' ? runs : runs.filter((run) => run.state === filter), [filter])
+  const [liveRuns, setLiveRuns] = useState(runs)
+  const [runtimeLoading, setRuntimeLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.runs.list().then((remoteRuns) => {
+      if (cancelled || remoteRuns.length === 0) return
+      const mapped = remoteRuns.map((run) => ({
+        id: run.run_id,
+        title: run.objective ?? run.run_id,
+        state: normalizeRunState(run.state),
+        duration: 'Runtime',
+        agent: 'Runtime',
+        model: 'Auto route',
+        tools: 0,
+        tokens: '—',
+        changes: '—',
+      }))
+      setLiveRuns(mapped)
+      setSelectedId((current) => mapped.some((item) => item.id === current) ? current : mapped[0].id)
+    }).catch(() => {
+      // Keep the local fixture when the runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+  const selected = liveRuns.find((run) => run.id === selectedId) ?? liveRuns[0]
+  const visible = useMemo(() => filter === 'All' ? liveRuns : liveRuns.filter((run) => run.state === filter), [filter, liveRuns])
 
   return (
     <div className="run-timeline">
       <div className="run-timeline__toolbar">
         <div><span className="eyebrow">Execution control plane</span><h2>Run Timeline</h2><p>Inspect lifecycle, tool activity, changes, approvals and verification for each agent run.</p></div>
-        <div className="run-timeline__toolbar-actions"><button className="studio-button" type="button" onClick={() => onAction('Run export prepared in preview')}><Icon name="download" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('New run staged in preview')}><Icon name="plus" size={13} /> New run</button></div>
+        <div className="run-timeline__toolbar-actions"><span className="mono-text">{runtimeLoading ? 'Syncing runtime…' : `${liveRuns.length} runs`}</span><button className="studio-button" type="button" onClick={() => onAction('Run export prepared')}><Icon name="download" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.runs.create('New AgentiCOS run').then((run) => { const next = { id: run.run_id, title: 'New AgentiCOS run', state: normalizeRunState(run.state), duration: 'Runtime', agent: 'Runtime', model: 'Auto route', tools: 0, tokens: '—', changes: '—' }; setLiveRuns((current) => [next, ...current]); setSelectedId(run.run_id); onAction('New runtime run created') }).catch((error) => onAction(error instanceof Error ? error.message : 'Run creation failed'))}><Icon name="plus" size={13} /> New run</button></div>
       </div>
       <div className="run-timeline__filters"><div className="segmented">{(['All','Active','Completed','Failed','Cancelled'] as Filter[]).map((item) => <button type="button" key={item} className={filter === item ? 'segmented--active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><span className="mono-text">{visible.length} runs</span></div>
 
@@ -61,3 +87,12 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
 }
 
 function Stat({ label, value }: { label: string; value: string }) { return <div className="run-timeline__stat"><span>{label}</span><strong>{value}</strong></div> }
+
+
+function normalizeRunState(state: string): RunState {
+  const value = state.toLowerCase()
+  if (value.includes('fail')) return 'Failed'
+  if (value.includes('cancel')) return 'Cancelled'
+  if (value.includes('complet')) return 'Completed'
+  return 'Active'
+}

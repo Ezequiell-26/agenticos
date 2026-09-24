@@ -308,6 +308,12 @@ export interface RuntimeServices {
   sandbox: {
     status(): Promise<RuntimeApiRecord>
   }
+  a2a: {
+    agentCard(): Promise<RuntimeApiRecord>
+    sendMessage(message: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    getTask(taskId: string): Promise<RuntimeApiRecord>
+    cancelTask(taskId: string): Promise<RuntimeApiRecord>
+  }
 }
 
 export type ChatSendOptions = { model?: string }

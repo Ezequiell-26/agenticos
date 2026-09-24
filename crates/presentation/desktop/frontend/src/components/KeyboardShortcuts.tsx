@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import Icon from './Icon'
 import './KeyboardShortcuts.css'
 
@@ -38,6 +39,9 @@ const groups = [
 
 export default function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+
+  useFocusTrap(open, dialogRef, closeRef)
 
   useEffect(() => {
     if (!open) return
@@ -57,6 +61,7 @@ export default function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsPr
   return (
     <div className="shortcuts-backdrop" role="presentation" onMouseDown={onClose}>
       <section
+        ref={dialogRef}
         className="shortcuts-dialog"
         role="dialog"
         aria-modal="true"

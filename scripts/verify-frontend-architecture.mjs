@@ -90,7 +90,7 @@ if (
   !sidebarSource.includes('aria-haspopup="menu"') ||
   !sidebarSource.includes("ArrowDown") ||
   !sidebarSource.includes("ArrowUp") ||
-  !dockSource.includes("role="tabpanel"") ||
+  !dockSource.includes('role="tabpanel"') ||
   !dockSource.includes("aria-controls={'workspace-dock-panel-' + item.toLowerCase()}")
 ) {
   console.error(

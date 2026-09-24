@@ -727,6 +727,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_repository_metadata_survives_reopen() {
+        let db_path =
+            std::env::temp_dir().join(format!("agenticos-brain-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", db_path.display());
+
+        let first = SourceIntelligenceEngine::open(&url, EngineConfig::default())
+            .await
+            .unwrap();
+        first
+            .register_metadata(RepositoryMetadata {
+                repo_id: "owner/repo".to_string(),
+                url: "https://github.com/owner/repo".to_string(),
+                default_branch: "main".to_string(),
+                last_indexed: Utc::now(),
+                license: Some("MIT".to_string()),
+                language: Some("Rust".to_string()),
+                stars: 42,
+                status: RepositoryStatus::Indexed,
+            })
+            .await
+            .unwrap();
+        drop(first);
+
+        let second = SourceIntelligenceEngine::open(&url, EngineConfig::default())
+            .await
+            .unwrap();
+        let metadata = second.get_metadata("owner/repo").await.unwrap();
+        assert_eq!(metadata.repo_id, "owner/repo");
+        assert_eq!(metadata.stars, 42);
+        assert_eq!(metadata.license.as_deref(), Some("MIT"));
+        assert_eq!(metadata.language.as_deref(), Some("Rust"));
+        assert_eq!(metadata.status, RepositoryStatus::Indexed);
+
+        let _ = std::fs::remove_file(db_path);
+    }
+
+    #[tokio::test]
     async fn test_denied_license() {
         let config = EngineConfig {
             denied_licenses: vec!["MIT".to_string()],

@@ -1091,3 +1091,13 @@ Verification status:
 - Hardened scripts/verify-agent-continuity.mjs to parse timezone-aware timestamps safely and preserve a fixed compatibility allowlist for historical completed operations that predate the strict evidence field.
 - Historical journal lines were not rewritten or deleted; new operations remain subject to the strict evidence contract.
 - Verification status: repair commits submitted to CI; full repository verification remains pending.
+
+## 2026-09-24 — Provider acceptance board and interaction correction
+
+- Added Provider Acceptance Board covering the authorized Step 25 provider integration-test contract, failover, health, resilience, orchestration, coverage, security, architecture and Rust verification gates.
+- Clarified that Mapped/Preview states are presentation coverage only and never certify runtime execution.
+- Corrected Provider Studio tab semantics with tabpanel linkage and keyboard focus metadata.
+- Corrected provider route health indicators so degraded routes are not presented as healthy.
+- Corrected the provider verification contract count from 12 to the actual 8 mapped integration tests.
+- Removed an unused TypeScript type from the provider evidence ledger under the repository's noUnusedLocals policy.
+- Verification status: source audits remain clean; CI and production/browser/Tauri evidence are still governed by the latest workflow results.

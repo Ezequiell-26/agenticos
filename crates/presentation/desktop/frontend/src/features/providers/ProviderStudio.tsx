@@ -60,6 +60,8 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [verificationFilter, setVerificationFilter] = useState<'All' | 'Ready' | 'Attention'>('All')
   const [verificationResults, setVerificationResults] = useState<Record<string, 'Passed' | 'Pending' | 'Needs review'>>({})
   const [healthWindow, setHealthWindow] = useState<'15m' | '1h' | '24h'>('1h')
+  const [showRegister, setShowRegister] = useState(false)
+  const [registerForm, setRegisterForm] = useState({ provider_id: '', name: '', base_url: 'https://api.openai.com/v1/chat/completions', models: '', capabilities: 'chat,tools', api_key: '' })
   const [resiliencePolicy, setResiliencePolicy] = useState({
     autoFailover: true,
     healthBased: true,
@@ -88,6 +90,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
       }))
       setLiveProviders(mapped)
       setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+      setSelectedAccount((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
       const first = mapped[0]
       void loadProviderModels(first?.id)
     }).catch(() => {
@@ -112,6 +115,42 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
       }
     } catch {
       // Preserve the local fallback catalog on transient runtime errors.
+    }
+  }
+
+  async function registerProvider() {
+    const providerId = registerForm.provider_id.trim()
+    const name = registerForm.name.trim()
+    const baseUrl = registerForm.base_url.trim()
+    const modelList = registerForm.models.split(/[,\n]/).map((item) => item.trim()).filter(Boolean)
+    const capabilityList = registerForm.capabilities.split(/[,\n]/).map((item) => item.trim()).filter(Boolean)
+    if (!providerId || !name || !baseUrl || modelList.length === 0) {
+      onAction('Provider ID, name, URL and at least one model are required')
+      return
+    }
+    try {
+      await runtime.providers.register({ provider_id: providerId, name, base_url: baseUrl, models: modelList, capabilities: capabilityList, ...(registerForm.api_key ? { api_key: registerForm.api_key } : {}) })
+      const remoteProviders = await runtime.providers.list()
+      const mapped = remoteProviders.map((item) => ({
+        id: item.provider_id,
+        name: item.name || item.provider_id,
+        type: item.provider_id === 'local' || item.name.toLowerCase().includes('local') ? 'Local' : 'Gateway',
+        health: item.health === 'Healthy' ? 'Healthy' : item.health === 'Degraded' ? 'Degraded' : item.health === 'Unhealthy' ? 'Unhealthy' : 'Unknown',
+        models: item.models.length,
+        latency: 'Runtime',
+        load: item.requests_per_minute ? Math.min(100, Math.round((item.requests_used / item.requests_per_minute) * 100)) : 0,
+        quota: item.requests_per_minute ? `${Math.min(100, Math.round((item.requests_used / item.requests_per_minute) * 100))}%` : '—',
+      }))
+      if (mapped.length > 0) {
+        setLiveProviders(mapped)
+        setSelected(name)
+        setSelectedAccount(name)
+      }
+      setRegisterForm({ provider_id: '', name: '', base_url: 'https://api.openai.com/v1/chat/completions', models: '', capabilities: 'chat,tools', api_key: '' })
+      setShowRegister(false)
+      onAction(`${name} registered in runtime`)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Provider registration failed')
     }
   }
 
@@ -321,6 +360,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
               <div><span className="eyebrow">Connection metadata</span><strong>Accounts & credentials</strong><small>Secrets never render here; only connection state and safe metadata are presented.</small></div>
               <button className={maskMetadata ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setMaskMetadata((value) => !value)}><Icon name="lock" size={13} /> {maskMetadata ? 'Metadata protected' : 'Metadata visible'}</button>
             </div>
+            {showRegister && <div className="provider-account-detail" style={{ marginBottom: 16 }}><div className="provider-account-detail__head"><div><span className="eyebrow">Runtime registration</span><h3>Add OpenAI-compatible provider</h3></div><button className="icon-button" type="button" aria-label="Close provider form" onClick={() => setShowRegister(false)}><Icon name="close" size={14} /></button></div><div className="provider-account-meta" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}><label><span>Provider ID</span><input value={registerForm.provider_id} onChange={(event) => setRegisterForm((current) => ({ ...current, provider_id: event.target.value }))} placeholder="groq" /></label><label><span>Name</span><input value={registerForm.name} onChange={(event) => setRegisterForm((current) => ({ ...current, name: event.target.value }))} placeholder="Groq" /></label><label><span>OpenAI-compatible endpoint</span><input value={registerForm.base_url} onChange={(event) => setRegisterForm((current) => ({ ...current, base_url: event.target.value }))} /></label><label><span>Models</span><input value={registerForm.models} onChange={(event) => setRegisterForm((current) => ({ ...current, models: event.target.value }))} placeholder="model-a, model-b" /></label><label><span>Capabilities</span><input value={registerForm.capabilities} onChange={(event) => setRegisterForm((current) => ({ ...current, capabilities: event.target.value }))} placeholder="chat,tools" /></label><label><span>API key</span><input type="password" autoComplete="off" value={registerForm.api_key} onChange={(event) => setRegisterForm((current) => ({ ...current, api_key: event.target.value }))} placeholder="optional" /></label></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => setShowRegister(false)}>Cancel</button><button className="studio-button studio-button--active" type="button" onClick={() => void registerProvider()}><Icon name="check" size={13} /> Register provider</button></div></div>}
             <div className="provider-account-layout">
               <div className="provider-account-list">
                 {accounts.map(([name, label, , state]) => <button type="button" key={name} className={selectedAccount === name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(name)}>
@@ -328,7 +368,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                   <span><strong>{name}</strong><small>{label}</small></span>
                   <span className={state === 'Configured' || state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span>
                 </button>)}
-                <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Add provider account opened in preview')}><Icon name="plus" size={13} /> Add account</button>
+                <button className="studio-button studio-button--active" type="button" onClick={() => setShowRegister((value) => !value)}><Icon name="plus" size={13} /> {showRegister ? 'Close form' : 'Add account'}</button>
               </div>
               <div className="provider-account-detail">
                 <div className="provider-account-detail__head"><div><span className="eyebrow">{accounts.find((item) => item[0] === selectedAccount)?.[6] ?? 'Route'}</span><h3>{selectedAccount}</h3></div><span className="status-dot status-dot--live" /></div>

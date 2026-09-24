@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 import { mcpServers } from '../platform/platformData'
 
@@ -31,6 +32,25 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
   const [selected, setSelected] = useState(serverCatalog[0].name)
   const [tab, setTab] = useState<Tab>('Overview')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.mcp.list().then((remoteServers) => {
+      if (cancelled || remoteServers.length === 0) return
+      const mapped = remoteServers.map((server, index) => {
+        const name = typeof server.server_id === 'string' ? server.server_id : typeof server.name === 'string' ? server.name : `server-${index + 1}`
+        const enabled = server.enabled !== false
+        const transport = typeof server.transport === 'string' ? server.transport : typeof server.command === 'string' ? 'stdio' : 'HTTP'
+        const detail = typeof server.description === 'string' ? server.description : typeof server.url === 'string' ? server.url : 'Runtime MCP server'
+        return { name, detail, tools: typeof server.tool_count === 'number' ? server.tool_count : 0, state: enabled ? 'Connected' : 'Disabled', transport, auth: typeof server.auth === 'string' ? server.auth : 'Runtime', resources: typeof server.resource_count === 'number' ? server.resource_count : 0, risk: 'Review' }
+      })
+      setServers(mapped)
+      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+    }).catch(() => {
+      // Keep the local catalog available while the runtime is offline.
+    })
+    return () => { cancelled = true }
+  }, [])
   const current = servers.find((server) => server.name === selected) ?? servers[0]
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -55,7 +75,7 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
       </aside>
 
       <section className="mcp-manager__workspace">
-        <header className="mcp-manager__header"><div><span className="eyebrow">{current.state} · {current.transport}</span><h2>{current.name}</h2><p>{current.detail}</p></div><div className="mcp-manager__actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' health check staged in preview')}><Icon name="refresh" size={13} /> Health check</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(current.name + ' configuration saved in preview')}><Icon name="check" size={13} /> Save</button></div></header>
+        <header className="mcp-manager__header"><div><span className="eyebrow">{current.state} · {current.transport}</span><h2>{current.name}</h2><p>{current.detail}</p></div><div className="mcp-manager__actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' health check requested')}><Icon name="refresh" size={13} /> Health check</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.mcp.setEnabled(current.name, current.state !== 'Connected').then(() => { setServers((items) => items.map((item) => item.name === current.name ? { ...item, state: current.state === 'Connected' ? 'Disabled' : 'Connected' } : item)); onAction(`${current.name} state updated`) }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP update failed'))}><Icon name="check" size={13} /> {current.state === 'Connected' ? 'Disable' : 'Enable'}</button></div></header>
         <nav className="mcp-manager__tabs" role="tablist" aria-label="MCP server details">{(['Overview','Tools','Resources','Auth','Policy'] as Tab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'mcp-manager__tab mcp-manager__tab--active' : 'mcp-manager__tab'} onClick={() => setTab(item)}>{item}</button>)}</nav>
         <div className="mcp-manager__content">
           {tab === 'Overview' && <Section title="Server overview" description="Review endpoint metadata and capability counts before the server is exposed to an agent."><div className="mcp-manager__stat-grid"><Stat label="State" value={current.state} /><Stat label="Transport" value={current.transport} /><Stat label="Tools" value={String(current.tools)} /><Stat label="Resources" value={String(current.resources)} /><Stat label="Auth" value={current.auth} /><Stat label="Risk" value={current.risk} /></div><div className="mcp-manager__capability-strip"><span>Tools</span><span>Resources</span><span>Prompts</span><span>Sampling</span><span>Progress</span></div><div className="callout"><Icon name="shield" size={14} /><span>MCP credentials and authorization are never stored in this presentation component.</span></div></Section>}

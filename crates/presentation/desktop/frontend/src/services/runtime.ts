@@ -19,6 +19,7 @@ import type {
   RuntimeServices,
   RuntimeStreamEvent,
   RuntimeWorkerJob,
+  RuntimeProject,
   RuntimeChannel,
   RuntimeChannelEvent,
   RuntimeWorkspaceEntry,
@@ -509,6 +510,18 @@ export class AgenticosRuntime implements RuntimeServices {
 
   readonly skills = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/skills'), 'skills'),
+  }
+
+  readonly projects = {
+    list: async (): Promise<RuntimeProject[]> => {
+      const data = await this.transport.get<RuntimeApiRecord>('/api/projects')
+      return arrayOfRecords(data.projects) as unknown as RuntimeProject[]
+    },
+    register: async (project: RuntimeProject): Promise<RuntimeProject> =>
+      this.transport.post<RuntimeProject>('/api/projects', { project }),
+    remove: async (projectId: string) => {
+      await this.transport.delete(`/api/projects/${encodeURIComponent(projectId)}`)
+    },
   }
 
   readonly channels = {

@@ -143,6 +143,15 @@ export interface RuntimeWorkspaceEntry {
   size_bytes?: number | null
 }
 
+export interface RuntimeProject {
+  project_id: string
+  name: string
+  path: string
+  default_branch: string
+  description: string
+  status: string
+}
+
 export interface RuntimeChannel {
   channel_id: string
   name: string
@@ -299,6 +308,11 @@ export interface RuntimeServices {
   }
   skills: {
     list(): Promise<RuntimeApiRecord[]>
+  }
+  projects: {
+    list(): Promise<RuntimeProject[]>
+    register(project: RuntimeProject): Promise<RuntimeProject>
+    remove(projectId: string): Promise<void>
   }
   channels: {
     list(): Promise<RuntimeChannel[]>

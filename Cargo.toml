@@ -3,7 +3,7 @@ resolver = "2"
 members = [
   "crates/domain/contracts", "crates/domain/brain",
   "crates/application/execution", "crates/application/workflows", "crates/application/scheduler", "crates/application/agents",
-  "crates/infrastructure/kernel", "crates/infrastructure/runtime", "crates/infrastructure/providers", "crates/infrastructure/channels", "crates/infrastructure/tools", "crates/infrastructure/mcp",
+  "crates/infrastructure/kernel", "crates/infrastructure/runtime", "crates/infrastructure/providers", "crates/infrastructure/channels", "crates/infrastructure/projects", "crates/infrastructure/tools", "crates/infrastructure/mcp",
   "crates/infrastructure/memory", "crates/infrastructure/context", "crates/infrastructure/protocols", "crates/infrastructure/sandbox", "crates/infrastructure/source-forge",
   "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters",
   "crates/presentation/cli", "crates/presentation/gateway", "crates/presentation/desktop", "crates/presentation/api-server",

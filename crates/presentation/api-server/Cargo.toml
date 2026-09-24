@@ -24,6 +24,7 @@ agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-mcp = { path = "../../infrastructure/mcp" }
 agenticos-observability = { path = "../../infrastructure/observability" }
 agenticos-providers = { path = "../../infrastructure/providers" }
+agenticos-projects = { path = "../../infrastructure/projects" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-tools = { path = "../../infrastructure/tools" }
 agenticos-scheduler = { path = "../../application/scheduler" }

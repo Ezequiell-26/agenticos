@@ -42,6 +42,7 @@ use agenticos_observability::{
     metrics::RuntimeMetrics,
 };
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
+use agenticos_projects::{ProjectDefinition, ProjectRegistry};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
@@ -546,6 +547,7 @@ pub struct RuntimeState {
     persistent_memory: Arc<PersistentMemoryStore>,
     mcp: Arc<McpManager>,
     channels: Arc<ChannelRegistry>,
+    projects: Arc<ProjectRegistry>,
     audit: Arc<AuditStore>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
@@ -599,6 +601,28 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let projects = Arc::new(
+            ProjectRegistry::open(&database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
+        if projects.list().await.is_empty() {
+            let default_project = ProjectDefinition {
+                project_id: std::env::var("AGENTICOS_PROJECT_ID").unwrap_or_else(|_| "agenticos".to_string()),
+                name: std::env::var("AGENTICOS_PROJECT_NAME").unwrap_or_else(|_| "AgentiCOS".to_string()),
+                path: std::env::var("AGENTICOS_PROJECT_PATH").unwrap_or_else(|_| ".".to_string()),
+                default_branch: std::env::var("AGENTICOS_PROJECT_BRANCH").unwrap_or_else(|_| "main".to_string()),
+                description: "Configured AgentiCOS workspace".to_string(),
+                status: "Active".to_string(),
+            };
+            if let Err(error) = workspace.list(&default_project.path).await {
+                return Err(ContractError::ParseError(format!("default project path is invalid: {error}")));
+            }
+            projects
+                .register(default_project)
+                .await
+                .map_err(ContractError::ParseError)?;
+        }
         let audit = Arc::new(
             AuditStore::open(&database_url)
                 .await
@@ -824,6 +848,7 @@ impl RuntimeState {
             persistent_memory,
             mcp,
             channels,
+            projects,
             audit,
             provider,
             kernel,
@@ -1326,6 +1351,11 @@ struct WorkspacePatchRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RegisterProjectRequest {
+    project: ProjectDefinition,
+}
+
+#[derive(Debug, Deserialize)]
 struct RegisterChannelRequest {
     channel: ChannelDefinition,
 }
@@ -1551,6 +1581,48 @@ async fn patch_workspace_file(
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
             error,
             code: "WORKSPACE_PATCH_REJECTED",
+        }),
+    }
+}
+
+async fn list_projects(state: web::Data<RuntimeState>) -> impl Responder {
+    let projects = state.projects.list().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "projects": projects,
+        "count": projects.len(),
+    }))
+}
+
+async fn register_project(
+    request: web::Json<RegisterProjectRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.project.path == "." {
+        // Root project is always valid for the configured workspace.
+    } else if let Err(error) = state.workspace.list(&request.project.path).await {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: format!("project path is not a readable workspace directory: {error}"),
+            code: "PROJECT_PATH_INVALID",
+        });
+    }
+    match state.projects.register(request.project.clone()).await {
+        Ok(project) => HttpResponse::Ok().json(project),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "PROJECT_INVALID",
+        }),
+    }
+}
+
+async fn delete_project(
+    project_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.projects.remove(&project_id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "PROJECT_NOT_FOUND",
         }),
     }
 }
@@ -5387,6 +5459,9 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/audit", web::get().to(list_audit))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/projects", web::get().to(list_projects))
+            .route("/api/projects", web::post().to(register_project))
+            .route("/api/projects/{project_id}", web::delete().to(delete_project))
             .route("/api/channels", web::get().to(list_channels))
             .route("/api/channels", web::post().to(register_channel))
             .route("/api/channels/{channel_id}", web::delete().to(delete_channel))

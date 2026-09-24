@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { RailMode } from '../../navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { navigationItems, type RailMode } from '../../navigation'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 import './FeatureWorkbench.css'
@@ -213,14 +213,21 @@ const fallbackConfig: FeatureConfig = {
 }
 
 export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchProps) {
-  const navigation = (awaitable => awaitable)(undefined)
-  void navigation
+  const navigation = navigationItems.find(item => item.id === mode)
   const config = configs[mode] ?? fallbackConfig
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(config.items[0][0])
   const [view, setView] = useState<'Overview' | 'Activity'>('Overview')
   const [favorite, setFavorite] = useState(false)
   const [density, setDensity] = useState<'Comfortable' | 'Compact'>('Comfortable')
+
+  useEffect(() => {
+    setQuery('')
+    setSelected(config.items[0][0])
+    setView('Overview')
+    setFavorite(false)
+    setDensity('Comfortable')
+  }, [mode])
   const normalized = query.trim().toLowerCase()
   const visible = useMemo(() => config.items.filter(item => !normalized || item.join(' ').toLowerCase().includes(normalized)), [config.items, normalized])
   const current = config.items.find(item => item[0] === selected) ?? config.items[0]
@@ -230,7 +237,7 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
       <header className="feature-workbench__hero">
         <div className="feature-workbench__hero-copy">
           <span className="eyebrow">{config.eyebrow}</span>
-          <h1>{mode.replaceAll('-', ' ')}</h1>
+          <h1>{navigation?.label ?? mode.replaceAll('-', ' ')}</h1>
           <p>{config.purpose}</p>
           <div className="feature-workbench__badges"><Tag label="Presentation ready" /><Tag label="Runtime contract aware" /><Tag label={favorite ? 'Pinned' : 'Available'} /></div>
         </div>

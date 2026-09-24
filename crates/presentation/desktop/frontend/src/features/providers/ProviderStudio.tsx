@@ -76,7 +76,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
     let cancelled = false
     void runtime.providers.list().then((remoteProviders) => {
       if (cancelled || remoteProviders.length === 0) return
-      const mapped = remoteProviders.map((item, index) => ({
+      const mapped = remoteProviders.map((item) => ({
         id: item.provider_id,
         name: item.name || item.provider_id,
         type: item.provider_id === 'local' || item.name.toLowerCase().includes('local') ? 'Local' : 'Gateway',

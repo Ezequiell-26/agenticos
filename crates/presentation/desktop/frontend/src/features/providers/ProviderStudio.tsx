@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import './ProviderResilience.css'
 
 type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Quotas' | 'Accounts'
 

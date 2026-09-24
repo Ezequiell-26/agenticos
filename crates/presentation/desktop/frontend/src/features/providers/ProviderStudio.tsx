@@ -108,7 +108,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
       const source = remoteModels.length > 0 ? remoteModels : []
       if (source.length > 0) {
         const current = liveProviders.find((item) => item.id === providerId)
-        setLiveModels(source.map((name) => [name, 'Runtime', 'Auto', 'Live', current?.name ?? providerId] as const))
+        setLiveModels(source.map((name) => [name, 'Runtime', 'Auto', 'Live', current?.name ?? providerId]))
       }
     } catch {
       // Preserve the local fallback catalog on transient runtime errors.
@@ -128,7 +128,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   async function refreshProviderModels() {
     try {
       const refreshed = await runtime.providers.refreshModels(provider.id)
-      if (refreshed.length > 0) setLiveModels(refreshed.map((name) => [name, 'Runtime', 'Auto', 'Live', provider.name] as const))
+      if (refreshed.length > 0) setLiveModels(refreshed.map((name) => [name, 'Runtime', 'Auto', 'Live', provider.name]))
       setLiveProviders((current) => current.map((item) => item.id === provider.id ? { ...item, models: refreshed.length || item.models, health: 'Healthy' } : item))
       onAction(`${provider.name}: ${refreshed.length || 0} models available`)
     } catch (error) {

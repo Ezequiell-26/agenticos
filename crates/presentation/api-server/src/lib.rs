@@ -1,58 +1,126 @@
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+//! AgentiCOS backend HTTP surface.
+//!
+//! The API is intentionally thin: durable state and execution live in the
+//! Rust runtime, while this crate exposes typed commands, queries and control
+//! plane operations to the desktop frontend.
 
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
-use agenticos_kernel::{ReactAgent, SqliteMemory, ToolRegistry};
-use async_trait::async_trait;
+use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
+use agenticos_brain::{reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy}, CapabilityRegistry};
+use agenticos_contracts::{CapabilityGrant, CapabilityType, ContractError, ModelProvider, ModelRequest, RunId, RunState, Sandbox, SandboxStatus};
+use agenticos_kernel::{InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory, SqliteSnapshotStore};
+use agenticos_providers::{ProviderPlatform, ProviderStatus};
+use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
+use agenticos_scheduler::{JobScheduler, JobSpec};
+use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowState};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Default local SQLite URL.
 const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
-const DEFAULT_PROVIDER_URL: &str = "https://api.openai.com/v1/chat/completions";
+/// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
+/// Shared runtime state for the HTTP process.
 #[derive(Clone)]
 pub struct RuntimeState {
     sessions: Arc<RwLock<HashMap<String, Arc<ReactAgent>>>>,
     memory: Arc<SqliteMemory>,
-    provider: Option<Arc<dyn ModelProvider>>,
-    provider_name: String,
+    provider: Arc<ProviderPlatform>,
+    kernel: Arc<KernelRuntime>,
+    subagents: Arc<SubagentManager>,
+    scheduler: Arc<JobScheduler>,
+    workflows: Arc<WorkflowEngine>,
+    capabilities: Arc<CapabilityManager>,
+    sandbox: Arc<ProcessSandbox>,
+    reasoning: Arc<ReasoningEngine>,
     model: String,
-    tools: Arc<RwLock<ToolRegistry>>,
+}
+
+impl std::fmt::Debug for RuntimeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RuntimeState")
+            .field("sessions", &"<session registry>")
+            .field("memory", &"<sqlite>")
+            .field("provider", &self.model)
+            .field("kernel", &"<kernel>")
+            .finish()
+    }
 }
 
 impl RuntimeState {
+    /// Build the full backend runtime from environment configuration.
     pub async fn from_env() -> Result<Self, ContractError> {
         let database_url = std::env::var("AGENTICOS_DATABASE_URL")
             .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
         let memory = Arc::new(SqliteMemory::new(&database_url).await?);
 
-        let provider_url = std::env::var("AGENTICOS_PROVIDER_URL")
-            .unwrap_or_else(|_| DEFAULT_PROVIDER_URL.to_string());
-        let provider_name = std::env::var("AGENTICOS_PROVIDER_NAME")
-            .unwrap_or_else(|_| "openai-compatible".to_string());
-        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
-        let api_key = std::env::var("AGENTICOS_API_KEY")
-            .ok()
-            .filter(|value| !value.trim().is_empty());
+        let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
+            ContractError::ParseError(format!("failed to initialize event store: {e}"))
+        })?);
+        let snapshot_store = Arc::new(SqliteSnapshotStore::new(&database_url).await.map_err(|e| {
+            ContractError::ParseError(format!("failed to initialize snapshot store: {e}"))
+        })?);
+        let logger = Arc::new(InMemoryLogger::new(agenticos_contracts::LogLevel::Info));
+        let config = Arc::new(RwLock::new(InMemoryConfig::default()));
+        let capabilities = Arc::new(CapabilityManager::new());
+        let kernel = Arc::new(KernelRuntime::new(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capabilities.clone(),
+            Arc::new(CapabilityRegistry::default()),
+        ));
 
-        let provider = api_key.map(|key| {
-            Arc::new(OpenAiCompatibleProvider::new(
-                provider_url,
-                provider_name.clone(),
-                key,
-            )) as Arc<dyn ModelProvider>
-        });
+        let provider = Arc::new(ProviderPlatform::from_env().await?);
+        let model = std::env::var("AGENTICOS_MODEL")
+            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+
+        let mut default_agent = AgentDefinition {
+            agent_id: "default".to_string(),
+            role: "general".to_string(),
+            capabilities: vec!["reasoning".to_string(), "code".to_string(), "research".to_string()],
+            providers: Vec::new(),
+            skills: Vec::new(),
+            sandbox_profile: "default".to_string(),
+            budget: AgentBudget::default(),
+        };
+        if let Ok(raw) = std::env::var("AGENTICOS_DEFAULT_AGENT_JSON") {
+            if let Ok(parsed) = serde_json::from_str::<AgentDefinition>(&raw) {
+                default_agent = parsed;
+            }
+        }
+
+        let subagents = Arc::new(SubagentManager::default());
+        subagents
+            .register(default_agent)
+            .await
+            .map_err(ContractError::ParseError)?;
 
         Ok(Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             memory,
             provider,
-            provider_name,
+            kernel,
+            subagents,
+            scheduler: Arc::new(JobScheduler::default()),
+            workflows: Arc::new(WorkflowEngine::default()),
+            capabilities,
+            sandbox: Arc::new(ProcessSandbox::new(SandboxPolicy::default())),
+            reasoning: Arc::new(ReasoningEngine::new(EngineConfig {
+                max_steps: 12,
+                enable_learning: true,
+                selection_strategy: SelectionStrategy::Balanced,
+            })),
             model,
-            tools: Arc::new(RwLock::new(ToolRegistry::new())),
         })
     }
 
@@ -64,9 +132,7 @@ impl RuntimeState {
         let agent = Arc::new(ReactAgent::with_max_turns("AgentiCOS".to_string(), 90));
         agent.set_session_id(session_id.to_string());
         agent.set_memory(self.memory.clone());
-        if let Some(provider) = &self.provider {
-            agent.set_model_provider(provider.clone());
-        }
+        agent.set_model_provider(self.provider.clone());
 
         let mut sessions = self.sessions.write().await;
         sessions
@@ -75,8 +141,12 @@ impl RuntimeState {
             .clone()
     }
 
-    fn configured(&self) -> bool {
-        self.provider.is_some()
+    async fn configured(&self) -> bool {
+        self.provider
+            .list_status()
+            .await
+            .iter()
+            .any(|provider| provider.configured)
     }
 }
 
@@ -92,16 +162,6 @@ struct ChatResponse {
     agent: String,
     session_id: String,
     model: String,
-    provider: String,
-}
-
-#[derive(Debug, Serialize)]
-struct StatusResponse {
-    agent_name: String,
-    state: &'static str,
-    provider: String,
-    model: String,
-    configured: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -110,28 +170,78 @@ struct ErrorResponse {
     code: &'static str,
 }
 
+#[derive(Debug, Deserialize)]
+struct CreateRunRequest {
+    objective: String,
+    run_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct RunResponse {
+    run_id: String,
+    state: String,
+    version: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateAgentRequest {
+    agent: AgentDefinition,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpawnAgentRequest {
+    agent_id: String,
+    parent_depth: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateJobRequest {
+    job: JobSpec,
+}
+
+#[derive(Debug, Deserialize)]
+struct PlanRequest {
+    objective: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApprovalDecision {
+    approved: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateApprovalRequest {
+    run_id: String,
+    action: String,
+    resource: String,
+    expires_at: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateWorkflowRequest {
+    workflow: WorkflowDefinition,
+}
+
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
+    let configured = state.configured().await;
+    let sandbox_status = state.sandbox.get_status().await.ok().map(|status| format!("{status:?}"));
     HttpResponse::Ok().json(serde_json::json!({
         "status": "healthy",
         "service": "AgentiCOS API Server",
         "backend": "rust",
         "database": "sqlite",
-        "provider_configured": state.configured(),
+        "provider_configured": configured,
+        "sandbox": sandbox_status,
     }))
 }
 
 async fn agent_status(state: web::Data<RuntimeState>) -> impl Responder {
-    HttpResponse::Ok().json(StatusResponse {
-        agent_name: "AgentiCOS".to_string(),
-        state: if state.configured() {
-            "ready"
-        } else {
-            "configuration_required"
-        },
-        provider: state.provider_name.clone(),
-        model: state.model.clone(),
-        configured: state.configured(),
-    })
+    HttpResponse::Ok().json(serde_json::json!({
+        "agent_name": "AgentiCOS",
+        "state": if state.configured().await { "ready" } else { "configuration_required" },
+        "model": state.model,
+        "providers": state.provider.list_status().await,
+    }))
 }
 
 async fn agent_chat(
@@ -145,9 +255,9 @@ async fn agent_chat(
             code: "INVALID_MESSAGE",
         });
     }
-    if !state.configured() {
+    if !state.configured().await {
         return HttpResponse::ServiceUnavailable().json(ErrorResponse {
-            error: "No model provider is configured. Set AGENTICOS_API_KEY and optionally AGENTICOS_PROVIDER_URL/AGENTICOS_MODEL.".to_string(),
+            error: "No provider credential is configured".to_string(),
             code: "PROVIDER_NOT_CONFIGURED",
         });
     }
@@ -165,7 +275,6 @@ async fn agent_chat(
             agent: agent.name().to_string(),
             session_id,
             model: state.model.clone(),
-            provider: state.provider_name.clone(),
         }),
         Err(error) => {
             tracing::error!(error = ?error, "agent execution failed");
@@ -182,12 +291,16 @@ async fn conversation_history(
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let id = session_id.into_inner();
-    let agent = state.session_agent(&id).await;
-    HttpResponse::Ok().json(serde_json::json!({
-        "session_id": id,
-        "history": agent.get_session_history(&id).await,
-        "agent": agent.name(),
-    }))
+    match state.memory.get_session_history(&id, 200).await {
+        Ok(history) => HttpResponse::Ok().json(serde_json::json!({
+            "session_id": id,
+            "history": history,
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_READ_FAILED",
+        }),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -221,24 +334,306 @@ async fn conversation_search(
     }
 }
 
-async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
-    let tools = state.tools.read().await.get_all_tools();
+async fn list_providers(state: web::Data<RuntimeState>) -> impl Responder {
+    let providers: Vec<ProviderStatus> = state.provider.list_status().await;
     HttpResponse::Ok().json(serde_json::json!({
-        "tools": tools,
-        "count": tools.len()
+        "providers": providers,
+        "count": providers.len()
     }))
 }
 
-async fn get_tool(tool_name: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
-    let name = tool_name.into_inner();
-    let tools = state.tools.read().await;
-    match tools.get_tool(&name) {
-        Some(tool) => HttpResponse::Ok().json(tool),
-        None => HttpResponse::NotFound().json(ErrorResponse {
-            error: "Tool not found".to_string(),
-            code: "TOOL_NOT_FOUND",
+async fn list_models(state: web::Data<RuntimeState>) -> impl Responder {
+    let models = state.provider.list_models().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "models": models,
+        "count": models.len()
+    }))
+}
+
+async fn create_run(
+    request: web::Json<CreateRunRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let objective = request.objective.trim();
+    if objective.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "objective must not be empty".to_string(),
+            code: "INVALID_OBJECTIVE",
+        });
+    }
+    let run_id_text = request
+        .run_id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let run_id = match RunId::new(run_id_text.clone()) {
+        Ok(id) => id,
+        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "INVALID_RUN_ID",
+        }),
+    };
+
+    match state.kernel.create_run(run_id.clone()).await {
+        Ok(_) => {
+            if let Err(error) = state
+                .kernel
+                .transition_run(&run_id, RunState::Admitted, 1)
+                .await
+            {
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "RUN_ADMISSION_FAILED",
+                });
+            }
+            let _ = state.memory.store_message(
+                &format!("{}-objective", run_id.as_str()),
+                run_id.as_str(),
+                "objective",
+                objective,
+            ).await;
+            let _ = state.scheduler.enqueue(JobSpec {
+                job_id: format!("job-{}", run_id.as_str()),
+                run_id: run_id.as_str().to_string(),
+                task: objective.to_string(),
+                dependencies: vec![],
+                priority: 100,
+                max_attempts: 3,
+            }).await;
+
+            HttpResponse::Created().json(RunResponse {
+                run_id: run_id_text,
+                state: "Admitted".to_string(),
+                version: 2,
+            })
+        }
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "RUN_CREATE_FAILED",
         }),
     }
+}
+
+async fn get_run(
+    run_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let id = match RunId::new(run_id.into_inner()) {
+        Ok(id) => id,
+        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "INVALID_RUN_ID",
+        }),
+    };
+    let runs = state.kernel.runs.read().await;
+    match runs.get(&id) {
+        Some(run) => HttpResponse::Ok().json(RunResponse {
+            run_id: id.as_str().to_string(),
+            state: format!("{:?}", run.state),
+            version: run.version,
+        }),
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "run not found".to_string(),
+            code: "RUN_NOT_FOUND",
+        }),
+    }
+}
+
+async fn cancel_run(
+    run_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let id = match RunId::new(run_id.into_inner()) {
+        Ok(id) => id,
+        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "INVALID_RUN_ID",
+        }),
+    };
+    match state.kernel.cancel_run(&id).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"})),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "RUN_CANCEL_FAILED",
+        }),
+    }
+}
+
+async fn snapshot_run(
+    run_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let id = match RunId::new(run_id.into_inner()) {
+        Ok(id) => id,
+        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "INVALID_RUN_ID",
+        }),
+    };
+    match state.kernel.create_snapshot(&id).await {
+        Ok(snapshot) => HttpResponse::Ok().json(snapshot),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SNAPSHOT_FAILED",
+        }),
+    }
+}
+
+async fn create_agent(
+    request: web::Json<CreateAgentRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.subagents.register(request.agent.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.agent.clone()),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "AGENT_REGISTRATION_FAILED",
+        }),
+    }
+}
+
+async fn list_agents(state: web::Data<RuntimeState>) -> impl Responder {
+    let agents = state.subagents.definitions().await;
+    HttpResponse::Ok().json(serde_json::json!({"agents": agents, "count": agents.len()}))
+}
+
+async fn spawn_agent(
+    path: web::Path<String>,
+    request: web::Json<SpawnAgentRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .subagents
+        .spawn_child(&path.into_inner(), &request.agent_id, request.parent_depth.unwrap_or(0))
+        .await
+    {
+        Ok(child) => HttpResponse::Created().json(child),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "SUBAGENT_SPAWN_FAILED",
+        }),
+    }
+}
+
+async fn list_children(
+    run_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let children = state.subagents.children_of(&run_id).await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "parent_run_id": run_id.into_inner(),
+        "children": children,
+    }))
+}
+
+async fn create_job(
+    request: web::Json<CreateJobRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.scheduler.enqueue(request.job.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.job.clone()),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "JOB_CREATE_FAILED",
+        }),
+    }
+}
+
+async fn list_jobs(state: web::Data<RuntimeState>) -> impl Responder {
+    let jobs = state.scheduler.list().await;
+    HttpResponse::Ok().json(serde_json::json!({"jobs": jobs, "count": jobs.len()}))
+}
+
+async fn create_workflow(
+    request: web::Json<CreateWorkflowRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.workflows.register(request.workflow.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.workflow.clone()),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "WORKFLOW_INVALID",
+        }),
+    }
+}
+
+async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {
+    let workflows = state.workflows.list().await;
+    HttpResponse::Ok().json(serde_json::json!({"workflows": workflows, "count": workflows.len()}))
+}
+
+async fn workflow_state(
+    workflow_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.workflows.initial_state(&workflow_id).await {
+        Ok(workflow_state) => HttpResponse::Ok().json(workflow_state),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "WORKFLOW_NOT_FOUND",
+        }),
+    }
+}
+
+async fn create_plan(
+    request: web::Json<PlanRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.reasoning.generate_plan(&request.objective).await {
+        Ok(plan) => {
+            let evaluation = state.reasoning.evaluate(&plan).await.ok();
+            HttpResponse::Ok().json(serde_json::json!({
+                "plan": plan,
+                "evaluation": evaluation,
+            }))
+        }
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PLAN_GENERATION_FAILED",
+        }),
+    }
+}
+
+async fn list_approvals(state: web::Data<RuntimeState>) -> impl Responder {
+    let approvals: Vec<ApprovalRequest> = state.capabilities.pending_approvals().await;
+    HttpResponse::Ok().json(serde_json::json!({"approvals": approvals, "count": approvals.len()}))
+}
+
+async fn create_approval(
+    request: web::Json<CreateApprovalRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let approval = state.capabilities.request_approval(
+        request.run_id.clone(),
+        request.action.clone(),
+        request.resource.clone(),
+        request.expires_at.unwrap_or(0),
+    ).await;
+    HttpResponse::Created().json(approval)
+}
+
+async fn resolve_approval(
+    approval_id: web::Path<String>,
+    decision: web::Json<ApprovalDecision>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.capabilities.resolve_approval(&approval_id, decision.approved).await {
+        Ok(approval) => HttpResponse::Ok().json(approval),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error: error.to_string(),
+            code: "APPROVAL_NOT_FOUND",
+        }),
+    }
+}
+
+async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
+    let available = state.sandbox.is_available().await.unwrap_or(false);
+    let status: SandboxStatus = state.sandbox.get_status().await.unwrap_or(SandboxStatus::Unavailable);
+    HttpResponse::Ok().json(serde_json::json!({
+        "available": available,
+        "status": format!("{status:?}"),
+        "policy": SandboxPolicy::default(),
+        "execution": "capability-gated local process boundary"
+    }))
 }
 
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
@@ -248,128 +643,39 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
     let data = web::Data::new(state);
+    let cors = Cors::permissive();
 
     HttpServer::new(move || {
         App::new()
-            .wrap(Cors::permissive())
+            .wrap(cors.clone())
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
-            .route(
-                "/api/conversations/{session_id}/history",
-                web::get().to(conversation_history),
-            )
-            .route(
-                "/api/conversations/search",
-                web::get().to(conversation_search),
-            )
-            .route("/api/tools", web::get().to(list_tools))
-            .route("/api/tools/{tool_name}", web::get().to(get_tool))
+            .route("/api/conversations/{session_id}/history", web::get().to(conversation_history))
+            .route("/api/conversations/search", web::get().to(conversation_search))
+            .route("/api/providers", web::get().to(list_providers))
+            .route("/api/models", web::get().to(list_models))
+            .route("/api/runs", web::post().to(create_run))
+            .route("/api/runs/{run_id}", web::get().to(get_run))
+            .route("/api/runs/{run_id}/cancel", web::post().to(cancel_run))
+            .route("/api/runs/{run_id}/snapshot", web::post().to(snapshot_run))
+            .route("/api/subagents", web::get().to(list_agents))
+            .route("/api/subagents", web::post().to(create_agent))
+            .route("/api/subagents/{parent_run_id}/children", web::post().to(spawn_agent))
+            .route("/api/subagents/{parent_run_id}/children", web::get().to(list_children))
+            .route("/api/jobs", web::get().to(list_jobs))
+            .route("/api/jobs", web::post().to(create_job))
+            .route("/api/workflows", web::get().to(list_workflows))
+            .route("/api/workflows", web::post().to(create_workflow))
+            .route("/api/workflows/{workflow_id}/state", web::get().to(workflow_state))
+            .route("/api/reasoning/plan", web::post().to(create_plan))
+            .route("/api/approvals", web::get().to(list_approvals))
+            .route("/api/approvals", web::post().to(create_approval))
+            .route("/api/approvals/{approval_id}", web::post().to(resolve_approval))
+            .route("/api/sandbox/status", web::get().to(sandbox_status))
     })
     .bind((host, port))?
     .run()
     .await
-}
-
-struct OpenAiCompatibleProvider {
-    base_url: String,
-    provider_id: String,
-    api_key: String,
-}
-
-impl OpenAiCompatibleProvider {
-    fn new(base_url: String, provider_id: String, api_key: String) -> Self {
-        Self {
-            base_url,
-            provider_id,
-            api_key,
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct OpenAiMessage<'a> {
-    role: &'a str,
-    content: &'a str,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiResponse {
-    choices: Vec<OpenAiChoice>,
-    usage: Option<OpenAiUsage>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiChoice {
-    message: OpenAiMessageOwned,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiMessageOwned {
-    content: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiUsage {
-    total_tokens: Option<u64>,
-}
-
-#[async_trait]
-impl ModelProvider for OpenAiCompatibleProvider {
-    fn provider_id(&self) -> &str {
-        &self.provider_id
-    }
-
-    async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        let model = if request.model == "default" {
-            std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string())
-        } else {
-            request.model
-        };
-        let body = serde_json::json!({
-            "model": model,
-            "messages": [OpenAiMessage { role: "user", content: &request.input }],
-            "stream": false
-        });
-
-        let response = reqwest::Client::new()
-            .post(&self.base_url)
-            .bearer_auth(&self.api_key)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|error| {
-                ContractError::ParseError(format!("Provider request failed: {error}"))
-            })?;
-
-        let status = response.status();
-        let text = response.text().await.map_err(|error| {
-            ContractError::ParseError(format!("Provider response read failed: {error}"))
-        })?;
-        if !status.is_success() {
-            return Err(ContractError::ParseError(format!(
-                "Provider returned HTTP {status}: {text}"
-            )));
-        }
-
-        let parsed: OpenAiResponse = serde_json::from_str(&text).map_err(|error| {
-            ContractError::ParseError(format!("Invalid OpenAI-compatible response: {error}"))
-        })?;
-        let output = parsed
-            .choices
-            .first()
-            .and_then(|choice| choice.message.content.clone())
-            .filter(|content| !content.trim().is_empty())
-            .ok_or_else(|| {
-                ContractError::ParseError("Provider returned no message content".to_string())
-            })?;
-
-        Ok(ModelResponse {
-            request_id: request.request_id,
-            output,
-            metadata: Some(self.provider_id.clone()),
-            tokens_used: parsed.usage.and_then(|usage| usage.total_tokens),
-        })
-    }
 }

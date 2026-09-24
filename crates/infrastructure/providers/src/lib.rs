@@ -447,12 +447,7 @@ impl ModelProvider for HttpModelProvider {
                 target.insert(key.clone(), value.clone());
             }
         }
-        let response = self
-            .client
-            .post(&self.base_url)
-            .json(&payload)
-            .send()
-            .await;
+        let response = self.client.post(&self.base_url).json(&payload).send().await;
 
         match response {
             Ok(resp) => {

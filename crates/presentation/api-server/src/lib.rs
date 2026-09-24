@@ -28,8 +28,8 @@ use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
     SqliteSnapshotStore,
 };
-use agenticos_memory::PersistentMemoryStore;
 use agenticos_mcp::{McpManager, McpServerDefinition};
+use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_runtime::{RuntimeController, RuntimePhase};

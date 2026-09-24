@@ -1030,3 +1030,10 @@ Verification status:
 - Removed non-platform mode checks from `PlatformSurface` and preserved `StudioSurface` ownership for `chat`, `files`, `terminal`, `runs`, `agents`, `artifacts` and `settings`.
 - Kept the shared `FeatureWorkbench` registry limited to typed `PlatformMode` values.
 - Verification status: source ownership audit remains green with 98 navigation IDs, 91 platform modes, zero missing platform owners and zero invalid cross-owner routes. Build/browser/Tauri verification remains pending.
+
+## 2026-09-24 — Frontend architecture verifier alignment
+
+- Updated `scripts/verify-frontend-architecture.mjs` so route coverage accepts the typed `GENERIC_FEATURE_MODES` registry used by `PlatformSurface`.
+- Corrected the generic-route regex after inspection so the verifier extracts the declared mode list reliably.
+- This keeps the architecture gate aligned with the consolidated frontend routing model instead of requiring one conditional branch per surface.
+- Verification status: source-level route audit is clean; the actual repository `npm run verify` and desktop frontend build still require CI/local execution evidence.

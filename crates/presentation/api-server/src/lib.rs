@@ -1196,14 +1196,7 @@ async fn scheduler_worker(state: RuntimeState) {
                 let run = state.kernel.runs.read().await.get(&run_id).cloned();
                 match run {
                     Some(run) if matches!(run.state, RunState::Cancelling | RunState::Cancelled) => {
-                        let _ = state
-                            .scheduler
-                            .complete(
-                                &started_job.spec.job_id,
-                                false,
-                                Some("run cancelled before execution".to_string()),
-                            )
-                            .await;
+                        let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
                         if run.state == RunState::Cancelling {
                             let _ = state
                                 .kernel

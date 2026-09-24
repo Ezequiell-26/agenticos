@@ -43,11 +43,7 @@ impl ProviderRegistry {
 
     /// Remove a provider and return whether it existed.
     pub async fn remove(&self, provider_id: &str) -> bool {
-        self.providers
-            .write()
-            .await
-            .remove(provider_id)
-            .is_some()
+        self.providers.write().await.remove(provider_id).is_some()
     }
 
     /// List all providers.

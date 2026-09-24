@@ -111,9 +111,9 @@ export default function GlobalSearch({
           <button type="button" className="icon-button" aria-label="Close search" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div className="global-search__meta">{filtered.length} result{filtered.length === 1 ? '' : 's'} · navigation, settings, sessions and platform surfaces</div>
-        <div className="global-search__list">
+        <div className="global-search__list" role="listbox" aria-label="Search results">
           {filtered.map((item, index) => (
-            <button type="button" key={item.id} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
+            <button type="button" key={item.id} role="option" aria-selected={index === selectedIndex} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
               <span className="global-search__icon"><Icon name={item.icon} size={14} /></span>
               <span><strong>{item.label}</strong><small>{item.detail}</small></span>
               <em>{item.group}</em>

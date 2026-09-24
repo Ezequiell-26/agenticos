@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Icon from '../../components/Icon'
+import './SubagentFleet.css'
 import SubagentBuilder from './SubagentBuilder'
 
 type FleetPolicy = 'Balanced' | 'Latency-first' | 'Evidence-first' | 'Cost-guarded'

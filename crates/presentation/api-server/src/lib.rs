@@ -23,6 +23,7 @@ use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
 };
+use agenticos_context::optimize_tool_output;
 use agenticos_contracts::{
     AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState,
     Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
@@ -105,6 +106,7 @@ impl AgentTool for SecureCommandTool {
             .await?;
 
         let output = result.output.unwrap_or_default();
+        let (optimized_output, optimization) = optimize_tool_output(&output);
         if self.artifacts.should_spill(output.len()) {
             let artifact = self
                 .artifacts
@@ -150,10 +152,14 @@ impl AgentTool for SecureCommandTool {
 
         Ok(ToolResponse {
             request_id: request.request_id,
-            result: output,
+            result: optimized_output,
             success: result.success,
             error: result.error,
-            metadata: Some("native capability-gated process execution".to_string()),
+            metadata: Some(format!(
+                "native capability-gated process execution; normalized tool output saved {} bytes ({:.1}%)",
+                optimization.bytes_saved,
+                optimization.savings_ratio() * 100.0
+            )),
         })
     }
 }

@@ -29,7 +29,10 @@ use agenticos_kernel::{
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
-use agenticos_observability::audit::{AuditEvent, AuditStore};
+use agenticos_observability::{
+    audit::{AuditEvent, AuditStore},
+    metrics::RuntimeMetrics,
+};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
@@ -64,6 +67,7 @@ pub struct RuntimeState {
     secure_tools: Arc<SecureToolService>,
     tool_runtime: Arc<ToolRuntime>,
     reasoning: Arc<ReasoningEngine>,
+    metrics: Arc<RuntimeMetrics>,
     model: String,
 }
 
@@ -191,6 +195,7 @@ impl RuntimeState {
                 enable_learning: true,
                 selection_strategy: SelectionStrategy::Balanced,
             })),
+            metrics: Arc::new(RuntimeMetrics::new()),
             model,
         })
     }
@@ -643,6 +648,10 @@ async fn call_mcp_tool(
     }
 }
 
+async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
+    HttpResponse::Ok().json(state.metrics.snapshot())
+}
+
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
     let configured = state.configured().await;
     let sandbox_status = state
@@ -674,6 +683,7 @@ async fn agent_chat(
     request: web::Json<ChatRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
+    state.metrics.record_http(false);
     let message = request.message.trim();
     if message.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
@@ -706,14 +716,22 @@ async fn agent_chat(
     }
     let agent = state.session_agent(&session_id, requested_model).await;
 
+    let started_at = std::time::Instant::now();
+    state.metrics.record_provider(false);
     match agent.execute_turn(message).await {
-        Ok(response) => HttpResponse::Ok().json(ChatResponse {
+        Ok(response) => {
+            state.metrics.record_llm_latency(started_at.elapsed().as_millis() as u64);
+            HttpResponse::Ok().json(ChatResponse {
             response,
             agent: agent.name().to_string(),
             session_id,
             model: requested_model.unwrap_or(state.model.as_str()).to_string(),
-        }),
+        })
+        },
         Err(error) => {
+            state.metrics.record_provider(true);
+            state.metrics.record_http(true);
+            state.metrics.record_llm_latency(started_at.elapsed().as_millis() as u64);
             tracing::error!(error = ?error, "agent execution failed");
             HttpResponse::InternalServerError().json(ErrorResponse {
                 error: error.to_string(),
@@ -2252,6 +2270,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .app_data(web::Data::new(auth_config))
             .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
+            .route("/api/metrics", web::get().to(runtime_metrics))
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
             .route(

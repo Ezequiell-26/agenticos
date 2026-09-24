@@ -70,7 +70,7 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
             <section key={sectionId} className="navigation-launcher__group">
               <div className="navigation-launcher__group-title"><strong>{meta.label}</strong><small>{meta.detail}</small></div>
               {items.map((item) => (
-                <button id={'feature-' + item.id} key={item.id} type="button" className={(active === item.id ? 'navigation-launcher__item navigation-launcher__item--active' : 'navigation-launcher__item') + (filtered[selectedIndex]?.id === item.id ? ' navigation-launcher__item--keyboard-active' : '')} onClick={() => onChange(item.id)} ref={(element) => {
+                <button id={'feature-' + item.id} key={item.id} role="option" aria-selected={active === item.id || filtered[selectedIndex]?.id === item.id} type="button" className={(active === item.id ? 'navigation-launcher__item navigation-launcher__item--active' : 'navigation-launcher__item') + (filtered[selectedIndex]?.id === item.id ? ' navigation-launcher__item--keyboard-active' : '')} onClick={() => onChange(item.id)} ref={(element) => {
                   const index = filtered.findIndex((candidate) => candidate.id === item.id)
                   if (index >= 0) itemRefs.current[index] = element
                 }}>

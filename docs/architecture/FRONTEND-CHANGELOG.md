@@ -1263,3 +1263,12 @@ Verification status:
 - Preserved immutable-original semantics and kept replay/fork/restore actions as typed presentation intents until session-runtime contracts are connected.
 - Added responsive styling for the new recovery controls.
 - Verification status: source-level wiring only; production build, browser/Tauri execution and runtime acceptance remain unverified.
+
+## 2026-09-24 — Evidence verification depth
+
+- Expanded Evidence & Artifact Inspector with a separate verification-state filter for Verified, Pending and Blocked evidence.
+- Fixed inspector selection so changing filters cannot leave the detail pane pointing at a hidden artifact.
+- Added artifact-level verification pills, an explicit comparison state and an export action in the inspector toolbar.
+- Added a real empty-result state for filtered evidence and responsive metadata layout for narrow screens.
+- Preserved provenance and secret-isolation semantics; comparison/export remain presentation-only intents.
+- Verification status: source-level wiring only; full CI/browser/Tauri evidence remains pending.

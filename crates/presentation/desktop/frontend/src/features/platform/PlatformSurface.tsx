@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
-import type { PlatformMode } from '../../navigation'
+import type { PlatformMode, RailMode } from '../../navigation'
 const ContextInspector = lazy(() => import('../context/ContextInspector'))
 const McpManager = lazy(() => import('../mcp/McpManager'))
 const HookManager = lazy(() => import('../hooks/HookManager'))
@@ -80,10 +80,10 @@ import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
-import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, channels, researchBatches, batchJobs, learningSignals, plugins, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, batchJobs, learningSignals, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
-function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
+function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   const [query, setQuery] = useState('')
   const [selectedProject, setSelectedProject] = useState(projects[0].id)
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
@@ -91,9 +91,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
   const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
   const [voiceMode, setVoiceMode] = useState(true)
-  const [researchBatch, setResearchBatch] = useState(researchBatches[0][0])
   const [batchJob, setBatchJob] = useState(batchJobs[0][0])
-  const [selectedPlugin, setSelectedPlugin] = useState(plugins[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
   const [selectedSession, setSelectedSession] = useState(sessions[0][0])
   const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
@@ -272,254 +270,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     </Shell>
   )
 
-  if (mode === 'execution') return (
-    <Shell>
-      {renderHeader('Execution control', 'Run Control Center', 'Control execution trees, recovery, checkpoints, handoffs and artifacts without coupling the presentation layer to runtime actions.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <RunControlCenter onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'permissions') return (
-    <PermissionsMatrix onAction={notify} />
-  )
-
-  if (mode === 'overview') return (
-    <WorkspaceOverview onAction={notify} />
-  )
-
-  if (mode === 'playground' || mode === 'routing' || mode === 'token-observatory' || mode === 'versions' || mode === 'audit') return (
-    <AdvancedStudio mode={mode} onAction={notify} />
-  )
-
-  if (mode === 'canvas') return (
-    <Shell>
-      {renderHeader('Visual workspace', 'Canvas', 'Compose interactive artifacts and side-by-side visual workflows without leaving the agent session.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <CanvasStudio onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'commands') return (
-    <Shell>
-      {renderHeader('Reusable workflows', 'Commands', 'Build slash commands and focused workflows with explicit scope, variables and invocation behavior.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <CommandStudio onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'subagents') return (
-    <Shell>
-      {renderHeader('Delegation', 'Subagents', 'Manage specialized agents with isolated context windows, tools, models and handoffs.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Parallel subagents started in preview')}><Icon name="play" size={13} /> Run parallel</button>)}
-      <SubagentFleet onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'cloud') return (
-    <Shell>
-      {renderHeader('Remote execution', 'Cloud Agents', 'Inspect remote agent environments, artifacts and desktop handoff state.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <CloudAgentsWorkspace onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'remote-control') return (
-    <Shell>
-      <RemoteControlCenter onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'computer') return (
-    <Shell>
-      {renderHeader('Computer interaction', 'Computer Use', 'Model desktop/browser control, recordings and verification artifacts as a dedicated execution surface.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <ComputerUseWorkspace onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'operations') return (
-    <Shell>
-      {renderHeader('Administration', 'Operations Center', 'Health, doctor, backups, maintenance and support operations with explicit safety boundaries.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <OperationsCenter onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'kanban') return (
-    <Shell>
-      {renderHeader('Work management', 'Kanban', 'Coordinate tasks, ownership and agent handoffs using a visual work board.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <KanbanBoard onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'marketplace') return (
-    <Shell>
-      {renderHeader('Extension ecosystem', 'Marketplace', 'Discover and manage bundled plugins, skills, MCP servers and reusable commands.', <span className="state-pill state-pill--pending">Preview</span>)}
-      <MarketplaceStudio onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'homeassistant' || mode === 'social') return (
-    <Shell>
-      <IntegrationCatalogSurface mode={mode} onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'security') return (
-    <Shell>
-      {renderHeader('Control plane', 'Security Center', 'Inspect workspace protection, permissions, secrets boundaries, audit state and recovery controls.', <button className="studio-button" type="button" onClick={() => notify('Security policies refreshed in preview')}><Icon name="history" size={14} /> Refresh</button>)}
-      <SecurityCenter onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'evaluations') return (
-    <Shell>
-      {renderHeader('Quality intelligence', 'Evaluations', 'Repeatable suites for agent behavior, tools, prompts and model comparisons.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Evaluation run staged in preview')}><Icon name="play" size={14} /> Run suite</button>)}
-      <div className="evaluation-layout"><div className="evaluation-list">{evaluationSuites.map(([id, title, cases, score, state]) => <button type="button" key={id} className={`evaluation-row ${selectedEvaluation === id ? 'evaluation-row--active' : ''}`} onClick={() => setSelectedEvaluation(id)}><div><strong>{title}</strong><span>{id} · {cases}</span></div><span className="mono-text">{score}</span><span className={state === 'Stable' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedEvaluation}><div className="evaluation-score"><div><span>Current score</span><strong>93.8%</strong><small>+2.4 pts vs previous</small></div><div className="score-ring"><span>93</span></div></div><div className="evaluation-run-list">{evaluationRuns.map(([id, model, passed, duration]) => <div key={id}><div><strong>{model}</strong><span>{id} · {duration}</span></div><span className="mono-text">{passed}</span></div>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Case browser opened in preview')}>Browse cases</button><button className="studio-button" type="button" onClick={() => notify('Model comparison opened in preview')}>Compare models</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Evaluation report exported in preview')}><Icon name="arrow-down" size={13} /> Export report</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'notifications') return (
-    <Shell>
-      {renderHeader('Workspace inbox', 'Notifications', 'Centralize approvals, completions, warnings and background activity without interrupting the current task.', <><button className="studio-button" type="button" onClick={() => setNotificationsRead(new Set(notifications.map((item) => item[0])))}>Mark all read</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Notification preferences opened in preview')}>Preferences</button></>)}
-      <div className="notification-summary"><Metric label="Unread" value={String(notifications.length - notificationsRead.size)} /><Metric label="Approvals" value="1" /><Metric label="Warnings" value="1" /><Metric label="Recent runs" value="4" /></div>
-      <div className="notification-list">{notifications.map(([title, detail, age, level]) => { const isRead = notificationsRead.has(title); return <button type="button" key={title} className={isRead ? 'notification-row notification-row--read' : 'notification-row'} onClick={() => setNotificationsRead((current) => new Set(current).add(title))}><span className={`notification-dot notification-dot--${level}`} /><div><strong>{title}</strong><span>{detail}</span><small>{age} · {isRead ? 'read' : 'unread'}</small></div><Icon name={level === 'high' ? 'shield' : 'chevron-right'} size={13} /></button> })}</div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'wake') return (
-    <Shell>
-      {renderHeader('Hands-free control', 'Wake Word & Presence', 'Manage microphone readiness, hotword activation and voice-session behavior as explicit local UI state.', <button className={wakeEnabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setWakeEnabled((value) => !value)}><Icon name="mic" size={14} /> {wakeEnabled ? 'Wake enabled' : 'Wake disabled'}</button>)}
-      <div className="wake-layout"><Panel title="Presence"><div className="wake-orb"><Icon name="mic" size={28} /></div><strong className="wake-title">{wakeEnabled ? 'Listening for activation' : 'Microphone idle'}</strong><span className="wake-description">Local UI preview only. No microphone stream is opened by this component.</span><div className="platform-grid platform-grid--2"><Metric label="Wake phrase" value="Hey AgentiCOS" /><Metric label="Sensitivity" value="Balanced" /><Metric label="Device" value="Default microphone" /><Metric label="Mode" value={wakeEnabled ? 'Standby' : 'Off'} /></div></Panel><Panel title="Voice handoff"><div className="strategy-stack"><div><span>Activation</span><strong>Wake word → session</strong></div><div><span>Response</span><strong>Text + TTS preview</strong></div><div><span>Privacy</span><strong>On-device gate preferred</strong></div><div><span>Fallback</span><strong>Push-to-talk</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Voice preferences opened in preview')}>Voice settings</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Push-to-talk staged in preview')}>Test push-to-talk</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-
-  if (mode === 'tasks') return (
-    <Shell>
-      {renderHeader('Execution planning', 'Tasks', 'Track objectives, dependencies, owners and handoff state before they become agent runs.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New task opened in preview')}><Icon name="plus" size={14} /> New task</button>)}
-      <div className="task-layout"><div className="task-list">{tasks.map(([id, title, owner, state, priority]) => <button type="button" key={id} className={`task-row ${selectedTask === id ? 'task-row--active' : ''}`} onClick={() => setSelectedTask(id)}><span className="task-priority">{priority}</span><div><strong>{title}</strong><span>{id} · {owner}</span></div><span className={state === 'In progress' ? 'state-pill state-pill--active' : state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedTask}><div className="task-detail"><span className="eyebrow">Objective</span><h2>Complete frontend architecture</h2><p>Keep UI capabilities explicit, split by domain and preserve the runtime boundary.</p></div><div className="task-dependencies"><div><strong>Dependencies</strong><span>TASK-103 · review findings</span><span>TASK-102 · verification plan</span></div><div><strong>Handoff</strong><span>→ Builder</span><span>→ Reviewer</span></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Task plan opened in preview')}>Open plan</button><button className="studio-button" type="button" onClick={() => notify('Task run preview opened')}>Preview run</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Task checkpoint staged in preview')}><Icon name="git" size={14} /> Checkpoint</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'sessions') return (
-    <Shell>
-      {renderHeader('Conversation management', 'Sessions', 'Browse, search, pin, export and manage agent conversations without leaving the workspace.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New session opened in preview')}><Icon name="plus" size={14} /> New session</button>)}
-      <div className="session-layout"><div className="session-list">{sessions.map(([id, title, meta, state, pinned]) => <button type="button" key={id} className={`session-row ${selectedSession === id ? 'session-row--active' : ''}`} onClick={() => setSelectedSession(id)}><div className="session-row__icon"><Icon name={pinned ? 'archive' : 'history'} size={14} /></div><div><strong>{title}</strong><span>{id} · {meta}</span></div><span className={state === 'Active' ? 'state-pill state-pill--active' : state === 'Pinned' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span></button>)}</div><Panel title={selectedSession}><div className="platform-grid platform-grid--2"><Metric label="Messages" value="42" /><Metric label="Context" value="62.2k" /><Metric label="Model" value="Auto route" /><Metric label="Last active" value="2m" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Session search opened in preview')}><Icon name="search" size={13} /> Search messages</button><button className="studio-button" type="button" onClick={() => notify('Session export prepared in preview')}><Icon name="arrow-down" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Session branch opened in preview')}><Icon name="branch" size={13} /> Fork</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'logs') return (
-    <Shell>
-      {renderHeader('Diagnostics', 'Logs & Traces', 'Inspect structured agent events, tool calls, policy checks and diagnostic output.', <><button className="studio-button" type="button" onClick={() => notify('Log filters opened in preview')}><Icon name="search" size={14} /> Filter</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Log export prepared in preview')}><Icon name="arrow-down" size={14} /> Export</button></>)}
-      <div className="log-toolbar"><span className="state-pill state-pill--completed">Live preview</span><span className="mono-text">level: info · scope: current session</span></div>
-      <div className="log-table">{logEntries.map(([time, scope, event, detail]) => <div className="log-row" key={time + event}><span>{time}</span><span>{scope}</span><strong>{event}</strong><span>{detail}</span></div>)}</div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'analytics') return (
-    <Shell>
-      {renderHeader('Usage intelligence', 'Analytics', 'A product-level view of runs, tokens, latency and tool activity. Values below are preview data.', <button className="studio-button" type="button" onClick={() => notify('Analytics period changed in preview')}><Icon name="clock" size={14} /> Last 30 days</button>)}
-      <div className="analytics-grid">{analyticsCards.map(([label, value, sub]) => <div className="platform-metric-card" key={label}><span>{label}</span><strong>{value}</strong><small>{sub}</small></div>)}</div>
-      <div className="platform-grid platform-grid--2"><Panel title="Activity"><div className="analytics-bars">{[28,46,38,72,54,81,61,88,70,93,76,84,66,91].map((value, index) => <i key={index} style={{ height: value + '%' }} />)}</div></Panel><Panel title="Breakdown"><Metric label="Agent runs" value="71%" /><Metric label="Background" value="16%" /><Metric label="Research" value="8%" /><Metric label="Other" value="5%" /></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'webhooks') return (
-    <Shell>
-      {renderHeader('Event gateway', 'Webhooks & Events', 'Define inbound event triggers, delivery policies and local preview endpoints.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Webhook builder opened in preview')}><Icon name="plus" size={14} /> New webhook</button>)}
-      <div className="webhook-list">{webhooks.map(([id, title, endpoint, state, enabled]) => <div className="webhook-row" key={id}><div><strong>{title}</strong><span>{id} · {endpoint}</span></div><span className={enabledWebhooks.has(id) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabledWebhooks.has(id) ? 'Enabled' : enabled ? 'Configured' : state}</span><button className="studio-button" type="button" onClick={() => { const next = new Set(enabledWebhooks); next.has(id) ? next.delete(id) : next.add(id); setEnabledWebhooks(next); notify(id + ' toggled in preview') }}>{enabledWebhooks.has(id) ? 'Pause' : 'Enable'}</button></div>)}</div>
-      <Panel title="Delivery policy"><div className="platform-grid platform-grid--2"><Metric label="Retries" value="3" /><Metric label="Backoff" value="Exponential" /><Metric label="Signing" value="Required" /><Metric label="Timeout" value="10s" /></div></Panel>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'credentials') return (
-    <Shell>
-      <CredentialManager onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'toolsets') return (
-    <Shell>
-      {renderHeader('Capability bundles', 'Toolsets', 'Activate groups of tools for a workflow while keeping individual tool permissions visible elsewhere.', <button className="studio-button" type="button" onClick={() => notify('Toolset editor opened in preview')}><Icon name="plus" size={14} /> New toolset</button>)}
-      <div className="toolset-list">{toolsets.map(([name, detail, count, active]) => <div className="toolset-row" key={name}><div className="toolset-icon"><Icon name="layers" size={15} /></div><div><strong>{name}</strong><span>{detail} · {count}</span><small>{active ? 'Default toolset' : 'Optional toolset'}</small></div><button className={enabledToolsets.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={enabledToolsets.has(name)} onClick={() => toggle(setEnabledToolsets, enabledToolsets, name)}><span /></button></div>)}</div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'imports') return (
-    <Shell>
-      {renderHeader('Migration', 'Imports & Migrations', 'Bring instructions, rules, context and session archives into AgentiCOS with an explicit review step.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Import picker opened in preview')}><Icon name="arrow-down" size={14} /> Import package</button>)}
-      <div className="import-layout"><div className="import-list">{imports.map(([name, source, type, state]) => <button type="button" key={name} className={`import-row ${selectedImport === name ? 'import-row--active' : ''}`} onClick={() => setSelectedImport(name)}><div><strong>{name}</strong><span>{source} · {type}</span></div><span className="state-pill state-pill--completed">{state}</span></button>)}</div><Panel title={selectedImport}><div className="platform-grid platform-grid--2"><Metric label="Review" value="Required" /><Metric label="Merge" value="Preview diff" /><Metric label="Secrets" value="Ignored" /><Metric label="Rollback" value="Available" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Migration diff opened in preview')}>View diff</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Migration approval staged in preview')}><Icon name="check" size={14} /> Approve import</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'media') return (
-    <Shell>
-      {renderHeader('Multimodal workspace', 'Media Studio', 'A unified surface for image generation, vision analysis, speech and multimodal artifacts.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New media task opened in preview')}><Icon name="plus" size={14} /> New media task</button>)}
-      <div className="media-studio-grid">{mediaItems.map(([name, detail, category, state]) => <button type="button" key={name} className={`platform-card media-card ${selectedMedia === name ? 'platform-card--active' : ''}`} onClick={() => setSelectedMedia(name)}><div className="media-card__icon"><Icon name="layout" size={18} /></div><div><strong>{name}</strong><span>{detail}</span><small>{category}</small></div><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
-      <Panel title={selectedMedia}><div className="media-preview"><div className="empty-orb"><Icon name="layout" size={24} /></div><strong>Multimodal preview</strong><span>Attach an image, generate an artifact or queue audio when the corresponding runtime service is connected.</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Media input picker opened in preview')}>Add input</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Generation request staged in preview')}><Icon name="spark" size={14} /> Generate</button></div></Panel>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'batch') return (
-    <Shell>
-      {renderHeader('Parallel work', 'Batch Processing', 'Process many inputs with bounded concurrency, progress, failures and export-ready results.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('New batch opened in preview')}><Icon name="plus" size={14} /> New batch</button>)}
-      <div className="batch-layout"><div className="batch-list">{batchJobs.map(([id, title, inputs, state]) => <button type="button" key={id} className={`batch-row ${batchJob === id ? 'batch-row--active' : ''}`} onClick={() => setBatchJob(id)}><div><strong>{title}</strong><span>{id} · {inputs}</span></div><span className={`state-pill state-pill--${state === 'Complete' ? 'completed' : state === 'Running' ? 'active' : 'pending'}`}>{state}</span></button>)}</div><Panel title={batchJob}><div className="batch-metrics"><Metric label="Inputs" value="48" /><Metric label="Concurrency" value="6" /><Metric label="Processed" value="31" /><Metric label="Failed" value="1" /></div><div className="budget-bar"><span style={{ width:'64%' }} /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Batch paused in preview')}><Icon name="stop" size={14} /> Pause</button><button className="studio-button" type="button" onClick={() => notify('Failed inputs opened in preview')}>Inspect failures</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Batch export prepared in preview')}><Icon name="arrow-down" size={14} /> Export results</button></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'learning') return (
-    <Shell>
-      {renderHeader('Continuous improvement', 'Learning Loop', 'Turn useful run outcomes into reviewable memory, skill and prompt candidates without silently changing behavior.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Learning review started in preview')}><Icon name="spark" size={14} /> Review candidates</button>)}
-      <div className="learning-grid">{learningSignals.map(([kind, title, evidence, state]) => <button type="button" key={title} className="platform-card learning-card" onClick={() => notify(`${title} selected`)}><span className="eyebrow">{kind}</span><strong>{title}</strong><span>{evidence}</span><span className="state-pill state-pill--pending">{state}</span></button>)}</div>
-      <Panel title="Safety boundary"><div className="callout"><Icon name="shield" size={14} /><span>Learning candidates remain drafts until a human or explicit runtime policy accepts them; no silent prompt, memory or skill mutation is performed by this UI.</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Candidate diff opened in preview')}>View proposed diff</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Candidate approval staged in preview')}>Approve candidate</button></div></Panel>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'plugins') return (
-    <Shell>
-      {renderHeader('Extension plane', 'Plugins', 'Discover packaged capabilities, inspect their tool surface and toggle local availability.', <button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin browser opened in preview')}><Icon name="plus" size={14} /> Add plugin</button>)}
-      <div className="plugin-grid">{plugins.map(([name, detail, tools, category, enabled]) => <button type="button" key={name} className={`platform-card plugin-card ${enabled ? 'platform-card--active' : ''}`} onClick={() => setSelectedPlugin(name)}><div className="plugin-card__icon"><Icon name="tool" size={17} /></div><div><strong>{name}</strong><span>{detail}</span><small>{category} · {tools}</small></div><span className={`state-pill state-pill--${enabled ? 'active' : 'pending'}`}>{enabled ? 'Enabled' : 'Disabled'}</span></button>)}</div>
-      <Panel title={selectedPlugin}><div className="platform-grid platform-grid--2"><Metric label="Capability scope" value="Explicit" /><Metric label="Credentials" value="External" /><Metric label="Updates" value="Review" /><Metric label="Source trust" value="Pinned" /></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => notify('Plugin manifest opened in preview')}>Inspect manifest</button><button className="studio-button studio-button--active" type="button" onClick={() => notify('Plugin toggle staged in preview')}>Enable / disable</button></div></Panel>
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'hooks') return (
-    <Shell>
-      <HookManager onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'execution') return (
-    <Shell>
-      {renderHeader('Code execution', 'Execution Lab', 'Reproducible execution previews with language, environment, dependencies, stdin and captured output.', <button className="studio-button" type="button" onClick={() => notify('Execution sandbox reset in preview')}><Icon name="history" size={14} /> Reset</button>)}
-      <div className="execution-layout"><Panel title="Program"><div className="execution-toolbar"><span className="mono-text">sandbox · no live execution</span><select className="settings-input" defaultValue="Python"><option>Python</option><option>Node.js</option><option>Rust</option><option>Shell</option></select></div><textarea className="execution-editor" defaultValue={'print("AgentiCOS execution preview")\nfor i in range(3):\n    print(i)'} aria-label="Execution editor" /><div className="platform-actions"><button className="studio-button studio-button--active" type="button" onClick={() => notify('Execution staged in preview')}><Icon name="play" size={14} /> Run preview</button><button className="studio-button" type="button" onClick={() => notify('Dependencies configuration opened in preview')}>Dependencies</button></div></Panel><Panel title="Output"><pre className="execution-output">$ sandbox\nAgentiCOS execution preview\n0\n1\n2\n\nexit: 0 (preview)</pre><div className="callout"><Icon name="shield" size={14} /><span>Execution UI never runs code in the browser. A future runtime contract must provide the sandbox and policy boundary.</span></div></Panel></div>
-      <Toast message={notice} />
-    </Shell>
-  )
-
   if (mode === 'environments') return (
     <Shell>
       <EnvironmentBuilder onAction={notify} />
@@ -687,7 +437,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { ha
   }
 }
 
-function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: PlatformMode) => void }) {
+function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   return (
     <SurfaceErrorBoundary>
       <Suspense fallback={

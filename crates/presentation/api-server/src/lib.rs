@@ -683,15 +683,16 @@ async fn agent_chat(
     request: web::Json<ChatRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    state.metrics.record_http(false);
     let message = request.message.trim();
     if message.is_empty() {
+        state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "message must not be empty".to_string(),
             code: "INVALID_MESSAGE",
         });
     }
     if !state.configured().await {
+        state.metrics.record_http(true);
         return HttpResponse::ServiceUnavailable().json(ErrorResponse {
             error: "No provider credential is configured".to_string(),
             code: "PROVIDER_NOT_CONFIGURED",
@@ -709,29 +710,36 @@ async fn agent_chat(
         .map(str::trim)
         .filter(|value| !value.is_empty());
     if requested_model.is_some_and(|model| model.len() > 256) {
+        state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "model exceeds supported limits".to_string(),
             code: "MODEL_ID_TOO_LARGE",
         });
     }
-    let agent = state.session_agent(&session_id, requested_model).await;
 
+    let agent = state.session_agent(&session_id, requested_model).await;
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
+
     match agent.execute_turn(message).await {
         Ok(response) => {
+            state.metrics.record_http(false);
             state.metrics.record_llm_latency(started_at.elapsed().as_millis() as u64);
             HttpResponse::Ok().json(ChatResponse {
-            response,
-            agent: agent.name().to_string(),
-            session_id,
-            model: requested_model.unwrap_or(state.model.as_str()).to_string(),
-        })
-        },
+                response,
+                agent: agent.name().to_string(),
+                session_id,
+                model: requested_model
+                    .unwrap_or(state.model.as_str())
+                    .to_string(),
+            })
+        }
         Err(error) => {
             state.metrics.record_provider(true);
             state.metrics.record_http(true);
-            state.metrics.record_llm_latency(started_at.elapsed().as_millis() as u64);
+            state
+                .metrics
+                .record_llm_latency(started_at.elapsed().as_millis() as u64);
             tracing::error!(error = ?error, "agent execution failed");
             HttpResponse::InternalServerError().json(ErrorResponse {
                 error: error.to_string(),
@@ -740,6 +748,7 @@ async fn agent_chat(
         }
     }
 }
+
 
 async fn conversation_history(
     session_id: web::Path<String>,

@@ -52,6 +52,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [scenarioResults, setScenarioResults] = useState<Record<string, 'Passed' | 'Pending' | 'Blocked'>>({})
   const [verificationFilter, setVerificationFilter] = useState<'All' | 'Ready' | 'Attention'>('All')
   const [verificationResults, setVerificationResults] = useState<Record<string, 'Passed' | 'Pending' | 'Needs review'>>({})
+  const [healthWindow, setHealthWindow] = useState<'15m' | '1h' | '24h'>('1h')
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
@@ -171,7 +172,22 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
             </div>
             <div className="callout"><Icon name="shield" size={14} /><span>Preview matrix only: a local simulated pass never substitutes CI, provider-adapter or live resilience evidence.</span></div>
           </div>}
-          {tab === 'Health' && <div className="provider-health-grid"><MetricCard label="Success rate" value="99.2%" sub="312 requests preview" /><MetricCard label="P95 latency" value="428 ms" sub="rolling window" /><MetricCard label="Retries" value="7" sub="bounded retry policy" /><MetricCard label="Circuit" value="Closed" sub="healthy state" /><div className="provider-health-chart">{[34,49,42,65,51,77,60,83,67,91,72,80].map((height, index) => <i key={index} style={{ height: height + '%' }} />)}</div></div>}
+          {tab === 'Health' && <div className="provider-health">
+            <div className="provider-health-grid"><MetricCard label="Success rate" value="99.2%" sub="312 requests preview" /><MetricCard label="P95 latency" value="428 ms" sub="rolling window" /><MetricCard label="Retries" value="7" sub="bounded retry policy" /><MetricCard label="Circuit" value="Closed" sub="healthy state" /><div className="provider-health-chart">{[34,49,42,65,51,77,60,83,67,91,72,80].map((height, index) => <i key={index} style={{ height: height + '%' }} />)}</div></div>
+            <div className="provider-health__history">
+              <div className="provider-health__history-head"><div><span className="eyebrow">Health telemetry</span><strong>Check history & incidents</strong><small>Presentation-only timeline for health status transitions and diagnostic evidence.</small></div><div className="provider-health__window">{(['15m','1h','24h'] as const).map((window) => <button key={window} type="button" className={healthWindow === window ? 'soft-button soft-button--active' : 'soft-button'} onClick={() => setHealthWindow(window)}>{window}</button>)}</div></div>
+              <div className="provider-health__events">
+                {[
+                  ['11:42','Healthy','Latency returned to baseline','health check'],
+                  ['11:31','Degraded','P95 crossed configured threshold','latency guard'],
+                  ['11:18','Healthy','Fallback route available','routing'],
+                  ['10:57','Recovered','Primary route accepted after bounded retry','recovery'],
+                  ['10:41','Warning','Quota pressure reached 70%','quota'],
+                ].map(([time,status,detail,kind]) => <div className="provider-health__event" key={time + detail}><span className="provider-health__time">{time}</span><span className={status === 'Healthy' || status === 'Recovered' ? 'provider-health__status provider-health__status--ok' : 'provider-health__status provider-health__status--warn'}>{status}</span><div><strong>{detail}</strong><small>{kind} · window {healthWindow}</small></div><button className="icon-button" type="button" aria-label={'Inspect ' + detail} title="Inspect event" onClick={() => onAction('Health event opened in preview')}><Icon name="chevron-right" size={13} /></button></div>)}
+              </div>
+            </div>
+            <div className="callout"><Icon name="shield" size={14} /><span>Live health, circuit state and incident persistence must come from the provider runtime adapter; this timeline is a UI contract preview.</span></div>
+          </div>
 
           {tab === 'Quotas' && <div className="provider-quota-grid"><MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" /><MetricCard label="Monthly budget" value="41%" sub="shared account preview" /><MetricCard label="Requests" value="2,184" sub="rolling period" /><MetricCard label="Tokens" value="3.2M" sub="input + output preview" /><div className="provider-quota-bars">{[['Primary',68],['Fallback',41],['Local',22]].map(([name, value]) => <div key={name}><span>{name}</span><div className="progress"><span style={{ width: value + '%' }} /></div><small>{value}%</small></div>)}</div></div>}
 

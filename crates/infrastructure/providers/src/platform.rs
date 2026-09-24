@@ -1800,12 +1800,103 @@ fn detect_protocol(provider: &ProviderEntry) -> ProviderProtocol {
     }
 }
 
+fn normalize_agenticos_chat_parameters(
+    protocol: ProviderProtocol,
+    parameters: Option<&str>,
+) -> Result<Option<String>, ContractError> {
+    let Some(raw) = parameters.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+
+    let value = serde_json::from_str::<serde_json::Value>(raw).map_err(|error| {
+        ContractError::ParseError(format!("provider parameters must be valid JSON: {error}"))
+    })?;
+
+    let Some(agenticos) = value.get("agenticos") else {
+        return Ok(Some(raw.to_string()));
+    };
+    let Some(agenticos) = agenticos.as_object() else {
+        return Err(ContractError::ParseError(
+            "agenticos parameters must be a JSON object".to_string(),
+        ));
+    };
+
+    let max_tokens = agenticos
+        .get("max_tokens")
+        .and_then(|value| value.as_u64());
+    let temperature = agenticos
+        .get("temperature")
+        .and_then(|value| value.as_f64());
+    let response_format = agenticos.get("response_format").cloned();
+
+    let mut output = serde_json::Map::new();
+    match protocol {
+        ProviderProtocol::OpenAiChat => {
+            if let Some(value) = max_tokens {
+                output.insert("max_tokens".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = temperature {
+                output.insert("temperature".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = response_format {
+                output.insert("response_format".to_string(), value);
+            }
+        }
+        ProviderProtocol::OpenAiResponses => {
+            if let Some(value) = max_tokens {
+                output.insert("max_output_tokens".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = temperature {
+                output.insert("temperature".to_string(), serde_json::json!(value));
+            }
+        }
+        ProviderProtocol::AnthropicMessages => {
+            if let Some(value) = max_tokens {
+                output.insert("max_tokens".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = temperature {
+                output.insert("temperature".to_string(), serde_json::json!(value));
+            }
+        }
+        ProviderProtocol::Gemini => {
+            let mut generation = serde_json::Map::new();
+            if let Some(value) = max_tokens {
+                generation.insert("maxOutputTokens".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = temperature {
+                generation.insert("temperature".to_string(), serde_json::json!(value));
+            }
+            if let Some(value) = response_format
+                .as_ref()
+                .and_then(|item| item.get("type"))
+                .and_then(|item| item.as_str())
+                .filter(|value| *value == "json_object")
+            {
+                let _ = value;
+                generation.insert("responseMimeType".to_string(), serde_json::json!("application/json"));
+            }
+            if !generation.is_empty() {
+                output.insert("generationConfig".to_string(), serde_json::Value::Object(generation));
+            }
+        }
+    }
+
+    if output.is_empty() {
+        Ok(None)
+    } else {
+        serde_json::to_string(&serde_json::Value::Object(output))
+            .map(Some)
+            .map_err(|error| ContractError::ParseError(format!("provider parameter encoding failed: {error}")))
+    }
+}
+
 async fn execute_protocol(
     protocol: ProviderProtocol,
     provider: &ProviderEntry,
     credential: Option<&Credential>,
-    request: ModelRequest,
+    mut request: ModelRequest,
 ) -> Result<ModelResponse, ContractError> {
+    request.parameters = normalize_agenticos_chat_parameters(protocol, request.parameters.as_deref())?;
     match protocol {
         ProviderProtocol::OpenAiChat => {
             AuthenticatedOpenAiProvider::new(

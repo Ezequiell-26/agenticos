@@ -111,13 +111,23 @@ export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavi
 
         <div className="notification-drawer__filters" role="tablist" aria-label="Notification filters" aria-orientation="horizontal">
           {(['All', 'Unread', 'Action'] as const).map((item) => (
-            <button key={item} type="button" role="tab" tabIndex={filter === item ? 0 : -1} aria-selected={filter === item} onClick={() => setFilter(item)}>
+            <button key={item} id={'notification-filter-' + item.toLowerCase()} type="button" role="tab" tabIndex={filter === item ? 0 : -1} aria-selected={filter === item} aria-controls="notification-filter-content" onClick={() => setFilter(item)} onKeyDown={(event) => {
+              const options = ['All', 'Unread', 'Action'] as const
+              const index = options.indexOf(item)
+              const nextIndex = event.key === 'ArrowRight' ? (index + 1) % options.length : event.key === 'ArrowLeft' ? (index - 1 + options.length) % options.length : event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : -1
+              if (nextIndex >= 0) {
+                event.preventDefault()
+                const next = options[nextIndex]
+                setFilter(next)
+                window.requestAnimationFrame(() => document.getElementById('notification-filter-' + next.toLowerCase())?.focus())
+              }
+            }}>
               {item}{item === 'Unread' && unreadCount > 0 ? ' ' + unreadCount : ''}
             </button>
           ))}
         </div>
 
-        <div className="notification-drawer__list" role="list" aria-label="Notification list">
+        <div id="notification-filter-content" className="notification-drawer__list" role="tabpanel" aria-labelledby={"notification-filter-" + filter.toLowerCase()} tabIndex={0}>
           {visible.length === 0 ? (
             <div className="notification-drawer__empty"><Icon name="check" size={18} /><strong>No notifications in this view</strong><span>Your attention inbox is clear.</span></div>
           ) : visible.map((item) => (

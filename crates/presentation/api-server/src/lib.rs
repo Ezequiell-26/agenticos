@@ -149,19 +149,25 @@ impl RuntimeState {
         })
     }
 
-    async fn session_agent(&self, session_id: &str) -> Arc<ReactAgent> {
-        if let Some(agent) = self.sessions.read().await.get(session_id).cloned() {
+    async fn session_agent(&self, session_id: &str, model: Option<&str>) -> Arc<ReactAgent> {
+        let agent_key = model
+            .map(|value| format!("{session_id}::model::{value}"))
+            .unwrap_or_else(|| session_id.to_string());
+        if let Some(agent) = self.sessions.read().await.get(&agent_key).cloned() {
             return agent;
         }
 
         let agent = Arc::new(ReactAgent::with_max_turns("AgentiCOS".to_string(), 90));
         agent.set_session_id(session_id.to_string());
+        if let Some(model) = model {
+            agent.set_model(model.to_string());
+        }
         agent.set_memory(self.memory.clone());
         agent.set_model_provider(self.provider.clone());
 
         let mut sessions = self.sessions.write().await;
         sessions
-            .entry(session_id.to_string())
+            .entry(agent_key)
             .or_insert_with(|| agent.clone())
             .clone()
     }
@@ -179,6 +185,7 @@ impl RuntimeState {
 struct ChatRequest {
     message: String,
     session_id: Option<String>,
+    model: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -342,14 +349,25 @@ async fn agent_chat(
         .clone()
         .filter(|id| !id.trim().is_empty())
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let agent = state.session_agent(&session_id).await;
+    let requested_model = request
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if requested_model.is_some_and(|model| model.len() > 256) {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model exceeds supported limits".to_string(),
+            code: "MODEL_ID_TOO_LARGE",
+        });
+    }
+    let agent = state.session_agent(&session_id, requested_model).await;
 
     match agent.execute_turn(message).await {
         Ok(response) => HttpResponse::Ok().json(ChatResponse {
             response,
             agent: agent.name().to_string(),
             session_id,
-            model: state.model.clone(),
+            model: requested_model.unwrap_or(state.model.as_str()).to_string(),
         }),
         Err(error) => {
             tracing::error!(error = ?error, "agent execution failed");
@@ -1234,7 +1252,7 @@ async fn scheduler_worker(state: RuntimeState) {
             }
 
             let session_id = format!("run:{}", started_job.spec.run_id);
-            let agent = state.session_agent(&session_id).await;
+            let agent = state.session_agent(&session_id, None).await;
             match agent.execute_turn(&started_job.spec.task).await {
                 Ok(response) => {
                     if let Some(run_id) = run_id {

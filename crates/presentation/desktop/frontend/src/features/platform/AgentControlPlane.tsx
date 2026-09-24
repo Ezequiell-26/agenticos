@@ -6,7 +6,9 @@ import { Panel, Metric, Tag } from './PlatformPrimitives'
 
 type Props = { onAction: (message: string) => void }
 
-const agents = [
+type AgentRow = readonly [string, string, string, string, string, string]
+
+const agents: ReadonlyArray<AgentRow> = [
   ['Builder', 'Implementation', 'Qwen3 Coder', '18', 'Balanced', 'Workspace'],
   ['Reviewer', 'Quality gate', 'GPT-OSS 120B', '11', 'Strict', 'Workspace'],
   ['Researcher', 'Evidence', 'DeepSeek', '9', 'Grounded', 'Research'],

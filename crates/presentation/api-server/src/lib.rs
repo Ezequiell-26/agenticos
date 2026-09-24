@@ -949,20 +949,26 @@ async fn create_job(
 }
 
 async fn list_runs(state: web::Data<RuntimeState>) -> impl Responder {
-    let runs = state.kernel.runs.read().await;
-    let mut result: Vec<RunResponse> = runs
-        .values()
-        .map(|run| RunResponse {
-            run_id: run.run_id.as_str().to_string(),
-            state: format!("{:?}", run.state),
-            version: run.version,
-        })
-        .collect();
-    result.sort_by(|left, right| left.run_id.cmp(&right.run_id));
-    HttpResponse::Ok().json(serde_json::json!({
-        "runs": result,
-        "count": result.len(),
-    }))
+    match state.kernel.list_runs().await {
+        Ok(runs) => {
+            let result: Vec<RunResponse> = runs
+                .into_iter()
+                .map(|run| RunResponse {
+                    run_id: run.run_id.as_str().to_string(),
+                    state: format!("{:?}", run.state),
+                    version: run.version,
+                })
+                .collect();
+            HttpResponse::Ok().json(serde_json::json!({
+                "runs": result,
+                "count": result.len(),
+            }))
+        }
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "RUN_LIST_FAILED",
+        }),
+    }
 }
 
 async fn get_job(job_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {

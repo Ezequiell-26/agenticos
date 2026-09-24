@@ -192,6 +192,11 @@ pub trait EventStore: Send + Sync {
         stream_id: &str,
         after_version: u64,
     ) -> Result<Vec<SerializedEvent>, ContractError>;
+
+    /// List known durable stream identifiers.
+    async fn list_stream_ids(&self) -> Result<Vec<String>, ContractError> {
+        Ok(Vec::new())
+    }
 }
 
 /// Snapshot storage contract for state recovery.

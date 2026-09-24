@@ -437,7 +437,8 @@ impl ProviderPlatform {
             if let Some(provided_key) = provided_key {
                 let secret_key = self.secret_key.as_ref().ok_or_else(|| {
                     ContractError::ParseError(
-                        "AGENTICOS_SECRET_KEY is required to persist provider credentials".to_string(),
+                        "AGENTICOS_SECRET_KEY is required to persist provider credentials"
+                            .to_string(),
                     )
                 })?;
 

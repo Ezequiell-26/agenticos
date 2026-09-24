@@ -1308,3 +1308,11 @@ Verification status:
 - Exposed ChatSurface execution state through `aria-busy` without coupling accessibility state to runtime implementation details.
 - Added architecture-gate checks so these interaction contracts cannot silently regress.
 - Verification status: source-level checks passed for the new structural guards; production build, browser accessibility execution and Tauri rendering remain pending.
+
+
+## 2026-09-24 — Route-scoped surface recovery
+
+- Reset the platform error boundary when the selected navigation mode changes, preventing a rendering failure in one surface from persisting visually after navigation.
+- Added an architecture regression guard for route-scoped recovery behavior.
+- Preserved local error isolation and the existing runtime boundary.
+- Verification status: source-level guard added; production build, browser execution and Tauri rendering remain pending.

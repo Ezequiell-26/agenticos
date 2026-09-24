@@ -1858,12 +1858,7 @@ async fn scheduler_worker(state: RuntimeState) {
                 loop {
                     tokio::time::sleep(std::time::Duration::from_secs(30)).await;
                     match heartbeat_scheduler
-                        .renew_as(
-                            &heartbeat_job_id,
-                            &heartbeat_owner,
-                            heartbeat_token,
-                            120,
-                        )
+                        .renew_as(&heartbeat_job_id, &heartbeat_owner, heartbeat_token, 120)
                         .await
                     {
                         Ok(_) => {}

@@ -385,7 +385,7 @@ impl AgentTool for EchoTool {
 
 #[cfg(test)]
 mod tests {
-#[tokio::test]
+    #[tokio::test]
     async fn tool_runtime_executes_echo_through_policy() {
         use agenticos_contracts::CapabilityIssuer;
 
@@ -433,7 +433,6 @@ mod tests {
         assert!(response.success);
         assert!(response.result.contains("hello"));
     }
-
 
     use super::*;
 

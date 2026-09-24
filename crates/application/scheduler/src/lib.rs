@@ -460,14 +460,9 @@ impl JobScheduler {
             .ok_or_else(|| "job not found".to_string())?;
 
         if previous.state != JobState::Running {
-            return Err(format!(
-                "job cannot renew from state {:?}",
-                previous.state
-            ));
+            return Err(format!("job cannot renew from state {:?}", previous.state));
         }
-        if previous.lease_owner.as_deref() != Some(owner_id)
-            || previous.lease_token != lease_token
-        {
+        if previous.lease_owner.as_deref() != Some(owner_id) || previous.lease_token != lease_token {
             return Err("job lease ownership lost".to_string());
         }
 
@@ -792,12 +787,7 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
         let renewed = scheduler
-            .renew_as(
-                "renew-job",
-                "worker-a",
-                first.lease_token,
-                3,
-            )
+            .renew_as("renew-job", "worker-a", first.lease_token, 3)
             .await
             .unwrap();
         assert!(renewed.lease_expires_at > first.lease_expires_at);
@@ -813,12 +803,7 @@ mod tests {
 
         assert!(
             scheduler
-                .renew_as(
-                    "renew-job",
-                    "worker-b",
-                    first.lease_token,
-                    2,
-                )
+                .renew_as("renew-job", "worker-b", first.lease_token, 2)
                 .await
                 .is_err(),
             "renewal with a stale owner must be rejected"

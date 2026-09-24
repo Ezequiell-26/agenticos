@@ -170,7 +170,6 @@ fn capability_type_for_permission(permission: &str) -> CapabilityType {
         CapabilityType::Execute
     }
 }
-
 /// Echo tool for testing.
 #[derive(Debug)]
 pub struct EchoTool {

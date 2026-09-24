@@ -160,6 +160,79 @@ impl SourceIntelligenceEngine {
         )))
     }
 
+    /// Register repository metadata obtained from an external source adapter.
+    pub async fn register_metadata(
+        &self,
+        metadata: RepositoryMetadata,
+    ) -> Result<(), BrainError> {
+        if metadata.repo_id.trim().is_empty() || metadata.url.trim().is_empty() {
+            return Err(BrainError::SourceIntelligenceError(
+                "repository metadata requires repo_id and url".to_string(),
+            ));
+        }
+        let mut registry = self.registry.write().await;
+        if !registry.contains_key(&metadata.repo_id) && registry.len() >= self.config.max_repositories {
+            return Err(BrainError::ResourceLimitExceeded(
+                "maximum repository count reached".to_string(),
+            ));
+        }
+        registry.insert(metadata.repo_id.clone(), metadata);
+        Ok(())
+    }
+
+    /// Analyze fetched repository documents using deterministic static heuristics.
+    ///
+    /// This deliberately does not claim a full dependency or vulnerability scan.
+    /// It only reports capabilities and obvious secret/unsafe-code indicators found
+    /// in the supplied source documents.
+    pub async fn analyze_documents(
+        &self,
+        repo_id: &str,
+        documents: &HashMap<String, String>,
+    ) -> Result<RepositoryAnalysis, BrainError> {
+        let metadata = self.get_metadata(repo_id).await?;
+        let mut capabilities = Vec::new();
+        let corpus = documents.values().map(String::as_str).collect::<Vec<_>>().join("\n");
+        let corpus_lower = corpus.to_ascii_lowercase();
+
+        let patterns = [
+            ("http-client", ["reqwest", "axios", "httpx", "requests", "fetch("]),
+            ("async-runtime", ["tokio", "asyncio", "async fn", "async def"]),
+            ("mcp", ["model context protocol", "mcp-server", "mcp::"]),
+            ("agent-orchestration", ["subagent", "multi-agent", "langchain", "autogen", "crewai"]),
+            ("workflow", ["workflow", "dag", "state machine"]),
+            ("database", ["sqlx", "sqlite", "postgres", "mysql", "prisma", "redis"]),
+            ("vector-search", ["qdrant", "chroma", "vector database", "embedding"]),
+            ("cli", ["clap", "argparse", "commander", "cobra"]),
+        ];
+
+        for (capability, needles) in patterns {
+            if needles.iter().any(|needle| corpus_lower.contains(needle)) {
+                capabilities.push(capability.to_string());
+            }
+        }
+
+        let mut security_issues = Vec::new();
+        if corpus.contains("-----BEGIN PRIVATE KEY-----")
+            || corpus.contains("-----BEGIN RSA PRIVATE KEY-----")
+        {
+            security_issues.push("private-key-material-detected".to_string());
+        }
+        if corpus_lower.contains("unsafe {") || corpus_lower.contains("unsafe fn ") {
+            security_issues.push("unsafe-rust-code-detected".to_string());
+        }
+        if corpus_lower.contains("sk-") && corpus_lower.contains("api") {
+            security_issues.push("possible-api-key-pattern-detected".to_string());
+        }
+
+        Ok(RepositoryAnalysis {
+            license: metadata.license.unwrap_or_else(|| "UNKNOWN".to_string()),
+            language: metadata.language.unwrap_or_else(|| "UNKNOWN".to_string()),
+            capabilities,
+            security_issues,
+        })
+    }
+
     /// Import a repository with provenance tracking
     pub async fn import(
         &self,
@@ -228,13 +301,6 @@ impl SourceIntelligenceEngine {
                 })?
                 .clone()
         };
-
-        // In a real implementation, this would:
-        // 1. Clone the repository
-        // 2. Scan for Cargo.toml, package.json, requirements.txt, etc.
-        // 3. Analyze dependencies
-        // 4. Check for security vulnerabilities
-        // 5. Extract capabilities from code
 
         let analysis = RepositoryAnalysis {
             license: metadata.license.unwrap_or("UNKNOWN".to_string()),
@@ -349,31 +415,31 @@ impl SourceIntelligenceEngine {
         source: &str,
         _discoverer: &ApiDiscoverer,
     ) -> Result<Vec<RepoId>, BrainError> {
-        // Parse GitHub URL and extract owner/repo
         let repo_id = source
-            .replace("https://github.com/", "")
-            .replace("github.com/", "")
-            .replace(".git", "")
+            .trim()
+            .trim_end_matches('/')
+            .trim_end_matches(".git")
+            .trim_start_matches("https://github.com/")
+            .trim_start_matches("http://github.com/")
+            .trim_start_matches("github.com/")
             .to_string();
+        if repo_id.split('/').count() != 2 || repo_id.split('/').any(|part| part.trim().is_empty()) {
+            return Err(BrainError::SourceIntelligenceError(
+                "invalid GitHub repository source".to_string(),
+            ));
+        }
 
-        // In a real implementation, this would:
-        // 1. Call GitHub API to get repository metadata
-        // 2. Check license, stars, language
-        // 3. Validate against allowed/denied licenses
-
-        let metadata = RepositoryMetadata {
+        self.register_metadata(RepositoryMetadata {
             repo_id: repo_id.clone(),
-            url: format!("https://github.com/{}", repo_id),
-            default_branch: "main".to_string(),
+            url: format!("https://github.com/{repo_id}"),
+            default_branch: "unknown".to_string(),
             last_indexed: Utc::now(),
-            license: Some("MIT".to_string()),   // Placeholder
-            language: Some("Rust".to_string()), // Placeholder
-            stars: 1000,                        // Placeholder
+            license: None,
+            language: None,
+            stars: 0,
             status: RepositoryStatus::Discovered,
-        };
-
-        let mut registry = self.registry.write().await;
-        registry.insert(repo_id.clone(), metadata);
+        })
+        .await?;
 
         Ok(vec![repo_id])
     }
@@ -391,47 +457,32 @@ impl SourceIntelligenceEngine {
             .replace(".git", "")
             .to_string();
 
-        let metadata = RepositoryMetadata {
+        self.register_metadata(RepositoryMetadata {
             repo_id: repo_id.clone(),
             url: source.to_string(),
-            default_branch: "main".to_string(),
+            default_branch: "unknown".to_string(),
             last_indexed: Utc::now(),
-            license: Some("MIT".to_string()),   // Placeholder
-            language: Some("Rust".to_string()), // Placeholder
+            license: None,
+            language: None,
             stars: 0,
             status: RepositoryStatus::Discovered,
-        };
-
-        let mut registry = self.registry.write().await;
-        registry.insert(repo_id.clone(), metadata);
+        })
+        .await?;
 
         Ok(vec![repo_id])
     }
 
-    /// Extract capabilities from repository (placeholder)
+    /// Extract capabilities from stored metadata.
+    ///
+    /// Metadata-only analysis intentionally returns no code capabilities because
+    /// source contents were not supplied.
     async fn extract_capabilities(&self, _repo_id: &str) -> Result<Vec<String>, BrainError> {
-        // In a real implementation, this would:
-        // 1. Scan Cargo.toml for libraries
-        // 2. Scan package.json for npm packages
-        // 3. Analyze function signatures
-        // 4. Extract tool definitions
-
-        Ok(vec![
-            "http-client".to_string(),
-            "async-utils".to_string(),
-            "logging".to_string(),
-        ])
+        Ok(Vec::new())
     }
 
-    /// Scan for security issues (placeholder)
+    /// Metadata-only security analysis.
     async fn scan_security(&self, _repo_id: &str) -> Result<Vec<String>, BrainError> {
-        // In a real implementation, this would:
-        // 1. Check for known vulnerable dependencies
-        // 2. Scan for unsafe code
-        // 3. Check for hardcoded secrets
-        // 4. Analyze API security
-
-        Ok(vec![])
+        Ok(Vec::new())
     }
 }
 
@@ -515,8 +566,8 @@ mod tests {
         let result = engine.analyze("user/repo").await;
         assert!(result.is_ok());
         let analysis = result.unwrap();
-        assert_eq!(analysis.license, "MIT");
-        assert!(!analysis.capabilities.is_empty());
+        assert_eq!(analysis.license, "UNKNOWN");
+        assert!(analysis.capabilities.is_empty());
     }
 
     #[tokio::test]

@@ -280,6 +280,40 @@ impl ArtifactStore {
         Ok(bytes[requested.start as usize..requested.end as usize].to_vec())
     }
 
+    /// List recent artifacts, optionally scoped to a run.
+    ///
+    /// The limit is bounded by the caller so a large artifact store cannot
+    /// materialize an unbounded metadata response in memory.
+    pub async fn list(&self, run_id: Option<&str>, limit: usize) -> Result<Vec<ArtifactRecord>, String> {
+        let limit = limit.clamp(1, 500) as i64;
+        let rows = if let Some(run_id) = run_id.filter(|value| !value.trim().is_empty()) {
+            sqlx::query_as::<_, (String,)>(
+                "SELECT artifact_id FROM artifacts WHERE run_id = ? ORDER BY created_at DESC LIMIT ?",
+            )
+            .bind(run_id)
+            .bind(limit)
+            .fetch_all(self.pool.as_ref())
+            .await
+            .map_err(|error| format!("artifact listing failed: {error}"))?
+        } else {
+            sqlx::query_as::<_, (String,)>(
+                "SELECT artifact_id FROM artifacts ORDER BY created_at DESC LIMIT ?",
+            )
+            .bind(limit)
+            .fetch_all(self.pool.as_ref())
+            .await
+            .map_err(|error| format!("artifact listing failed: {error}"))?
+        };
+
+        let mut records = Vec::with_capacity(rows.len());
+        for (id,) in rows {
+            if let Some(record) = self.get(&id).await? {
+                records.push(record);
+            }
+        }
+        Ok(records)
+    }
+
     /// Delete an artifact and its metadata.
     pub async fn delete(&self, artifact_id: &str) -> Result<bool, String> {
         let _guard = self.locks.write().await;

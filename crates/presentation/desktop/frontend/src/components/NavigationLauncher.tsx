@@ -39,7 +39,7 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
   const [recent, setRecent] = useState<string[]>(() => readIdList(launcherRecentKey))
   const [favorites, setFavorites] = useState<string[]>(() => readIdList(launcherFavoritesKey))
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const dialogRef = useRef<HTMLElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     const source = filter === 'Recent'

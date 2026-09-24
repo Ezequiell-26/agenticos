@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ActivityRail, { type RailMode } from './components/ActivityRail'
 import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
@@ -87,6 +87,7 @@ function App() {
   const [notificationUnread, setNotificationUnread] = useState(2)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const runtimeSyncSequence = useRef(0)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -109,12 +110,14 @@ function App() {
   }, [sessionId])
 
   const refreshRuntime = useCallback(async (targetSessionId: string) => {
+    const requestSequence = ++runtimeSyncSequence.current
     setRuntimeSyncing(true)
     setRuntimeError(null)
     const [statusResult, historyResult] = await Promise.allSettled([
       runtime.status.get(),
       runtime.conversations.history(targetSessionId),
     ])
+    if (requestSequence !== runtimeSyncSequence.current) return
     if (statusResult.status === 'fulfilled') setStatus(statusResult.value)
     if (historyResult.status === 'fulfilled' && historyResult.value.length > 0) setMessages(historyResult.value)
     const failures = [statusResult, historyResult].filter((result) => result.status === 'rejected')

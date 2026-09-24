@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import ProviderCapabilityMatrix from './ProviderCapabilityMatrix'
+import ProviderEvidenceLedger from './ProviderEvidenceLedger'
+import ProviderRouteSimulator from './ProviderRouteSimulator'
 import './ProviderResilience.css'
 
 type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Verification' | 'Quotas' | 'Accounts'
@@ -108,6 +111,8 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
               <MetricCard label="Pending" value={String(resilienceScenarios.filter((scenario) => !scenarioResults[scenario.id]).length)} sub="Awaiting simulation" />
               <MetricCard label="Guarded" value="2" sub="Require explicit runtime evidence" />
             </div>
+            <ProviderRouteSimulator />
+            <ProviderCapabilityMatrix />
             <div className="provider-resilience__grid">
               <div className="provider-resilience__scenarios">
                 {resilienceScenarios.map((scenario) => {
@@ -178,6 +183,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                  </div>
                })}
             </div>
+            <ProviderEvidenceLedger onInspect={onAction} />
             <div className="callout"><Icon name="shield" size={14} /><span>Preview matrix only: a local simulated pass never substitutes CI, provider-adapter or live resilience evidence.</span></div>
           </div>}
           {tab === 'Health' && <div className="provider-health">

@@ -35,6 +35,7 @@ export interface SettingsState {
   fontSize: number
   experience: 'Simple' | 'Pro'
   sessionTabsVisible: boolean
+  browserPanelVisible: boolean
   sidebarSide: 'left' | 'right'
   sidebarWidth: number
   inspectorWidth: number
@@ -308,6 +309,7 @@ const defaults: SettingsState = {
   fontSize: 13,
   experience: 'Simple',
   sessionTabsVisible: true,
+  browserPanelVisible: true,
   sidebarSide: 'left',
   sidebarWidth: 270,
   inspectorWidth: 320,

@@ -14,6 +14,7 @@ import WorkspaceContextMenu, { type ContextMenuState } from './components/Worksp
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
+import BrowserPanel from './components/BrowserPanel'
 import { navigationItems, primaryRailIds, type RailMode } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, type ExperienceLevel } from './services/ui-preferences'
@@ -82,6 +83,7 @@ function App() {
   const initialUiPreferences = useMemo(() => readUiLayoutPreferences(), [])
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
+  const [browserPanelVisible, setBrowserPanelVisible] = useState(initialUiPreferences.browserPanelVisible)
   const [experience, setExperience] = useState<ExperienceLevel>(() => readUiPreferences().experience)
   const [focusMode, setFocusMode] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -137,6 +139,7 @@ function App() {
       applyUiLayoutPreferences(next)
       setLeftPanelOpen(next.leftSidebarVisible)
       setDockOpen(next.bottomDockVisible)
+      setBrowserPanelVisible(next.browserPanelVisible)
       setExperience(next.experience)
     })
   }, [])
@@ -338,7 +341,10 @@ function App() {
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (
-            <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} />
+            <div className={'workspace-split' + (browserPanelVisible ? ' workspace-split--browser' : '')}>
+              <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} />
+              {browserPanelVisible && <BrowserPanel onAction={setToast} />}
+            </div>
           ) : (
             <WorkspaceOverview mode={mode} onNavigate={setMode} />
           )}

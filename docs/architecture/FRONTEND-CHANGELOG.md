@@ -1473,6 +1473,14 @@ Verification status:
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite (29 tests) pass; full overlay sweep (palette, layouts, customize, context menu, model picker) verified in the browser preview.
 
+## 2026-09-25 — Browser side panel in the chat
+
+- Added the browser side panel to the right of the chat, matching the Hermes split layout: its own tab strip (BROWSER tab with accent underline, multi-tab support with add/close), a navigation toolbar (back, forward, reload, address input, find, copy address, open in system browser, settings) and a globe empty state inviting to type an address.
+- Navigating renders the page in an embedded frame with a per-tab history stack powering back/forward and reload; URL normalization prefixes https:// when missing.
+- The panel visibility is persisted through the `browserPanelVisible` preference applied as `data-agenticos-browser-panel`, toggleable from the right-click context menu (Show or hide browser panel) and the Customize popover; on narrow viewports the panel collapses to keep the chat usable.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; split layout, empty state and real navigation verified in the browser preview.
+
 ## 2026-09-25 — Frontend technical cleanup: unused Tailwind integration removed
 
 - Technical audit of the frontend stack: 115 TSX components, 12 TS modules and 35 CSS files — zero `.js`/`.jsx` sources, zero `any` typings, zero debug `console.log` calls (only two `console.error` in error boundaries), strict TypeScript (`strict`, `noUnusedLocals`, `noUnusedParameters`) and no duplicated helpers.

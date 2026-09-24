@@ -2608,3 +2608,26 @@ body { background: var(--shell-black); }
 .chat-wordmark { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; user-select: none; }
 .chat-wordmark strong { font-family: Georgia, 'Times New Roman', 'Playfair Display', serif; font-weight: 600; font-size: clamp(56px, 9vw, 128px); letter-spacing: .01em; color: #c9c9d2; text-transform: uppercase; line-height: 1; }
 .chat-wordmark span { color: #7c7c87; font-size: 13px; }
+
+/* ─── Browser panel: split chat | embedded browser ─────────────────────────── */
+.workspace-split { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; min-height: 0; }
+.workspace-split--browser { grid-template-columns: minmax(0, 1fr) minmax(300px, 44%); }
+.workspace-split > .browser-panel { min-width: 0; }
+.browser-panel { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--shell-line); background: #050507; }
+:root[data-agenticos-sidebar-side="right"] .browser-panel { border-left: 0; border-right: 1px solid var(--shell-line); }
+.browser-tabs { display: flex; align-items: stretch; gap: 2px; padding: 6px 10px 0; }
+.browser-toolbar { display: flex; align-items: center; gap: 4px; padding: 7px 10px; border-bottom: 1px solid var(--shell-line); }
+.browser-toolbar .composer-icon[disabled] { opacity: .35; cursor: default; }
+.browser-toolbar .composer-icon[disabled]:hover { background: transparent; color: #75757e; }
+.browser-url { flex: 1; min-width: 0; min-height: 30px; padding: 0 10px; border: 1px solid #232329; border-radius: 8px; background: #0d0d11; color: #d9d9e0; font-size: 11.5px; }
+.browser-url:focus { outline: none; border-color: var(--agenticos-accent); }
+.browser-content { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; background: #070709; }
+.browser-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #ffffff; }
+.browser-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px; color: #7c7c87; text-align: center; }
+.browser-empty p { max-width: 300px; margin: 0; font-size: 12px; line-height: 1.55; }
+@media (max-width: 900px) {
+  .workspace-split--browser { grid-template-columns: minmax(0, 1fr) !important; }
+  .workspace-split--browser > .browser-panel { display: none; }
+}
+.browser-tab__close { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 4px; color: #6d6d78; }
+.browser-tab__close:hover { background: #26262e; color: #f0f0f4; }

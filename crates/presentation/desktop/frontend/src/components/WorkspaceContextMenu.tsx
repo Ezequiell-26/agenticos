@@ -65,6 +65,12 @@ export default function WorkspaceContextMenu({ anchor, onClose, onCreateConversa
     onAction(next ? 'Session tabs shown' : 'Session tabs hidden')
   }
 
+  function toggleBrowserPanel() {
+    const next = !preferences.browserPanelVisible
+    updateUiPreferences({ browserPanelVisible: next })
+    onAction(next ? 'Browser panel shown' : 'Browser panel hidden')
+  }
+
   const items: MenuItem[] = [
     { id: 'new-session', label: 'New session', icon: 'plus', run: onCreateConversation },
     { id: 'new-window', label: 'New window', icon: 'layout', run: () => onAction('New window opens through the desktop runtime') },
@@ -72,6 +78,7 @@ export default function WorkspaceContextMenu({ anchor, onClose, onCreateConversa
     { id: 'statusbar', label: 'Toggle status bar', icon: 'panel-right', run: toggleStatusbar },
     { id: 'profilebar', label: 'Show or hide the profile bar', icon: 'panel-left', run: toggleProfileBar },
     { id: 'tabs', label: 'Show or hide session tabs', icon: 'copy', run: toggleSessionTabs },
+    { id: 'browser-panel', label: 'Show or hide browser panel', icon: 'globe', run: toggleBrowserPanel },
     { id: 'layouts', label: 'Layouts', icon: 'sliders', dividerAfter: true, run: onOpenLayouts },
     { id: 'settings', label: 'Settings', icon: 'settings', run: onOpenSettings },
     { id: 'update', label: 'Update AgentiCOS', icon: 'cloud', run: () => onAction('Updates are managed by the desktop runtime') },

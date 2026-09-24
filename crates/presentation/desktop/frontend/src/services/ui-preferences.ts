@@ -20,6 +20,7 @@ export interface UiLayoutPreferences {
   activityRailCompact: boolean
   statusBarVisible: boolean
   sessionTabsVisible: boolean
+  browserPanelVisible: boolean
   sidebarSide: SidebarSide
   showTooltips: boolean
   hoverPreview: boolean
@@ -41,6 +42,7 @@ export const defaultUiPreferences: UiPreferences = {
   activityRailCompact: true,
   statusBarVisible: true,
   sessionTabsVisible: true,
+  browserPanelVisible: true,
   sidebarSide: 'left',
   showTooltips: true,
   hoverPreview: true,
@@ -100,6 +102,7 @@ export function applyUiPreferences(preferences: UiPreferences) {
   root.dataset.agenticosStatusbar = preferences.statusBarVisible ? 'visible' : 'hidden'
   root.dataset.agenticosTabs = preferences.sessionTabsVisible ? 'visible' : 'hidden'
   root.dataset.agenticosSidebarSide = preferences.sidebarSide
+  root.dataset.agenticosBrowserPanel = preferences.browserPanelVisible ? 'visible' : 'hidden'
   root.dataset.agenticosTooltips = preferences.showTooltips ? 'visible' : 'hidden'
   root.dataset.agenticosHoverPreview = preferences.hoverPreview ? 'visible' : 'hidden'
   root.dataset.agenticosNotifications = preferences.notificationPosition

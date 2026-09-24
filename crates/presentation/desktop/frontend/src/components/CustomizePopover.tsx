@@ -51,6 +51,7 @@ export default function CustomizePopover({ experience, onExperienceChange, onSel
 
   const toggles: Array<{ id: keyof UiPreferences; label: string }> = [
     { id: 'leftSidebarVisible', label: 'Workspace sidebar' },
+    { id: 'browserPanelVisible', label: 'Browser panel' },
     { id: 'bottomDockVisible', label: 'Bottom dock' },
     { id: 'statusBarVisible', label: 'Status bar' },
   ]

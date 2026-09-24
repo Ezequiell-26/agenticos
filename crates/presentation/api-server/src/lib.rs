@@ -46,6 +46,7 @@ use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
+use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -155,6 +156,73 @@ impl AgentTool for SecureCommandTool {
     }
 }
 
+/// Capability-gated workspace filesystem tool.
+#[derive(Clone, Debug)]
+struct WorkspaceTool {
+    workspace: Arc<WorkspaceFs>,
+    operation: &'static str,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for WorkspaceTool {
+    fn tool_id(&self) -> &str {
+        self.operation
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        #[derive(Debug, Deserialize)]
+        struct ReadArgs {
+            path: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct WriteArgs {
+            path: String,
+            content: String,
+        }
+
+        let value = match self.operation {
+            "fs.read" => {
+                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid fs.read arguments: {error}"))
+                })?;
+                serde_json::json!({
+                    "path": args.path,
+                    "content": self.workspace.read_text(&args.path).await.map_err(ContractError::ParseError)?,
+                })
+            }
+            "fs.write" => {
+                let args = serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid fs.write arguments: {error}"))
+                })?;
+                self.workspace.write_text(&args.path, &args.content).await.map_err(ContractError::ParseError)?;
+                serde_json::json!({
+                    "path": args.path,
+                    "written": true,
+                    "bytes": args.content.len(),
+                })
+            }
+            "fs.list" => {
+                let args = serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid fs.list arguments: {error}"))
+                })?;
+                serde_json::json!({
+                    "path": args.path,
+                    "entries": self.workspace.list(&args.path).await.map_err(ContractError::ParseError)?,
+                })
+            }
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: value.to_string(),
+            success: true,
+            error: None,
+            metadata: Some(format!("confined workspace tool {}", self.operation)),
+        })
+    }
+}
+
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
@@ -183,6 +251,7 @@ pub struct RuntimeState {
     source_forge: Arc<GitHubSourceClient>,
     a2a_tasks: Arc<A2aTaskStore>,
     artifacts: Arc<ArtifactStore>,
+    workspace: Arc<WorkspaceFs>,
     model: String,
 }
 
@@ -257,6 +326,11 @@ impl RuntimeState {
             .await
             .map_err(ContractError::ParseError)?,
         );
+        let workspace = Arc::new(
+            WorkspaceFs::from_env()
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
 
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
@@ -284,6 +358,32 @@ impl RuntimeState {
             .map_err(|error| {
                 ContractError::ParseError(format!("native tool registration failed: {error}"))
             })?;
+        for (tool_id, name, capability) in [
+            ("fs.read", "Read workspace file", "filesystem.read"),
+            ("fs.write", "Write workspace file", "filesystem.write"),
+            ("fs.list", "List workspace directory", "filesystem.list"),
+        ] {
+            tool_runtime
+                .register(
+                    ToolEntry {
+                        tool_id: tool_id.to_string(),
+                        name: name.to_string(),
+                        description: name.to_string(),
+                        capabilities: vec!["filesystem".to_string()],
+                        required_permissions: vec![],
+                        context_requirements: vec![format!("capability:{capability}")],
+                    },
+                    Arc::new(WorkspaceTool {
+                        workspace: workspace.clone(),
+                        operation: tool_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("workspace tool registration failed: {error}"))
+                })?;
+        }
+
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
@@ -365,6 +465,7 @@ impl RuntimeState {
                     .map_err(ContractError::ParseError)?,
             ),
             artifacts: artifacts.clone(),
+            workspace: workspace.clone(),
             model,
         })
     }

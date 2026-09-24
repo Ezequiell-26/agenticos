@@ -125,8 +125,19 @@ impl ProviderPlatform {
         request: ModelRequest,
     ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
-        let mut last_error = None;
+        let mut healthy = Vec::new();
+        let mut other = Vec::new();
         for provider in providers {
+            if self.health.is_healthy(&provider.provider_id).await {
+                healthy.push(provider);
+            } else {
+                other.push(provider);
+            }
+        }
+        healthy.extend(other);
+
+        let mut last_error = None;
+        for provider in healthy {
             let effective_model = if request.model == "default" || request.model == "default-model"
             {
                 provider
@@ -177,7 +188,7 @@ impl ProviderPlatform {
                     provider.provider_id.clone(),
                     provider.base_url.clone(),
                     credential.as_ref().map(|value| value.value.clone()),
-                );
+                )?;
                 match client.execute(routed_request.clone()).await {
                     Ok(response) => {
                         if let Some(tokens) = response.tokens_used {
@@ -271,13 +282,30 @@ struct AuthenticatedOpenAiProvider {
 }
 
 impl AuthenticatedOpenAiProvider {
-    fn new(provider_id: String, base_url: String, api_key: Option<String>) -> Self {
-        Self {
+    fn new(
+        provider_id: String,
+        base_url: String,
+        api_key: Option<String>,
+    ) -> Result<Self, ContractError> {
+        let timeout_ms = std::env::var("AGENTICOS_PROVIDER_TIMEOUT_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(120_000)
+            .clamp(1_000, 600_000);
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(timeout_ms))
+            .build()
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider client initialization failed: {error}"
+                ))
+            })?;
+        Ok(Self {
             provider_id,
             base_url: normalize_chat_url(&base_url),
             api_key,
-            client: reqwest::Client::new(),
-        }
+            client,
+        })
     }
 }
 
@@ -289,12 +317,40 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         let request_id = request.request_id.clone();
-        let mut request_builder = self.client.post(&self.base_url).json(&serde_json::json!({
+        let mut payload = serde_json::json!({
             "model": request.model,
             "messages": [{"role": "user", "content": request.input}],
-            "stream": false,
-            "request_id": request_id
-        }));
+            "stream": false
+        });
+
+        if let Some(parameters) = &request.parameters {
+            let extra = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider parameters must be valid JSON: {error}"
+                ))
+            })?;
+            let extra_object = extra.as_object().ok_or_else(|| {
+                ContractError::ParseError(
+                    "provider parameters must be a JSON object".to_string(),
+                )
+            })?;
+            let payload_object = payload.as_object_mut().ok_or_else(|| {
+                ContractError::ParseError(
+                    "provider request payload is not an object".to_string(),
+                )
+            })?;
+            for (key, value) in extra_object {
+                if !matches!(key.as_str(), "model" | "messages" | "stream" | "request_id") {
+                    payload_object.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+        let mut request_builder = self
+            .client
+            .post(&self.base_url)
+            .header("x-request-id", &request_id)
+            .json(&payload);
         if let Some(api_key) = &self.api_key {
             request_builder = request_builder.bearer_auth(api_key);
         }
@@ -307,8 +363,13 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
             ContractError::ParseError(format!("provider response failed: {error}"))
         })?;
         if !status.is_success() {
+            let mut detail = body;
+            if detail.len() > 4_096 {
+                detail.truncate(4_096);
+                detail.push_str("...");
+            }
             return Err(ContractError::ParseError(format!(
-                "provider returned HTTP {status}: {body}"
+                "provider returned HTTP {status}: {detail}"
             )));
         }
         let json: serde_json::Value = serde_json::from_str(&body).map_err(|error| {

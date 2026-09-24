@@ -176,6 +176,13 @@ export interface RuntimeChannelEvent extends RuntimeApiRecord {
   attachments?: RuntimeApiRecord[]
 }
 
+export interface RuntimeWorkspaceSearchMatch {
+  path: string
+  line: number
+  column: number
+  preview: string
+}
+
 export interface RuntimeWorkspaceFile {
   path: string
   content: string
@@ -324,6 +331,7 @@ export interface RuntimeServices {
   workspace: {
     list(path: string, grantId: string): Promise<RuntimeWorkspaceEntry[]>
     readFile(path: string, grantId: string): Promise<RuntimeWorkspaceFile>
+    search(path: string, query: string, grantId: string, limit?: number): Promise<RuntimeWorkspaceSearchMatch[]>
     writeFile(path: string, content: string, grantId: string): Promise<RuntimeApiRecord>
     patchFile(path: string, expected: string, replacement: string, grantId: string): Promise<RuntimeApiRecord>
   }

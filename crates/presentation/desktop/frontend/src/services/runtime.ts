@@ -23,6 +23,7 @@ import type {
   RuntimeChannel,
   RuntimeChannelEvent,
   RuntimeWorkspaceEntry,
+  RuntimeWorkspaceSearchMatch,
   RuntimeWorkspaceFile,
 } from '../types/runtime'
 
@@ -556,6 +557,16 @@ export class AgenticosRuntime implements RuntimeServices {
     readFile: async (path: string, grantId: string): Promise<RuntimeWorkspaceFile> => {
       const params = new URLSearchParams({ path, grant_id: grantId })
       return this.transport.get<RuntimeWorkspaceFile>(`/api/workspace/file?${params.toString()}`)
+    },
+    search: async (path: string, query: string, grantId: string, limit = 50): Promise<RuntimeWorkspaceSearchMatch[]> => {
+      const params = new URLSearchParams({ path, q: query, grant_id: grantId, limit: String(Math.min(500, Math.max(1, limit))) })
+      const data = await this.transport.get<RuntimeApiRecord>(`/api/workspace/search?${params.toString()}`)
+      return arrayOfRecords(data.matches).map((entry) => ({
+        path: readString(entry, 'path') ?? '',
+        line: readNumber(entry, 'line') ?? 0,
+        column: readNumber(entry, 'column') ?? 0,
+        preview: readString(entry, 'preview') ?? '',
+      })).filter((entry) => entry.path)
     },
     writeFile: async (path: string, content: string, grantId: string) =>
       this.transport.post<RuntimeApiRecord>('/api/workspace/file', { path, content, grant_id: grantId }),

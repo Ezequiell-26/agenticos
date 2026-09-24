@@ -21,6 +21,15 @@ pub struct WorkspaceFs {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceSearchMatch {
+    pub path: String,
+    pub line: usize,
+    pub column: usize,
+    pub preview: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceEntry {
     pub path: String,
     pub directory: bool,
@@ -222,6 +231,120 @@ impl WorkspaceFs {
         }
         out.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(out)
+    }
+
+    /// Search UTF-8 text files recursively inside the configured workspace.
+    ///
+    /// Hidden/generated dependency directories are skipped and traversal remains
+    /// confined to the canonical workspace root.
+    pub async fn search_text(
+        &self,
+        relative: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<WorkspaceSearchMatch>, String> {
+        let root = self.existing_path(relative).await?;
+        if !fs::metadata(&root)
+            .await
+            .map_err(|e| format!("workspace search metadata failed: {e}"))?
+            .is_dir()
+        {
+            return Err("workspace search root is not a directory".to_string());
+        }
+
+        let needle = query.trim();
+        if needle.is_empty() {
+            return Err("workspace search query is required".to_string());
+        }
+        if needle.len() > 256 {
+            return Err("workspace search query exceeds supported limits".to_string());
+        }
+
+        let max_matches = limit.clamp(1, 500);
+        let mut stack = vec![root];
+        let mut matches = Vec::new();
+
+        while let Some(directory) = stack.pop() {
+            let mut entries = fs::read_dir(&directory)
+                .await
+                .map_err(|e| format!("workspace search directory read failed: {e}"))?;
+
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .map_err(|e| format!("workspace search directory iteration failed: {e}"))?
+            {
+                if matches.len() >= max_matches {
+                    return Ok(matches);
+                }
+
+                let child = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+                if entry.file_type().await.map(|value| value.is_dir()).unwrap_or(false)
+                    && matches!(
+                        name.as_str(),
+                        ".git" | ".svn" | ".hg" | "node_modules" | "target" | ".agenticos"
+                    )
+                {
+                    continue;
+                }
+
+                let canonical = match fs::canonicalize(&child).await {
+                    Ok(path) if path.starts_with(&self.root) => path,
+                    _ => continue,
+                };
+                let meta = fs::metadata(&canonical)
+                    .await
+                    .map_err(|e| format!("workspace search metadata failed: {e}"))?;
+
+                if meta.is_dir() {
+                    stack.push(canonical);
+                    continue;
+                }
+                if !meta.is_file() || meta.len() as usize > self.max_read_bytes {
+                    continue;
+                }
+
+                let content = match fs::read_to_string(&canonical).await {
+                    Ok(content) => content,
+                    Err(_) => continue,
+                };
+                let needle_lower = needle.to_lowercase();
+
+                for (line_index, line) in content.lines().enumerate() {
+                    let lower_line = line.to_lowercase();
+                    let mut offset = 0usize;
+                    while let Some(found) = lower_line[offset..].find(&needle_lower) {
+                        if matches.len() >= max_matches {
+                            return Ok(matches);
+                        }
+                        let column = offset + found + 1;
+                        matches.push(WorkspaceSearchMatch {
+                            path: canonical
+                                .strip_prefix(&self.root)
+                                .map_err(|_| "workspace search child escaped root".to_string())?
+                                .to_string_lossy()
+                                .replace(std::path::MAIN_SEPARATOR, "/"),
+                            line: line_index + 1,
+                            column,
+                            preview: line.trim().chars().take(240).collect(),
+                        });
+                        offset = offset + found + needle_lower.len();
+                        if offset >= lower_line.len() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        matches.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then(left.line.cmp(&right.line))
+                .then(left.column.cmp(&right.column))
+        });
+        Ok(matches)
     }
 
     pub fn root(&self) -> &Path {

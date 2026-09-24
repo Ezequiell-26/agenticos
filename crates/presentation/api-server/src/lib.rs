@@ -1328,6 +1328,14 @@ struct WorkspacePathQuery {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkspaceSearchQuery {
+    grant_id: String,
+    path: Option<String>,
+    q: String,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 struct WorkspaceWriteRequest {
     grant_id: String,
     path: String,
@@ -1412,6 +1420,61 @@ async fn list_workspace(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error,
             code: "WORKSPACE_LIST_FAILED",
+        }),
+    }
+}
+
+async fn search_workspace(
+    query: web::Query<WorkspaceSearchQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let path = query.path.as_deref().unwrap_or(".");
+    if query.q.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace search query is required".to_string(),
+            code: "WORKSPACE_SEARCH_QUERY_REQUIRED",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            "workspace/*",
+            "workspace.search",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "workspace.search capability denied".to_string(),
+                code: "WORKSPACE_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKSPACE_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
+    match state
+        .workspace
+        .search_text(path, &query.q, query.limit.unwrap_or(50))
+        .await
+    {
+        Ok(matches) => HttpResponse::Ok().json(serde_json::json!({
+            "path": path,
+            "query": query.q.trim(),
+            "matches": matches,
+            "count": matches.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "WORKSPACE_SEARCH_FAILED",
         }),
     }
 }
@@ -5459,6 +5522,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/channels/{channel_id}", web::delete().to(delete_channel))
             .route("/api/channels/{channel_id}/events", web::get().to(list_channel_events))
             .route("/api/channels/{channel_id}/events", web::post().to(append_channel_event))
+            .route("/api/workspace/search", web::get().to(search_workspace))
             .route("/api/workspace/list", web::get().to(list_workspace))
             .route("/api/workspace/file", web::get().to(read_workspace_file))
             .route("/api/workspace/file", web::post().to(write_workspace_file))

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 import { runtime } from '../../services/runtime'
+import type { RuntimeWorkspaceSearchMatch } from '../../types/runtime'
 
 const files = [
   ['src/agents/runtime.rs','Rust','modified'], ['src/kernel/router.rs','Rust','modified'], ['src/domain/contracts.rs','Rust','clean'],
@@ -12,10 +13,12 @@ const symbols = ['ReactAgent','ModelProvider','ToolRegistry','RuntimeState','Nav
 export function DeveloperWorkspace({ onAction }:{onAction:(m:string)=>void}) {
  const [active,setActive]=useState(files[0][0]); const [query,setQuery]=useState(''); const [tab,setTab]=useState<'explorer'|'search'|'symbols'>('explorer')
  const [runtimeFiles,setRuntimeFiles]=useState<Array<{path:string;directory:boolean;file:boolean;size_bytes?:number|null}>>([])
+ const [searchResults,setSearchResults]=useState<RuntimeWorkspaceSearchMatch[]>([])
  const [activeContent,setActiveContent]=useState<string>('')
  const [runtimeState,setRuntimeState]=useState<'idle'|'loading'|'connected'|'unavailable'>('idle')
  const grantId=(import.meta.env.VITE_AGENTICOS_WORKSPACE_GRANT_ID as string|undefined)?.trim() ?? ''
  useEffect(()=>{if(!grantId){setRuntimeState('unavailable');return}let cancelled=false;setRuntimeState('loading');void runtime.workspace.list('.',grantId).then(entries=>{if(cancelled)return;setRuntimeFiles(entries.filter(entry=>entry.file).slice(0,200));setRuntimeState('connected');const first=entries.find(entry=>entry.file);if(first){setActive(first.path);return runtime.workspace.readFile(first.path,grantId).then(file=>{if(!cancelled)setActiveContent(file.content)}).catch(()=>{})}}).catch(()=>{if(!cancelled)setRuntimeState('unavailable')});return()=>{cancelled=true}},[grantId])
+ useEffect(()=>{if(tab!=='search'||!grantId||query.trim().length<1){setSearchResults([]);return}let cancelled=false;void runtime.workspace.search('.',query,grantId,50).then(results=>{if(!cancelled)setSearchResults(results)}).catch(()=>{if(!cancelled)setSearchResults([])});return()=>{cancelled=true}},[grantId,query,tab])
  const runtimeFileNames=useMemo(()=>runtimeFiles.map(file=>[file.path,'Runtime',`${file.size_bytes??0} bytes`] as const),[runtimeFiles])
  const visibleFiles=runtimeFiles.length?runtimeFileNames:files
  const filtered=useMemo(()=>visibleFiles.filter(f=>f[0].toLowerCase().includes(query.toLowerCase())),[query,visibleFiles])
@@ -27,7 +30,7 @@ export function DeveloperWorkspace({ onAction }:{onAction:(m:string)=>void}) {
   <div className="developer-grid">
    <Panel title="Workspace"><div className="developer-tabs">{(['explorer','search','symbols'] as const).map(t=><button key={t} className={tab===t?'knowledge-tab knowledge-tab--active':'knowledge-tab'} onClick={()=>setTab(t)}>{t}</button>)}</div>
     {tab==='explorer' && <div className="developer-file-list">{filtered.map(f=><button key={f[0]} className={active===f[0]?'developer-file developer-file--active':'developer-file'} onClick={()=>void openFile(f[0])}><Icon name="file-code" size={14}/><span>{f[0]}</span><small>{f[2]}</small></button>)}</div>}
-    {tab==='search' && <div className="developer-results"><strong>Search results</strong><span>ReactAgent · 12 matches</span><span>ModelProvider · 8 matches</span><span>RuntimeState · 6 matches</span></div>}
+    {tab==='search' && <div className="developer-results"><strong>Search results {searchResults.length ? `· ${searchResults.length}` : ''}</strong>{searchResults.length ? searchResults.map((result,index)=><button key={result.path+'-'+result.line+'-'+result.column+'-'+index} className="developer-symbol" onClick={()=>void openFile(result.path)}><span>{result.path}:{result.line}:{result.column}</span><small>{result.preview}</small></button>) : <span>{query.trim()?'No runtime matches or workspace access is unavailable.':'Type a query to search the live workspace.'}</span>}</div>
     {tab==='symbols' && <div className="developer-results">{symbols.map(s=><button key={s} className="developer-symbol" onClick={()=>onAction('Symbol '+s+' selected')}>{s}<small>definition · references</small></button>)}</div>}
    </Panel>
    <Panel title={active}><div className="editor-toolbar"><span>{runtimeState==="connected"?"runtime workspace":"main · clean checkout"}</span><span>{activeContent?"Live file":"Rust / TypeScript"}</span></div><pre className="code-preview">{activeContent || '// Agent-assisted preview\n// Grant workspace access to inspect a live file here.\n\nfn execute_turn(message: &str) -> Result<AgentResponse> {\n    let context = context_budget.pack(message)?;\n    let response = provider.complete(context)?;\n    event_store.append(response.events())?;\n    Ok(response)\n}'}</pre><div className="platform-actions"><button className="studio-button" onClick={()=>onAction('Inline edit opened in preview')}>Edit selection</button><button className="studio-button" onClick={()=>onAction('Explain code opened in preview')}>Explain</button><button className="studio-button studio-button--active" onClick={()=>onAction('Agent patch review opened in preview')}>Generate patch</button></div></Panel>

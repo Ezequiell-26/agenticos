@@ -319,9 +319,8 @@ export class AgenticosRuntime implements RuntimeServices {
         ...(parameters ? { parameters } : {}),
         ...(requestId ? { request_id: requestId } : {}),
       }),
-    stream: async function* (model: string, input: string, parameters?: string, requestId?: string): AsyncGenerator<RuntimeStreamEvent, void, unknown> {
-      const runtime = this as AgenticosRuntime
-      const response = await runtime.transport.postStream('/api/models/stream', {
+    stream: (model: string, input: string, parameters?: string, requestId?: string) => (async function* (): AsyncGenerator<RuntimeStreamEvent, void, unknown> {
+      const response = await this.transport.postStream('/api/models/stream', {
         model,
         input,
         ...(parameters ? { parameters } : {}),
@@ -354,7 +353,7 @@ export class AgenticosRuntime implements RuntimeServices {
       } finally {
         reader.releaseLock()
       }
-    }.bind(null),
+    })(),
   }
 
   readonly providers = {

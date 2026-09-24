@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
 
 type SecurityTab = 'Overview' | 'Policies' | 'Audit' | 'Sessions' | 'Recovery'
 
@@ -44,7 +45,7 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
     <div className="security-center">
       <div className="security-center__summary">
         <div className="security-score"><div className="security-shield"><Icon name="shield" size={26} /></div><div><span className="eyebrow">Workspace status</span><strong>Protected</strong><small>{enabled}/{policyRows.length} guardrails enabled in preview</small></div></div>
-        <div className="security-summary-grid"><Metric label="Secrets exposed" value="0" /><Metric label="Blocked events" value="3" /><Metric label="Trusted sessions" value="1" /><Metric label="Last check" value="12s" /></div>
+        <div className="security-summary-grid"><Metric label="Secrets exposed" value="0" /><Metric label="Blocked events" value={String(runtimeAudit.filter((event) => String(event.outcome ?? '').toLowerCase() === 'blocked').length)} /><Metric label="Pending approvals" value={String(runtimeApprovals.length)} /><Metric label="Audit events" value={runtimeSyncing ? 'Syncing' : String(runtimeAudit.length)} /></div>
       </div>
 
       <div className="security-center__tabs" role="tablist" aria-label="Security center" aria-orientation="horizontal">
@@ -59,7 +60,8 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
 
         {tab === 'Policies' && <div className="security-policy-list">{policyRows.map(([name, detail]) => <div className="security-policy-row" key={name}><div><strong>{name}</strong><span>{detail}</span></div><button className={policies.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={policies.has(name)} onClick={() => toggle(name)}><span /></button></div>)}</div>}
 
-        {tab === 'Audit' && <div className="security-audit"><div className="security-audit-head"><span>Event time</span><span>Event</span><span>Result</span><span>Detail</span></div>{auditRows.map(([time, event, result, detail]) => <div className="security-audit-row" key={time + event}><span>{time}</span><strong>{event}</strong><span className={result === 'pass' || result === 'approved' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{result}</span><span>{detail}</span></div>)}</div>}
+        {tab === 'Audit' && <div className="security-audit"><div className="security-audit-head"><span>Event time</span><span>Action</span><span>Result</span><span>Resource</span></div>{(runtimeAudit.length > 0 ? runtimeAudit : auditRows.map(([time, event, result, detail]) => ({ timestamp: time, action: event, outcome: result, resource: detail }))).map((event, index) => <div className="security-audit-row" key={String(event.event_id ?? index)}><span>{new Date(Number(event.timestamp ?? 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span><strong>{String(event.action ?? 'audit event')}</strong><span className={['pass','approved','success'].includes(String(event.outcome ?? '').toLowerCase()) ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{String(event.outcome ?? 'unknown')}</span><span>{String(event.resource ?? '—')}</span></div>)}</div>
+}
 
         {tab === 'Sessions' && <div className="security-session-list">{sessions.map(([name, type, age, state]) => <div className="security-session-row" key={name}><div className="security-session-icon"><Icon name={type === 'Web session' ? 'globe' : 'bot'} size={14} /></div><div><strong>{name}</strong><span>{type} · {age}</span></div><span className="state-pill state-pill--completed">{state}</span><button className="studio-button" type="button" onClick={() => onAction(name + ' session controls opened in preview')}>Manage</button></div>)}</div>}
 

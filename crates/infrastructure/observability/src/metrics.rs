@@ -365,9 +365,159 @@ impl Default for ErrorMetrics {
     }
 }
 
+/// Process-level operational metrics for the AgentiCOS backend runtime.
+#[derive(Debug)]
+pub struct RuntimeMetrics {
+    http_requests: Arc<AtomicU64>,
+    http_errors: Arc<AtomicU64>,
+    provider_requests: Arc<AtomicU64>,
+    provider_errors: Arc<AtomicU64>,
+    tool_executions: Arc<AtomicU64>,
+    tool_errors: Arc<AtomicU64>,
+    scheduler_claims: Arc<AtomicU64>,
+    scheduler_successes: Arc<AtomicU64>,
+    scheduler_failures: Arc<AtomicU64>,
+    llm_latency_ms: Arc<AtomicU64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+/// Snapshot of backend operational counters.
+pub struct RuntimeMetricsSnapshot {
+    /// Number of HTTP operations observed.
+    pub http_requests: u64,
+    /// Number of HTTP/handler failures observed.
+    pub http_errors: u64,
+    /// Number of provider request attempts.
+    pub provider_requests: u64,
+    /// Number of provider failures.
+    pub provider_errors: u64,
+    /// Number of tool executions.
+    pub tool_executions: u64,
+    /// Number of tool failures.
+    pub tool_errors: u64,
+    /// Number of scheduler job claims.
+    pub scheduler_claims: u64,
+    /// Number of successful scheduled jobs.
+    pub scheduler_successes: u64,
+    /// Number of failed scheduled jobs.
+    pub scheduler_failures: u64,
+    /// Accumulated LLM latency in milliseconds.
+    pub llm_latency_ms: u64,
+}
+
+impl RuntimeMetrics {
+    /// Create empty runtime metrics.
+    pub fn new() -> Self {
+        Self {
+            http_requests: Arc::new(AtomicU64::new(0)),
+            http_errors: Arc::new(AtomicU64::new(0)),
+            provider_requests: Arc::new(AtomicU64::new(0)),
+            provider_errors: Arc::new(AtomicU64::new(0)),
+            tool_executions: Arc::new(AtomicU64::new(0)),
+            tool_errors: Arc::new(AtomicU64::new(0)),
+            scheduler_claims: Arc::new(AtomicU64::new(0)),
+            scheduler_successes: Arc::new(AtomicU64::new(0)),
+            scheduler_failures: Arc::new(AtomicU64::new(0)),
+            llm_latency_ms: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    /// Record one HTTP operation.
+    pub fn record_http(&self, failed: bool) {
+        self.http_requests.fetch_add(1, Ordering::Relaxed);
+        if failed {
+            self.http_errors.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Record one provider operation.
+    pub fn record_provider(&self, failed: bool) {
+        self.provider_requests.fetch_add(1, Ordering::Relaxed);
+        if failed {
+            self.provider_errors.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Record one tool operation.
+    pub fn record_tool(&self, failed: bool) {
+        self.tool_executions.fetch_add(1, Ordering::Relaxed);
+        if failed {
+            self.tool_errors.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Record one scheduler claim.
+    pub fn record_scheduler_claim(&self) {
+        self.scheduler_claims.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record one scheduler completion outcome.
+    pub fn record_scheduler_completion(&self, success: bool) {
+        if success {
+            self.scheduler_successes.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.scheduler_failures.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Accumulate model latency.
+    pub fn record_llm_latency(&self, latency_ms: u64) {
+        self.llm_latency_ms
+            .fetch_add(latency_ms, Ordering::Relaxed);
+    }
+
+    /// Return an immutable metrics snapshot.
+    pub fn snapshot(&self) -> RuntimeMetricsSnapshot {
+        RuntimeMetricsSnapshot {
+            http_requests: self.http_requests.load(Ordering::Relaxed),
+            http_errors: self.http_errors.load(Ordering::Relaxed),
+            provider_requests: self.provider_requests.load(Ordering::Relaxed),
+            provider_errors: self.provider_errors.load(Ordering::Relaxed),
+            tool_executions: self.tool_executions.load(Ordering::Relaxed),
+            tool_errors: self.tool_errors.load(Ordering::Relaxed),
+            scheduler_claims: self.scheduler_claims.load(Ordering::Relaxed),
+            scheduler_successes: self.scheduler_successes.load(Ordering::Relaxed),
+            scheduler_failures: self.scheduler_failures.load(Ordering::Relaxed),
+            llm_latency_ms: self.llm_latency_ms.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl Default for RuntimeMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_runtime_metrics_snapshot() {
+        let metrics = RuntimeMetrics::new();
+        metrics.record_http(false);
+        metrics.record_http(true);
+        metrics.record_provider(false);
+        metrics.record_provider(true);
+        metrics.record_tool(true);
+        metrics.record_scheduler_claim();
+        metrics.record_scheduler_completion(true);
+        metrics.record_scheduler_completion(false);
+        metrics.record_llm_latency(42);
+
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.http_requests, 2);
+        assert_eq!(snapshot.http_errors, 1);
+        assert_eq!(snapshot.provider_requests, 2);
+        assert_eq!(snapshot.provider_errors, 1);
+        assert_eq!(snapshot.tool_executions, 1);
+        assert_eq!(snapshot.tool_errors, 1);
+        assert_eq!(snapshot.scheduler_claims, 1);
+        assert_eq!(snapshot.scheduler_successes, 1);
+        assert_eq!(snapshot.scheduler_failures, 1);
+        assert_eq!(snapshot.llm_latency_ms, 42);
+    }
 
     #[test]
     fn test_counter() {

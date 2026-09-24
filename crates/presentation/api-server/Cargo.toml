@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
+agenticos-a2a = { path = "../../infrastructure/a2a" }
 agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
 agenticos-execution = { path = "../../application/execution" }

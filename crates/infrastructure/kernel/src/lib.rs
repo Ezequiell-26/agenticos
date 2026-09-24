@@ -2955,9 +2955,7 @@ impl ReactAgent {
             let event = SerializedEvent {
                 event_type: "checkpoint".to_string(),
                 data: serde_json::to_string(&checkpoint).map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "failed to serialize checkpoint: {error}"
-                    ))
+                    ContractError::ParseError(format!("failed to serialize checkpoint: {error}"))
                 })?,
                 schema_version: 1,
             };
@@ -2966,9 +2964,7 @@ impl ReactAgent {
                 .append(&stream_id, current_turn as u64, vec![event])
                 .await
                 .map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "failed to persist checkpoint: {error}"
-                    ))
+                    ContractError::ParseError(format!("failed to persist checkpoint: {error}"))
                 })?;
         }
 
@@ -4593,7 +4589,8 @@ impl Default for LLMConfig {
 mod tests {
     #[test]
     fn tool_executor_rejects_workspace_traversal() {
-        let root = std::env::temp_dir().join(format!("agenticos-tool-test-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("agenticos-tool-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         let executor = super::ToolExecutor::new(root.clone());
 

@@ -1,85 +1,80 @@
 # AgentiCOS Project State
 
-> Canonical current-state snapshot. Read this before every AI change. Historical evidence remains in the append-only journal.
+> Canonical current-state snapshot. The repository uses capability-driven continuous development. Git history preserves prior sequential-state records; the active state no longer blocks unrelated engineering work.
 
 ## Current truth
 
 - Repository: `Ezequiell-26/agenticos`
-- Current architecture mode: `sequential-verified / fail-closed`
-- Current authorized implementation step: **Step 25 — `integration-test-implementation-phase-3`**
-- Current implementation step: `integration-test-implementation-phase-3`
-- Current step status: `in_progress`
-- Verified contiguous steps: **0–24 (25 steps)**
-- Steps 25 onward are not currently verified.
-- Baseline main head audited before this coherence repair: `adafcc4828d775f32c224bc88ef9b69ff67e7c14`
-- Safe rollback point for Step 25 implementation: `a278008b536ef4da7cf18a67191291446dd7a8a5`
+- Architecture mode: **capability-driven-continuous**
+- Current focus: backend-runtime
+- Current operation status: in_progress
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
 - Third-party canonical source policy: MIT/compatible license + provenance + exact revision before integration
 - Destructive AI operations: disabled by default
+- Parallel workstreams: enabled
 
-## Why the state was reconciled
+## Why the development model changed
 
-The current main branch contained valid source changes for later capabilities, including desktop UI and Brain infrastructure, but the machine-readable implementation state had:
+The previous `sequential-verified` implementation manifest required one numbered step to be verified before any other capability could be advanced. In practice this caused unrelated backend work to wait on a narrow integration-test gate and encouraged repeated CI churn.
 
-- a missing Step 53;
-- non-sequential unlock/requirement references;
-- later steps marked verified while earlier steps remained pending.
+The new model separates:
 
-Those conditions violate the repository's own fail-closed sequential contract.
+- **workstream state** — what area is actively being engineered;
+- **capability state** — whether an individual capability is planned, implemented, verified or blocked;
+- **verification state** — which checks have actual evidence;
+- **Git history** — the immutable record of prior implementation.
 
-The reconciliation **does not delete those source changes** and does not rewrite historical journal records. It changes only the current admissibility of verification status.
+The old sequential manifest is preserved in Git history and is not used as the active development lock.
 
-## Verification interpretation
+## Active workstreams
 
-A source file can exist without being a verified implementation step.
-
-The repository currently contains an early Tauri + React + Vite + Tailwind frontend. It is preserved and documented, but future UI changes remain governed by the sequential state machine.
-
-Likewise, Brain/Capability/Source/Resource work after Step 24 is retained as source history but is not treated as currently verified until its predecessor chain is completed.
+- **backend-runtime (P0):** durable runs, jobs, workers, recovery and API control plane.
+- **provider-plane (P0):** providers, model catalog, routing, retry, quota, failover and capability normalization.
+- **agent-orchestration (P0):** Brain, planners, subagents, verification and repair.
+- **tool-mcp (P0):** typed tools, MCP, capability authorization and sandbox.
+- **memory-context (P1):** durable memory, context budgeting, compression, retrieval and provenance.
+- **observability-control-plane (P1):** tracing, metrics, audit, health and operational diagnostics.
+- **desktop-integration (P1):** typed UI/runtime integration.
+- **source-and-evaluation (P2):** Source Forge, reference ingestion, replay and regression evaluation.
 
 ## Verification truth
 
-- Only Steps 0–24 are currently verified.
-- Step 25 remains `in_progress` until every acceptance check has recorded CI evidence.
-- Existing source outside the current step remains preserved but does not become verified by presence alone.
+A capability is not considered verified merely because source code exists.
+
+Verification evidence is tracked per capability/workstream and must include the relevant automated checks. Current newer backend changes require fresh CI evidence; historical green results remain historical evidence only.
+
+The global verification suite includes:
+
+- `npm run continuity:verify`
+- `npm run state:verify`
+- `npm run check`
+- `npm run test`
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --all-targets`
+- `cargo test --workspace --all-targets`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- architecture and dependency boundary checks
+- provider integration coverage
 
 ## Anti-regression rule
 
-- Never advance the implementation state past the current authorized step.
-- Never mark a step verified without complete acceptance evidence.
-- Never delete or rewrite historical source/evidence to conceal a failing check.
+Development may proceed in parallel, but every change must preserve:
 
-## Architecture-control documents
+1. domain/application/infrastructure dependency direction;
+2. capability and sandbox authorization;
+3. durable run identity and recovery semantics;
+4. provider credential isolation;
+5. versioned cross-boundary contracts;
+6. provenance and license evidence;
+7. existing verified behavior.
 
-- `docs/architecture/CANONICAL-ARCHITECTURE.md`
-- `docs/architecture/FRONTEND-ARCHITECTURE.md`
-- `reference/manifests/architecture-dag.json`
-- `reference/manifests/architecture-completeness.json`
-- `reference/manifests/mit-repositories.json`
+A failing check blocks the affected capability or release path; it does not automatically freeze unrelated workstreams.
 
-## AI continuity
+## Current operation
 
-Every AI operation must leave:
+The active operation is the backend architecture refactor and runtime hardening. It is intentionally allowed to touch related backend capabilities when their contracts and boundaries are preserved.
 
-- what changed;
-- what was created;
-- what was deleted;
-- what was preserved;
-- verification evidence;
-- unverified checks;
-- risks;
-- rollback point;
-- exactly one next step.
+## Next actions
 
-For frontend work, also update `docs/architecture/FRONTEND-CHANGELOG.md`.
-
-## Historical verification
-
-Historical verification records are not deleted. Existing evidence for non-contiguous later steps remains available in `reference/journal/agent-operations.jsonl` and implementation-state history, but pending status takes precedence over historical "verified" claims until the sequential chain is re-established.
-
-## Next authorized progression
-
-**Current operation:** Step 25, `integration-test-implementation-phase-3`, is in progress. Its acceptance evidence must pass before it can become verified.
-
-**Exactly one next step after verification:** transition Step 25 to `verified` only after every required check has recorded evidence.
+Continue backend work by capability rather than by numbered implementation step. Prioritize durable worker state, persistent jobs, real provider routing, complete tool/MCP execution, context/token optimization and runtime observability. Promote individual capabilities to verified only after their evidence exists.

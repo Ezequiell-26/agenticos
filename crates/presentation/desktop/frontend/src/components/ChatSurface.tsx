@@ -48,14 +48,6 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
-  if (!isUser && !isSystem) {
-    return (
-      <article className="message-row message-row--assistant">
-        <p className="assistant-text">{message.content}</p>
-      </article>
-    )
-  }
-
   return (
     <article className={`message-row ${isUser ? 'message-row--user' : ''}`}>
       {!isUser && <div className={`message-avatar ${isSystem ? 'message-avatar--system' : ''}`}><Icon name={isSystem ? 'shield' : 'bot'} size={15} /></div>}
@@ -86,7 +78,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [responseFormat, setResponseFormat] = useState(responseFormats[0])
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashIndex, setSlashIndex] = useState(0)
-  const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
   const [toolsOpen, setToolsOpen] = useState(false)
@@ -111,7 +102,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
 
   useEffect(() => { setSlashIndex(0) }, [slashMatches.length, slashOpen])
-  const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
   const filteredModels = useMemo(() => {
     const term = modelQuery.trim().toLowerCase()
     return modelOptions.filter((item) => !term || item.toLowerCase().includes(term))
@@ -379,10 +369,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
               <button className="composer-icon" type="button" title="Voice dictation" aria-label="Voice dictation" onClick={() => setNotice('Voice dictation activates with the runtime')}><Icon name="mic" size={15} /></button>
               {running ? <button className="send-button send-button--stop send-button--round" onClick={onStop} type="button"><Icon name="stop" size={14} /></button> : <button className="send-button send-button--round" disabled={!canSend} onClick={() => void submit()} type="button" aria-label="Send message"><Icon name="send" size={14} /></button>}
             </div>
-          </div>
-          <div className="composer-meta">
-            <span className="composer-hint"><Icon name="code" size={11} /> {tokenEstimate.toLocaleString()} est. tokens · {maxTokens} max · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'}</span>
-            <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
           </div>
           {effortOpen && (
             <div className="effort-options" role="menu" aria-label="Reasoning and effort">

@@ -115,6 +115,10 @@ export interface RuntimeMemoryRecord {
   created_at?: number
 }
 
+export interface ChatSendOptions {
+  model?: string
+}
+
 export interface RuntimeSearchResult {
   query: string
   results: RuntimeApiRecord[]

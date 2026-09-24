@@ -1488,6 +1488,14 @@ Verification status:
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; default-closed behavior, globe toggle and reopen verified in the browser preview.
 
+## 2026-09-25 — Revert plain-text assistant rendering and drop composer meta row
+
+- Reverted the plain-text assistant rendering: assistant messages show the bubble again (avatar, name/time header and response actions), as before the previous slice.
+- Removed the composer meta row (estimated tokens, max output, format, mode and context budget chip) from the composer.
+- Repaired leftover type errors from merged runtime-integration commits: exported ChatSendOptions from the runtime types, fixed an orphaned setter and unused parameter in ToolsStudio/ProviderStudio and corrected invalid casts in the runtime service (behavior unchanged).
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite (29 tests) pass; bubble rendering and meta row removal verified in the browser preview.
+
 ## 2026-09-25 — Assistant answers render as plain text
 
 - Assistant messages no longer render inside a bubble: no avatar, no name/time header, no action row and no dark box — only the response text as a plain full-width paragraph, matching the reference.

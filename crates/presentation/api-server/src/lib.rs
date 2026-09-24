@@ -52,7 +52,7 @@ use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Semaphore};
 
 /// Default local SQLite URL.
 const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
@@ -524,10 +524,18 @@ impl AgentTool for TerminalTool {
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
+#[derive(Debug, Clone)]
+struct SessionCacheEntry {
+    agent: Arc<ReactAgent>,
+    last_used_at: u64,
+}
+
 /// Shared runtime state for the HTTP process.
 #[derive(Clone)]
 pub struct RuntimeState {
-    sessions: Arc<RwLock<HashMap<String, Arc<ReactAgent>>>>,
+    sessions: Arc<RwLock<HashMap<String, SessionCacheEntry>>>,
+    session_cache_capacity: usize,
+    agent_execution_concurrency: Arc<Semaphore>,
     memory: Arc<SqliteMemory>,
     persistent_memory: Arc<PersistentMemoryStore>,
     mcp: Arc<McpManager>,
@@ -643,6 +651,14 @@ impl RuntimeState {
                 .map_err(ContractError::ParseError)?,
         );
         let skills = Arc::new(Self::load_skills().await);
+        let session_cache_capacity = runtime_env_usize(
+            "AGENTICOS_MAX_CACHED_SESSIONS",
+            256,
+            16,
+            4096,
+        );
+        let agent_execution_concurrency =
+            Arc::new(Semaphore::new(agent_execution_concurrency_limit()));
 
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
@@ -794,6 +810,8 @@ impl RuntimeState {
 
         Ok(Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            session_cache_capacity,
+            agent_execution_concurrency,
             memory,
             persistent_memory,
             mcp,
@@ -867,6 +885,13 @@ impl RuntimeState {
             }
         };
 
+        let max_total_bytes = runtime_env_usize(
+            "AGENTICOS_SKILL_TOTAL_BYTES",
+            8 * 1024 * 1024,
+            512 * 1024,
+            64 * 1024 * 1024,
+        );
+        let mut total_bytes = 0usize;
         let mut skills = Vec::new();
         while let Ok(Some(entry)) = directory.next_entry().await {
             if skills.len() >= 128 {
@@ -877,7 +902,15 @@ impl RuntimeState {
                 Ok(metadata) if metadata.is_file() && metadata.len() <= 512 * 1024 => metadata,
                 _ => continue,
             };
-            let _ = metadata;
+            let skill_bytes = metadata.len() as usize;
+            if total_bytes.saturating_add(skill_bytes) > max_total_bytes {
+                tracing::warn!(
+                    root = %root,
+                    limit = max_total_bytes,
+                    "skill loading budget reached; remaining skills loaded lazily"
+                );
+                break;
+            }
             let content = match tokio::fs::read_to_string(&path).await {
                 Ok(content) => content,
                 Err(error) => {
@@ -885,6 +918,7 @@ impl RuntimeState {
                     continue;
                 }
             };
+            total_bytes = total_bytes.saturating_add(skill_bytes);
             match Skill::from_markdown(&content) {
                 Ok(skill) => skills.push(skill),
                 Err(error) => tracing::warn!(
@@ -903,8 +937,13 @@ impl RuntimeState {
         let agent_key = model
             .map(|value| format!("{session_id}::model::{value}"))
             .unwrap_or_else(|| session_id.to_string());
-        if let Some(agent) = self.sessions.read().await.get(&agent_key).cloned() {
-            return agent;
+        let now = unix_time();
+        {
+            let mut sessions = self.sessions.write().await;
+            if let Some(entry) = sessions.get_mut(&agent_key) {
+                entry.last_used_at = now;
+                return entry.agent.clone();
+            }
         }
 
         let agent = Arc::new(ReactAgent::with_max_turns("AgentiCOS".to_string(), 90));
@@ -918,7 +957,16 @@ impl RuntimeState {
             agent.add_skill(skill);
         }
 
-        if let Ok(history) = self.memory.get_session_history(session_id, 256).await {
+        let recovery_history_limit = runtime_env_usize(
+            "AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT",
+            64,
+            8,
+            256,
+        );
+        if let Ok(history) = self
+            .memory
+            .get_session_history(session_id, recovery_history_limit)
+            .await {
             let completed_turns = history
                 .iter()
                 .filter(|message| message.role == "user")
@@ -947,10 +995,29 @@ impl RuntimeState {
         }
 
         let mut sessions = self.sessions.write().await;
-        sessions
-            .entry(agent_key)
-            .or_insert_with(|| agent.clone())
-            .clone()
+        if let Some(entry) = sessions.get_mut(&agent_key) {
+            entry.last_used_at = now;
+            return entry.agent.clone();
+        }
+
+        if sessions.len() >= self.session_cache_capacity {
+            if let Some(oldest_key) = sessions
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_used_at)
+                .map(|(key, _)| key.clone())
+            {
+                sessions.remove(&oldest_key);
+            }
+        }
+
+        sessions.insert(
+            agent_key,
+            SessionCacheEntry {
+                agent: agent.clone(),
+                last_used_at: now,
+            },
+        );
+        agent
     }
 
     async fn configured(&self) -> bool {
@@ -2782,6 +2849,19 @@ async fn agent_chat(
     }
 
     let agent = state.session_agent(&session_id, requested_model).await;
+    let _agent_permit = state
+        .agent_execution_concurrency
+        .acquire()
+        .await
+        .map_err(|_| ())
+        .ok();
+    if _agent_permit.is_none() {
+        state.metrics.record_http(true);
+        return HttpResponse::ServiceUnavailable().json(ErrorResponse {
+            error: "agent execution capacity is unavailable".to_string(),
+            code: "AGENT_CAPACITY_UNAVAILABLE",
+        });
+    }
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
 
@@ -5077,4 +5157,26 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     .bind((host, port))?
     .run()
     .await
+}
+
+
+fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+fn agent_execution_concurrency_limit() -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let default_limit = cores.saturating_mul(2).clamp(4, 32);
+    runtime_env_usize(
+        "AGENTICOS_MAX_AGENT_CONCURRENCY",
+        default_limit,
+        2,
+        64,
+    )
 }

@@ -104,31 +104,30 @@ impl PolicyEngine for BasicPolicyEngine {
 
         // Check required permissions against an issued, scoped, time-valid grant.
         for permission in &tool.required_permissions {
-                if request.grant_id.is_empty() {
-                    return Ok(PolicyDecision::Denied(
-                        "Required permissions not granted".to_string(),
-                    ));
-                }
-                let Some(capabilities) = &self.capabilities else {
-                    return Ok(PolicyDecision::RequiresApproval(
-                        "A central capability manager is required for protected tools".to_string(),
-                    ));
-                };
-                let capability_type = capability_type_for_permission(permission);
-                let allowed = capabilities
-                    .authorize(
-                        &request.grant_id,
-                        capability_type,
-                        &format!("tool/{}", request.tool_id),
-                        permission,
-                    )
-                    .await?;
-                if !allowed {
-                    return Ok(PolicyDecision::Denied(format!(
-                        "Capability grant does not authorize permission '{}'",
-                        permission
-                    )));
-                }
+            if request.grant_id.is_empty() {
+                return Ok(PolicyDecision::Denied(
+                    "Required permissions not granted".to_string(),
+                ));
+            }
+            let Some(capabilities) = &self.capabilities else {
+                return Ok(PolicyDecision::RequiresApproval(
+                    "A central capability manager is required for protected tools".to_string(),
+                ));
+            };
+            let capability_type = capability_type_for_permission(permission);
+            let allowed = capabilities
+                .authorize(
+                    &request.grant_id,
+                    capability_type,
+                    &format!("tool/{}", request.tool_id),
+                    permission,
+                )
+                .await?;
+            if !allowed {
+                return Ok(PolicyDecision::Denied(format!(
+                    "Capability grant does not authorize permission '{}'",
+                    permission
+                )));
             }
         }
 

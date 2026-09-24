@@ -188,6 +188,7 @@ impl Default for CredentialPool {
 struct QuotaState {
     quota: QuotaInfo,
     window_started_at: u64,
+    token_usage: u64,
 }
 
 /// Basic quota tracker.
@@ -210,6 +211,7 @@ impl QuotaTracker {
         {
             state.window_started_at = now;
             state.quota.current_usage = 0;
+            state.token_usage = 0;
         }
     }
 
@@ -221,6 +223,7 @@ impl QuotaTracker {
             QuotaState {
                 quota,
                 window_started_at: unix_time(),
+                token_usage: 0,
             },
         );
         Ok(())
@@ -231,6 +234,7 @@ impl QuotaTracker {
         &self,
         quota: QuotaInfo,
         window_started_at: u64,
+        token_usage: u64,
     ) -> Result<(), ContractError> {
         let mut quotas = self.quotas.write().await;
         quotas.insert(
@@ -238,6 +242,7 @@ impl QuotaTracker {
             QuotaState {
                 quota,
                 window_started_at,
+                token_usage,
             },
         );
         Ok(())
@@ -269,16 +274,45 @@ impl QuotaTracker {
                 )));
             }
         }
+        if let Some(limit) = state.quota.tokens_per_minute {
+            if state.token_usage >= u64::from(limit) {
+                return Err(ContractError::ParseError(format!(
+                    "provider token quota exceeded for {provider_id}: {limit} tokens/minute"
+                )));
+            }
+        }
         state.quota.current_usage = state.quota.current_usage.saturating_add(1);
         Ok(())
     }
 
     /// Return quota state together with the active request-window start.
-    pub async fn get_state(&self, provider_id: &str) -> Option<(QuotaInfo, u64)> {
+    pub async fn get_state(&self, provider_id: &str) -> Option<(QuotaInfo, u64, u64)> {
         let mut quotas = self.quotas.write().await;
         let state = quotas.get_mut(provider_id)?;
         Self::refresh_window(state, unix_time());
-        Some((state.quota.clone(), state.window_started_at))
+        Some((state.quota.clone(), state.window_started_at, state.token_usage))
+    }
+
+    /// Return token usage for a provider in its active minute window.
+    pub async fn token_usage(&self, provider_id: &str) -> Option<u64> {
+        self.get_state(provider_id)
+            .await
+            .map(|(_, _, token_usage)| token_usage)
+    }
+
+    /// Record actual provider token usage.
+    ///
+    /// This never rejects the already-completed request. Once the configured
+    /// token ceiling is reached, subsequent requests are blocked until the
+    /// active window resets.
+    pub async fn record_tokens(&self, provider_id: &str, tokens: u64) -> Result<(), ContractError> {
+        let mut quotas = self.quotas.write().await;
+        let state = quotas
+            .get_mut(provider_id)
+            .ok_or(ContractError::MissingCapability)?;
+        Self::refresh_window(state, unix_time());
+        state.token_usage = state.token_usage.saturating_add(tokens);
+        Ok(())
     }
 
     /// Increment usage for a provider.
@@ -295,6 +329,13 @@ impl QuotaTracker {
             if state.quota.current_usage >= u64::from(limit) {
                 return Err(ContractError::ParseError(format!(
                     "provider request quota exceeded for {provider_id}: {limit} requests/minute"
+                )));
+            }
+        }
+        if let Some(limit) = state.quota.tokens_per_minute {
+            if state.token_usage >= u64::from(limit) {
+                return Err(ContractError::ParseError(format!(
+                    "provider token quota exceeded for {provider_id}: {limit} tokens/minute"
                 )));
             }
         }

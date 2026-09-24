@@ -140,7 +140,11 @@ function parseJournalEntries(source) {
 
 const journalEntries = parseJournalEntries(operationsRaw);
 
-if (continuity.schema_version !== 1) fail("unsupported continuity manifest schema");
+if (continuity.schema_version !== 2) fail("unsupported continuity manifest schema");
+if (continuity.policies.sequential_implementation_disabled !== true) fail("sequential implementation lock must be disabled");
+if (continuity.policies.parallel_workstreams_allowed !== true) fail("parallel workstreams must be enabled");
+if (continuity.policies.capability_level_verification !== true) fail("capability-level verification must be enabled");
+if (continuity.policies.current_state_must_not_block_unrelated_workstreams !== true) fail("unrelated workstreams must not be blocked by current state");
 if (continuity.policies.read_state_before_action !== true) fail("state-read policy disabled");
 if (continuity.policies.report_before_action !== true) fail("pre-change report policy disabled");
 if (continuity.policies.report_after_action !== true) fail("post-change report policy disabled");

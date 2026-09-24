@@ -106,7 +106,7 @@ impl RuntimeState {
             Arc::new(CapabilityRegistry::default()),
         ));
 
-        let provider = Arc::new(ProviderPlatform::from_env().await?);
+        let provider = Arc::new(ProviderPlatform::open_from_env(&database_url).await?);
         let sandbox = Arc::new(ProcessSandbox::new(SandboxPolicy::default()));
         let secure_tools = Arc::new(SecureToolService::new(
             capabilities.clone(),

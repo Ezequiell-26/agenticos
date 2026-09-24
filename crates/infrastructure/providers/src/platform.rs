@@ -7,6 +7,7 @@ use agenticos_contracts::{
     ModelResponse, ProviderEntry,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -36,6 +37,17 @@ struct EnvProvider {
     api_key: Option<String>,
 }
 
+#[derive(Clone)]
+struct ProviderSecretKey([u8; 32]);
+
+impl std::fmt::Debug for ProviderSecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ProviderSecretKey")
+            .field(&"<redacted>")
+            .finish()
+    }
+}
+
 /// Multi-provider runtime platform.
 #[derive(Debug, Clone)]
 pub struct ProviderPlatform {
@@ -46,6 +58,8 @@ pub struct ProviderPlatform {
     health: Arc<HealthChecker>,
     retries: Arc<RetryManager>,
     fallbacks: Arc<FallbackManager>,
+    db: Option<Arc<SqlitePool>>,
+    secret_key: Option<ProviderSecretKey>,
 }
 
 impl ProviderPlatform {
@@ -59,7 +73,230 @@ impl ProviderPlatform {
             health: Arc::new(HealthChecker::new()),
             retries: Arc::new(RetryManager::new()),
             fallbacks: Arc::new(FallbackManager::new()),
+            db: None,
+            secret_key: provider_secret_key(),
         }
+    }
+
+    /// Open a SQLite-backed provider platform and recover provider configuration.
+    pub async fn open(database_url: &str) -> Result<Self, ContractError> {
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("provider database connection failed: {error}")))?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS providers (
+                provider_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                models TEXT NOT NULL,
+                capabilities TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS provider_credentials (
+                provider_id TEXT PRIMARY KEY,
+                credential_type TEXT NOT NULL,
+                encrypted_value TEXT NOT NULL,
+                expires_at INTEGER NOT NULL,
+                scope TEXT
+            );
+            CREATE TABLE IF NOT EXISTS provider_fallback_configs (
+                primary_provider TEXT PRIMARY KEY,
+                fallback_providers TEXT NOT NULL,
+                auto_failover INTEGER NOT NULL
+            );
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("provider schema initialization failed: {error}")))?;
+
+        let provider_rows = sqlx::query_as::<_, (String, String, String, String, String)>(
+            "SELECT provider_id, name, base_url, models, capabilities FROM providers ORDER BY provider_id",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("provider recovery failed: {error}")))?;
+
+        let platform = Self {
+            registry: Arc::new(ProviderRegistry::new()),
+            catalog: Arc::new(ModelCatalog::new()),
+            credentials: Arc::new(CredentialPool::new()),
+            quotas: Arc::new(QuotaTracker::new()),
+            health: Arc::new(HealthChecker::new()),
+            retries: Arc::new(RetryManager::new()),
+            fallbacks: Arc::new(FallbackManager::new()),
+            db: Some(Arc::new(db)),
+            secret_key: provider_secret_key(),
+        };
+
+        for (provider_id, name, base_url, models_json, capabilities_json) in provider_rows {
+            let models = serde_json::from_str::<Vec<String>>(&models_json).map_err(|error| {
+                ContractError::ParseError(format!("invalid persisted models for {provider_id}: {error}"))
+            })?;
+            let capabilities = serde_json::from_str::<Vec<String>>(&capabilities_json).map_err(|error| {
+                ContractError::ParseError(format!("invalid persisted capabilities for {provider_id}: {error}"))
+            })?;
+            platform
+                .registry
+                .register(ProviderEntry {
+                    provider_id: provider_id.clone(),
+                    name,
+                    base_url,
+                    models: models.clone(),
+                    capabilities: capabilities.clone(),
+                })
+                .await?;
+            for model in models {
+                platform
+                    .catalog
+                    .register(ModelEntry {
+                        model_id: model.clone(),
+                        provider_id: provider_id.clone(),
+                        name: model,
+                        context_window: None,
+                        capabilities: capabilities.clone(),
+                    })
+                    .await?;
+            }
+            platform
+                .health
+                .update(HealthCheck {
+                    provider_id: provider_id.clone(),
+                    status: HealthStatus::Unknown,
+                    last_check: unix_time(),
+                    message: None,
+                })
+                .await?;
+        }
+
+        if let Some(secret_key) = platform.secret_key.as_ref() {
+            let db = platform.db.as_ref().expect("provider db");
+            let rows = sqlx::query_as::<_, (String, String, String, i64, Option<String>)>(
+                "SELECT provider_id, credential_type, encrypted_value, expires_at, scope FROM provider_credentials",
+            )
+            .fetch_all(db)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("credential recovery failed: {error}")))?;
+
+            for (provider_id, credential_type, encrypted_value, expires_at, scope) in rows {
+                let value = decrypt_provider_secret(secret_key, &encrypted_value).map_err(|error| {
+                    ContractError::ParseError(format!("credential recovery failed for {provider_id}: {error}"))
+                })?;
+                platform
+                    .credentials
+                    .add(Credential {
+                        credential_id: format!("cred-{provider_id}"),
+                        provider_id,
+                        credential_type,
+                        value,
+                        expires_at: expires_at.max(0) as u64,
+                        scope,
+                    })
+                    .await?;
+            }
+        }
+
+        if let Some(db) = platform.db.as_ref() {
+            let rows = sqlx::query_as::<_, (String, String, i64)>(
+                "SELECT primary_provider, fallback_providers, auto_failover FROM provider_fallback_configs",
+            )
+            .fetch_all(db)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("fallback recovery failed: {error}")))?;
+
+            for (primary_provider, fallback_json, auto_failover) in rows {
+                let fallback_providers = serde_json::from_str::<Vec<String>>(&fallback_json)
+                    .map_err(|error| ContractError::ParseError(format!("invalid persisted fallback config: {error}")))?;
+                platform
+                    .fallbacks
+                    .set_config(agenticos_contracts::FallbackConfig {
+                        primary_provider,
+                        fallback_providers,
+                        auto_failover: auto_failover != 0,
+                    })
+                    .await?;
+            }
+        }
+
+        Ok(platform)
+    }
+
+    /// Open a persisted platform and apply environment provider configuration.
+    pub async fn open_from_env(database_url: &str) -> Result<Self, ContractError> {
+        let platform = Self::open(database_url).await?;
+        platform.apply_env().await?;
+        Ok(platform)
+    }
+
+    async fn apply_env(&self) -> Result<(), ContractError> {
+        if let Ok(raw) = std::env::var("AGENTICOS_PROVIDERS_JSON") {
+            let configured = serde_json::from_str::<Vec<EnvProvider>>(&raw).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "AGENTICOS_PROVIDERS_JSON must be a JSON array: {error}"
+                ))
+            })?;
+            if configured.is_empty() {
+                return Err(ContractError::ParseError(
+                    "AGENTICOS_PROVIDERS_JSON must contain at least one provider".to_string(),
+                ));
+            }
+            for provider in configured {
+                self.register(
+                    ProviderEntry {
+                        provider_id: provider.provider_id,
+                        name: provider.name,
+                        base_url: provider.base_url,
+                        models: provider.models,
+                        capabilities: provider.capabilities,
+                    },
+                    provider.api_key,
+                )
+                .await?;
+            }
+            return Ok(());
+        }
+
+        let provider_id = std::env::var("AGENTICOS_PROVIDER_NAME")
+            .unwrap_or_else(|_| "openai-compatible".to_string());
+        let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
+            .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
+        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+        let key = std::env::var("AGENTICOS_API_KEY").ok();
+
+        self.register(
+            ProviderEntry {
+                provider_id: provider_id.clone(),
+                name: "Environment provider".to_string(),
+                base_url,
+                models: vec![model],
+                capabilities: vec!["chat".to_string()],
+            },
+            key,
+        )
+        .await?;
+
+        if let Ok(raw) = std::env::var("AGENTICOS_FALLBACK_PROVIDERS") {
+            let fallback_providers: Vec<String> = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect();
+            if !fallback_providers.is_empty() {
+                let auto_failover = std::env::var("AGENTICOS_AUTO_FAILOVER")
+                    .map(|value| value.eq_ignore_ascii_case("true"))
+                    .unwrap_or(true);
+                self.set_fallback_config(agenticos_contracts::FallbackConfig {
+                    primary_provider: provider_id,
+                    fallback_providers,
+                    auto_failover,
+                })
+                .await?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Register a provider and its optional secret.
@@ -111,6 +348,7 @@ impl ProviderPlatform {
                 "provider contains an invalid capability".to_string(),
             ));
         }
+
         let normalized_entry = ProviderEntry {
             provider_id: provider_id.clone(),
             name,
@@ -127,18 +365,63 @@ impl ProviderPlatform {
                 .collect(),
         };
 
-        // Registration is replace semantics: stale models/credentials must not survive updates.
+        if let Some(db) = self.db.as_ref() {
+            let mut tx = db
+                .begin()
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider transaction failed: {error}")))?;
+            let models_json = serde_json::to_string(&normalized_entry.models)
+                .map_err(|error| ContractError::ParseError(format!("provider model serialization failed: {error}")))?;
+            let capabilities_json = serde_json::to_string(&normalized_entry.capabilities)
+                .map_err(|error| ContractError::ParseError(format!("provider capability serialization failed: {error}")))?;
+
+            sqlx::query(
+                "INSERT INTO providers (provider_id, name, base_url, models, capabilities) VALUES (?, ?, ?, ?, ?) ON CONFLICT(provider_id) DO UPDATE SET name = excluded.name, base_url = excluded.base_url, models = excluded.models, capabilities = excluded.capabilities",
+            )
+            .bind(&normalized_entry.provider_id)
+            .bind(&normalized_entry.name)
+            .bind(&normalized_entry.base_url)
+            .bind(models_json)
+            .bind(capabilities_json)
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("provider persistence failed: {error}")))?;
+
+            sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
+                .bind(&provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider credential cleanup failed: {error}")))?;
+
+            if let Some(key) = api_key.as_deref().filter(|value| !value.trim().is_empty()) {
+                if let Some(secret_key) = self.secret_key.as_ref() {
+                    let encrypted = encrypt_provider_secret(secret_key, key)?;
+                    sqlx::query(
+                        "INSERT INTO provider_credentials (provider_id, credential_type, encrypted_value, expires_at, scope) VALUES (?, 'api_key', ?, 0, NULL)",
+                    )
+                    .bind(&provider_id)
+                    .bind(encrypted)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|error| ContractError::ParseError(format!("provider credential persistence failed: {error}")))?;
+                }
+            }
+            tx.commit()
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider transaction commit failed: {error}")))?;
+        }
+
         self.catalog.remove_by_provider(&provider_id).await;
         self.credentials.remove_for_provider(&provider_id).await;
         self.registry.register(normalized_entry.clone()).await?;
         for model in &normalized_entry.models {
             self.catalog
-                .register(agenticos_contracts::ModelEntry {
+                .register(ModelEntry {
                     model_id: model.clone(),
                     provider_id: provider_id.clone(),
                     name: model.clone(),
                     context_window: None,
-                    capabilities: entry.capabilities.clone(),
+                    capabilities: normalized_entry.capabilities.clone(),
                 })
                 .await?;
         }
@@ -164,12 +447,24 @@ impl ProviderPlatform {
             .await?;
         Ok(())
     }
-
     /// Configure explicit provider failover order.
     pub async fn set_fallback_config(
         &self,
         config: agenticos_contracts::FallbackConfig,
     ) -> Result<(), ContractError> {
+        if let Some(db) = self.db.as_ref() {
+            let fallback_json = serde_json::to_string(&config.fallback_providers)
+                .map_err(|error| ContractError::ParseError(format!("fallback serialization failed: {error}")))?;
+            sqlx::query(
+                "INSERT INTO provider_fallback_configs (primary_provider, fallback_providers, auto_failover) VALUES (?, ?, ?) ON CONFLICT(primary_provider) DO UPDATE SET fallback_providers = excluded.fallback_providers, auto_failover = excluded.auto_failover",
+            )
+            .bind(&config.primary_provider)
+            .bind(fallback_json)
+            .bind(if config.auto_failover { 1_i64 } else { 0_i64 })
+            .execute(db)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("fallback persistence failed: {error}")))?;
+        }
         self.fallbacks.set_config(config).await
     }
 
@@ -366,76 +661,7 @@ impl ProviderPlatform {
     /// Seed a default provider from environment variables.
     pub async fn from_env() -> Result<Self, ContractError> {
         let platform = Self::new();
-
-        if let Ok(raw) = std::env::var("AGENTICOS_PROVIDERS_JSON") {
-            let configured = serde_json::from_str::<Vec<EnvProvider>>(&raw).map_err(|error| {
-                ContractError::ParseError(format!(
-                    "AGENTICOS_PROVIDERS_JSON must be a JSON array: {error}"
-                ))
-            })?;
-            if configured.is_empty() {
-                return Err(ContractError::ParseError(
-                    "AGENTICOS_PROVIDERS_JSON must contain at least one provider".to_string(),
-                ));
-            }
-            for provider in configured {
-                platform
-                    .register(
-                        ProviderEntry {
-                            provider_id: provider.provider_id,
-                            name: provider.name,
-                            base_url: provider.base_url,
-                            models: provider.models,
-                            capabilities: provider.capabilities,
-                        },
-                        provider.api_key,
-                    )
-                    .await?;
-            }
-            return Ok(platform);
-        }
-
-        let provider_id = std::env::var("AGENTICOS_PROVIDER_NAME")
-            .unwrap_or_else(|_| "openai-compatible".to_string());
-        let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
-            .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
-        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
-        let key = std::env::var("AGENTICOS_API_KEY").ok();
-
-        platform
-            .register(
-                ProviderEntry {
-                    provider_id: provider_id.clone(),
-                    name: "Environment provider".to_string(),
-                    base_url,
-                    models: vec![model],
-                    capabilities: vec!["chat".to_string()],
-                },
-                key,
-            )
-            .await?;
-
-        if let Ok(raw) = std::env::var("AGENTICOS_FALLBACK_PROVIDERS") {
-            let fallback_providers: Vec<String> = raw
-                .split(',')
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned)
-                .collect();
-            if !fallback_providers.is_empty() {
-                let auto_failover = std::env::var("AGENTICOS_AUTO_FAILOVER")
-                    .map(|value| value.eq_ignore_ascii_case("true"))
-                    .unwrap_or(true);
-                platform
-                    .set_fallback_config(agenticos_contracts::FallbackConfig {
-                        primary_provider: provider_id,
-                        fallback_providers,
-                        auto_failover,
-                    })
-                    .await?;
-            }
-        }
-
+        platform.apply_env().await?;
         Ok(platform)
     }
 
@@ -454,6 +680,33 @@ impl ProviderPlatform {
 
     /// Remove a provider and all runtime state associated with it.
     pub async fn unregister(&self, provider_id: &str) -> Result<bool, ContractError> {
+        if let Some(db) = self.db.as_ref() {
+            let mut tx = db
+                .begin()
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider delete transaction failed: {error}")))?;
+            let result = sqlx::query("DELETE FROM providers WHERE provider_id = ?")
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider deletion failed: {error}")))?;
+            sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider credential deletion failed: {error}")))?;
+            sqlx::query("DELETE FROM provider_fallback_configs WHERE primary_provider = ?")
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| ContractError::ParseError(format!("fallback deletion failed: {error}")))?;
+            tx.commit()
+                .await
+                .map_err(|error| ContractError::ParseError(format!("provider delete commit failed: {error}")))?;
+            if result.rows_affected() == 0 {
+                return Ok(false);
+            }
+        }
         let removed = self.registry.remove(provider_id).await;
         if removed {
             self.catalog.remove_by_provider(provider_id).await;
@@ -600,6 +853,93 @@ fn normalize_chat_url(base_url: &str) -> String {
     } else {
         format!("{trimmed}/v1/chat/completions")
     }
+}
+
+fn provider_secret_key() -> Option<ProviderSecretKey> {
+    let raw = std::env::var("AGENTICOS_SECRET_KEY").ok()?;
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let digest = ring::digest::digest(&ring::digest::SHA256, raw.as_bytes());
+    let mut key = [0_u8; 32];
+    key.copy_from_slice(digest.as_ref());
+    Some(ProviderSecretKey(key))
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        result.push(HEX[(byte >> 4) as usize] as char);
+        result.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    result
+}
+
+fn hex_decode(value: &str) -> Result<Vec<u8>, ContractError> {
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+    let bytes = value.as_bytes();
+    if bytes.len() % 2 != 0 {
+        return Err(ContractError::ParseError("encrypted provider secret is malformed".to_string()));
+    }
+    let mut decoded = Vec::with_capacity(bytes.len() / 2);
+    for pair in bytes.chunks_exact(2) {
+        let hi = nibble(pair[0]).ok_or_else(|| ContractError::ParseError("encrypted provider secret is malformed".to_string()))?;
+        let lo = nibble(pair[1]).ok_or_else(|| ContractError::ParseError("encrypted provider secret is malformed".to_string()))?;
+        decoded.push((hi << 4) | lo);
+    }
+    Ok(decoded)
+}
+
+fn encrypt_provider_secret(secret_key: &ProviderSecretKey, plaintext: &str) -> Result<String, ContractError> {
+    use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
+    use ring::rand::{SecureRandom, SystemRandom};
+
+    let unbound = UnboundKey::new(&AES_256_GCM, &secret_key.0)
+        .map_err(|_| ContractError::ParseError("invalid provider secret key".to_string()))?;
+    let key = LessSafeKey::new(unbound);
+    let mut nonce_bytes = [0_u8; 12];
+    SystemRandom::new()
+        .fill(&mut nonce_bytes)
+        .map_err(|_| ContractError::ParseError("provider secret nonce generation failed".to_string()))?;
+
+    let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+    let mut ciphertext = plaintext.as_bytes().to_vec();
+    key.seal_in_place_append_tag(nonce, Aad::empty(), &mut ciphertext)
+        .map_err(|_| ContractError::ParseError("provider secret encryption failed".to_string()))?;
+
+    let mut encoded = nonce_bytes.to_vec();
+    encoded.extend(ciphertext);
+    Ok(hex_encode(&encoded))
+}
+
+fn decrypt_provider_secret(secret_key: &ProviderSecretKey, encoded: &str) -> Result<String, ContractError> {
+    use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
+
+    let bytes = hex_decode(encoded)?;
+    if bytes.len() < 12 + 16 {
+        return Err(ContractError::ParseError("encrypted provider secret is too short".to_string()));
+    }
+    let unbound = UnboundKey::new(&AES_256_GCM, &secret_key.0)
+        .map_err(|_| ContractError::ParseError("invalid provider secret key".to_string()))?;
+    let key = LessSafeKey::new(unbound);
+    let mut nonce_bytes = [0_u8; 12];
+    nonce_bytes.copy_from_slice(&bytes[..12]);
+    let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+    let mut ciphertext = bytes[12..].to_vec();
+    let plaintext = key
+        .open_in_place(nonce, Aad::empty(), &mut ciphertext)
+        .map_err(|_| ContractError::ParseError("provider secret decryption failed".to_string()))?;
+    String::from_utf8(plaintext.to_vec())
+        .map_err(|_| ContractError::ParseError("provider secret is not valid UTF-8".to_string()))
 }
 
 fn unix_time() -> u64 {

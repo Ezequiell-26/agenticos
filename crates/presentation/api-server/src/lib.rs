@@ -1392,11 +1392,23 @@ async fn scheduler_worker(state: RuntimeState) {
 
             let run_id = RunId::new(started_job.spec.run_id.clone()).ok();
             if let Some(run_id) = run_id.clone() {
-                let run = state.kernel.runs.read().await.get(&run_id).cloned();
-                match run {
-                    Some(run)
-                        if matches!(run.state, RunState::Cancelling | RunState::Cancelled) =>
-                    {
+                let run = match state.kernel.get_or_recover_run(&run_id).await {
+                    Ok(run) => run,
+                    Err(error) => {
+                        let _ = state
+                            .scheduler
+                            .complete(
+                                &started_job.spec.job_id,
+                                false,
+                                Some(format!("run recovery failed: {error}")),
+                            )
+                            .await;
+                        continue;
+                    }
+                };
+
+                match run.state {
+                    RunState::Cancelling | RunState::Cancelled => {
                         let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
                         if run.state == RunState::Cancelling {
                             let _ = state
@@ -1406,7 +1418,7 @@ async fn scheduler_worker(state: RuntimeState) {
                         }
                         continue;
                     }
-                    Some(run) if run.state == RunState::Admitted => {
+                    RunState::Admitted => {
                         if let Err(error) = state
                             .kernel
                             .transition_run(&run_id, RunState::Running, run.version)
@@ -1419,16 +1431,21 @@ async fn scheduler_worker(state: RuntimeState) {
                             continue;
                         }
                     }
-                    Some(_) => {}
-                    None => {
-                        let _ = state
-                            .scheduler
-                            .complete(
-                                &started_job.spec.job_id,
-                                false,
-                                Some("run not found".to_string()),
-                            )
-                            .await;
+                    RunState::Created | RunState::Waiting => {
+                        let _ = state.scheduler.complete(
+                            &started_job.spec.job_id,
+                            false,
+                            Some(format!("run {} is not executable in state {:?}", run_id.as_str(), run.state)),
+                        ).await;
+                        continue;
+                    }
+                    RunState::Running => {}
+                    RunState::Completed | RunState::Failed => {
+                        let _ = state.scheduler.complete(
+                            &started_job.spec.job_id,
+                            true,
+                            Some("run already reached terminal state".to_string()),
+                        ).await;
                         continue;
                     }
                 }
@@ -1439,8 +1456,7 @@ async fn scheduler_worker(state: RuntimeState) {
             match agent.execute_turn(&started_job.spec.task).await {
                 Ok(response) => {
                     if let Some(run_id) = run_id {
-                        let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
-                        if let Some(run) = current_run {
+                        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
                             let transition = match run.state {
                                 RunState::Cancelling => {
                                     state

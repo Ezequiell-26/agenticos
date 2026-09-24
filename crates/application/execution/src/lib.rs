@@ -5,13 +5,12 @@
 
 use agenticos_contracts::{
     AgentEngine, Command, CommandHandler, CommandResult, ContextManager, ContractError,
-    MemoryStore, ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler,
-    QueryResult, RunId, RunState,
+    ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler, QueryResult, RunId,
+    RunState,
 };
 use agenticos_kernel::KernelRuntime;
-use agenticos_memory::{InMemoryContextManager, InMemoryMemoryStore};
+use agenticos_memory::InMemoryContextManager;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-execution";
@@ -190,14 +189,14 @@ impl ModelProvider for InMemoryModelProvider {
 }
 
 /// Basic agent engine implementation.
+///
+/// This façade delegates lifecycle and recovery to `KernelRuntime` and keeps
+/// only the execution dependencies owned by this application boundary.
 pub struct BasicAgentEngine {
     engine_id: String,
     runtime: Arc<KernelRuntime>,
-    #[allow(dead_code)]
     model_provider: Arc<dyn ModelProvider>,
-    runs: Arc<RwLock<Vec<RunId>>>,
-    context_manager: Arc<InMemoryContextManager>,
-    memory_store: Arc<InMemoryMemoryStore>,
+    context_manager: Arc<dyn ContextManager>,
 }
 
 impl std::fmt::Debug for BasicAgentEngine {
@@ -206,62 +205,40 @@ impl std::fmt::Debug for BasicAgentEngine {
             .field("engine_id", &self.engine_id)
             .field("runtime", &"<KernelRuntime>")
             .field("model_provider", &"<ModelProvider>")
-            .field("runs", &self.runs)
+            .field("context_manager", &"<ContextManager>")
             .finish()
     }
 }
 
 impl BasicAgentEngine {
-    /// Create a new basic agent engine.
+    /// Create a basic agent engine from runtime dependencies.
     pub fn new(
         engine_id: String,
         runtime: Arc<KernelRuntime>,
         model_provider: Arc<dyn ModelProvider>,
-        context_manager: Arc<InMemoryContextManager>,
-        memory_store: Arc<InMemoryMemoryStore>,
+        context_manager: Arc<dyn ContextManager>,
     ) -> Self {
         Self {
             engine_id,
             runtime,
             model_provider,
-            runs: Arc::new(RwLock::new(Vec::new())),
             context_manager,
-            memory_store,
         }
     }
 
-    /// Create a basic agent engine with a kernel runtime.
+    /// Create a basic agent engine with in-memory execution dependencies.
     pub fn with_kernel(engine_id: String, runtime: Arc<KernelRuntime>) -> Self {
-        let model_provider = Arc::new(InMemoryModelProvider::default());
-        let context_manager = Arc::new(InMemoryContextManager::new());
-        let memory_store = Arc::new(InMemoryMemoryStore::new());
         Self::new(
             engine_id,
             runtime,
-            model_provider,
-            context_manager,
-            memory_store,
+            Arc::new(InMemoryModelProvider::default()),
+            Arc::new(InMemoryContextManager::new()),
         )
     }
 
-    /// Recover runs from memory (durable run identity across restart).
-    pub async fn recover_runs(&self) -> Result<Vec<RunId>, ContractError> {
-        let mut recovered_runs = Vec::new();
-
-        // Query kernel runs to recover active runs
-        let runs = self.runtime.runs.read().await;
-        for (run_id, run) in runs.iter() {
-            if run.state != RunState::Failed {
-                recovered_runs.push(run_id.clone());
-            }
-        }
-
-        // Update local registry with recovered runs
-        let mut local_runs = self.runs.write().await;
-        local_runs.clear();
-        local_runs.extend(recovered_runs.clone());
-
-        Ok(recovered_runs)
+    /// Recover a specific run through the durable kernel boundary.
+    pub async fn recover_run(&self, run_id: &RunId) -> Result<(), ContractError> {
+        self.runtime.get_or_recover_run(run_id).await.map(|_| ())
     }
 }
 
@@ -272,130 +249,136 @@ impl AgentEngine for BasicAgentEngine {
     }
 
     async fn start_run(&self, run_id: RunId, objective: String) -> Result<(), ContractError> {
-        // Create the run in the kernel
-        self.runtime.create_run(run_id.clone()).await?;
+        if objective.trim().is_empty() {
+            return Err(ContractError::InvalidId);
+        }
 
-        // Transition to Admitted
+        let run = self.runtime.create_run(run_id.clone()).await?;
         self.runtime
-            .transition_run(&run_id, RunState::Admitted, 1)
+            .transition_run(&run_id, RunState::Admitted, run.version)
             .await?;
 
-        // Store objective in memory for recovery
-        let memory_entry = agenticos_contracts::MemoryEntry {
-            memory_id: format!("{}-objective", run_id.as_str()),
-            run_id: run_id.clone(),
-            key: "objective".to_string(),
-            value: objective.clone(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            expires_at: 0,
-        };
-        self.memory_store.store(memory_entry).await?;
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| ContractError::Persistence)?
+            .as_secs();
 
-        // Store run registry entry in memory for recovery
-        let registry_entry = agenticos_contracts::MemoryEntry {
-            memory_id: format!("{}-registry", run_id.as_str()),
-            run_id: run_id.clone(),
-            key: "registry".to_string(),
-            value: "active".to_string(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            expires_at: 0,
-        };
-        self.memory_store.store(registry_entry).await?;
+        self.context_manager
+            .add_message(agenticos_contracts::Message {
+                message_id: format!("{}-objective", run_id.as_str()),
+                role: "user".to_string(),
+                content: objective.clone(),
+                timestamp,
+                token_count: objective.len() as u32,
+                run_id: run_id.clone(),
+            })
+            .await?;
 
-        // Log the start
-        let log_entry = agenticos_contracts::LogEntry {
-            level: agenticos_contracts::LogLevel::Info,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            component: "AgentEngine".to_string(),
-            message: format!("Starting run with objective: {}", objective),
-            fields: vec![("run_id".to_string(), run_id.as_str().to_string())],
-            correlation_id: Some(run_id.as_str().to_string()),
-        };
-        self.runtime.logger.log(log_entry).await?;
-
-        // Register the run in local registry for fast access
-        let mut runs = self.runs.write().await;
-        runs.push(run_id);
+        self.runtime
+            .logger
+            .log(agenticos_contracts::LogEntry {
+                level: agenticos_contracts::LogLevel::Info,
+                timestamp,
+                component: "AgentEngine".to_string(),
+                message: format!("Starting run with objective: {}", objective),
+                fields: vec![("run_id".to_string(), run_id.as_str().to_string())],
+                correlation_id: Some(run_id.as_str().to_string()),
+            })
+            .await?;
 
         Ok(())
     }
 
     async fn resume_run(&self, run_id: RunId) -> Result<(), ContractError> {
-        // Check if run exists in our registry or memory
-        let runs = self.runs.read().await;
-        if !runs.contains(&run_id) {
-            // Try to recover from memory
-            let recovered = self.recover_runs().await?;
-            if !recovered.contains(&run_id) {
-                return Err(ContractError::MissingCapability);
-            }
+        let run = self.runtime.get_or_recover_run(&run_id).await?;
+        if matches!(
+            run.state,
+            RunState::Completed | RunState::Cancelled | RunState::Failed
+        ) {
+            return Ok(());
         }
 
-        // Transition to Running
         self.runtime
-            .transition_run(&run_id, RunState::Running, 2)
+            .transition_run(&run_id, RunState::Running, run.version)
             .await?;
 
-        // Execute model request through the provider
+        let context = self.context_manager.get_context(run_id.clone()).await?;
+        let input = context
+            .last()
+            .map(|message| message.content.clone())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "Process run".to_string());
+
         let request = ModelRequest {
             request_id: format!("{}-model-req", run_id.as_str()),
             model: "default-model".to_string(),
-            input: "Process run".to_string(),
+            input,
             parameters: None,
         };
 
-        let response = self.model_provider.execute(request).await?;
+        match self.model_provider.execute(request).await {
+            Ok(response) => {
+                let output = response.output.clone();
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(|_| ContractError::Persistence)?
+                    .as_secs();
 
-        // Log the model execution
-        let log_entry = agenticos_contracts::LogEntry {
-            level: agenticos_contracts::LogLevel::Info,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            component: "AgentEngine".to_string(),
-            message: format!("Model execution: {}", response.output),
-            fields: vec![
-                ("run_id".to_string(), run_id.as_str().to_string()),
-                (
-                    "tokens_used".to_string(),
-                    response.tokens_used.unwrap_or(0).to_string(),
-                ),
-            ],
-            correlation_id: Some(run_id.as_str().to_string()),
-        };
-        self.runtime.logger.log(log_entry).await?;
+                self.runtime
+                    .logger
+                    .log(agenticos_contracts::LogEntry {
+                        level: agenticos_contracts::LogLevel::Info,
+                        timestamp,
+                        component: "AgentEngine".to_string(),
+                        message: format!("Model execution: {output}"),
+                        fields: vec![
+                            ("run_id".to_string(), run_id.as_str().to_string()),
+                            (
+                                "tokens_used".to_string(),
+                                response.tokens_used.unwrap_or(0).to_string(),
+                            ),
+                        ],
+                        correlation_id: Some(run_id.as_str().to_string()),
+                    })
+                    .await?;
 
-        // Add message to context for recovery
-        let message = agenticos_contracts::Message {
-            message_id: format!("{}-msg-1", run_id.as_str()),
-            role: "agent".to_string(),
-            content: response.output.clone(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            token_count: response.output.len() as u32,
-            run_id: run_id.clone(),
-        };
-        self.context_manager.add_message(message).await?;
+                self.context_manager
+                    .add_message(agenticos_contracts::Message {
+                        message_id: format!("{}-assistant-{}", run_id.as_str(), timestamp),
+                        role: "assistant".to_string(),
+                        content: output,
+                        timestamp,
+                        token_count: response.output.len() as u32,
+                        run_id: run_id.clone(),
+                    })
+                    .await?;
 
-        Ok(())
+                let current = self.runtime.get_or_recover_run(&run_id).await?;
+                if current.state == RunState::Running {
+                    self.runtime
+                        .transition_run(&run_id, RunState::Completed, current.version)
+                        .await?;
+                }
+                Ok(())
+            }
+            Err(error) => {
+                let current = self.runtime.get_or_recover_run(&run_id).await?;
+                if current.state == RunState::Running {
+                    let _ = self
+                        .runtime
+                        .transition_run(&run_id, RunState::Failed, current.version)
+                        .await;
+                }
+                Err(error)
+            }
+        }
     }
 
     async fn get_run_state(&self, run_id: RunId) -> Result<RunState, ContractError> {
-        let runs = self.runtime.runs.read().await;
-        let run = runs.get(&run_id).ok_or(ContractError::MissingCapability)?;
-        Ok(run.state)
+        self.runtime
+            .get_or_recover_run(&run_id)
+            .await
+            .map(|run| run.state)
     }
 }
 
@@ -450,9 +433,9 @@ mod tests {
             // Resume the run
             engine.resume_run(run_id.clone()).await.unwrap();
 
-            // Check state after resume
+            // Check state after execution completes.
             let state = engine.get_run_state(run_id.clone()).await.unwrap();
-            assert_eq!(state, RunState::Running);
+            assert_eq!(state, RunState::Completed);
         });
     }
 
@@ -511,11 +494,10 @@ mod tests {
             let engine2 =
                 BasicAgentEngine::with_kernel("test-engine-2".to_string(), runtime.clone());
 
-            // Recover runs from memory
-            let recovered = engine2.recover_runs().await.unwrap();
-            assert!(recovered.contains(&run_id));
+            // Recover through the durable kernel boundary.
+            engine2.recover_run(&run_id).await.unwrap();
 
-            // Resume the recovered run
+            // Resume the recovered run.
             engine2.resume_run(run_id).await.unwrap();
         });
     }

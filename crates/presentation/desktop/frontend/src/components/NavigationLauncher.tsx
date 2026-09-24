@@ -72,7 +72,7 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
   }
 
   return (
-    <div ref={dialogRef} className="navigation-launcher" role="dialog" aria-label="All AgentiCOS features">
+    <div id="agenticos-navigation-launcher" ref={dialogRef} className="navigation-launcher" role="dialog" aria-modal="true" aria-label="All AgentiCOS features">
       <div className="navigation-launcher__head">
         <div><span className="eyebrow">AgentiCOS</span><strong>All features</strong></div>
         <button className="icon-button" type="button" onClick={onClose} aria-label="Close feature launcher"><Icon name="x" size={14} /></button>

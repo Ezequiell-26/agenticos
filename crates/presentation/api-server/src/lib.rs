@@ -1050,6 +1050,112 @@ async fn agent_status(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+async fn stream_model_execute(
+    request: web::Json<DirectModelRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let model = request.model.trim();
+    let input = request.input.trim();
+    if model.is_empty() || input.is_empty() {
+        state.metrics.record_http(true);
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model and input are required".to_string(),
+            code: "INVALID_MODEL_REQUEST",
+        });
+    }
+    if model.len() > 256 || input.len() > 1_000_000 {
+        state.metrics.record_http(true);
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model request exceeds supported limits".to_string(),
+            code: "MODEL_REQUEST_TOO_LARGE",
+        });
+    }
+
+    let request_id = request
+        .request_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let mut upstream = match state
+        .provider
+        .stream(agenticos_contracts::ModelRequest {
+            request_id: request_id.clone(),
+            model: model.to_string(),
+            input: input.to_string(),
+            parameters: request.parameters.clone(),
+        })
+        .await
+    {
+        Ok(stream) => {
+            state.metrics.record_provider(false);
+            stream
+        }
+        Err(error) => {
+            state.metrics.record_provider(true);
+            state.metrics.record_http(true);
+            return HttpResponse::BadGateway().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MODEL_STREAM_INIT_FAILED",
+            });
+        }
+    };
+
+    let request_id_for_stream = request_id.clone();
+    let metrics = state.metrics.clone();
+    let stream = async_stream::stream! {
+        use futures::StreamExt;
+
+        while let Some(item) = upstream.next().await {
+            match item {
+                Ok(chunk) if chunk == "[DONE]" => {
+                    let payload = serde_json::json!({
+                        "request_id": request_id_for_stream,
+                        "done": true,
+                    });
+                    yield Ok::<_, actix_web::Error>(actix_web::web::Bytes::from(format!(
+                        "event: done\ndata: {}\n\n",
+                        payload
+                    )));
+                    metrics.record_http(false);
+                }
+                Ok(chunk) => {
+                    let payload = serde_json::json!({
+                        "request_id": request_id_for_stream,
+                        "delta": chunk,
+                        "done": false,
+                    });
+                    yield Ok::<_, actix_web::Error>(actix_web::web::Bytes::from(format!(
+                        "event: message\ndata: {}\n\n",
+                        payload
+                    )));
+                }
+                Err(error) => {
+                    let payload = serde_json::json!({
+                        "request_id": request_id_for_stream,
+                        "error": error.to_string(),
+                    });
+                    metrics.record_provider(true);
+                    metrics.record_http(true);
+                    yield Ok::<_, actix_web::Error>(actix_web::web::Bytes::from(format!(
+                        "event: error\ndata: {}\n\n",
+                        payload
+                    )));
+                    break;
+                }
+            }
+        }
+    };
+
+    HttpResponse::Ok()
+        .insert_header(("Cache-Control", "no-cache"))
+        .insert_header(("X-Accel-Buffering", "no"))
+        .content_type("text/event-stream")
+        .streaming(stream)
+}
+
 async fn direct_model_execute(
     request: web::Json<DirectModelRequest>,
     state: web::Data<RuntimeState>,
@@ -3080,6 +3186,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
             .route("/api/models/execute", web::post().to(direct_model_execute))
+            .route("/api/models/stream", web::post().to(stream_model_execute))
             .route(
                 "/api/conversations/{session_id}/history",
                 web::get().to(conversation_history),

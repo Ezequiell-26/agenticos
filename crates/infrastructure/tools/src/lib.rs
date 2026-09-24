@@ -233,11 +233,9 @@ impl ToolRuntime {
             .cloned()
             .ok_or(ContractError::MissingCapability)?;
 
-        let _permit = self
-            .concurrency
-            .acquire()
-            .await
-            .map_err(|_| ContractError::ParseError("tool concurrency limiter closed".to_string()))?;
+        let _permit = self.concurrency.acquire().await.map_err(|_| {
+            ContractError::ParseError("tool concurrency limiter closed".to_string())
+        })?;
 
         executor.execute(request).await
     }

@@ -1226,3 +1226,11 @@ Verification status:
 - Kept mount/path validation, Docker capability enforcement and authorization runtime-owned; the frontend only defines the configuration contract.
 - Verified against the current Hermes configuration reference, which documents docker_volumes plus Docker lifecycle/resource controls. citeturn543563search0turn543563search2
 - Verification status: source integration complete; awaiting the newest GitHub Actions frontend/Rust gates.
+
+## 2026-09-24 — Hermes memory/context safety expansion
+
+- Added Settings controls for memory write approval, memory nudge cadence, memory flush threshold, maximum file-read size and automatic context-file size limits.
+- Added an environment-variable substitution preview using safe `${VAR_NAME}` references only; the frontend never resolves or stores secret values.
+- Corrected portable configuration placement so file-read and context-file limits are serialized at the root configuration scope rather than under terminal.
+- These controls follow the current Hermes configuration model for memory write approval, bounded memory stores, context-file truncation and environment-variable substitution. citeturn839871search1turn839871search2turn543563search0
+- Verification status: source integration complete; awaiting the newest GitHub Actions frontend/Rust gates.

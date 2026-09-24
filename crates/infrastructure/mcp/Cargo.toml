@@ -5,12 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-context = { path = "../context" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio-rustls"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process", "io-util", "macros", "rt-multi-thread", "time", "sync"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

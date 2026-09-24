@@ -811,7 +811,14 @@ impl RuntimeState {
                 enable_learning: true,
                 selection_strategy: SelectionStrategy::Balanced,
             })),
-            source_intelligence: Arc::new(agenticos_brain::SourceIntelligenceEngine::default()),
+            source_intelligence: Arc::new(
+                agenticos_brain::SourceIntelligenceEngine::open(
+                    &database_url,
+                    agenticos_brain::EngineConfig::default(),
+                )
+                .await
+                .map_err(ContractError::ParseError)?,
+            ),
             metrics: Arc::new(RuntimeMetrics::new()),
             evaluation: Arc::new(
                 EvaluationRegistry::open(&database_url)

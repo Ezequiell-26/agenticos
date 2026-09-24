@@ -317,7 +317,10 @@ impl CapabilityIssuer for CapabilityManager {
             .write()
             .await
             .insert(request.grant_id.clone(), request.clone());
-        self.persist_grant(&request).await?;
+        if let Err(error) = self.persist_grant(&request).await {
+            let _ = self.grants.write().await.remove(&request.grant_id);
+            return Err(error);
+        }
         Ok(request.grant_id)
     }
 

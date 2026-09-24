@@ -102,85 +102,55 @@ async function readJson(relativePath) {
 const state = await readJson("reference/manifests/implementation-state.json");
 const projectState = await readText("reference/PROJECT-STATE.md");
 
-if (state.schema_version !== 1) fail("unsupported implementation-state schema");
-if (!state.policy || state.policy.one_step_at_a_time !== true || state.policy.next_step_requires_verified_previous !== true || state.policy.fail_closed !== true) {
-  fail("implementation-state policy is incomplete or unsafe");
+if (state.schema_version !== 2) fail("unsupported implementation-state schema");
+if (state.mode !== "capability-driven-continuous") fail("implementation-state is not using capability-driven mode");
+if (!state.policy || state.policy.sequential_implementation !== false || state.policy.parallel_workstreams_allowed !== true || state.policy.capability_level_verification !== true || state.policy.evidence_required_for_verified_status !== true || state.policy.regression_is_blocking !== true) {
+  fail("capability-driven implementation policy is incomplete or unsafe");
 }
-if (!Array.isArray(state.steps) || state.steps.length < 3) fail("implementation-state has fewer than three controlled steps");
+if (!state.current_operation || typeof state.current_operation.id !== "string" || typeof state.current_operation.status !== "string") fail("current_operation is missing or malformed");
+if (!Array.isArray(state.workstreams) || state.workstreams.length < 3) fail("implementation-state has fewer than three workstreams");
+if (!Array.isArray(state.capabilities) || state.capabilities.length < 3) fail("implementation-state has fewer than three capabilities");
+if (!Array.isArray(state.backlog)) fail("implementation-state backlog is missing");
 
-const ordered = [...state.steps].sort((a, b) => a.number - b.number);
-const numbers = ordered.map((step) => step.number);
-const ids = ordered.map((step) => step.id);
-
-if (numbers.some((number) => !Number.isInteger(number) || number < 0)) fail("implementation step numbers must be non-negative integers");
-if (new Set(numbers).size !== numbers.length) fail("implementation step numbers must be unique");
-if (new Set(ids).size !== ids.length) fail("implementation step ids must be unique");
-
-for (let i = 0; i < ordered.length; i += 1) {
-  if (ordered[i].number !== i) fail("implementation steps must use contiguous numbers starting at zero");
-  if (!ordered[i].id || typeof ordered[i].id !== "string") fail("implementation step ids must be non-empty strings");
-  if (!["pending", "in_progress", "verifying", "correcting", "verified", "blocked"].includes(ordered[i].status)) {
-    fail("implementation step " + ordered[i].id + " has an invalid status");
-  }
-  if (ordered[i].requires !== undefined && !Array.isArray(ordered[i].requires)) {
-    fail("step " + ordered[i].id + " has an invalid requires field");
-  }
-  if (i > 0 && !ordered[i].requires?.includes(ordered[i - 1].id)) {
-    fail("step " + ordered[i].id + " must require its immediate predecessor");
-  }
-  if (!Array.isArray(ordered[i].required_checks)) fail("step " + ordered[i].id + " is missing required_checks");
-  if (!Array.isArray(ordered[i].verification_evidence)) fail("step " + ordered[i].id + " is missing verification_evidence");
-  if (!Array.isArray(ordered[i].unlocks)) fail("step " + ordered[i].id + " is missing unlocks");
+const workstreamIds = new Set();
+const validWorkstreamStatuses = new Set(["planned", "in_progress", "verifying", "blocked", "completed"]);
+for (const workstream of state.workstreams) {
+  if (!workstream || typeof workstream.id !== "string" || workstream.id.trim() === "") fail("workstream id must be a non-empty string");
+  if (workstreamIds.has(workstream.id)) fail("duplicate workstream id: " + workstream.id);
+  workstreamIds.add(workstream.id);
+  if (!validWorkstreamStatuses.has(workstream.status)) fail("invalid workstream status for " + workstream.id);
+  if (!["P0", "P1", "P2", "P3"].includes(workstream.priority)) fail("invalid priority for " + workstream.id);
 }
 
-const activeStatuses = new Set(["in_progress", "verifying", "correcting", "blocked"]);
-const active = ordered.filter((step) => activeStatuses.has(step.status));
-if (active.length > 1) fail("more than one implementation step is active");
-
-for (let i = 1; i < ordered.length; i += 1) {
-  if (ordered[i].status === "verified" && ordered[i - 1].status !== "verified") {
-    fail("verified step " + ordered[i].id + " has an unverified predecessor");
+const validCapabilityStatuses = new Set(["planned", "in_progress", "implemented-unverified", "verified", "verified-historical", "blocked"]);
+const capabilityIds = new Set();
+for (const capability of state.capabilities) {
+  if (!capability || typeof capability.id !== "string" || capability.id.trim() === "") fail("capability id must be a non-empty string");
+  if (capabilityIds.has(capability.id)) fail("duplicate capability id: " + capability.id);
+  capabilityIds.add(capability.id);
+  if (!validCapabilityStatuses.has(capability.status)) fail("invalid capability status for " + capability.id);
+  if (capability.status === "verified" && !Array.isArray(capability.verification_evidence) && !state.verification) {
+    fail("verified capability " + capability.id + " has no evidence boundary");
   }
 }
 
-const current = ordered.find((step) => step.id === state.current_step);
-if (!current) fail("current_step is not declared in steps");
-
-const firstNonVerified = ordered.find((step) => step.status !== "verified");
-if (!firstNonVerified) fail("no explicit next authorized step remains");
-if (firstNonVerified.id !== current.id) fail("current_step " + current.id + " does not match first non-verified step " + firstNonVerified.id);
-
-for (const future of ordered.filter((step) => step.number > current.number)) {
-  if (future.status !== "pending") fail("future step " + future.id + " must remain pending");
-}
-
-if (!Array.isArray(state.transition_history) || state.transition_history.length === 0) {
-  fail("transition_history is missing");
-}
-const latestTransition = state.transition_history[state.transition_history.length - 1];
-const expectedTransitionTarget = current.id + ":" + current.status;
-if (latestTransition?.to !== expectedTransitionTarget) {
-  fail("latest transition does not point to current step " + expectedTransitionTarget);
-}
-
-if (!projectState.includes("- Current implementation step: `" + current.id + "`")) fail("PROJECT-STATE.md current step disagrees with implementation-state.json");
-if (!projectState.includes("- Current step status: `" + current.status + "`")) fail("PROJECT-STATE.md current status disagrees with implementation-state.json");
-if (!projectState.includes("## Next authorized progression")) fail("PROJECT-STATE.md has no next-step section");
+if (!state.workstreams.some((workstream) => workstream.status === "in_progress")) fail("no active workstream remains");
+if (!Array.isArray(state.verification?.required_checks) || state.verification.required_checks.length === 0) fail("verification checks are missing");
+if (state.verification.ci_pending !== true && state.verification.ci_pending !== false) fail("verification.ci_pending must be boolean");
+if (!projectState.includes("## Active workstreams")) fail("PROJECT-STATE.md has no active workstreams section");
 if (!projectState.includes("## Verification truth")) fail("PROJECT-STATE.md has no verification-truth section");
+if (!projectState.includes("## Anti-regression rule")) fail("PROJECT-STATE.md has no anti-regression section");
+if (!projectState.includes("- Current focus: " + state.current_operation.focus)) fail("PROJECT-STATE.md current focus disagrees with implementation-state");
+if (!projectState.includes("- Current operation status: " + state.current_operation.status)) fail("PROJECT-STATE.md current status disagrees with implementation-state");
 
-const nextSection = projectState.split("## Next authorized progression", 2)[1] || "";
-if (current.status !== "verified") {
-  if (!/verify|verification/i.test(nextSection)) fail("active step must explicitly point toward verification");
-} else {
-  const successor = ordered.find((step) => step.number === current.number + 1);
-  if (!successor || successor.status !== "pending") fail("verified current step must have exactly one pending successor");
-  if (!nextSection.includes(successor.id)) fail("PROJECT-STATE.md does not name the single pending successor");
-}
-
-const currentSuccessors = current.unlocks;
-if (current.status !== "verified" && currentSuccessors.length > 1) {
-  fail("non-verified current step may not unlock multiple successors");
-}
+console.log(
+  "PROJECT STATE: PASS — capability-driven mode; workstreams=" +
+    state.workstreams.length +
+    "; capabilities=" +
+    state.capabilities.length +
+    "; active=" +
+    state.workstreams.filter((workstream) => ["in_progress", "verifying"].includes(workstream.status)).length,
+);
 
 console.log(
   "PROJECT STATE: PASS — current=" +

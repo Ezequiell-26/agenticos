@@ -884,6 +884,7 @@ impl ProviderPlatform {
             let mut provider_last_error = None;
             for attempt in 0..policy.max_attempts.max(1) {
                 if let Err(error) = self.quotas.consume_request(&provider.provider_id).await {
+                    last_error = Some(error.clone());
                     provider_last_error = Some(error);
                     break;
                 }
@@ -1320,6 +1321,19 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn provider_http_retry_classification_is_transient_only() {
+        assert!(super::is_retryable_provider_error(&ContractError::ParseError(
+            "provider_http_status=429; provider returned HTTP 429".to_string()
+        )));
+        assert!(super::is_retryable_provider_error(&ContractError::ParseError(
+            "provider_http_status=503; provider returned HTTP 503".to_string()
+        )));
+        assert!(!super::is_retryable_provider_error(&ContractError::ParseError(
+            "provider_http_status=400; provider returned HTTP 400".to_string()
+        )));
+    }
+
     #[test]
     fn anonymous_provider_detection_is_local_only_by_default() {
         assert!(super::allows_anonymous_provider("http://127.0.0.1:11434"));

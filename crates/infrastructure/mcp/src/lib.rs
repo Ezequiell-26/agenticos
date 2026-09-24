@@ -540,6 +540,37 @@ mod tests {
         assert!(manager.list().await[0].enabled);
     }
 
+    #[tokio::test]
+    async fn sqlite_registry_recovers_server_configuration() {
+        let path = std::env::temp_dir().join(format!("agenticos-mcp-{}.db", Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let manager = McpManager::open(&url, 10_000).await.unwrap();
+        manager
+            .register(McpServerDefinition {
+                server_id: "persistent-server".to_string(),
+                name: "Persistent MCP".to_string(),
+                transport: McpTransport::Stdio {
+                    command: "example-mcp".to_string(),
+                    args: vec!["--stdio".to_string()],
+                },
+                enabled: true,
+                timeout_ms: Some(7_500),
+            })
+            .await
+            .unwrap();
+        drop(manager);
+
+        let recovered = McpManager::open(&url, 10_000).await.unwrap();
+        let servers = recovered.list().await;
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].server_id, "persistent-server");
+        assert!(servers[0].enabled);
+        assert_eq!(servers[0].timeout_ms, Some(7_500));
+
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn server_validation_rejects_empty_commands() {
         let result = validate_server(&McpServerDefinition {

@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
+agenticos-mcp = { path = "../mcp" }
 agenticos-security = { path = "../security" }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }

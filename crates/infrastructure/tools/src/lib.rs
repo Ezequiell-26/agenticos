@@ -158,6 +158,183 @@ impl PolicyEngine for BasicPolicyEngine {
     }
 }
 
+/// Common execution plane for native and MCP-backed tools.
+#[derive(Clone)]
+pub struct ToolRuntime {
+    registry: Arc<ToolRegistry>,
+    policy: Arc<dyn PolicyEngine>,
+    executors: Arc<RwLock<HashMap<String, Arc<dyn AgentTool>>>>,
+}
+
+impl std::fmt::Debug for ToolRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolRuntime")
+            .field("registry", &"<ToolRegistry>")
+            .field("policy", &"<PolicyEngine>")
+            .finish()
+    }
+}
+
+impl ToolRuntime {
+    /// Create a tool runtime with a registry and policy engine.
+    pub fn new(registry: Arc<ToolRegistry>, policy: Arc<dyn PolicyEngine>) -> Self {
+        Self {
+            registry,
+            policy,
+            executors: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Register one executable tool.
+    pub async fn register(
+        &self,
+        entry: ToolEntry,
+        executor: Arc<dyn AgentTool>,
+    ) -> Result<(), ContractError> {
+        if entry.tool_id != executor.tool_id() {
+            return Err(ContractError::ParseError(
+                "tool metadata ID and executor ID must match".to_string(),
+            ));
+        }
+        self.registry.register(entry).await?;
+        self.executors
+            .write()
+            .await
+            .insert(executor.tool_id().to_string(), executor);
+        Ok(())
+    }
+
+    /// Return all registered tool metadata.
+    pub async fn list(&self) -> Vec<ToolEntry> {
+        self.registry.list().await
+    }
+
+    /// Execute a registered tool after policy evaluation.
+    pub async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        match self.policy.evaluate(&request).await? {
+            PolicyDecision::Approved => {}
+            PolicyDecision::Denied(reason) => {
+                return Err(ContractError::ParseError(format!(
+                    "tool execution denied: {reason}"
+                )))
+            }
+            PolicyDecision::RequiresApproval(reason) => {
+                return Err(ContractError::ParseError(format!(
+                    "tool execution requires approval: {reason}"
+                )))
+            }
+        }
+
+        let executor = self
+            .executors
+            .read()
+            .await
+            .get(&request.tool_id)
+            .cloned()
+            .ok_or(ContractError::MissingCapability)?;
+
+        executor.execute(request).await
+    }
+
+    /// Register all tools discovered from an MCP server.
+    pub async fn sync_mcp_server(
+        &self,
+        mcp: &agenticos_mcp::McpManager,
+        server_id: &str,
+    ) -> Result<Vec<ToolEntry>, ContractError> {
+        let tools = mcp
+            .list_tools(server_id)
+            .await
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
+        let mut entries = Vec::with_capacity(tools.len());
+
+        for tool in tools {
+            let tool_id = format!("mcp/{server_id}/{}", tool.name);
+            let entry = ToolEntry {
+                tool_id: tool_id.clone(),
+                name: tool.name.clone(),
+                description: tool.description.clone().unwrap_or_default(),
+                capabilities: vec!["mcp".to_string()],
+                required_permissions: vec!["mcp.call".to_string()],
+                context_requirements: vec![],
+            };
+            let executor = Arc::new(McpAgentTool::new(
+                tool_id,
+                server_id.to_string(),
+                tool.name,
+                mcp.clone(),
+            ));
+            self.register(entry.clone(), executor).await?;
+            entries.push(entry);
+        }
+
+        Ok(entries)
+    }
+}
+
+/// MCP-backed implementation of the common AgentTool contract.
+#[derive(Clone, Debug)]
+pub struct McpAgentTool {
+    tool_id: String,
+    server_id: String,
+    tool_name: String,
+    manager: agenticos_mcp::McpManager,
+}
+
+impl McpAgentTool {
+    /// Create an MCP-backed tool adapter.
+    pub fn new(
+        tool_id: String,
+        server_id: String,
+        tool_name: String,
+        manager: agenticos_mcp::McpManager,
+    ) -> Self {
+        Self {
+            tool_id,
+            server_id,
+            tool_name,
+            manager,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl AgentTool for McpAgentTool {
+    fn tool_id(&self) -> &str {
+        &self.tool_id
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        let arguments = if request.parameters.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str::<serde_json::Value>(&request.parameters).map_err(|error| {
+                ContractError::ParseError(format!("invalid MCP tool arguments: {error}"))
+            })?
+        };
+
+        let result = self
+            .manager
+            .call_tool(&self.server_id, &self.tool_name, arguments)
+            .await
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
+
+        let rendered = serde_json::to_string(&result)
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: rendered,
+            success: true,
+            error: None,
+            metadata: Some(format!(
+                "mcp server={} tool={}",
+                self.server_id, self.tool_name
+            )),
+        })
+    }
+}
+
 fn capability_type_for_permission(permission: &str) -> CapabilityType {
     let normalized = permission.to_ascii_lowercase();
     if normalized.starts_with("admin.") {
@@ -208,6 +385,56 @@ impl AgentTool for EchoTool {
 
 #[cfg(test)]
 mod tests {
+#[tokio::test]
+    async fn tool_runtime_executes_echo_through_policy() {
+        use agenticos_contracts::CapabilityIssuer;
+
+        let registry = Arc::new(ToolRegistry::new());
+        registry
+            .register(ToolEntry {
+                tool_id: "echo".to_string(),
+                name: "Echo".to_string(),
+                description: "Echo".to_string(),
+                capabilities: vec!["echo".to_string()],
+                required_permissions: vec![],
+                context_requirements: vec![],
+            })
+            .await
+            .unwrap();
+
+        let policy = Arc::new(BasicPolicyEngine::new(registry.clone()));
+        let runtime = ToolRuntime::new(registry, policy);
+        runtime
+            .register(
+                ToolEntry {
+                    tool_id: "echo".to_string(),
+                    name: "Echo".to_string(),
+                    description: "Echo".to_string(),
+                    capabilities: vec!["echo".to_string()],
+                    required_permissions: vec![],
+                    context_requirements: vec![],
+                },
+                Arc::new(EchoTool::default()),
+            )
+            .await
+            .unwrap();
+
+        let response = runtime
+            .execute(ToolRequest {
+                request_id: "runtime-1".to_string(),
+                tool_id: "echo".to_string(),
+                parameters: "hello".to_string(),
+                agent_id: "agent".to_string(),
+                grant_id: "unused".to_string(),
+            })
+            .await
+            .unwrap();
+
+        assert!(response.success);
+        assert!(response.result.contains("hello"));
+    }
+
+
     use super::*;
 
     fn test_runtime() -> tokio::runtime::Runtime {

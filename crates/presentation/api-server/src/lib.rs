@@ -1297,6 +1297,234 @@ struct TerminalOutputQuery {
     limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize)]
+struct WorkspacePathQuery {
+    grant_id: String,
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkspaceWriteRequest {
+    grant_id: String,
+    path: String,
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkspacePatchRequest {
+    grant_id: String,
+    path: String,
+    expected: String,
+    replacement: String,
+}
+
+async fn list_workspace(
+    query: web::Query<WorkspacePathQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let path = query.path.trim();
+    if path.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace path is required".to_string(),
+            code: "WORKSPACE_PATH_REQUIRED",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            "workspace/*",
+            "workspace.list",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "workspace.list capability denied".to_string(),
+                code: "WORKSPACE_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKSPACE_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
+    match state.workspace.list(path).await {
+        Ok(entries) => HttpResponse::Ok().json(serde_json::json!({
+            "path": path,
+            "entries": entries,
+            "count": entries.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "WORKSPACE_LIST_FAILED",
+        }),
+    }
+}
+
+async fn read_workspace_file(
+    query: web::Query<WorkspacePathQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let path = query.path.trim();
+    if path.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace path is required".to_string(),
+            code: "WORKSPACE_PATH_REQUIRED",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            "workspace/*",
+            "workspace.read",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "workspace.read capability denied".to_string(),
+                code: "WORKSPACE_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKSPACE_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
+    match state.workspace.read_text(path).await {
+        Ok(content) => HttpResponse::Ok().json(serde_json::json!({
+            "path": path,
+            "content": content,
+            "bytes": content.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "WORKSPACE_READ_FAILED",
+        }),
+    }
+}
+
+async fn write_workspace_file(
+    request: web::Json<WorkspaceWriteRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.path.trim().is_empty() || request.content.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace path and content are required".to_string(),
+            code: "WORKSPACE_WRITE_INVALID",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Write,
+            "workspace/*",
+            "workspace.write",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "workspace.write capability denied".to_string(),
+                code: "WORKSPACE_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKSPACE_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
+    match state.workspace.write_text(&request.path, &request.content).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
+            "path": request.path.trim(),
+            "bytes": request.content.len(),
+            "written": true,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "WORKSPACE_WRITE_FAILED",
+        }),
+    }
+}
+
+async fn patch_workspace_file(
+    request: web::Json<WorkspacePatchRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.path.trim().is_empty() || request.expected.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace path and expected patch fragment are required".to_string(),
+            code: "WORKSPACE_PATCH_INVALID",
+        });
+    }
+    if request.replacement.len() > 8 * 1024 * 1024 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "workspace replacement exceeds supported size".to_string(),
+            code: "WORKSPACE_PATCH_TOO_LARGE",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Write,
+            "workspace/*",
+            "workspace.patch",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "workspace.patch capability denied".to_string(),
+                code: "WORKSPACE_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKSPACE_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
+    match state
+        .workspace
+        .apply_patch(&request.path, &request.expected, &request.replacement)
+        .await
+    {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
+            "path": request.path.trim(),
+            "patched": true,
+        })),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "WORKSPACE_PATCH_REJECTED",
+        }),
+    }
+}
+
 async fn create_terminal(
     request: web::Json<TerminalCreateRequest>,
     state: web::Data<RuntimeState>,
@@ -5056,6 +5284,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/audit", web::get().to(list_audit))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/workspace/list", web::get().to(list_workspace))
+            .route("/api/workspace/file", web::get().to(read_workspace_file))
+            .route("/api/workspace/file", web::post().to(write_workspace_file))
+            .route("/api/workspace/patch", web::post().to(patch_workspace_file))
             .route("/api/terminals", web::get().to(list_terminals))
             .route("/api/terminals", web::post().to(create_terminal))
             .route("/api/terminals/{terminal_id}", web::get().to(get_terminal))

@@ -104,7 +104,10 @@ impl TerminalManager {
             .await
             .map_err(|error| format!("terminal root canonicalization failed: {error}"))?;
 
-        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
             .await
             .map_err(|error| format!("terminal database connection failed: {error}"))?;
 

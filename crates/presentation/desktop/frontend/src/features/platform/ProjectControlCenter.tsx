@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
-import { runtime } from '../../services/runtime'
 
 type Tab='overview'|'projects'|'workspace'|'tasks'|'git'|'environment'
 const projects=[
@@ -30,7 +29,7 @@ const env=[
 ]
 
 export function ProjectControlCenter({onAction}:{onAction:(message:string)=>void}){
- const [tab,setTab]=useState<Tab>('overview'),[project,setProject]=useState(projects[0][0]),[filter,setFilter]=useState('');const [runtimeProjects,setRuntimeProjects]=useState<Array<{project_id:string;name:string;path:string;default_branch:string;description:string;status:string}>>([]);const [runtimeSyncing,setRuntimeSyncing]=useState(true)
+  const [tab,setTab]=useState<Tab>('overview'),[project,setProject]=useState(projects[0][0]),[filter,setFilter]=useState('')
  useEffect(()=>{let cancelled=false;void runtime.projects.list().then(remote=>{if(cancelled||remote.length===0)return;setRuntimeProjects(remote);setProject(current=>remote.some(item=>item.name===current)?current:remote[0].name)}).catch(()=>{}).finally(()=>{if(!cancelled)setRuntimeSyncing(false)});return()=>{cancelled=true}},[])
  const [runtimeJobs,setRuntimeJobs]=useState<any[]>([])
  const [runtimeRuns,setRuntimeRuns]=useState<any[]>([])
@@ -38,7 +37,6 @@ export function ProjectControlCenter({onAction}:{onAction:(message:string)=>void
  const [health,setHealth]=useState<any|null>(null)
  const [readiness,setReadiness]=useState<any|null>(null)
  const [sandbox,setSandbox]=useState<any|null>(null)
- const [runtimeSyncing,setRuntimeSyncing]=useState(true)
  useEffect(()=>{let cancelled=false;void Promise.allSettled([runtime.jobs.list(),runtime.runs.list(),runtime.providers.list(),runtime.health.get(),runtime.health.ready(),runtime.sandbox.status()]).then(results=>{if(cancelled)return;const [jobs,runs,providers,healthResult,readyResult,sandboxResult]=results;if(jobs.status==='fulfilled')setRuntimeJobs(jobs.value);if(runs.status==='fulfilled')setRuntimeRuns(runs.value);if(providers.status==='fulfilled')setRuntimeProviders(providers.value);if(healthResult.status==='fulfilled')setHealth(healthResult.value);if(readyResult.status==='fulfilled')setReadiness(readyResult.value);if(sandboxResult.status==='fulfilled')setSandbox(sandboxResult.value)}).finally(()=>{if(!cancelled)setRuntimeSyncing(false)});return()=>{cancelled=true}},[])
  const live=runtimeProjects.find(item=>item.name===project)
  const selected=live?[live.name,live.description,live.default_branch,live.status] as const:projects.find(p=>p[0]===project)??projects[0]

@@ -54,7 +54,7 @@ const studioSource = readFileSync(
 );
 const navigationItems = [...navigationSource.matchAll(/id:\s*'([^']+)'/g)].map((match) => match[1]);
 const genericFeatureModesSource =
-  platformSource.match(/const GENERIC_FEATURE_MODES[\\s\\S]*?\\[([\\s\\S]*?)\\]/)?.[1] ?? "";
+  platformSource.match(/const GENERIC_FEATURE_MODES[\s\S]*?\[([\s\S]*?)\]/)?.[1] ?? "";
 const genericFeatureModes = new Set(
   [...genericFeatureModesSource.matchAll(/'([^']+)'/g)].map((match) => match[1]),
 );

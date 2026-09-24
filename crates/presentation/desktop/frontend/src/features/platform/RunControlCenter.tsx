@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
+import type { RuntimeApiRecord, RuntimeRun } from '../../types/runtime'
 
 type NodeState = 'done' | 'running' | 'queued' | 'blocked'
 type RuntimeNode = { id: string; kind: string; title: string; detail: string; state: NodeState; duration: string }
@@ -17,16 +19,77 @@ const stateLabel: Record<NodeState, string> = { done: 'Completed', running: 'Run
 export default function RunControlCenter({ onAction }: { onAction: (message: string) => void }) {
   const [nodes, setNodes] = useState(initialNodes)
   const [selected, setSelected] = useState(initialNodes[1].id)
+  const [runs, setRuns] = useState<RuntimeRun[]>([])
+  const [runtimeRun, setRuntimeRun] = useState<RuntimeRun | null>(null)
+  const [runtimeArtifacts, setRuntimeArtifacts] = useState<RuntimeApiRecord[]>([])
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
   const [paused, setPaused] = useState(false)
   const [autoCheckpoint, setAutoCheckpoint] = useState(true)
   const [retryBudget, setRetryBudget] = useState(2)
   const [tab, setTab] = useState<'Execution' | 'Checkpoints' | 'Handoffs' | 'Artifacts'>('Execution')
 
   const active = nodes.find((node) => node.id === selected) ?? nodes[0]
-  const running = useMemo(() => nodes.filter((node) => node.state === 'running').length, [nodes])
+  const running = useMemo(() => runs.length > 0 ? runs.filter((run) => ['Running', 'Waiting'].includes(run.state)).length : nodes.filter((node) => node.state === 'running').length, [runs, nodes])
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.runs.list().then((remoteRuns) => {
+      if (cancelled) return
+      setRuns(remoteRuns)
+      const activeRun = remoteRuns.find((run) => ['Running', 'Waiting'].includes(run.state)) ?? remoteRuns[0]
+      if (activeRun) {
+        setRuntimeRun(activeRun)
+        void runtime.runs.artifacts(activeRun.run_id).then((artifacts) => { if (!cancelled) setRuntimeArtifacts(artifacts) }).catch(() => {})
+      }
+    }).catch(() => {}).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  async function cancelRuntimeRun() {
+    if (!runtimeRun) {
+      onAction('No runtime run selected')
+      return
+    }
+    try {
+      await runtime.runs.cancel(runtimeRun.run_id)
+      const refreshed = await runtime.runs.get(runtimeRun.run_id)
+      setRuntimeRun(refreshed)
+      setRuns((current) => current.map((run) => run.run_id === refreshed.run_id ? refreshed : run))
+      onAction('Runtime run cancelled: ' + runtimeRun.run_id)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime run cancellation failed')
+    }
+  }
+
+  async function snapshotRuntimeRun() {
+    if (!runtimeRun) {
+      onAction('No runtime run selected for checkpoint')
+      return
+    }
+    try {
+      await runtime.runs.snapshot(runtimeRun.run_id)
+      onAction('Runtime checkpoint captured for ' + runtimeRun.run_id)
+      setRuntimeArtifacts(await runtime.runs.artifacts(runtimeRun.run_id))
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime checkpoint failed')
+    }
+  }
+
+  async function refreshRuntimeRun() {
+    if (!runtimeRun) return
+    try {
+      const refreshed = await runtime.runs.get(runtimeRun.run_id)
+      setRuntimeRun(refreshed)
+      setRuns((current) => current.map((run) => run.run_id === refreshed.run_id ? refreshed : run))
+      setRuntimeArtifacts(await runtime.runs.artifacts(refreshed.run_id))
+      onAction('Run state refreshed from runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Run refresh failed')
+    }
+  }
 
   function control(action: string) {
-    onAction(action + ' staged in preview')
+    onAction(action + ' remains UI-only because no matching runtime contract is exposed')
   }
 
   function retry(nodeId: string) {
@@ -38,20 +101,20 @@ export default function RunControlCenter({ onAction }: { onAction: (message: str
     <div className="run-control">
       <div className="run-control__topbar">
         <div>
-          <span className="eyebrow">Runtime orchestration</span>
+          <span className="eyebrow">Runtime orchestration · {runtimeSyncing ? 'syncing' : runtimeRun ? runtimeRun.run_id : 'no active run'}</span>
           <h2>Run Control Center</h2>
           <p>Inspect execution trees, live agent state, checkpoints, handoffs and recovery controls before runtime integration.</p>
         </div>
         <div className="run-control__actions">
           <span className={paused ? 'state-pill state-pill--pending' : 'state-pill state-pill--active'}>{paused ? 'Paused' : running + ' active'}</span>
-          <button className="studio-button" type="button" onClick={() => setPaused((value) => !value)}><Icon name={paused ? 'play' : 'stop'} size={13} /> {paused ? 'Resume' : 'Pause'}</button>
-          <button className="studio-button" type="button" onClick={() => control('Stop run')}>Stop</button>
-          <button className="studio-button studio-button--active" type="button" onClick={() => control('Create checkpoint')}>Checkpoint</button>
+          <button className="studio-button" type="button" onClick={() => void refreshRuntimeRun()}><Icon name="refresh" size={13} /> Refresh</button>
+          <button className="studio-button" type="button" onClick={() => void cancelRuntimeRun()}>Stop run</button>
+          <button className="studio-button studio-button--active" type="button" onClick={() => void snapshotRuntimeRun()}>Checkpoint</button>
         </div>
       </div>
 
       <div className="run-control__metrics">
-        <div><span>Run</span><strong>RUN-042</strong><small>Frontend modernization</small></div>
+        <div><span>Run</span><strong>{runtimeRun?.run_id ?? '—'}</strong><small>{runtimeRun?.objective ?? 'No runtime run selected'}</small></div>
         <div><span>Model route</span><strong>Auto / Qwen3 Coder</strong><small>Fallback policy armed</small></div>
         <div><span>Context</span><strong>32.8k / 128k</strong><small>25.6% pressure</small></div>
         <div><span>Recovery</span><strong>{retryBudget} retries</strong><small>Fail-closed policy</small></div>
@@ -63,7 +126,7 @@ export default function RunControlCenter({ onAction }: { onAction: (message: str
 
       {tab === 'Execution' && <div className="run-control__layout">
         <section className="run-control__tree">
-          <div className="surface-block__heading"><span>Execution graph</span><span className="mono-text">event stream · preview</span></div>
+          <div className="surface-block__heading"><span>Execution graph</span><span className="mono-text">{runtimeRun ? 'runtime-backed' : 'presentation fallback'}</span></div>
           <div className="run-control__nodes">
             {nodes.map((node, index) => <div className="run-control__node-wrap" key={node.id}>
               <button type="button" className={selected === node.id ? 'run-control__node run-control__node--active' : 'run-control__node'} onClick={() => setSelected(node.id)}>
@@ -88,11 +151,11 @@ export default function RunControlCenter({ onAction }: { onAction: (message: str
 
       {tab === 'Handoffs' && <div className="run-control__handoff"><div><span className="eyebrow">Agent handoff</span><h3>Builder → Reviewer</h3><p>Pass the exact task scope, changed files, verification evidence and unresolved risks without copying the entire context window.</p></div><div className="run-control__handoff-grid"><div><span>Context package</span><strong>Scoped · 8.4k tokens</strong></div><div><span>Artifacts</span><strong>3 attached</strong></div><div><span>Open risks</span><strong>1 pending</strong></div><div><span>Approval</span><strong>Not required</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => control('Preview handoff package')}>Preview package</button><button className="studio-button studio-button--active" type="button" onClick={() => control('Send handoff')}>Send handoff</button></div></div>}
 
-      {tab === 'Artifacts' && <div className="run-control__artifact-list">{[['artifact-17','frontend-diff.patch','Patch · 18 KB'],['artifact-18','verification-report.json','Evidence · 6 KB'],['artifact-19','agent-handoff.md','Handoff · 4 KB'],['artifact-20','screenshot-desktop.png','Visual QA · 812 KB']].map(([id,name,meta]) => <div className="run-control__artifact" key={id}><Icon name="archive" size={15} /><div><strong>{name}</strong><span>{id} · {meta}</span></div><button className="studio-button" type="button" onClick={() => control('Open ' + name)}>Open</button></div>)}</div>}
+      {tab === 'Artifacts' && <div className="run-control__artifact-list">{(runtimeArtifacts.length > 0 ? runtimeArtifacts.map((artifact, index) => [String(artifact.artifact_id ?? 'artifact-' + (index + 1)), String(artifact.kind ?? 'Artifact'), String(artifact.size_bytes ?? 'runtime')]) : [['artifact-17','frontend-diff.patch','Patch · 18 KB'],['artifact-18','verification-report.json','Evidence · 6 KB'],['artifact-19','agent-handoff.md','Handoff · 4 KB'],['artifact-20','screenshot-desktop.png','Visual QA · 812 KB']]).map(([id,name,meta]) => <div className="run-control__artifact" key={id}><Icon name="archive" size={15} /><div><strong>{name}</strong><span>{id} · {meta}</span></div><button className="studio-button" type="button" onClick={() => control('Open ' + name)}>Open</button></div>)}</div>}
 
       <div className="run-control__footer">
         <label><span>Retry budget</span><input type="range" min="0" max="5" value={retryBudget} onChange={(event) => setRetryBudget(Number(event.target.value))} /><b>{retryBudget}</b></label>
-        <span className="run-control__boundary"><Icon name="shield" size={13} /> Presentation-only controls. Pause, stop, retry and checkpoint actions do not execute until connected to the runtime contracts.</span>
+        <span className="run-control__boundary"><Icon name="shield" size={13} /> Stop, refresh, checkpoint and artifact loading use runtime run contracts when a runtime run is available. Node-level trace/retry/handoff controls remain UI-only until dedicated contracts exist.</span>
       </div>
     </div>
   )

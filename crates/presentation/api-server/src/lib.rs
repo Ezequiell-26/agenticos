@@ -1498,8 +1498,8 @@ async fn a2a_rpc(
 
     match request.method.as_str() {
         "message/send" => {
-            let params = match serde_json::from_value::<A2aSendMessageParams>(request.params.clone())
-            {
+            let params =
+                match serde_json::from_value::<A2aSendMessageParams>(request.params.clone()) {
                 Ok(value) => value,
                 Err(error) => {
                     return a2a_error(request.id.clone(), -32602, error.to_string());
@@ -1524,12 +1524,12 @@ async fn a2a_rpc(
                 .context_id
                 .clone()
                 .unwrap_or_else(|| format!("context-{}", uuid::Uuid::new_v4()));
-            let run_id = match RunId::new(format!("a2a-{task_id}")) {
+                let run_id = match RunId::new(format!("a2a-{task_id}")) {
                 Ok(value) => value,
                 Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
             };
 
-            let created = match state.kernel.create_run(run_id.clone()).await {
+                let created = match state.kernel.create_run(run_id.clone()).await {
                 Ok(value) => value,
                 Err(error) => {
                     return a2a_error(request.id.clone(), -32001, error.to_string());

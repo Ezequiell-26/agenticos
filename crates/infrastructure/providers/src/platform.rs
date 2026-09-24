@@ -1401,9 +1401,8 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 })?;
                 buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-                while let Some(newline) = buffer.find('
-') {
-                    let line = buffer[..newline].trim_end_matches('').to_string();
+                while let Some(newline) = buffer.find('\\n') {
+                    let line = buffer[..newline].trim_end_matches('\\r').to_string();
                     buffer.drain(..=newline);
 
                     let Some(data) = line.strip_prefix("data:") else {

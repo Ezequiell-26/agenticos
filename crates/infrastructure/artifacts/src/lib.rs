@@ -210,7 +210,22 @@ impl ArtifactStore {
 
     /// Get metadata by artifact id.
     pub async fn get(&self, artifact_id: &str) -> Result<Option<ArtifactRecord>, String> {
-        let row = sqlx::query_as::<_, (String, Option<String>, String, String, i64, String, String, i64, Option<i64>, i64, String)>(
+        let row = sqlx::query_as::<
+            _,
+            (
+                String,
+                Option<String>,
+                String,
+                String,
+                i64,
+                String,
+                String,
+                i64,
+                Option<i64>,
+                i64,
+                String,
+            ),
+        >(
             "SELECT artifact_id, run_id, kind, mime_type, size_bytes, checksum, locator,
                     created_at, expires_at, trusted, metadata
              FROM artifacts WHERE artifact_id = ?",
@@ -346,7 +361,8 @@ mod tests {
     async fn artifact_round_trip_and_checksum_survive_reopen() {
         let path =
             std::env::temp_dir().join(format!("agenticos-artifacts-{}", uuid::Uuid::new_v4()));
-        let root = std::env::temp_dir().join(format!("agenticos-artifact-root-{}", uuid::Uuid::new_v4()));
+        let root =
+            std::env::temp_dir().join(format!("agenticos-artifact-root-{}", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = ArtifactStore::open(&url, &root, 1024).await.unwrap();
@@ -362,15 +378,24 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(first.read_range(&record.artifact_id, None).await.unwrap(), b"hello artifact");
+        assert_eq!(
+            first.read_range(&record.artifact_id, None).await.unwrap(),
+            b"hello artifact"
+        );
         assert!(first.verify(&record.artifact_id).await.unwrap());
         drop(first);
 
         let second = ArtifactStore::open(&url, &root, 1024).await.unwrap();
-        assert_eq!(second.get(&record.artifact_id).await.unwrap(), Some(record.clone()));
+        assert_eq!(
+            second.get(&record.artifact_id).await.unwrap(),
+            Some(record.clone())
+        );
         assert_eq!(
             second
-                .read_range(&record.artifact_id, Some(ArtifactRange { start: 0, end: 5 }))
+                .read_range(
+                    &record.artifact_id,
+                    Some(ArtifactRange { start: 0, end: 5 }),
+                )
                 .await
                 .unwrap(),
             b"hello"
@@ -382,15 +407,27 @@ mod tests {
 
     #[tokio::test]
     async fn artifact_size_limit_is_enforced() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-artifacts-limit-{}", uuid::Uuid::new_v4()));
-        let root =
-            std::env::temp_dir().join(format!("agenticos-artifact-root-limit-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-artifacts-limit-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let root = std::env::temp_dir().join(format!(
+            "agenticos-artifact-root-limit-{}",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let store = ArtifactStore::open(&url, &root, 3).await.unwrap();
         assert!(store
-            .put_bytes(None, "blob", "application/octet-stream", b"1234", None, false, serde_json::json!({}))
+            .put_bytes(
+                None,
+                "blob",
+                "application/octet-stream",
+                b"1234",
+                None,
+                false,
+                serde_json::json!({})
+            )
             .await
             .is_err());
 

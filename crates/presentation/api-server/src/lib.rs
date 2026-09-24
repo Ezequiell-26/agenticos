@@ -239,6 +239,26 @@ impl RuntimeState {
             agent.restore_turn_count(completed_turns);
         }
 
+        let namespace = std::env::var("AGENTICOS_MEMORY_NAMESPACE")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "agenticos".to_string());
+        let memory_limit = std::env::var("AGENTICOS_MEMORY_CONTEXT_LIMIT")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(12)
+            .clamp(1, 50);
+        if let Ok(records) = self.persistent_memory.list(&namespace, memory_limit).await {
+            let memory_context = records
+                .into_iter()
+                .map(|record| format!("- {}: {}", record.key, record.value))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !memory_context.is_empty() {
+                agent.set_memory_md(memory_context);
+            }
+        }
+
         let mut sessions = self.sessions.write().await;
         sessions
             .entry(agent_key)

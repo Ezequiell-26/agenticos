@@ -69,6 +69,7 @@ pub struct RuntimeState {
     secure_tools: Arc<SecureToolService>,
     tool_runtime: Arc<ToolRuntime>,
     reasoning: Arc<ReasoningEngine>,
+    source_intelligence: Arc<agenticos_brain::SourceIntelligenceEngine>,
     metrics: Arc<RuntimeMetrics>,
     evaluation: Arc<EvaluationRegistry>,
     source_forge: Arc<GitHubSourceClient>,
@@ -199,6 +200,7 @@ impl RuntimeState {
                 enable_learning: true,
                 selection_strategy: SelectionStrategy::Balanced,
             })),
+            source_intelligence: Arc::new(agenticos_brain::SourceIntelligenceEngine::default()),
             metrics: Arc::new(RuntimeMetrics::new()),
             evaluation: Arc::new(
                 EvaluationRegistry::open(&database_url)
@@ -331,6 +333,11 @@ struct EvaluateCaseRequest {
 
 #[derive(Debug, Deserialize)]
 struct InspectRepositoryRequest {
+    source: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnalyzeRepositoryRequest {
     source: String,
 }
 
@@ -702,6 +709,84 @@ async fn call_mcp_tool(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
+        }),
+    }
+}
+
+async fn analyze_github_repository(
+    request: web::Json<AnalyzeRepositoryRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.source.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "source is required".to_string(),
+            code: "SOURCE_INVALID",
+        });
+    }
+
+    let info = match state.source_forge.inspect_repository(&request.source).await {
+        Ok(info) => info,
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SOURCE_INSPECTION_FAILED",
+            })
+        }
+    };
+
+    let metadata = agenticos_brain::RepositoryMetadata {
+        repo_id: info.repo_id.clone(),
+        url: info.url.clone(),
+        default_branch: info.default_branch.clone(),
+        last_indexed: chrono::Utc::now(),
+        license: info.license.clone(),
+        language: info.language.clone(),
+        stars: info.stars,
+        status: agenticos_brain::RepositoryStatus::Discovered,
+    };
+    if let Err(error) = state
+        .source_intelligence
+        .register_metadata(metadata)
+        .await
+    {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SOURCE_METADATA_REJECTED",
+        });
+    }
+
+    let candidates = [
+        "README.md",
+        "Cargo.toml",
+        "package.json",
+        "pyproject.toml",
+        "requirements.txt",
+        "LICENSE",
+    ];
+    let mut documents = HashMap::new();
+    for path in candidates {
+        if let Ok(file) = state
+            .source_forge
+            .fetch_file(&info.repo_id, path, Some(&info.default_branch))
+            .await
+        {
+            documents.insert(path.to_string(), file.content);
+        }
+    }
+
+    match state
+        .source_intelligence
+        .analyze_documents(&info.repo_id, &documents)
+        .await
+    {
+        Ok(analysis) => HttpResponse::Ok().json(serde_json::json!({
+            "repository": info,
+            "documents_fetched": documents.keys().cloned().collect::<Vec<_>>(),
+            "analysis": analysis,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SOURCE_ANALYSIS_FAILED",
         }),
     }
 }
@@ -2674,6 +2759,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/source/github/inspect",
                 web::post().to(inspect_github_repository),
+            )
+            .route(
+                "/api/source/github/analyze",
+                web::post().to(analyze_github_repository),
             )
             .route(
                 "/api/source/github/{owner}/{repo}/file",

@@ -575,10 +575,12 @@ async fn invoke_tool(
                             .and_then(|value| value.as_u64()),
                     )
                     .await
-                    .map(|execution| serde_json::json!({
-                        "success": execution.success,
-                        "output": execution.output,
-                    })),
+                    .map(|execution| {
+                        serde_json::json!({
+                            "success": execution.success,
+                            "output": execution.output,
+                        })
+                    }),
                 Err(error) => Err(error),
             }
         }
@@ -595,7 +597,15 @@ async fn invoke_tool(
                 .unwrap_or("");
             state
                 .persistent_memory
-                .search(namespace, query, request.parameters.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize)
+                .search(
+                    namespace,
+                    query,
+                    request
+                        .parameters
+                        .get("limit")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(50) as usize,
+                )
                 .await
                 .map(|records| serde_json::json!({ "records": records }))
         }
@@ -622,7 +632,8 @@ async fn invoke_tool(
                         .get("tags")
                         .and_then(|value| value.as_array())
                         .map(|items| {
-                            items.iter()
+                            items
+                                .iter()
                                 .filter_map(|item| item.as_str().map(str::to_string))
                                 .collect::<Vec<_>>()
                         })

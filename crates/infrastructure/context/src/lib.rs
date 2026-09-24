@@ -70,7 +70,11 @@ pub struct ToolOutputOptimization {
 impl ToolOutputOptimization {
     /// Ratio of bytes removed from the original payload.
     pub fn savings_ratio(self) -> f64 {
-        if self.original_bytes == 0 { 0.0 } else { 1.0 - (self.optimized_bytes as f64 / self.original_bytes as f64) }
+        if self.original_bytes == 0 {
+            0.0
+        } else {
+            1.0 - (self.optimized_bytes as f64 / self.original_bytes as f64)
+        }
     }
 }
 
@@ -110,7 +114,9 @@ fn strip_ansi(input: &str) -> String {
         match chars.next() {
             Some('[') => {
                 for control in chars.by_ref() {
-                    if ('@'..='~').contains(&control) { break; }
+                    if ('@'..='~').contains(&control) {
+                        break;
+                    }
                 }
             }
             Some(_) | None => {}
@@ -122,7 +128,9 @@ fn strip_ansi(input: &str) -> String {
 
 fn compact_json_if_possible(input: &str) -> Option<String> {
     let trimmed = input.trim();
-    if !(trimmed.starts_with('{') || trimmed.starts_with('[')) { return None; }
+    if !(trimmed.starts_with('{') || trimmed.starts_with('[')) {
+        return None;
+    }
     let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
     serde_json::to_string(&value).ok()
 }

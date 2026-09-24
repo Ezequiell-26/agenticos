@@ -48,6 +48,7 @@ use agenticos_source_forge::GitHubSourceClient;
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;
+use agenticos_terminal::TerminalManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -378,6 +379,7 @@ pub struct RuntimeState {
     a2a_tasks: Arc<A2aTaskStore>,
     artifacts: Arc<ArtifactStore>,
     workspace: Arc<WorkspaceFs>,
+    terminal: Arc<TerminalManager>,
     cost_ledger: Arc<CostLedger>,
     skills: Arc<Vec<Skill>>,
     model: String,
@@ -456,6 +458,11 @@ impl RuntimeState {
         );
         let workspace = Arc::new(
             WorkspaceFs::from_env()
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
+        let terminal = Arc::new(
+            TerminalManager::from_env(&database_url, workspace.root())
                 .await
                 .map_err(ContractError::ParseError)?,
         );
@@ -633,6 +640,7 @@ impl RuntimeState {
             ),
             artifacts: artifacts.clone(),
             workspace: workspace.clone(),
+            terminal: terminal.clone(),
             cost_ledger,
             skills,
             model,
@@ -991,6 +999,331 @@ struct ToolCallRequest {
     agent_id: String,
     grant_id: String,
     parameters: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TerminalCreateRequest {
+    command: String,
+    cwd: Option<String>,
+    grant_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TerminalInputRequest {
+    input: String,
+    grant_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TerminalOutputQuery {
+    grant_id: String,
+    after: Option<i64>,
+    limit: Option<u32>,
+}
+
+async fn create_terminal(
+    request: web::Json<TerminalCreateRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.command.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "terminal command is required".to_string(),
+            code: "TERMINAL_COMMAND_REQUIRED",
+        });
+    }
+
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Execute,
+            "terminal/*",
+            "terminal.open",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.open capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.create(&request.command, request.cwd.as_deref()).await {
+        Ok(record) => HttpResponse::Created().json(record),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "TERMINAL_CREATE_FAILED",
+        }),
+    }
+}
+
+async fn list_terminals(
+    query: web::Query<TerminalOutputQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            "terminal/*",
+            "terminal.read",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.read capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.list().await {
+        Ok(records) => HttpResponse::Ok().json(serde_json::json!({
+            "terminals": records,
+            "count": records.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "TERMINAL_LIST_FAILED",
+        }),
+    }
+}
+
+async fn get_terminal(
+    terminal_id: web::Path<String>,
+    query: web::Query<TerminalOutputQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            &format!("terminal/{}", terminal_id.as_str()),
+            "terminal.read",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.read capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.get(&terminal_id).await {
+        Ok(Some(record)) => HttpResponse::Ok().json(record),
+        Ok(None) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "terminal not found".to_string(),
+            code: "TERMINAL_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "TERMINAL_QUERY_FAILED",
+        }),
+    }
+}
+
+async fn write_terminal(
+    terminal_id: web::Path<String>,
+    request: web::Json<TerminalInputRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Write,
+            &format!("terminal/{}", terminal_id.as_str()),
+            "terminal.write",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.write capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.write_input(&terminal_id, &request.input).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "TERMINAL_WRITE_FAILED",
+        }),
+    }
+}
+
+async fn read_terminal(
+    terminal_id: web::Path<String>,
+    query: web::Query<TerminalOutputQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &query.grant_id,
+            CapabilityType::Read,
+            &format!("terminal/{}", terminal_id.as_str()),
+            "terminal.read",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.read capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state
+        .terminal
+        .read_output(
+            &terminal_id,
+            query.after.unwrap_or(0),
+            query.limit.unwrap_or(128),
+        )
+        .await
+    {
+        Ok(events) => HttpResponse::Ok().json(serde_json::json!({
+            "terminal_id": terminal_id.into_inner(),
+            "events": events,
+            "count": events.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "TERMINAL_READ_FAILED",
+        }),
+    }
+}
+
+async fn close_terminal(
+    terminal_id: web::Path<String>,
+    request: web::Query<TerminalOutputQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Execute,
+            &format!("terminal/{}", terminal_id.as_str()),
+            "terminal.close",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.close capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.close(&terminal_id).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "terminal is not running".to_string(),
+            code: "TERMINAL_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "TERMINAL_CLOSE_FAILED",
+        }),
+    }
+}
+
+async fn delete_terminal(
+    terminal_id: web::Path<String>,
+    request: web::Query<TerminalOutputQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            CapabilityType::Execute,
+            &format!("terminal/{}", terminal_id.as_str()),
+            "terminal.close",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "terminal.close capability denied".to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TERMINAL_CAPABILITY_REQUIRED",
+            })
+        }
+    }
+
+    match state.terminal.delete(&terminal_id).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "terminal not found".to_string(),
+            code: "TERMINAL_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "TERMINAL_DELETE_FAILED",
+        }),
+    }
 }
 
 async fn create_artifact(
@@ -4368,6 +4701,25 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/audit", web::get().to(list_audit))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/terminals", web::get().to(list_terminals))
+            .route("/api/terminals", web::post().to(create_terminal))
+            .route("/api/terminals/{terminal_id}", web::get().to(get_terminal))
+            .route(
+                "/api/terminals/{terminal_id}/input",
+                web::post().to(write_terminal),
+            )
+            .route(
+                "/api/terminals/{terminal_id}/output",
+                web::get().to(read_terminal),
+            )
+            .route(
+                "/api/terminals/{terminal_id}/close",
+                web::post().to(close_terminal),
+            )
+            .route(
+                "/api/terminals/{terminal_id}",
+                web::delete().to(delete_terminal),
+            )
             .route("/api/artifacts", web::post().to(create_artifact))
             .route("/api/artifacts/{artifact_id}", web::get().to(get_artifact))
             .route(

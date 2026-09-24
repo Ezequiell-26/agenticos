@@ -1,6 +1,6 @@
 use crate::{
-    shared_http_client, CredentialPool, FallbackManager, HealthChecker, ModelCatalog, ProviderRegistry,
-    QuotaTracker, RetryManager,
+    shared_http_client, CredentialPool, FallbackManager, HealthChecker, ModelCatalog,
+    ProviderRegistry, QuotaTracker, RetryManager,
 };
 use agenticos_contracts::{
     ContractError, Credential, HealthCheck, HealthStatus, ModelEntry, ModelProvider, ModelRequest,
@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::time::sleep;
 use tokio::sync::Semaphore;
+use tokio::time::sleep;
 
 #[derive(Debug, Clone, Serialize)]
 /// Public provider status without secrets.
@@ -986,11 +986,9 @@ impl ProviderPlatform {
                     break;
                 }
 
-                        let _network_permit = self
-                    .network_concurrency
-                    .acquire()
-                    .await
-                    .map_err(|_| ContractError::ParseError("provider concurrency limiter closed".to_string()))?;
+                let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
+                    ContractError::ParseError("provider concurrency limiter closed".to_string())
+                })?;
 
                 let protocol_result = execute_protocol(
                     detect_protocol(&provider),
@@ -1105,11 +1103,9 @@ impl ProviderPlatform {
             return Err(ContractError::MissingCapability);
         }
 
-        let _network_permit = self
-            .network_concurrency
-            .acquire()
-            .await
-            .map_err(|_| ContractError::ParseError("provider concurrency limiter closed".to_string()))?;
+        let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
+            ContractError::ParseError("provider concurrency limiter closed".to_string())
+        })?;
         let models_result = list_provider_models(&provider, credential.as_ref()).await;
         drop(_network_permit);
         let models = models_result?;
@@ -1180,7 +1176,8 @@ impl ProviderPlatform {
 
     /// Probe an OpenAI-compatible provider and update its health state.
     pub async fn check_health(&self, provider_id: &str) -> Result<HealthCheck, ContractError> {
-        if let Some((checked_at, check)) = self.health_cache.read().await.get(provider_id).cloned() {
+        if let Some((checked_at, check)) = self.health_cache.read().await.get(provider_id).cloned()
+        {
             if checked_at.elapsed() <= self.health_cache_ttl {
                 return Ok(check);
             }
@@ -2602,7 +2599,6 @@ mod tests {
         assert!(normalized_input_parts("ignored", Some(parameters)).is_err());
     }
 
-
     #[test]
     fn anonymous_provider_detection_is_local_only_by_default() {
         assert!(super::allows_anonymous_provider("http://127.0.0.1:11434"));
@@ -2610,8 +2606,7 @@ mod tests {
     }
 }
 
-
-fn provider_concurrency_limit() -> usize {
+fn provider_concurrency_limit( -> usize {
     let cores = std::thread::available_parallelism()
         .map(|value| value.get())
         .unwrap_or(4);
@@ -2622,7 +2617,6 @@ fn provider_concurrency_limit() -> usize {
         .unwrap_or(default_limit)
         .clamp(2, 64)
 }
-
 
 fn provider_health_cache_ttl() -> Duration {
     let ttl_ms = std::env::var("AGENTICOS_PROVIDER_HEALTH_CACHE_TTL_MS")

@@ -17,8 +17,8 @@ use agenticos_a2a::{
     text_from_message, A2aMessage, A2aTaskRecord, A2aTaskStore, AgentCapabilities, AgentCard,
     AgentInterface, AgentSkill, JsonRpcError, JsonRpcRequest, JsonRpcResponse, TaskState, TaskView,
 };
-use agenticos_artifacts::{ArtifactRange, ArtifactStore};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
+use agenticos_artifacts::{ArtifactRange, ArtifactStore};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
@@ -45,10 +45,10 @@ use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
+use agenticos_terminal::TerminalManager;
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;
-use agenticos_terminal::TerminalManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -312,22 +312,29 @@ impl AgentTool for WorkspaceTool {
                 })
             }
             "fs.patch" => {
-                let args = serde_json::from_str::<serde_json::Value>(&request.parameters)
-                    .map_err(|error| {
+                let args = serde_json::from_str::<serde_json::Value>(&request.parameters).map_err(
+                    |error| {
                         ContractError::ParseError(format!("invalid fs.patch arguments: {error}"))
-                    })?;
+                    },
+                )?;
                 let path = args
                     .get("path")
                     .and_then(|value| value.as_str())
-                    .ok_or_else(|| ContractError::ParseError("fs.patch path is required".to_string()))?;
+                    .ok_or_else(|| {
+                        ContractError::ParseError("fs.patch path is required".to_string())
+                    })?;
                 let expected = args
                     .get("expected")
                     .and_then(|value| value.as_str())
-                    .ok_or_else(|| ContractError::ParseError("fs.patch expected is required".to_string()))?;
+                    .ok_or_else(|| {
+                        ContractError::ParseError("fs.patch expected is required".to_string())
+                    })?;
                 let replacement = args
                     .get("replacement")
                     .and_then(|value| value.as_str())
-                    .ok_or_else(|| ContractError::ParseError("fs.patch replacement is required".to_string()))?;
+                    .ok_or_else(|| {
+                        ContractError::ParseError("fs.patch replacement is required".to_string())
+                    })?;
                 self.workspace
                     .apply_patch(path, expected, replacement)
                     .await
@@ -648,8 +655,8 @@ impl RuntimeState {
     }
 
     async fn load_skills() -> Vec<Skill> {
-        let root = std::env::var("AGENTICOS_SKILLS_ROOT")
-            .unwrap_or_else(|_| "skills".to_string());
+        let root =
+            std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
         let mut directory = match tokio::fs::read_dir(&root).await {
             Ok(directory) => directory,
             Err(error) => {
@@ -2173,12 +2180,12 @@ async fn a2a_rpc(
                 .context_id
                 .clone()
                 .unwrap_or_else(|| format!("context-{}", uuid::Uuid::new_v4()));
-                    let run_id = match RunId::new(format!("a2a-{task_id}")) {
+            let run_id = match RunId::new(format!("a2a-{task_id}")) {
                 Ok(value) => value,
                 Err(error) => return a2a_error(request.id.clone(), -32602, error.to_string()),
             };
 
-                    let created = match state.kernel.create_run(run_id.clone()).await {
+            let created = match state.kernel.create_run(run_id.clone()).await {
                 Ok(value) => value,
                 Err(error) => {
                     return a2a_error(request.id.clone(), -32001, error.to_string());
@@ -3276,7 +3283,7 @@ async fn create_run(
                 error: error.to_string(),
                 code: "RUN_CREATE_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -4054,7 +4061,7 @@ async fn execute_tool(
         Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
             error: error.to_string(),
             code: "TOOL_EXECUTION_DENIED",
-        })
+        }),
     }
 }
 
@@ -4207,8 +4214,10 @@ async fn worker_complete(
             RunState::Waiting
         };
 
-        if matches!(run.state, RunState::Running | RunState::Waiting | RunState::Admitted)
-            && target != run.state
+        if matches!(
+            run.state,
+            RunState::Running | RunState::Waiting | RunState::Admitted
+        ) && target != run.state
         {
             let _ = state
                 .kernel

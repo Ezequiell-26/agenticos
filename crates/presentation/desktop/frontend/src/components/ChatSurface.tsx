@@ -221,7 +221,12 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     setDraft('')
     setSlashOpen(false)
     try {
-      await onSend(message, { model: model === 'Auto route' ? undefined : model })
+      await onSend(message, {
+        model: model === 'Auto route' ? undefined : model,
+        maxTokens: Number(maxTokens),
+        temperature: Number(temperature),
+        responseFormat,
+      })
     } catch {
       setDraft(message)
       setNotice('Request failed. Your message was restored.')

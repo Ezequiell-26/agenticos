@@ -988,7 +988,8 @@ impl ProviderPlatform {
                     credential.as_ref(),
                     routed_request.clone(),
                 )
-                .await {
+                .await
+                {
                     Ok(response) => {
                         if let Some(tokens) = response.tokens_used {
                             if let Err(error) = self
@@ -1990,14 +1991,15 @@ fn merge_parameters(
     let Some(parameters) = parameters.filter(|value| !value.trim().is_empty()) else {
         return Ok(());
     };
-    let extra = serde_json::from_str::<serde_json::Value>(parameters)
-        .map_err(|error| ContractError::ParseError(format!("invalid provider parameters: {error}")))?;
-    let object = extra
-        .as_object()
-        .ok_or_else(|| ContractError::ParseError("provider parameters must be a JSON object".to_string()))?;
-    let target = payload
-        .as_object_mut()
-        .ok_or_else(|| ContractError::ParseError("provider payload must be an object".to_string()))?;
+    let extra = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
+        ContractError::ParseError(format!("invalid provider parameters: {error}"))
+    })?;
+    let object = extra.as_object().ok_or_else(|| {
+        ContractError::ParseError("provider parameters must be a JSON object".to_string())
+    })?;
+    let target = payload.as_object_mut().ok_or_else(|| {
+        ContractError::ParseError("provider payload must be an object".to_string())
+    })?;
     for (key, value) in object {
         target.insert(key.clone(), value.clone());
     }
@@ -2046,7 +2048,10 @@ where
     Ok(ModelResponse {
         request_id,
         output: text,
-        metadata: Some(format!("provider: {}; protocol: {protocol}", provider.provider_id)),
+        metadata: Some(format!(
+            "provider: {}; protocol: {protocol}",
+            provider.provider_id
+        )),
         tokens_used: tokens(&json),
     })
 }
@@ -2120,7 +2125,10 @@ mod tests {
             models: vec!["gemini".into()],
             capabilities: vec![],
         };
-        assert_eq!(detect_protocol(&anthropic), ProviderProtocol::AnthropicMessages);
+        assert_eq!(
+            detect_protocol(&anthropic),
+            ProviderProtocol::AnthropicMessages
+        );
         assert_eq!(detect_protocol(&gemini), ProviderProtocol::Gemini);
     }
 
@@ -2131,11 +2139,7 @@ mod tests {
             "https://api.example.com/v1/responses"
         );
         assert_eq!(
-            normalize_endpoint(
-                "https://api.anthropic.com/v1",
-                "/v1/messages",
-                "/messages"
-            ),
+            normalize_endpoint("https://api.anthropic.com/v1", "/v1/messages", "/messages"),
             "https://api.anthropic.com/v1/messages"
         );
     }

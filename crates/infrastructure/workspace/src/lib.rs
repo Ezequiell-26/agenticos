@@ -79,7 +79,10 @@ impl WorkspaceFs {
         if path.is_absolute() {
             return Err("workspace path must be relative".to_string());
         }
-        if path.components().any(|c| matches!(c, Component::ParentDir | Component::RootDir)) {
+        if path
+            .components()
+            .any(|c| matches!(c, Component::ParentDir | Component::RootDir))
+        {
             return Err("workspace path traversal is forbidden".to_string());
         }
         Ok(path.to_path_buf())

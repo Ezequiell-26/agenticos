@@ -413,7 +413,6 @@ mod tests {
     }
 }
 
-
 /// HTTP client for the AgentiCOS A2A boundary.
 #[derive(Clone, Debug)]
 pub struct A2aClient {

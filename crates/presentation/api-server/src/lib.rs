@@ -32,7 +32,7 @@ use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
-use agenticos_scheduler::{JobScheduler, JobSpec, JobState};
+use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine};
@@ -1852,20 +1852,39 @@ async fn execute_tool(
         Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
             error: error.to_string(),
             code: "TOOL_EXECUTION_DENIED",
-        }),
-    }
-}
-
-async fn scheduler_worker(state: RuntimeState) {
+        })async fn scheduler_worker(state: RuntimeState) {
     let worker_id = format!("scheduler-worker-{}", uuid::Uuid::new_v4());
+    let concurrency = std::env::var("AGENTICOS_WORKER_CONCURRENCY")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(4)
+        .clamp(1, 32);
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
+
     loop {
-        let ready_jobs = state.scheduler.next_ready(8).await;
+        let ready_jobs = state.scheduler.next_ready(concurrency * 2).await;
         if ready_jobs.is_empty() {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             continue;
         }
 
         for queued_job in ready_jobs {
+            let permit = match semaphore.clone().try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => break,
+            };
+
+            let state = state.clone();
+            let worker_id = worker_id.clone();
+            tokio::spawn(async move {
+                let _permit = permit;
+                execute_scheduled_job(state, worker_id, queued_job).await;
+            });
+        }
+    }
+}
+
+async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_job: JobRecord) {
             let started_job = match state
                 .scheduler
                 .start_as(&queued_job.spec.job_id, worker_id.clone(), 120)
@@ -2089,7 +2108,8 @@ async fn scheduler_worker(state: RuntimeState) {
                         .await;
                 }
             }
-        }
+}
+ }
     }
 }
 

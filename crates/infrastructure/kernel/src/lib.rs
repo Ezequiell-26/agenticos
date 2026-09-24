@@ -919,7 +919,7 @@ impl EventStore for SqliteEventStore {
         after_version: u64,
     ) -> Result<Vec<SerializedEvent>, ContractError> {
         let rows = sqlx::query_as::<_, (String, String, i64)>(
-            "SELECT event_type, data, schema_version FROM events WHERE stream_id = ? AND version > ? ORDER BY version ASC",
+            "SELECT event_type, data, schema_version FROM events WHERE stream_id = ? AND version >= ? ORDER BY version ASC",
         )
         .bind(stream_id)
         .bind(after_version as i64)
@@ -5649,6 +5649,36 @@ Test procedure"#;
 
         assert_eq!(deserialized.plan_id, "test-plan");
         assert_eq!(deserialized.objective, "Test objective");
+    }
+
+    #[tokio::test]
+    async fn sqlite_event_store_recovers_full_run_history_without_snapshot() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-kernel-recovery-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let store = Arc::new(SqliteEventStore::new(&url).await.unwrap());
+        let snapshots = Arc::new(InMemorySnapshotStore::new());
+        let first = KernelRuntime::minimal(store.clone(), snapshots.clone());
+
+        let run_id = RunId::new("sqlite-recovery").unwrap();
+        first.create_run(run_id.clone()).await.unwrap();
+        let created = first.get_or_recover_run(&run_id).await.unwrap();
+        first
+            .transition_run(&run_id, RunState::Admitted, created.version)
+            .await
+            .unwrap();
+        drop(first);
+
+        let second = KernelRuntime::minimal(store, snapshots);
+        let recovered = second.get_or_recover_run(&run_id).await.unwrap();
+
+        assert_eq!(recovered.state, RunState::Admitted);
+        assert_eq!(recovered.version, 2);
+
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

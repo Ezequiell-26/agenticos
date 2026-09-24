@@ -1784,6 +1784,8 @@ struct ReactAgentInner {
     current_turn: usize,
     /// Model provider for LLM integration
     model_provider: Option<Arc<dyn ModelProvider>>,
+    /// Optional model identifier pinned for this agent session.
+    preferred_model: Option<String>,
     /// SQLite tier 2 memory for conversation history
     memory: Option<Arc<SqliteMemory>>,
     /// Current session ID
@@ -1833,8 +1835,7 @@ impl ReactAgent {
             soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
-                model_provider: None,
-                memory: None,
+                model_provider: None,\n                preferred_model: None,\n                memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
                 checkpoint_store: None,
@@ -1870,8 +1871,7 @@ impl ReactAgent {
             soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
-                model_provider: None,
-                memory: None,
+                model_provider: None,\n                preferred_model: None,\n                memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
                 checkpoint_store: None,
@@ -1897,6 +1897,13 @@ impl ReactAgent {
     /// Set the model provider for LLM integration.
     pub fn set_model_provider(&self, provider: Arc<dyn ModelProvider>) {
         self.inner.lock().unwrap().model_provider = Some(provider);
+    }
+
+    /// Pin this agent session to a specific registered model identifier.
+    pub fn set_model(&self, model: String) {
+        let normalized = model.trim();
+        self.inner.lock().unwrap().preferred_model = (!normalized.is_empty())
+            .then(|| normalized.to_string());
     }
 
     /// Set SQLite tier 2 memory for conversation history.
@@ -2170,12 +2177,13 @@ impl ReactAgent {
 
     /// Execute thought/reasoning step using LLM.
     pub async fn think(&self, input: &str) -> Result<String, ContractError> {
-        let (provider, turn, llm_router) = {
+        let (provider, turn, llm_router, preferred_model) = {
             let inner = self.inner.lock().unwrap();
             (
                 inner.model_provider.clone(),
                 inner.current_turn,
                 inner.llm_router.clone(),
+                inner.preferred_model.clone(),
             )
         };
 
@@ -2184,7 +2192,7 @@ impl ReactAgent {
             return self.think_with_router(&router, turn, input).await;
         }
 
-        self.think_inner(provider.as_ref(), turn, input).await
+        self.think_inner(provider.as_ref(), turn, input, preferred_model.as_deref()).await
     }
 
     /// Execute thought using LLM router for provider selection.
@@ -2265,12 +2273,13 @@ impl ReactAgent {
         model_provider: Option<&Arc<dyn ModelProvider>>,
         current_turn: usize,
         input: &str,
+        preferred_model: Option<&str>,
     ) -> Result<String, ContractError> {
         if let Some(provider) = model_provider {
             let system_prompt = self.build_system_prompt().await;
             let request = ModelRequest {
                 request_id: format!("think-{}", current_turn),
-                model: "default".to_string(),
+                model: preferred_model.unwrap_or("default").to_string(),
                 input: format!("{}\n\nUser: {}", system_prompt, input),
                 parameters: None,
             };
@@ -2549,6 +2558,7 @@ impl ReactAgent {
             _soul,
             goal_manager,
             heartbeat_manager,
+            preferred_model,
         ) = {
             let inner = self.inner.lock().unwrap();
             (
@@ -2567,6 +2577,7 @@ impl ReactAgent {
                 self.soul.clone(),
                 inner.goal_manager.clone(),
                 inner.heartbeat_manager.clone(),
+                inner.preferred_model.clone(),
             )
         };
 
@@ -2648,7 +2659,12 @@ impl ReactAgent {
 
         // Step 1: Thought/Reasoning
         let thought = self
-            .think_inner(model_provider.as_ref(), current_turn, input)
+            .think_inner(
+                model_provider.as_ref(),
+                current_turn,
+                input,
+                preferred_model.as_deref(),
+            )
             .await?;
 
         // Store assistant thought in SQLite memory if available

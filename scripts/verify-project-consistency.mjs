@@ -151,14 +151,3 @@ console.log(
     "; active=" +
     state.workstreams.filter((workstream) => ["in_progress", "verifying"].includes(workstream.status)).length,
 );
-
-console.log(
-  "PROJECT STATE: PASS — current=" +
-    current.id +
-    " status=" +
-    current.status +
-    "; verified=" +
-    ordered.filter((step) => step.status === "verified").length +
-    "; active=" +
-    active.length,
-);

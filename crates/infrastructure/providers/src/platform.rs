@@ -381,13 +381,13 @@ impl ProviderPlatform {
 
         let quota = self
             .quotas
-            .get(provider_id)
+            .get_state(provider_id)
             .await
-            .map(|value| PersistedQuota {
+            .map(|(value, window_started_at)| PersistedQuota {
                 requests_per_minute: value.requests_per_minute,
                 tokens_per_minute: value.tokens_per_minute,
                 current_usage: value.current_usage,
-                window_started_at: unix_time(),
+                window_started_at,
             });
         let retry = self
             .retries

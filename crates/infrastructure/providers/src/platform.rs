@@ -2515,6 +2515,64 @@ mod tests {
     }
 
     #[test]
+    fn multimodal_parts_map_to_openai_chat_content() {
+        let parameters = r#"{
+            "input_parts": [
+                {"type":"text","text":"Describe it"},
+                {"type":"image","mime_type":"image/png","data":"QUJD","detail":"low"}
+            ]
+        }"#;
+        let value = openai_chat_message_content("ignored", Some(parameters)).unwrap();
+        assert_eq!(value[0]["type"], "text");
+        assert_eq!(value[1]["type"], "image_url");
+        assert_eq!(
+            value[1]["image_url"]["url"],
+            "data:image/png;base64,QUJD"
+        );
+        assert_eq!(value[1]["image_url"]["detail"], "low");
+    }
+
+    #[test]
+    fn multimodal_parts_map_to_anthropic_blocks() {
+        let parameters = r#"{
+            "input_parts": [
+                {"type":"text","text":"Describe it"},
+                {"type":"image","mime_type":"image/jpeg","data":"QUJD"}
+            ]
+        }"#;
+        let value = anthropic_message_content("ignored", Some(parameters)).unwrap();
+        assert_eq!(value[0]["type"], "text");
+        assert_eq!(value[1]["type"], "image");
+        assert_eq!(value[1]["source"]["media_type"], "image/jpeg");
+        assert_eq!(value[1]["source"]["data"], "QUJD");
+    }
+
+    #[test]
+    fn multimodal_parts_map_to_gemini_inline_data() {
+        let parameters = r#"{
+            "input_parts": [
+                {"type":"text","text":"Describe it"},
+                {"type":"image","mime_type":"image/webp","data":"QUJD"}
+            ]
+        }"#;
+        let value = gemini_message_parts("ignored", Some(parameters)).unwrap();
+        assert_eq!(value[0]["text"], "Describe it");
+        assert_eq!(value[1]["inline_data"]["mime_type"], "image/webp");
+        assert_eq!(value[1]["inline_data"]["data"], "QUJD");
+    }
+
+    #[test]
+    fn multimodal_parts_reject_unsafe_or_oversized_images() {
+        let parameters = r#"{
+            "input_parts": [
+                {"type":"image","mime_type":"application/octet-stream","data":"QUJD"}
+            ]
+        }"#;
+        assert!(normalized_input_parts("ignored", Some(parameters)).is_err());
+    }
+
+
+    #[test]
     fn anonymous_provider_detection_is_local_only_by_default() {
         assert!(super::allows_anonymous_provider("http://127.0.0.1:11434"));
         assert!(!super::allows_anonymous_provider("https://api.example.com"));

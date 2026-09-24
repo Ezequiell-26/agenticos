@@ -7,8 +7,8 @@ use agenticos_contracts::{
     ModelResponse, ProviderEntry,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -1524,7 +1524,6 @@ impl AuthenticatedOpenAiProvider {
 
         Ok(Box::pin(stream))
     }
-
 }
 
 #[async_trait::async_trait]
@@ -2083,7 +2082,6 @@ async fn execute_protocol(
         }
     }
 }
-
 
 async fn list_provider_models(
     provider: &ProviderEntry,

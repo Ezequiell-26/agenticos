@@ -27,7 +27,7 @@ const initial: Capability[] = [
   { id: 'docker', label: 'Docker sandbox', group: 'Execution', state: 'Requires setup', detail: 'Isolated container execution.', latency: 'Local' },
 ]
 
-const groups = ['All', 'AI', 'Execution', 'Web', 'Integrations', 'Media']
+const groups = ['All', 'AI', 'Execution', 'Web', 'Integrations', 'Media', 'Read', 'Write', 'Execute', 'Admin']
 
 export default function CapabilityRegistry() {
   const [items, setItems] = useState(initial)

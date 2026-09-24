@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::SqlitePool;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -271,7 +271,7 @@ pub struct A2aTaskStore {
 impl A2aTaskStore {
     /// Open a durable A2A task store and recover existing records.
     pub async fn open(database_url: &str) -> Result<Self, String> {
-        let pool = SqlitePool::connect(database_url)
+        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
             .await
             .map_err(|error| format!("A2A database connection failed: {error}"))?;
         sqlx::query(

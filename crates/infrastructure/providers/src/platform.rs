@@ -1325,6 +1325,160 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
             .replace("/chat/completions", "/models")
     }
 
+    /// Stream an OpenAI-compatible chat completion as normalized text deltas.
+    pub async fn stream(
+        &self,
+        request: ModelRequest,
+    ) -> Result<
+        std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
+        ContractError,
+    > {
+        let request_id = request.request_id.clone();
+        let mut payload = serde_json::json!({
+            "model": request.model,
+            "messages": [{"role": "user", "content": request.input}],
+            "stream": true,
+        });
+
+        if let Some(parameters) = &request.parameters {
+            let extra = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider parameters must be valid JSON: {error}"
+                ))
+            })?;
+            let extra_object = extra.as_object().ok_or_else(|| {
+                ContractError::ParseError("provider parameters must be a JSON object".to_string())
+            })?;
+            let payload_object = payload.as_object_mut().ok_or_else(|| {
+                ContractError::ParseError("provider request payload is not an object".to_string())
+            })?;
+            for (key, value) in extra_object {
+                if !matches!(key.as_str(), "model" | "messages" | "stream" | "request_id") {
+                    payload_object.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+        let mut request_builder = self
+            .client
+            .post(&self.base_url)
+            .header("x-request-id", &request_id)
+            .json(&payload);
+        if let Some(api_key) = &self.api_key {
+            request_builder = request_builder.bearer_auth(api_key);
+        }
+        let response = request_builder.send().await.map_err(|error| {
+            ContractError::ParseError(format!("provider stream request failed: {error}"))
+        })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_else(|_| {
+                "failed to read provider streaming error response".to_string()
+            });
+            let mut detail = body;
+            if detail.len() > 4_096 {
+                detail.truncate(4_096);
+                detail.push_str("...");
+            }
+            return Err(ContractError::ParseError(format!(
+                "provider_http_status={}; provider stream returned HTTP {status}: {detail}",
+                status.as_u16()
+            )));
+        }
+
+        let provider_id = self.provider_id.clone();
+        let mut bytes_stream = response.bytes_stream();
+        let stream = async_stream::try_stream! {
+            use futures::StreamExt;
+
+            let mut buffer = String::new();
+            while let Some(next) = bytes_stream.next().await {
+                let chunk = next.map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "provider stream transport failed for {provider_id}: {error}"
+                    ))
+                })?;
+                buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+                while let Some(newline) = buffer.find('
+') {
+                    let line = buffer[..newline].trim_end_matches('').to_string();
+                    buffer.drain(..=newline);
+
+                    let Some(data) = line.strip_prefix("data:") else {
+                        continue;
+                    };
+                    let data = data.trim();
+                    if data.is_empty() {
+                        continue;
+                    }
+                    if data == "[DONE]" {
+                        yield "[DONE]".to_string();
+                        continue;
+                    }
+
+                    let json = serde_json::from_str::<serde_json::Value>(data).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid provider stream chunk for {provider_id}: {error}"
+                        ))
+                    })?;
+                    if let Some(delta) = json
+                        .get("choices")
+                        .and_then(|value| value.as_array())
+                        .and_then(|choices| choices.first())
+                        .and_then(|choice| choice.get("delta"))
+                        .and_then(|delta| delta.get("content"))
+                        .and_then(|content| content.as_str())
+                    {
+                        if !delta.is_empty() {
+                            yield delta.to_string();
+                        }
+                    }
+                    if json
+                        .get("choices")
+                        .and_then(|value| value.as_array())
+                        .and_then(|choices| choices.first())
+                        .and_then(|choice| choice.get("finish_reason"))
+                        .and_then(|value| value.as_str())
+                        .is_some()
+                    {
+                        yield "[DONE]".to_string();
+                    }
+                }
+            }
+
+            if !buffer.trim().is_empty() {
+                for line in buffer.lines() {
+                    let data = line.trim().strip_prefix("data:").map(str::trim);
+                    if let Some(data) = data.filter(|value| !value.is_empty() && *value != "[DONE]") {
+                        let json = serde_json::from_str::<serde_json::Value>(data).map_err(|error| {
+                            ContractError::ParseError(format!(
+                                "invalid trailing provider stream chunk for {provider_id}: {error}"
+                            ))
+                        })?;
+                        if let Some(delta) = json
+                            .get("choices")
+                            .and_then(|value| value.as_array())
+                            .and_then(|choices| choices.first())
+                            .and_then(|choice| choice.get("delta"))
+                            .and_then(|delta| delta.get("content"))
+                            .and_then(|content| content.as_str())
+                        {
+                            if !delta.is_empty() {
+                                yield delta.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+
+            yield "[DONE]".to_string();
+        };
+
+        Ok(Box::pin(stream))
+    }
+
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         let request_id = request.request_id.clone();
         let mut payload = serde_json::json!({

@@ -13,6 +13,8 @@ serde_json = { workspace = true }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
 ring = { workspace = true }
+async-stream = { workspace = true }
+futures = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }

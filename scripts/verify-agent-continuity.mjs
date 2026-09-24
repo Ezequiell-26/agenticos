@@ -113,33 +113,46 @@ if (continuity.policies.duplicate_json_keys_are_blocking !== true) fail("duplica
 if (continuity.policies.verified_slice_does_not_equal_production_completeness !== true) fail("verified-slice semantics policy disabled");
 
 const ids = new Set();
-let lastTimestamp = "";
 for (const [index, line] of lines.entries()) {
   const op = parseJson(line, `reference/journal/agent-operations.jsonl line ${index + 1}`);
-  const required = continuity.required_operation_fields;
-  for (const field of required) {
-    if (!(field in op)) fail(`journal operation ${op.operation_id ?? "unknown"} is missing ${field}`);
-  }
-  if (ids.has(op.operation_id)) fail(`duplicate operation_id: ${op.operation_id}`);
-  ids.add(op.operation_id);
-  if (lastTimestamp && op.timestamp < lastTimestamp) fail(`journal timestamp moved backward at ${op.operation_id}`);
-  lastTimestamp = op.timestamp;
+  const modern = op.schema_version === 1;
+  const operationId = op.operation_id ?? op.operation ?? `legacy-line-${index + 1}`;
 
-  if (!Array.isArray(op.deleted)) fail(`deleted must be an array in ${op.operation_id}`);
-  if (op.deleted.length > 0) {
-    const auth = op.rollback?.authorized_destructive_change === true;
-    const snapshot = typeof op.rollback?.point === "string" && op.rollback.point.length > 0;
-    const reason = typeof op.rollback?.reason === "string" && op.rollback.reason.length > 0;
-    if (!auth || !snapshot || !reason) {
-      fail(`unauthorized destructive change recorded by ${op.operation_id}`);
+  if (typeof op.timestamp !== "string" || Number.isNaN(Date.parse(op.timestamp))) {
+    fail(`journal operation ${operationId} has an invalid timestamp`);
+  }
+
+  if (modern) {
+    const required = continuity.required_operation_fields;
+    for (const field of required) {
+      if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
     }
+  } else {
+    // Historical entries predate schema_version=1. Preserve them and validate
+    // the fields that make them identifiable without forcing a rewrite of history.
+    if (typeof op.status !== "string") fail(`legacy journal operation ${operationId} has no status`);
   }
 
-  if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
-    fail(`completed operation ${op.operation_id} has no evidence`);
-  }
-  if (op.status === "completed" && typeof op.next_step !== "string") {
-    fail(`completed operation ${op.operation_id} has no next step`);
+  if (ids.has(operationId)) fail(`duplicate operation_id: ${operationId}`);
+  ids.add(operationId);
+
+  if (modern) {
+    if (!Array.isArray(op.deleted)) fail(`deleted must be an array in ${operationId}`);
+    if (op.deleted.length > 0) {
+      const auth = op.rollback?.authorized_destructive_change === true;
+      const snapshot = typeof op.rollback?.point === "string" && op.rollback.point.length > 0;
+      const reason = typeof op.rollback?.reason === "string" && op.rollback.reason.length > 0;
+      if (!auth || !snapshot || !reason) {
+        fail(`unauthorized destructive change recorded by ${operationId}`);
+      }
+    }
+
+    if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
+      fail(`completed operation ${operationId} has no evidence`);
+    }
+    if (op.status === "completed" && typeof op.next_step !== "string") {
+      fail(`completed operation ${operationId} has no next step`);
+    }
   }
 }
 

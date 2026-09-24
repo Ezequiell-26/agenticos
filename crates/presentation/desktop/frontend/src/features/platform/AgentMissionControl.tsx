@@ -5,6 +5,9 @@ import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 type AgentMode = 'Plan' | 'Ask' | 'Code' | 'Debug' | 'Research' | 'Review' | 'Release'
 type Isolation = 'Current workspace' | 'Git worktree' | 'Cloud environment'
 type ContextPreset = 'Focused' | 'Balanced' | 'Deep' | 'Grounded'
+type ApprovalProfile = 'Guarded' | 'Interactive' | 'Autonomous-safe' | 'Release-strict'
+type VerificationProfile = 'Targeted' | 'Full suite' | 'Release gate'
+type MissionStatus = 'Draft' | 'Ready' | 'Queued' | 'Running' | 'Blocked'
 
 const modes: Array<[AgentMode, string, string]> = [
   ['Plan', 'Read-only decomposition', 'Architecture, scope, dependencies'],
@@ -39,6 +42,8 @@ const verification = [
   ['Evidence package', 'Diff + logs + screenshots + test results', 'queued'],
 ]
 
+const contextSources = ['Repository map', 'Project rules', 'Git diff', 'Pinned memory', 'Prior sessions', 'Web sources']
+
 export function AgentMissionControl({ onAction }: { onAction: (message: string) => void }) {
   const [mode, setMode] = useState<AgentMode>('Code')
   const [route, setRoute] = useState('Auto Route')
@@ -48,11 +53,34 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   const [schedule, setSchedule] = useState(false)
   const [selectedModel, setSelectedModel] = useState('Qwen3 Coder')
   const [query, setQuery] = useState('Implement the next frontend slice and verify it without regressing existing surfaces.')
+  const [missionName, setMissionName] = useState('Frontend modernization')
+  const [approvalProfile, setApprovalProfile] = useState<ApprovalProfile>('Guarded')
+  const [verificationProfile, setVerificationProfile] = useState<VerificationProfile>('Full suite')
+  const [maxTurns, setMaxTurns] = useState(48)
+  const [timeLimit, setTimeLimit] = useState(30)
+  const [costLimit, setCostLimit] = useState(4)
+  const [missionStatus, setMissionStatus] = useState<MissionStatus>('Draft')
+  const [enabledContextSources, setEnabledContextSources] = useState<string[]>(contextSources.slice(0, 4))
 
   const activeMode = useMemo(() => modes.find(([id]) => id === mode) ?? modes[2], [mode])
 
   function preview(action: string) {
     onAction(action + ' staged in preview')
+  }
+
+  function toggleContextSource(source: string) {
+    setEnabledContextSources((current) => current.includes(source) ? current.filter((item) => item !== source) : [...current, source])
+  }
+
+  function runPreflight() {
+    setMissionStatus(query.trim().length >= 24 ? 'Ready' : 'Blocked')
+    preview('Preflight evaluation')
+  }
+
+  function launchMission() {
+    const next: MissionStatus = schedule ? 'Queued' : 'Running'
+    setMissionStatus(query.trim().length >= 24 ? next : 'Blocked')
+    preview(schedule ? 'Mission schedule created' : 'Mission launch')
   }
 
   return (
@@ -136,13 +164,46 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
         </Panel>
       </div>
 
-      <Panel title="7 · Preflight & verification contract">
+      <div className="mission-control__config-grid">
+        <Panel title="7 · Mission policy & budgets">
+          <div className="mission-control__field-stack">
+            <label><span>Mission name</span><input value={missionName} onChange={(event) => setMissionName(event.target.value)} aria-label="Mission name" /></label>
+            <label><span>Approval profile</span><select value={approvalProfile} onChange={(event) => setApprovalProfile(event.target.value as ApprovalProfile)}>{(['Guarded', 'Interactive', 'Autonomous-safe', 'Release-strict'] as ApprovalProfile[]).map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label><span>Verification depth</span><select value={verificationProfile} onChange={(event) => setVerificationProfile(event.target.value as VerificationProfile)}>{(['Targeted', 'Full suite', 'Release gate'] as VerificationProfile[]).map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label><span>Max tool turns</span><input type="number" min="1" max="500" value={maxTurns} onChange={(event) => setMaxTurns(Math.max(1, Math.min(500, Number(event.target.value))))} /></label>
+            <label><span>Wall-time budget</span><input type="number" min="1" max="240" value={timeLimit} onChange={(event) => setTimeLimit(Math.max(1, Math.min(240, Number(event.target.value))))} /></label>
+            <label><span>Cost ceiling</span><input type="number" min="0" max="1000" step="0.5" value={costLimit} onChange={(event) => setCostLimit(Math.max(0, Math.min(1000, Number(event.target.value))))} /></label>
+          </div>
+          <div className="mission-control__policy-summary" aria-live="polite">
+            <span><Icon name="shield" size={12} /> {approvalProfile}</span>
+            <span><Icon name="check-circle" size={12} /> {verificationProfile}</span>
+            <span><Icon name="activity" size={12} /> {maxTurns} turns · {timeLimit}m</span>
+            <span><Icon name="network" size={12} /> ${costLimit.toFixed(2)} ceiling</span>
+          </div>
+        </Panel>
+
+        <Panel title="8 · Context sources">
+          <div className="mission-control__source-grid">
+            {contextSources.map((source) => {
+              const enabled = enabledContextSources.includes(source)
+              return <button type="button" key={source} className={enabled ? 'source-toggle source-toggle--active' : 'source-toggle'} onClick={() => toggleContextSource(source)} aria-pressed={enabled}>
+                <Icon name={enabled ? 'check' : 'archive'} size={12} /><span>{source}</span><small>{enabled ? 'included' : 'excluded'}</small>
+              </button>
+            })}
+          </div>
+          <div className="mission-control__source-footer"><span>{enabledContextSources.length} sources active</span><button className="studio-button" type="button" onClick={() => setEnabledContextSources(contextSources)}>Include all</button><button className="studio-button" type="button" onClick={() => setEnabledContextSources([])}>Clear</button></div>
+        </Panel>
+      </div>
+      <Panel title="9 · Preflight & verification contract">
         <div className="mission-control__verification">
-          {verification.map(([title, detail, state]) => <div key={title} className="mission-control__verification-row"><span className={state === 'done' ? 'verification-dot verification-dot--done' : state === 'ready' ? 'verification-dot verification-dot--ready' : 'verification-dot'}><Icon name={state === 'done' ? 'check' : 'clock'} size={11} /></span><div><strong>{title}</strong><small>{detail}</small></div><span className="mono-text">{state}</span></div>)}
+          {verification.map(([title, detail, state]) => {
+            const resolved = missionStatus === 'Blocked' ? 'blocked' : missionStatus === 'Running' || missionStatus === 'Queued' ? 'done' : state
+            return <div key={title} className="mission-control__verification-row"><span className={resolved === 'done' ? 'verification-dot verification-dot--done' : resolved === 'ready' ? 'verification-dot verification-dot--ready' : 'verification-dot'}><Icon name={resolved === 'done' ? 'check' : 'clock'} size={11} /></span><div><strong>{title}</strong><small>{detail}</small></div><span className="mono-text">{resolved}</span></div>
+          })}
         </div>
         <div className="mission-control__launch">
-          <div><span className="eyebrow">Execution contract</span><strong>{schedule ? 'Scheduled mission' : parallel ? 'Parallel mission' : 'Single mission'} · {mode} · {selectedModel}</strong><small>{isolation} · {contextPreset} context · {route} · fail-closed on policy uncertainty</small></div>
-          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => preview('Mission plan opened')}>Preview plan</button><button className="studio-button" type="button" onClick={() => preview('Preflight checks opened')}>Preflight</button><button className="studio-button studio-button--active" type="button" onClick={() => preview(schedule ? 'Mission schedule created' : 'Mission launch')}>{schedule ? 'Queue mission' : 'Launch mission'}</button></div>
+          <div><span className="eyebrow">{missionName || 'Unnamed mission'} · {missionStatus}</span><strong>{schedule ? 'Scheduled mission' : parallel ? 'Parallel mission' : 'Single mission'} · {mode} · {selectedModel}</strong><small>{isolation} · {contextPreset} context · {route} · {approvalProfile} · {verificationProfile}</small></div>
+          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => preview('Mission plan opened')}>Preview plan</button><button className="studio-button" type="button" onClick={runPreflight}>Preflight</button><button className="studio-button studio-button--active" type="button" onClick={launchMission}>{schedule ? 'Queue mission' : 'Launch mission'}</button></div>
         </div>
         <div className="mission-control__boundary"><Icon name="shield" size={13} /><span>UI contract only: launch, queue, tools, model routing and repository isolation are staged visually and do not execute until the corresponding Tauri/Rust services are connected.</span></div>
       </Panel>

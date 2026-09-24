@@ -25,7 +25,7 @@ use agenticos_kernel::{
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
-use agenticos_observability::{AuditEvent, AuditStore};
+use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec, JobState};

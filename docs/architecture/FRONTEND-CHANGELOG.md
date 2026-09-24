@@ -1006,3 +1006,9 @@ Verification status:
 - Added explicit `remote-control` navigation registration and taxonomy ownership.
 - Runtime boundary: remote transport, device authentication, push delivery, approvals and session resume remain backend/runtime responsibilities; the UI emits preview intents only.
 - Verification status: source-level registry and route wiring inspected; fresh frontend build, browser verification, accessibility execution and Tauri rendering remain unverified.
+
+
+## 2026-09-24 — Navigation type registry hardening
+
+- Added `onboarding` and `qa` to the canonical `RailMode` union so every registered navigation item is represented in the typed route domain.
+- Preserved the existing ownership model: both surfaces are already handled by `PlatformSurface`; this change closes type-level registry drift without changing runtime behavior.

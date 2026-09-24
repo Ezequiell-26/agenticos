@@ -263,6 +263,9 @@ function App() {
       />
 
       <a className="skip-link" href="#workspace-content">Skip to workspace</a>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {running ? 'Agent run in progress.' : `Runtime ${status.provider === 'Runtime offline' ? 'offline' : 'connected'}; agent state ${status.state}.`}
+      </div>
       <main id="workspace-content" className="workspace-main" aria-label="AgentiCOS workspace">
         <header className="topbar">
           <div className="topbar__title">

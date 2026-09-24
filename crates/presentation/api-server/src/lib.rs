@@ -19,8 +19,8 @@ use agenticos_brain::{
     CapabilityRegistry,
 };
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState, Sandbox,
-    SandboxStatus,
+    AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState,
+    Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_execution::SecureToolService;
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
@@ -48,6 +48,62 @@ use tokio::sync::RwLock;
 
 /// Default local SQLite URL.
 const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
+/// Native tool adapter for capability-gated process execution.
+#[derive(Clone, Debug)]
+struct SecureCommandTool {
+    service: Arc<SecureToolService>,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for SecureCommandTool {
+    fn tool_id(&self) -> &str {
+        "process.execute"
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        #[derive(Debug, Deserialize)]
+        struct CommandArgs {
+            command: String,
+            timeout_ms: Option<u64>,
+            session_id: Option<String>,
+        }
+
+        let args = serde_json::from_str::<CommandArgs>(&request.parameters)
+            .map_err(|error| ContractError::ParseError(format!("invalid process.execute arguments: {error}")))?;
+
+        if args.command.trim().is_empty() {
+            return Err(ContractError::ParseError(
+                "process.execute command must not be empty".to_string(),
+            ));
+        }
+
+        let session_id = args
+            .session_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(&request.agent_id);
+
+        let result = self
+            .service
+            .execute_command(
+                session_id,
+                Some(&request.agent_id),
+                &request.grant_id,
+                args.command.trim(),
+                args.timeout_ms,
+            )
+            .await?;
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: result.output.unwrap_or_default(),
+            success: result.success,
+            error: result.error,
+            metadata: Some("native capability-gated process execution".to_string()),
+        })
+    }
+}
+
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
@@ -141,6 +197,22 @@ impl RuntimeState {
             capabilities.clone(),
         ));
         let tool_runtime = Arc::new(ToolRuntime::new(tool_registry, tool_policy));
+        tool_runtime
+            .register(
+                ToolEntry {
+                    tool_id: "process.execute".to_string(),
+                    name: "Execute Process".to_string(),
+                    description: "Execute an allowlisted local process through the sandbox".to_string(),
+                    capabilities: vec!["process".to_string()],
+                    required_permissions: vec![],
+                    context_requirements: vec!["capability:process.execute".to_string()],
+                },
+                Arc::new(SecureCommandTool {
+                    service: secure_tools.clone(),
+                }),
+            )
+            .await
+            .map_err(|error| ContractError::ParseError(format!("native tool registration failed: {error}")))?;
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {

@@ -98,10 +98,7 @@ impl QueryHandler for BasicQueryHandler {
             "get_run_state" => {
                 if let Some(run_id) = query.parameters.get("run_id").and_then(|v| v.as_str()) {
                     let run_id = RunId::new(run_id)?;
-                    let runs = self.runtime.runs.read().await;
-                    let run = runs
-                        .get(&run_id)
-                        .ok_or(agenticos_contracts::ContractError::MissingCapability)?;
+                    let run = self.runtime.get_or_recover_run(&run_id).await?;
 
                     Ok(QueryResult {
                         data: serde_json::json!({

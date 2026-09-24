@@ -87,11 +87,23 @@ impl WorkflowEngine {
         .await
         .map_err(|error| format!("workflow definition schema failed: {error}"))?;
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS workflow_states (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS workflow_states (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0)",
         )
         .execute(&db)
         .await
         .map_err(|error| format!("workflow state schema failed: {error}"))?;
+
+        let state_columns =
+            sqlx::query_as::<_, (String,)>("SELECT name FROM pragma_table_info('workflow_states')")
+                .fetch_all(&db)
+                .await
+                .map_err(|error| format!("workflow state schema inspection failed: {error}"))?;
+        if !state_columns.iter().any(|(name,)| name == "version") {
+            sqlx::query("ALTER TABLE workflow_states ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+                .execute(&db)
+                .await
+                .map_err(|error| format!("workflow state version migration failed: {error}"))?;
+        }
 
         let definitions = sqlx::query_as::<_, (String, String)>(
             "SELECT workflow_id, payload FROM workflow_definitions",
@@ -99,8 +111,8 @@ impl WorkflowEngine {
         .fetch_all(&db)
         .await
         .map_err(|error| format!("workflow recovery query failed: {error}"))?;
-        let states = sqlx::query_as::<_, (String, String)>(
-            "SELECT workflow_id, payload FROM workflow_states",
+        let states = sqlx::query_as::<_, (String, String, i64)>(
+            "SELECT workflow_id, payload, version FROM workflow_states",
         )
         .fetch_all(&db)
         .await
@@ -115,10 +127,11 @@ impl WorkflowEngine {
         }
 
         let mut state_map = HashMap::with_capacity(states.len());
-        for (workflow_id, payload) in states {
-            let state: WorkflowState = serde_json::from_str(&payload).map_err(|error| {
+        for (workflow_id, payload, version) in states {
+            let mut state: WorkflowState = serde_json::from_str(&payload).map_err(|error| {
                 format!("invalid persisted workflow state {workflow_id}: {error}")
             })?;
+            state.version = version.max(0) as u64;
             state_map.insert(workflow_id, state);
         }
 
@@ -153,10 +166,11 @@ impl WorkflowEngine {
         let payload = serde_json::to_string(state)
             .map_err(|error| format!("workflow state serialization failed: {error}"))?;
         sqlx::query(
-            "INSERT INTO workflow_states (workflow_id, payload) VALUES (?, ?) ON CONFLICT(workflow_id) DO UPDATE SET payload = excluded.payload",
+            "INSERT INTO workflow_states (workflow_id, payload, version) VALUES (?, ?, ?) ON CONFLICT(workflow_id) DO UPDATE SET payload = excluded.payload, version = excluded.version",
         )
         .bind(&state.workflow_id)
         .bind(payload)
+        .bind(state.version as i64)
         .execute(db.as_ref())
         .await
         .map_err(|error| format!("workflow state persistence failed: {error}"))?;
@@ -256,16 +270,15 @@ impl WorkflowEngine {
 
         if let Some(db) = &self.db {
             let previous_version = previous_state.version;
-            let previous_payload = serde_json::to_string(&previous_state)
-                .map_err(|error| format!("workflow previous-state serialization failed: {error}"))?;
             let payload = serde_json::to_string(state)
                 .map_err(|error| format!("workflow state serialization failed: {error}"))?;
             let updated = sqlx::query(
-                "UPDATE workflow_states SET payload = ? WHERE workflow_id = ? AND payload = ?",
+                "UPDATE workflow_states SET payload = ?, version = ? WHERE workflow_id = ? AND version = ?",
             )
             .bind(&payload)
+            .bind(state.version as i64)
             .bind(workflow_id)
-            .bind(&previous_payload)
+            .bind(previous_version as i64)
             .execute(db.as_ref())
             .await
             .map_err(|error| format!("workflow state persistence failed: {error}"))?;

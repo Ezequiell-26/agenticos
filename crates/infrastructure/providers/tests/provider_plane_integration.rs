@@ -819,4 +819,52 @@ async fn provider_platform_enforces_requests_per_minute_before_network_dispatch(
     );
 }
 
+
+#[tokio::test]
+async fn provider_platform_persists_active_quota_window_across_restart() {
+    let path =
+        std::env::temp_dir().join(format!("agenticos-provider-quota-{}.db", uuid::Uuid::new_v4()));
+    let url = format!("sqlite://{}?mode=rwc", path.display());
+
+    let first = ProviderPlatform::open(&url)
+        .await
+        .expect("open provider platform");
+    first
+        .register(
+            provider_with_base_url(
+                "durable-quota",
+                "http://127.0.0.1:45555",
+                &["quota-model"],
+            ),
+            None,
+        )
+        .await
+        .expect("register provider");
+    first
+        .set_quota(QuotaInfo {
+            provider_id: "durable-quota".to_string(),
+            requests_per_minute: Some(10),
+            tokens_per_minute: Some(10_000),
+            current_usage: 4,
+        })
+        .await
+        .expect("persist quota");
+
+    drop(first);
+
+    let second = ProviderPlatform::open(&url)
+        .await
+        .expect("reopen provider platform");
+    let recovered = second
+        .get_quota("durable-quota")
+        .await
+        .expect("recover quota");
+
+    assert_eq!(recovered.current_usage, 4);
+    assert_eq!(recovered.requests_per_minute, Some(10));
+    assert_eq!(recovered.tokens_per_minute, Some(10_000));
+
+    let _ = std::fs::remove_file(path);
+}
+
 }

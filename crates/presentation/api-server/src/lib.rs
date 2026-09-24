@@ -988,6 +988,28 @@ async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(state.metrics.snapshot())
 }
 
+async fn readiness_check(state: web::Data<RuntimeState>) -> impl Responder {
+    let configured = state.configured().await;
+    let has_healthy_provider = state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .any(|provider| provider.health == "Healthy");
+
+    let payload = serde_json::json!({
+        "status": if configured && has_healthy_provider { "ready" } else { "not_ready" },
+        "provider_configured": configured,
+        "healthy_provider": has_healthy_provider,
+    });
+
+    if configured && has_healthy_provider {
+        HttpResponse::Ok().json(payload)
+    } else {
+        HttpResponse::ServiceUnavailable().json(payload)
+    }
+}
+
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
     let configured = state.configured().await;
     let sandbox_status = state
@@ -2855,6 +2877,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .app_data(web::Data::new(auth_config))
             .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
+            .route("/ready", web::get().to(readiness_check))
             .route("/api/metrics", web::get().to(runtime_metrics))
             .route(
                 "/api/source/github/inspect",

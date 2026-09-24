@@ -246,9 +246,22 @@ impl McpManager {
     pub async fn register(&self, server: McpServerDefinition) -> Result<(), McpError> {
         validate_server(&server)?;
         let mut servers = self.servers.write().await;
-        servers.insert(server.server_id.clone(), server.clone());
+        let previous = servers.insert(server.server_id.clone(), server.clone());
         drop(servers);
-        self.persist(&server).await
+
+        if let Err(error) = self.persist(&server).await {
+            let mut servers = self.servers.write().await;
+            match previous {
+                Some(previous) => {
+                    servers.insert(server.server_id.clone(), previous);
+                }
+                None => {
+                    servers.remove(&server.server_id);
+                }
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Enable a server.

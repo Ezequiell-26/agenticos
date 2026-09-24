@@ -1344,3 +1344,16 @@ Verification status:
 - Documented Home/End keyboard controls for adjustable panel widths.
 - Added architecture-gate coverage for overlay focus, keyboard menus and dock semantics.
 - Verification status: source-level contract checks applied; production build, browser execution and Tauri/accessibility rendering remain pending.
+
+## 2026-09-24 — Final interaction and responsive polish pass
+
+- Added a reusable `useMenuKeyboard` controller for consistent Escape, ArrowUp/ArrowDown, Home/End, focus-return and outside-click behavior across menus.
+- Applied the shared controller to Quick Actions and conversation menus; extended conversation filters with roving tab focus and tabpanel relationships.
+- Completed Agent Inspector tab semantics with stable tab/tabpanel IDs, ArrowLeft/ArrowRight/Home/End navigation and focus management.
+- Completed Workspace Dock tab keyboard navigation and preserved explicit tabpanel relationships.
+- Added an accessible runtime live region in the application shell so connected/offline and running state transitions are announced without exposing runtime internals.
+- Replaced the generic workspace loading spinner with a small skeleton treatment and explicit `aria-busy` semantics.
+- Added narrow-window topbar overflow handling, compact action behavior, skeleton animation and shared focus treatment for workspace panels.
+- Extended `scripts/verify-frontend-architecture.mjs` so these menu, tab, live-status and loading contracts are regression-guarded.
+- Preserved the frontend/runtime separation: all new interactions are presentation-layer behavior and do not create backend endpoints or claim live capabilities.
+- Verification status: GitHub source audit completed; local clone/build is unavailable in the current execution environment, so production build, browser execution, accessibility execution and Tauri/Windows rendering remain pending.

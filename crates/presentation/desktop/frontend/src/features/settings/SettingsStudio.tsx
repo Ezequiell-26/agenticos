@@ -33,6 +33,7 @@ export interface SettingsState {
   density: Density
   uiScale: number
   fontSize: number
+  experience: 'Simple' | 'Pro'
   sidebarWidth: number
   inspectorWidth: number
   language: string
@@ -303,6 +304,7 @@ const defaults: SettingsState = {
   density: 'Comfortable',
   uiScale: 100,
   fontSize: 13,
+  experience: 'Simple',
   sidebarWidth: 270,
   inspectorWidth: 320,
   language: 'English',

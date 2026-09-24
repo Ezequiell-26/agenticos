@@ -2,6 +2,7 @@ import type { AgentStatusSnapshot } from '../types/runtime'
 import type { RailMode } from '../navigation'
 import Icon from './Icon'
 import { navigationItems } from '../navigation'
+import './WorkspaceCommandStrip.css'
 
 interface WorkspaceCommandStripProps {
   mode: RailMode

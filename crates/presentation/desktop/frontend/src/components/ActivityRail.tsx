@@ -1,20 +1,26 @@
 import { useState } from 'react'
 import Icon from './Icon'
-import { navigationItems, primaryRailIds, type RailMode } from '../navigation'
+import { navigationItems, primaryRailIds, simpleRailIds, type RailMode } from '../navigation'
 import NavigationLauncher from './NavigationLauncher'
+import type { ExperienceLevel } from '../services/ui-preferences'
 
 export type { RailMode } from '../navigation'
 
 interface ActivityRailProps {
   active: RailMode
   onChange: (mode: RailMode) => void
+  experience?: ExperienceLevel
 }
 
-export default function ActivityRail({ active, onChange }: ActivityRailProps) {
+export default function ActivityRail({ active, onChange, experience = 'Pro' }: ActivityRailProps) {
   const [launcherOpen, setLauncherOpen] = useState(false)
-  const primaryItems = navigationItems.filter((item) => primaryRailIds.has(item.id))
+  const simpleMode = experience === 'Simple'
+  const primaryItems = navigationItems.filter((item) => simpleMode
+    ? simpleRailIds.has(item.id)
+    : primaryRailIds.has(item.id))
   const activeItem = navigationItems.find((item) => item.id === active)
-  const visibleItems = activeItem && !primaryRailIds.has(active) ? [activeItem, ...primaryItems] : primaryItems
+  const activeMissing = activeItem && !primaryItems.some((item) => item.id === active)
+  const visibleItems = activeMissing ? [activeItem, ...primaryItems] : primaryItems
   let previousGroup: string | undefined
 
   return (

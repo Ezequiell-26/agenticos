@@ -1398,3 +1398,18 @@ Verification status:
 - Added launcher recent/pinned discovery and final combobox/dialog semantics across launcher, global search and command palette.
 - The frontend source tree currently contains 110 TSX components, 35 CSS files and 34 feature domains, with centralized navigation covering 98 routed modes.
 - Verification status: source audit confirms 98/98 route coverage; GitHub Actions are processing the latest main commits. Local clone execution is unavailable because the environment cannot resolve GitHub.
+
+## 2026-09-25 — Experience levels, global accent and quick customization
+
+- Added a persisted `experience` preference (`Simple` by default, `Pro` opt-in) applied through the shared UI preference bridge as `data-agenticos-experience`; no runtime authority moved into the UI.
+- Simple experience renders a calm shell: a reduced rail (Command Center, Workspace Overview, Tasks, Files & Editor, Settings) with the active surface always visible, no rail dividers and a decluttered workspace command strip.
+- Added a topbar Customize popover exposing experience level, theme presets, accent, density, interface scale and panel visibility, all persisted through `updateUiPreferences`.
+- Added a global accent system (`--agenticos-accent` / `--agenticos-accent-contrast`) consumed by the rail indicator, active states, primary action buttons, selection and focus rings, with paper-theme-aware accent contrast.
+- Consumed the existing `--agenticos-ui-scale` preference at shell level and extended density coverage to the workspace command strip.
+- Reordered the centralized navigation registry into canonical build → operate → configure → integrate order (98 modes, ids/labels/groups unchanged) so rail, launcher, palette and search share one coherent order.
+- Fixed the workspace command strip rendering unstyled by importing `WorkspaceCommandStrip.css`; the orphaned stylesheet collapsed the shell grid and pushed every surface below the fold. Aligned the statusbar-hidden grid override with the strip row.
+- Anchored `scripts/verify-frontend-architecture.mjs` to the repository root so `test:contracts` passes from any working directory.
+- Verification status: `tsc`, the Vite production build, the frontend architecture contract (from the repository root and the frontend directory) and the repository test suite (29 tests) pass locally. Simple/Pro switching, accent changes and the Customize popover were verified in the browser preview at 1600×900.
+- Unverified checks: Tauri desktop shell execution and real backend runtime connections remain outside this frontend slice.
+- Rollback point: revert the frontend shell files and `scripts/verify-frontend-architecture.mjs` to commit `6f6f01eb`.
+- Next step: commit this frontend slice and record it in the implementation-state manifest.

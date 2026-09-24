@@ -1,3 +1,3 @@
-import SettingsControlCenter from '../features/settings/SettingsControlCenter'
+import SettingsWorkspace from '../features/settings/SettingsWorkspace'
 
-export default SettingsControlCenter
+export default SettingsWorkspace

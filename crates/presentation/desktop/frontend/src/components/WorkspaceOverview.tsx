@@ -23,7 +23,7 @@ function SurfaceFallback() {
 export default function WorkspaceOverview({ mode, onNavigate }: { mode: Exclude<RailMode, 'chat'>; onNavigate?: (mode: RailMode) => void }) {
   return (
     <Suspense fallback={<SurfaceFallback />}>
-      {isPlatformMode(mode) ? <PlatformSurface mode={mode} onNavigate={onNavigate} /> : <StudioSurface mode={mode as Exclude<RailMode, 'chat'>} />}
+      {isPlatformMode(mode) ? <PlatformSurface mode={mode} onNavigate={onNavigate} /> : <StudioSurface mode={mode as Exclude<RailMode, 'chat'>} onNavigate={onNavigate} />}
     </Suspense>
   )
 }

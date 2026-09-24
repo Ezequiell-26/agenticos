@@ -1,11 +1,14 @@
 export const UI_PREFERENCES_STORAGE_KEY = 'agenticos.ui.hermes-settings-v2'
 
+export type ExperienceLevel = 'Simple' | 'Pro'
+
 export interface UiPreferences extends UiLayoutPreferences {
   theme: string
   accent: string
   density: string
   uiScale: number
   fontSize: number
+  experience: ExperienceLevel
 }
 
 export interface UiLayoutPreferences {
@@ -27,6 +30,7 @@ export const defaultUiPreferences: UiPreferences = {
   density: 'Comfortable',
   uiScale: 100,
   fontSize: 13,
+  experience: 'Simple',
   leftSidebarVisible: true,
   agentInspectorVisible: true,
   bottomDockVisible: false,
@@ -80,6 +84,7 @@ export function applyUiPreferences(preferences: UiPreferences) {
   root.dataset.agenticosTheme = preferences.theme.toLowerCase().replace(/\s+/g, '-')
   root.dataset.agenticosAccent = preferences.accent.toLowerCase()
   root.dataset.agenticosDensity = preferences.density.toLowerCase()
+  root.dataset.agenticosExperience = preferences.experience === 'Pro' ? 'pro' : 'simple'
   root.style.setProperty('--agenticos-ui-scale', String(preferences.uiScale / 100))
   root.style.setProperty('--agenticos-font-size', preferences.fontSize + 'px')
   root.dataset.agenticosSidebar = preferences.leftSidebarVisible ? 'visible' : 'hidden'

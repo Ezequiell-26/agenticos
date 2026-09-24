@@ -100,7 +100,7 @@ const terminalWelcome = [
   'run      simulate an agent run',
 ]
 
-export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'> }) {
+export default function StudioSurface({ mode, onNavigate }: { mode: Exclude<RailMode, 'chat'>; onNavigate?: (mode: RailMode) => void }) {
   const [search, setSearch] = useState('')
   const [selectedFile, setSelectedFile] = useState(files[0].path)
   const [openTabs, setOpenTabs] = useState([files[0].path])
@@ -344,7 +344,7 @@ export default function StudioSurface({ mode }: { mode: Exclude<RailMode, 'chat'
     </section>
   )
 
-  return <SettingsSurface notify={notify} />
+  return <SettingsSurface notify={notify} onClose={() => onNavigate?.('chat')} onNavigate={onNavigate} />
 
 }
 

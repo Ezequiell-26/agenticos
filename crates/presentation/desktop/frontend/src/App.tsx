@@ -3,6 +3,7 @@ import ActivityRail, { type RailMode } from './components/ActivityRail'
 import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
+import CustomizePopover from './components/CustomizePopover'
 import GlobalSearch from './components/GlobalSearch'
 import KeyboardShortcuts from './components/KeyboardShortcuts'
 import Icon from './components/Icon'
@@ -15,7 +16,7 @@ import WorkspaceDock from './components/WorkspaceDock'
 import WorkspaceCommandStrip from './components/WorkspaceCommandStrip'
 import { navigationItems, primaryRailIds } from './navigation'
 import { runtime } from './services/runtime'
-import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from './services/ui-preferences'
+import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, type ExperienceLevel } from './services/ui-preferences'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
 
 const now = Date.now()
@@ -81,6 +82,7 @@ function App() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
   const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
+  const [experience, setExperience] = useState<ExperienceLevel>(() => readUiPreferences().experience)
   const [focusMode, setFocusMode] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -97,11 +99,12 @@ function App() {
     const preferences = readUiLayoutPreferences()
     applyUiLayoutPreferences(preferences)
     return subscribeUiPreferences(() => {
-      const next = readUiLayoutPreferences()
+      const next = readUiPreferences()
       applyUiLayoutPreferences(next)
       setLeftPanelOpen(next.leftSidebarVisible)
       setAgentPanelOpen(next.agentInspectorVisible)
       setDockOpen(next.bottomDockVisible)
+      setExperience(next.experience)
     })
   }, [])
 
@@ -269,7 +272,7 @@ function App() {
 
   return (
     <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
-      <ActivityRail active={mode} onChange={setMode} />
+      <ActivityRail active={mode} onChange={setMode} experience={experience} />
       <WorkspaceSidebar
         activeConversation={sessionId}
         conversations={conversations}
@@ -293,6 +296,7 @@ function App() {
           </div>
           <div className="topbar__right">
             <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
+            <CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} />
             <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
             <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} />Search</button>

@@ -1,5 +1,14 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync as existsSyncRaw, readFileSync as readFileSyncRaw, readdirSync as readdirSyncRaw } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Anchor every contract path to the repository root so the check runs from any CWD.
+const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const resolveRepoPath = (p) => (p.startsWith("/") || /^[A-Za-z]:/.test(p) ? p : join(repoRoot, p));
+const existsSync = (p) => existsSyncRaw(resolveRepoPath(p));
+const readFileSync = (p, ...rest) => readFileSyncRaw(resolveRepoPath(p), ...rest);
+const readdirSync = (p, opts) => readdirSyncRaw(resolveRepoPath(p), opts);
 
 const required = [
   "crates/presentation/desktop/frontend/package.json",

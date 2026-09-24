@@ -229,19 +229,21 @@ impl WorkspaceFs {
     }
 }
 
-    #[tokio::test]
-    async fn apply_patch_rejects_ambiguous_replacements() {
-        let root = std::env::temp_dir().join(format!(
-            "agenticos-workspace-patch-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let fs = WorkspaceFs::open(&root, 1024, 1024, 100).await.unwrap();
-        fs.write_text("file.txt", "same\nsame").await.unwrap();
-        assert!(fs.apply_patch("file.txt", "same", "changed").await.is_err());
-        fs.apply_patch("file.txt", "same\nsame", "changed").await.unwrap();
-        assert_eq!(fs.read_text("file.txt").await.unwrap(), "changed");
-        let _ = std::fs::remove_dir_all(root);
-    }
+
+#[tokio::test]
+async fn apply_patch_rejects_ambiguous_replacements() {
+    let root = std::env::temp_dir().join(format!(
+        "agenticos-workspace-patch-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let fs = WorkspaceFs::open(&root, 1024, 1024, 100).await.unwrap();
+    fs.write_text("file.txt", "same\nsame").await.unwrap();
+    assert!(fs.apply_patch("file.txt", "same", "changed").await.is_err());
+    fs.apply_patch("file.txt", "same\nsame", "changed").await.unwrap();
+    assert_eq!(fs.read_text("file.txt").await.unwrap(), "changed");
+    let _ = std::fs::remove_dir_all(root);
+}
+
 
 #[cfg(test)]
 mod tests {

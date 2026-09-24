@@ -1033,6 +1033,7 @@ struct ChatRequest {
     message: String,
     session_id: Option<String>,
     model: Option<String>,
+    parameters: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2878,6 +2879,28 @@ async fn agent_chat(
         });
     }
 
+    let provider_parameters = match request.parameters.as_ref() {
+        Some(value) if value.is_object() => serde_json::to_string(value).ok(),
+        Some(_) => {
+            state.metrics.record_http(true);
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "parameters must be a JSON object".to_string(),
+                code: "INVALID_MODEL_PARAMETERS",
+            });
+        }
+        None => None,
+    };
+
+    if let Some(parameters) = provider_parameters.as_deref() {
+        if parameters.len() > 64 * 1024 {
+            state.metrics.record_http(true);
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "parameters exceed supported limits".to_string(),
+                code: "MODEL_PARAMETERS_TOO_LARGE",
+            });
+        }
+    }
+
     let agent = state.session_agent(&session_id, requested_model).await;
     let _agent_permit = state
         .agent_execution_concurrency
@@ -2895,7 +2918,10 @@ async fn agent_chat(
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
 
-    match agent.execute_turn(message).await {
+    match agent
+        .execute_turn_with_parameters(message, provider_parameters)
+        .await
+    {
         Ok(response) => {
             state.metrics.record_http(false);
             state

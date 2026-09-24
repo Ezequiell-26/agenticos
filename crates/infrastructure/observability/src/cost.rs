@@ -42,7 +42,10 @@ pub struct CostLedger {
 impl CostLedger {
     /// Open the ledger and initialize its tables.
     pub async fn open(database_url: &str) -> Result<Self, String> {
-        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
             .await
             .map_err(|e| format!("cost ledger connection failed: {e}"))?;
         sqlx::query("CREATE TABLE IF NOT EXISTS model_pricing (provider_id TEXT NOT NULL, model_id TEXT NOT NULL, usd_per_million_tokens REAL NOT NULL, PRIMARY KEY(provider_id, model_id))")

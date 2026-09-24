@@ -52,10 +52,9 @@ impl ProjectRegistry {
         .await
         .map_err(|error| format!("project schema initialization failed: {error}"))?;
 
-        let rows = sqlx::query_as::<_, (String, String)>(
-            "SELECT project_id, payload FROM projects",
-        )
-        .fetch_all(&db)
+        let rows =
+            sqlx::query_as::<_, (String, String)>("SELECT project_id, payload FROM projects")
+                .fetch_all(&db)
         .await
         .map_err(|error| format!("project recovery failed: {error}"))?;
 

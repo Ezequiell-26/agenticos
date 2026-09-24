@@ -280,7 +280,11 @@ impl WorkspaceFs {
 
                 let child = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
-                if entry.file_type().await.map(|value| value.is_dir()).unwrap_or(false)
+                if entry
+                    .file_type()
+                    .await
+                    .map(|value| value.is_dir())
+                    .unwrap_or(false)
                     && matches!(
                         name.as_str(),
                         ".git" | ".svn" | ".hg" | "node_modules" | "target" | ".agenticos"

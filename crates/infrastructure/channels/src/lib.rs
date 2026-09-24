@@ -142,10 +142,7 @@ impl ChannelRegistry {
     }
 
     /// Register or replace a channel configuration.
-    pub async fn register(
-        &self,
-        channel: ChannelDefinition,
-    ) -> Result<ChannelDefinition, String> {
+    pub async fn register(&self, channel: ChannelDefinition) -> Result<ChannelDefinition, String> {
         Self::validate_channel(&channel)?;
         let payload = serde_json::to_string(&channel)
             .map_err(|error| format!("channel serialization failed: {error}"))?;

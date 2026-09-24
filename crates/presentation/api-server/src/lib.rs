@@ -41,8 +41,8 @@ use agenticos_observability::{
     cost::{CostLedger, TokenPricing},
     metrics::RuntimeMetrics,
 };
-use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_projects::{ProjectDefinition, ProjectRegistry};
+use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
@@ -651,8 +651,7 @@ impl RuntimeState {
                     .unwrap_or_else(|_| "agenticos".to_string()),
                 name: std::env::var("AGENTICOS_PROJECT_NAME")
                     .unwrap_or_else(|_| "AgentiCOS".to_string()),
-                path: std::env::var("AGENTICOS_PROJECT_PATH")
-                    .unwrap_or_else(|_| ".".to_string()),
+                path: std::env::var("AGENTICOS_PROJECT_PATH").unwrap_or_else(|_| ".".to_string()),
                 default_branch: std::env::var("AGENTICOS_PROJECT_BRANCH")
                     .unwrap_or_else(|_| "main".to_string()),
                 description: "Configured AgentiCOS workspace".to_string(),
@@ -1721,14 +1720,18 @@ async fn append_channel_event(
     request: web::Json<ChannelEventRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    match state.channels.append_event(
-        &channel_id,
-        &request.profile_id,
-        request.session_id.clone(),
-        request.sender_id.clone(),
-        request.payload.clone(),
-        request.attachments.clone().unwrap_or_default(),
-    ).await {
+    match state
+        .channels
+        .append_event(
+            &channel_id,
+            &request.profile_id,
+            request.session_id.clone(),
+            request.sender_id.clone(),
+            request.payload.clone(),
+            request.attachments.clone().unwrap_or_default(),
+        )
+        .await
+    {
         Ok(event) => HttpResponse::Created().json(event),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error,
@@ -1742,7 +1745,11 @@ async fn list_channel_events(
     query: web::Query<ChannelEventsQuery>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    match state.channels.events(&path, query.limit.unwrap_or(50).clamp(1, 500)).await {
+    match state
+        .channels
+        .events(&path, query.limit.unwrap_or(50).clamp(1, 500))
+        .await
+    {
         Ok(events) => HttpResponse::Ok().json(serde_json::json!({
             "channel_id": path.into_inner(),
             "events": events,
@@ -5516,12 +5523,24 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/tools", web::get().to(list_tools))
             .route("/api/projects", web::get().to(list_projects))
             .route("/api/projects", web::post().to(register_project))
-            .route("/api/projects/{project_id}", web::delete().to(delete_project))
+            .route(
+                "/api/projects/{project_id}",
+                web::delete().to(delete_project),
+            )
             .route("/api/channels", web::get().to(list_channels))
             .route("/api/channels", web::post().to(register_channel))
-            .route("/api/channels/{channel_id}", web::delete().to(delete_channel))
-            .route("/api/channels/{channel_id}/events", web::get().to(list_channel_events))
-            .route("/api/channels/{channel_id}/events", web::post().to(append_channel_event))
+            .route(
+                "/api/channels/{channel_id}",
+                web::delete().to(delete_channel),
+            )
+            .route(
+                "/api/channels/{channel_id}/events",
+                web::get().to(list_channel_events),
+            )
+            .route(
+                "/api/channels/{channel_id}/events",
+                web::post().to(append_channel_event),
+            )
             .route("/api/workspace/search", web::get().to(search_workspace))
             .route("/api/workspace/list", web::get().to(list_workspace))
             .route("/api/workspace/file", web::get().to(read_workspace_file))

@@ -296,9 +296,7 @@ impl AuthenticatedOpenAiProvider {
             .timeout(Duration::from_millis(timeout_ms))
             .build()
             .map_err(|error| {
-                ContractError::ParseError(format!(
-                    "provider client initialization failed: {error}"
-                ))
+                ContractError::ParseError(format!("provider client initialization failed: {error}"))
             })?;
         Ok(Self {
             provider_id,
@@ -330,14 +328,10 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 ))
             })?;
             let extra_object = extra.as_object().ok_or_else(|| {
-                ContractError::ParseError(
-                    "provider parameters must be a JSON object".to_string(),
-                )
+                ContractError::ParseError("provider parameters must be a JSON object".to_string())
             })?;
             let payload_object = payload.as_object_mut().ok_or_else(|| {
-                ContractError::ParseError(
-                    "provider request payload is not an object".to_string(),
-                )
+                ContractError::ParseError("provider request payload is not an object".to_string())
             })?;
             for (key, value) in extra_object {
                 if !matches!(key.as_str(), "model" | "messages" | "stream" | "request_id") {

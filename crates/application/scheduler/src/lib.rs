@@ -198,8 +198,14 @@ impl JobScheduler {
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
-        if matches!(record.state, JobState::Succeeded | JobState::Failed | JobState::Cancelled) {
-            return Err(format!("job cannot be cancelled from state {:?}", record.state));
+        if matches!(
+            record.state,
+            JobState::Succeeded | JobState::Failed | JobState::Cancelled
+        ) {
+            return Err(format!(
+                "job cannot be cancelled from state {:?}",
+                record.state
+            ));
         }
         record.state = JobState::Cancelled;
         Ok(())

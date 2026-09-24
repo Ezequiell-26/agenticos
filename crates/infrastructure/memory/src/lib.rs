@@ -509,7 +509,10 @@ impl PersistentMemoryStore {
 }
 
 fn escape_like_pattern(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    value
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 fn unix_time() -> u64 {

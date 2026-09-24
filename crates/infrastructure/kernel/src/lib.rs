@@ -2631,9 +2631,7 @@ impl ReactAgent {
                 .store_message(&msg_id, &session_id, "user", input)
                 .await
                 .map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "failed to persist user message: {error}"
-                    ))
+                    ContractError::ParseError(format!("failed to persist user message: {error}"))
                 })?;
         }
 
@@ -3550,11 +3548,7 @@ impl ToolExecutor {
 
     fn safe_path(&self, path: &str) -> Result<PathBuf, String> {
         let relative = std::path::Path::new(path);
-        if relative.is_absolute()
-            || path
-                .split(['/', '\\'])
-                .any(|segment| segment == "..")
-        {
+        if relative.is_absolute() || path.split(['/', '\\']).any(|segment| segment == "..") {
             return Err(format!("path '{}' escapes the workspace", path));
         }
 
@@ -3574,7 +3568,10 @@ impl ToolExecutor {
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new(&self.workdir));
             let canonical_parent = std::fs::canonicalize(parent).map_err(|error| {
-                format!("parent directory for '{}' cannot be resolved: {error}", path)
+                format!(
+                    "parent directory for '{}' cannot be resolved: {error}",
+                    path
+                )
             })?;
             if !canonical_parent.starts_with(&root) {
                 return Err(format!("path '{}' escapes the workspace", path));

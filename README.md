@@ -29,8 +29,8 @@ Rust remains the canonical runtime. The desktop product surface is Tauri 2 + Rea
 
 ## Current state
 
-- Sequential verification mode is fail-closed.
-- The current authorized implementation step is recorded in `reference/manifests/implementation-state.json`.
+- Capability-driven continuous development is active.
+- Active workstreams and capability status are recorded in `reference/manifests/implementation-state.json`.
 - Existing Tauri/React/Vite/Tailwind code is preserved as repository state, but is not automatically considered verified.
 - Third-party source is admitted only through provenance/license evidence and a controlled integration mode.
 
@@ -65,11 +65,11 @@ skills/
 ## Development rules
 
 1. Read the project state and implementation-state before editing.
-2. Work only on the single authorized step.
+2. Work within the relevant capability/workstream scope; independent workstreams may proceed in parallel.
 3. Preserve code and evidence by default.
 4. Use exact repository evidence for non-trivial external integrations.
 5. Verify before changing a status to `verified`.
-6. Record changed/created/deleted/preserved/verified/unverified/risk/rollback/next-step information for every operation.
+6. Record changed/created/deleted/preserved/verified/unverified/risk/rollback/next-action information for every operation.
 7. For frontend changes, update the frontend changelog in the same operation.
 8. Never commit secrets or provider credentials.
 

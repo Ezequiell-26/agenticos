@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import type { ConversationSummary } from '../types/runtime'
 import type { RailMode } from '../navigation'
 import { navigationItems } from '../navigation'
@@ -37,6 +38,7 @@ export default function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const dialogRef = useRef<HTMLElement>(null)
 
   const commands = useMemo<Command[]>(() => [
     { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
@@ -63,6 +65,8 @@ export default function CommandPalette({
       ? commands.filter((command) => `${command.label} ${command.detail}`.toLowerCase().includes(normalized))
       : commands
   }, [commands, query])
+
+  useFocusTrap(open, dialogRef, inputRef)
 
   useEffect(() => {
     if (!open) return
@@ -109,7 +113,7 @@ export default function CommandPalette({
 
   return (
     <div className="palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={dialogRef} className="command-palette" aria-label="Command palette" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
         <div className="palette-search">
           <Icon name="search" size={18} />
           <input

@@ -533,9 +533,9 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Select label="Session title model" value={state.titleAuxModel} options={models} onChange={(value) => update('titleAuxModel', value)} />
               </ControlSection>
               <ControlSection title="Agent behavior">
-                <Number label="Iteration budget" value={state.iterationBudget} suffix="turns" min={10} max={5000} onChange={(value) => update('iterationBudget', value)} />
+                <NumberField label="Iteration budget" value={state.iterationBudget} suffix="turns" min={10} max={5000} onChange={(value) => update('iterationBudget', value)} />
                 <Select label="Provider service tier" value={state.serviceTier} options={['Auto', 'Priority', 'Standard', 'Cold']} onChange={(value) => update('serviceTier', value)} />
-                <Number label="Parallel subagents" value={state.parallelSubagents} suffix="agents" min={0} max={32} onChange={(value) => update('parallelSubagents', value)} />
+                <NumberField label="Parallel subagents" value={state.parallelSubagents} suffix="agents" min={0} max={32} onChange={(value) => update('parallelSubagents', value)} />
                 <Toggle label="Auto-fix errors" value={state.autoFix} onChange={(value) => update('autoFix', value)} />
                 <Toggle label="Auto-apply edits" value={state.autoApply} onChange={(value) => update('autoApply', value)} />
                 <Toggle label="Guardrails" value={state.guardrails} onChange={(value) => update('guardrails', value)} />
@@ -552,7 +552,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Semantic search" value={state.semanticSearch} onChange={(value) => update('semanticSearch', value)} />
                 <Toggle label="Watch file changes" value={state.watchFiles} onChange={(value) => update('watchFiles', value)} />
                 <Toggle label="Include ignored paths" value={state.indexIgnored} onChange={(value) => update('indexIgnored', value)} />
-                <Number label="Indexed-file budget" value={state.maxIndexedFiles} suffix="files" min={100} max={250000} onChange={(value) => update('maxIndexedFiles', value)} />
+                <NumberField label="Indexed-file budget" value={state.maxIndexedFiles} suffix="files" min={100} max={250000} onChange={(value) => update('maxIndexedFiles', value)} />
               </ControlSection>
               <ControlSection title="@Context sources">
                 <Toggle label="Files & folders" value={state.attachments} onChange={(value) => update('attachments', value)} />
@@ -567,8 +567,8 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Session recall" value={state.sessionRecall} onChange={(value) => update('sessionRecall', value)} />
               </ControlSection>
               <ControlSection title="Vision embed budget">
-                <Number label="Target embed bytes" value={state.visionEmbedBytes} suffix="bytes" min={65536} max={4194304} onChange={(value) => update('visionEmbedBytes', value)} />
-                <Number label="Max embeds per image" value={state.visionMaxCalls} suffix="calls" min={0} max={100} onChange={(value) => update('visionMaxCalls', value)} />
+                <NumberField label="Target embed bytes" value={state.visionEmbedBytes} suffix="bytes" min={65536} max={4194304} onChange={(value) => update('visionEmbedBytes', value)} />
+                <NumberField label="Max embeds per image" value={state.visionMaxCalls} suffix="calls" min={0} max={100} onChange={(value) => update('visionMaxCalls', value)} />
               </ControlSection>
               <InfoCallout icon="search" title="Progressive disclosure" text="The shell renders only the selected domain. Large histories, artifact lists and codebase views should use the same lazy/virtual strategy instead of mounting every surface at once." />
             </ControlPage>
@@ -589,7 +589,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Isolated project worktrees" value={state.isolatedWorktrees} onChange={(value) => update('isolatedWorktrees', value)} />
               </ControlSection>
               <ControlSection title="Terminal & sandbox">
-                <Number label="Command timeout" value={state.commandTimeout} suffix="seconds" min={5} max={3600} onChange={(value) => update('commandTimeout', value)} />
+                <NumberField label="Command timeout" value={state.commandTimeout} suffix="seconds" min={5} max={3600} onChange={(value) => update('commandTimeout', value)} />
                 <Toggle label="Checkpointing" value={state.checkpointing} onChange={(value) => update('checkpointing', value)} />
               </ControlSection>
               <ControlSection title="Agent guardrails">
@@ -681,8 +681,8 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <LazyPanel><KeymapEditor /></LazyPanel>
               </ControlSection>
               <ControlSection title="Editor">
-                <Number label="Editor font size" value={state.editorFontSize} suffix="px" min={10} max={24} onChange={(value) => update('editorFontSize', value)} />
-                <Number label="Tab size" value={state.editorTabSize} suffix="spaces" min={1} max={8} onChange={(value) => update('editorTabSize', value)} />
+                <NumberField label="Editor font size" value={state.editorFontSize} suffix="px" min={10} max={24} onChange={(value) => update('editorFontSize', value)} />
+                <NumberField label="Tab size" value={state.editorTabSize} suffix="spaces" min={1} max={8} onChange={(value) => update('editorTabSize', value)} />
                 <Select label="Word wrap" value={state.wordWrap} options={['off', 'bounded', 'on']} onChange={(value) => update('wordWrap', value)} />
                 <Toggle label="Minimap" value={state.minimap} onChange={(value) => update('minimap', value)} />
                 <Toggle label="Breadcrumbs" value={state.breadcrumbs} onChange={(value) => update('breadcrumbs', value)} />
@@ -694,7 +694,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
                 <Toggle label="Inline suggestions" value={state.inlineSuggestions} onChange={(value) => update('inlineSuggestions', value)} />
                 <Toggle label="Tab autocomplete" value={state.tabAutocomplete} onChange={(value) => update('tabAutocomplete', value)} />
                 <Select label="Autocomplete model" value={state.autocompleteModel} options={models} onChange={(value) => update('autocompleteModel', value)} />
-                <Number label="Suggestion delay" value={state.autocompleteDelay} suffix="ms" min={0} max={2000} onChange={(value) => update('autocompleteDelay', value)} />
+                <NumberField label="Suggestion delay" value={state.autocompleteDelay} suffix="ms" min={0} max={2000} onChange={(value) => update('autocompleteDelay', value)} />
               </ControlSection>
               <ControlSection title="Git / VCS">
                 <Toggle label="VCS review panel" value={state.gitPanel} onChange={(value) => update('gitPanel', value)} />
@@ -712,7 +712,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
               <ControlSection title="Long-running goals">
                 <Toggle label="Retain long-lived goals" value={state.goalRetention} onChange={(value) => update('goalRetention', value)} />
                 <Toggle label="Steer agent while running" value={state.steeringWhileRunning} onChange={(value) => update('steeringWhileRunning', value)} />
-                <Number label="Loop/check interval" value={state.loopCheckInterval} suffix="seconds" min={5} max={3600} onChange={(value) => update('loopCheckInterval', value)} />
+                <NumberField label="Loop/check interval" value={state.loopCheckInterval} suffix="seconds" min={5} max={3600} onChange={(value) => update('loopCheckInterval', value)} />
               </ControlSection>
               <ControlSection title="Remote control">
                 <Toggle label="Remote control" value={state.remoteControl} onChange={(value) => update('remoteControl', value)} />
@@ -820,7 +820,7 @@ function Text({ label, value, placeholder, onChange }: { label: string; value: s
   return <label className="control-row control-row--field"><span>{label}</span><input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>
 }
 
-function Number({ label, value, suffix, min, max, onChange }: { label: string; value: number; suffix: string; min: number; max: number; onChange: (value: number) => void }) {
+function NumberField({ label, value, suffix, min, max, onChange }: { label: string; value: number; suffix: string; min: number; max: number; onChange: (value: number) => void }) {
   return <label className="control-row control-row--field"><span>{label}</span><span className="control-number"><input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Math.max(min, Math.min(max, Number(event.target.value))))} /><small>{suffix}</small></span></label>
 }
 

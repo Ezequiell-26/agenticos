@@ -136,6 +136,19 @@ export interface RuntimeRun {
   objective?: string
 }
 
+export interface RuntimeWorkspaceEntry {
+  path: string
+  directory: boolean
+  file: boolean
+  size_bytes?: number | null
+}
+
+export interface RuntimeWorkspaceFile {
+  path: string
+  content: string
+  bytes: number
+}
+
 export interface RuntimeMemoryRecord {
   namespace: string
   key: string
@@ -163,7 +176,7 @@ export interface RuntimeServices {
     ready(): Promise<RuntimeReadiness>
   }
   chat: {
-    sendMessage(sessionId: string, message: string, options?: { model?: string }): Promise<ChatMessage>
+    sendMessage(sessionId: string, message: string, options?: ChatSendOptions): Promise<ChatMessage>
   }
   status: {
     get(): Promise<AgentStatusSnapshot>
@@ -262,6 +275,12 @@ export interface RuntimeServices {
   }
   skills: {
     list(): Promise<RuntimeApiRecord[]>
+  }
+  workspace: {
+    list(path: string, grantId: string): Promise<RuntimeWorkspaceEntry[]>
+    readFile(path: string, grantId: string): Promise<RuntimeWorkspaceFile>
+    writeFile(path: string, content: string, grantId: string): Promise<RuntimeApiRecord>
+    patchFile(path: string, expected: string, replacement: string, grantId: string): Promise<RuntimeApiRecord>
   }
   source: {
     inspect(source: string): Promise<RuntimeApiRecord>

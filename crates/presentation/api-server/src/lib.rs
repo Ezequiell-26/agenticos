@@ -879,6 +879,28 @@ struct ProviderFallbackResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkerClaimRequest {
+    worker_id: String,
+    lease_seconds: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkerHeartbeatRequest {
+    worker_id: String,
+    lease_token: u64,
+    lease_seconds: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkerCompletionRequest {
+    worker_id: String,
+    lease_token: u64,
+    success: bool,
+    output: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolExecutionRequest {
     session_id: String,
     user_id: Option<String>,
@@ -3612,6 +3634,153 @@ async fn execute_tool(
     }
 }
 
+async fn worker_claim(
+    request: web::Json<WorkerClaimRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let worker_id = request.worker_id.trim();
+    if worker_id.is_empty() || worker_id.len() > 256 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "worker_id must be 1..=256 characters".to_string(),
+            code: "WORKER_ID_INVALID",
+        });
+    }
+
+    let ready = state.scheduler.next_ready(8).await;
+    for job in ready {
+        match state
+            .scheduler
+            .start_as(
+                &job.spec.job_id,
+                worker_id.to_string(),
+                request.lease_seconds.unwrap_or(120).clamp(5, 3_600),
+            )
+            .await
+        {
+            Ok(claimed) => {
+                return HttpResponse::Ok().json(serde_json::json!({
+                    "job": claimed,
+                    "worker_id": worker_id,
+                }))
+            }
+            Err(_) => continue,
+        }
+    }
+
+    HttpResponse::NoContent().finish()
+}
+
+async fn worker_heartbeat(
+    path: web::Path<String>,
+    request: web::Json<WorkerHeartbeatRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .scheduler
+        .renew_as(
+            &path,
+            request.worker_id.trim(),
+            request.lease_token,
+            request.lease_seconds.unwrap_or(120).clamp(5, 3_600),
+        )
+        .await
+    {
+        Ok(job) => HttpResponse::Ok().json(job),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "WORKER_LEASE_RENEW_FAILED",
+        }),
+    }
+}
+
+async fn worker_complete(
+    path: web::Path<String>,
+    request: web::Json<WorkerCompletionRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.worker_id.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "worker_id is required".to_string(),
+            code: "WORKER_ID_INVALID",
+        });
+    }
+
+    let job = match state.scheduler.get(&path).await {
+        Some(job) => job,
+        None => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error: "job not found".to_string(),
+                code: "WORKER_JOB_NOT_FOUND",
+            })
+        }
+    };
+
+    if let Some(output) = request.output.as_deref() {
+        if output.len() > 8 * 1024 * 1024 {
+            return HttpResponse::PayloadTooLarge().json(ErrorResponse {
+                error: "worker output exceeds supported limits".to_string(),
+                code: "WORKER_OUTPUT_TOO_LARGE",
+            });
+        }
+    }
+
+    if let Err(error) = state
+        .scheduler
+        .complete_as(
+            &path,
+            Some(request.worker_id.trim()),
+            Some(request.lease_token),
+            request.success,
+            request.error.clone(),
+        )
+        .await
+    {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "WORKER_COMPLETION_REJECTED",
+        });
+    }
+
+    let Ok(run_id) = RunId::new(job.spec.run_id.clone()) else {
+        return HttpResponse::InternalServerError().json(ErrorResponse {
+            error: "job run_id is invalid".to_string(),
+            code: "WORKER_RUN_ID_INVALID",
+        });
+    };
+
+    if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+        let target = if request.success {
+            RunState::Completed
+        } else if job.attempts >= job.spec.max_attempts.max(1) {
+            RunState::Failed
+        } else {
+            RunState::Waiting
+        };
+        if matches!(run.state, RunState::Running | RunState::Waiting | RunState::Admitted) {
+            let _ = state.kernel.transition_run(&run_id, target, run.version).await;
+        }
+    }
+
+    if let Some(output) = request.output.as_deref().filter(|value| !value.is_empty()) {
+        let _ = state
+            .memory
+            .store_message(
+                &format!("{}-remote-result", job.spec.run_id),
+                &job.spec.run_id,
+                "assistant",
+                output,
+            )
+            .await;
+    }
+
+    state.metrics.record_scheduler_completion(request.success);
+    HttpResponse::Ok().json(serde_json::json!({
+        "job_id": path.into_inner(),
+        "success": request.success,
+        "run_id": job.spec.run_id,
+    }))
+}
+
 async fn scheduler_worker(state: RuntimeState) {
     let worker_id = format!("scheduler-worker-{}", uuid::Uuid::new_v4());
     let concurrency = std::env::var("AGENTICOS_WORKER_CONCURRENCY")
@@ -4020,6 +4189,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/a2a", web::post().to(a2a_rpc))
             .route("/ready", web::get().to(readiness_check))
+            .route("/api/workers/claim", web::post().to(worker_claim))
+            .route(
+                "/api/workers/jobs/{job_id}/heartbeat",
+                web::post().to(worker_heartbeat),
+            )
+            .route(
+                "/api/workers/jobs/{job_id}/complete",
+                web::post().to(worker_complete),
+            )
             .route("/api/metrics", web::get().to(runtime_metrics))
             .route("/api/usage/summary", web::get().to(usage_summary))
             .route("/api/usage/records", web::get().to(usage_records))

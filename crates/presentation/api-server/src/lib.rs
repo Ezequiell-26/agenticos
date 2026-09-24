@@ -31,6 +31,8 @@ use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
+use agenticos_evaluation::{EvaluationCase, EvaluationResult, EvaluationStore};
+use agenticos_runtime::{RuntimeController, RuntimePhase};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
@@ -53,6 +55,8 @@ pub struct RuntimeState {
     persistent_memory: Arc<PersistentMemoryStore>,
     mcp: Arc<McpManager>,
     audit: Arc<AuditStore>,
+    evaluations: Arc<EvaluationStore>,
+    runtime: Arc<RuntimeController>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
     subagents: Arc<SubagentManager>,
@@ -93,6 +97,12 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let evaluations = Arc::new(
+            EvaluationStore::open(&database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
+        let runtime = Arc::new(RuntimeController::new());
 
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
             ContractError::ParseError(format!("failed to initialize event store: {e}"))
@@ -154,12 +164,15 @@ impl RuntimeState {
             .await
             .map_err(ContractError::ParseError)?;
 
+        runtime.set_phase(RuntimePhase::Ready);
         Ok(Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             memory,
             persistent_memory,
             mcp,
             audit,
+            evaluations,
+            runtime: runtime.clone(),
             provider,
             kernel,
             subagents,
@@ -259,7 +272,7 @@ struct CreateAgentRequest {
 #[derive(Debug, Deserialize)]
 struct SpawnAgentRequest {
     agent_id: String,
-    parent_depth: Option<u16>,
+    task: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -293,6 +306,18 @@ struct CreateWorkflowRequest {
 #[derive(Debug, Deserialize)]
 struct AuditQuery {
     limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvaluationCaseRequest {
+    case: EvaluationCase,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvaluationRunRequest {
+    case_id: String,
+    run_id: Option<String>,
+    output: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -349,6 +374,63 @@ struct ToolExecutionRequest {
     grant_id: String,
     command: String,
     timeout_ms: Option<u64>,
+}
+
+async fn list_evaluation_cases(state: web::Data<RuntimeState>) -> impl Responder {
+    match state.evaluations.list_cases().await {
+        Ok(cases) => HttpResponse::Ok().json(serde_json::json!({
+            "cases": cases,
+            "count": cases.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "EVALUATION_CASE_LIST_FAILED",
+        }),
+    }
+}
+
+async fn upsert_evaluation_case(
+    request: web::Json<EvaluationCaseRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.evaluations.upsert_case(request.case.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.case.clone()),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "EVALUATION_CASE_INVALID",
+        }),
+    }
+}
+
+async fn evaluate_output(
+    request: web::Json<EvaluationRunRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let run_id = request.run_id.clone().unwrap_or_else(|| "offline".to_string());
+    match state
+        .evaluations
+        .evaluate_and_record(&request.case_id, &run_id, &request.output)
+        .await
+    {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "EVALUATION_FAILED",
+        }),
+    }
+}
+
+async fn list_evaluation_results(state: web::Data<RuntimeState>) -> impl Responder {
+    match state.evaluations.list_results(100).await {
+        Ok(results) => HttpResponse::Ok().json(serde_json::json!({
+            "results": results,
+            "count": results.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "EVALUATION_RESULT_LIST_FAILED",
+        }),
+    }
 }
 
 async fn list_audit(
@@ -533,6 +615,7 @@ async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
         "database": "sqlite",
         "provider_configured": configured,
         "sandbox": sandbox_status,
+        "runtime": state.runtime.snapshot(),
     }))
 }
 
@@ -1009,21 +1092,139 @@ async fn spawn_agent(
     request: web::Json<SpawnAgentRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    match state
+    let parent_run_id = path.into_inner();
+    let parent = match RunId::new(parent_run_id.clone()) {
+        Ok(id) => id,
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_PARENT_RUN_ID",
+            })
+        }
+    };
+
+    let parent_run = match state.kernel.get_or_recover_run(&parent).await {
+        Ok(run) => run,
+        Err(_) => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error: "parent run not found".to_string(),
+                code: "PARENT_RUN_NOT_FOUND",
+            })
+        }
+    };
+
+    if matches!(
+        parent_run.state,
+        RunState::Completed | RunState::Failed | RunState::Cancelled | RunState::Cancelling
+    ) {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: "cannot spawn a subagent from a terminal or cancelling run".to_string(),
+            code: "PARENT_RUN_TERMINAL",
+        });
+    }
+
+    let depth = state
         .subagents
-        .spawn_child(
-            &path.into_inner(),
-            &request.agent_id,
-            request.parent_depth.unwrap_or(0),
-        )
+        .depth_of(&parent_run_id)
+        .await
+        .unwrap_or(0);
+
+    let child = match state
+        .subagents
+        .spawn_child(&parent_run_id, &request.agent_id, depth)
         .await
     {
-        Ok(child) => HttpResponse::Created().json(child),
-        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
-            error,
-            code: "SUBAGENT_SPAWN_FAILED",
-        }),
+        Ok(child) => child,
+        Err(error) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error,
+                code: "SUBAGENT_SPAWN_FAILED",
+            })
+        }
+    };
+
+    let child_run_id = match RunId::new(child.child_run_id.clone()) {
+        Ok(id) => id,
+        Err(error) => {
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SUBAGENT_RUN_ID_INVALID",
+            })
+        }
+    };
+
+    let created = match state.kernel.create_run(child_run_id.clone()).await {
+        Ok(run) => run,
+        Err(error) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SUBAGENT_RUN_CREATE_FAILED",
+            })
+        }
+    };
+
+    if let Err(error) = state
+        .kernel
+        .transition_run(&child_run_id, RunState::Admitted, created.version)
+        .await
+    {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SUBAGENT_RUN_ADMISSION_FAILED",
+        });
     }
+
+    let task = request
+        .task
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            format!(
+                "Execute delegated work for agent '{}' from parent run '{}'.",
+                child.agent_id, parent_run_id
+            )
+        });
+
+    if let Err(error) = state
+        .scheduler
+        .enqueue(JobSpec {
+            job_id: format!("job-{}", child.child_run_id),
+            run_id: child.child_run_id.clone(),
+            task,
+            dependencies: vec![],
+            priority: 90,
+            max_attempts: 3,
+        })
+        .await
+    {
+        if let Ok(current) = state.kernel.get_or_recover_run(&child_run_id).await {
+            let _ = state
+                .kernel
+                .transition_run(&child_run_id, RunState::Failed, current.version)
+                .await;
+        }
+        return HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SUBAGENT_JOB_ENQUEUE_FAILED",
+        });
+    }
+
+    let _ = state
+        .audit
+        .append(AuditEvent::new(
+            "subagent",
+            "spawn",
+            None,
+            format!("run/{}", child.child_run_id),
+            Some(parent_run_id),
+            "success",
+            serde_json::json!({"agent_id": child.agent_id, "depth": child.depth}),
+        ))
+        .await;
+
+    HttpResponse::Created().json(child)
 }
 
 async fn list_children(
@@ -1821,6 +2022,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/audit", web::get().to(list_audit))
+            .route("/api/evaluations/cases", web::get().to(list_evaluation_cases))
+            .route("/api/evaluations/cases", web::post().to(upsert_evaluation_case))
+            .route("/api/evaluations/evaluate", web::post().to(evaluate_output))
+            .route("/api/evaluations/results", web::get().to(list_evaluation_results))
             .route("/api/mcp", web::get().to(list_mcp_servers))
             .route("/api/mcp", web::post().to(register_mcp_server))
             .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))

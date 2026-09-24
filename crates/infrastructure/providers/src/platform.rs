@@ -288,16 +288,17 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        let mut request = self.client.post(&self.base_url).json(&serde_json::json!({
+        let request_id = request.request_id.clone();
+        let mut request_builder = self.client.post(&self.base_url).json(&serde_json::json!({
             "model": request.model,
             "messages": [{"role": "user", "content": request.input}],
             "stream": false,
-            "request_id": request.request_id
+            "request_id": request_id
         }));
         if let Some(api_key) = &self.api_key {
-            request = request.bearer_auth(api_key);
+            request_builder = request_builder.bearer_auth(api_key);
         }
-        let response = request.send().await.map_err(|error| {
+        let response = request_builder.send().await.map_err(|error| {
             ContractError::ParseError(format!("provider request failed: {error}"))
         })?;
 
@@ -326,7 +327,7 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 ContractError::ParseError("provider response has no text output".to_string())
             })?;
         Ok(ModelResponse {
-            request_id: request.request_id,
+            request_id,
             output: output.to_string(),
             metadata: Some(format!("provider={}", self.provider_id)),
             tokens_used: json

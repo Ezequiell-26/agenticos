@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon from '../../components/Icon'
 import { channels } from '../platform/platformData'
 import { runtime } from '../../services/runtime'

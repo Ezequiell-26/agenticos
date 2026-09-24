@@ -14,6 +14,7 @@ agenticos-workspace = { path = "../../infrastructure/workspace" }
 agenticos-terminal = { path = "../../infrastructure/terminal" }
 agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
+agenticos-channels = { path = "../../infrastructure/channels" }
 agenticos-execution = { path = "../../application/execution" }
 agenticos-evaluation = { path = "../../infrastructure/evaluation" }
 agenticos-contracts = { path = "../../domain/contracts" }

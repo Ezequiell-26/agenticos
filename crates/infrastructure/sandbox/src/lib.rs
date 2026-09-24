@@ -88,7 +88,9 @@ impl ProcessSandbox {
             .ok_or_else(|| ContractError::ParseError("command must not be empty".to_string()))?;
 
         let contains_shell_metachar = command.chars().any(|character| {
-            matches!(character, ';' | '|' | '&' | '>' | '<' | '
+            matches!(character, ';' | '|' | '&' | '>' | '<' | '$')
+                || matches!(character as u32, 10 | 13 | 96)
+        });
         if contains_shell_metachar {
             return Err(ContractError::ParseError(
                 "shell metacharacters are not allowed in sandbox commands".to_string(),

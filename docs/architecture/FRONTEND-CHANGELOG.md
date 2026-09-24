@@ -1357,3 +1357,12 @@ Verification status:
 - Extended `scripts/verify-frontend-architecture.mjs` so these menu, tab, live-status and loading contracts are regression-guarded.
 - Preserved the frontend/runtime separation: all new interactions are presentation-layer behavior and do not create backend endpoints or claim live capabilities.
 - Verification status: GitHub source audit completed; local clone/build is unavailable in the current execution environment, so production build, browser execution, accessibility execution and Tauri/Windows rendering remain pending.
+
+## 2026-09-24 — Launcher discovery and final keyboard pass
+
+- Added persistent Recent and Pinned feature filters to the All Features launcher using presentation-local storage only.
+- Added a pin/unpin control for the active feature plus the `P` keyboard shortcut and explicit filter-tab keyboard behavior.
+- Recorded feature selections into a bounded recent history so frequently used surfaces are immediately discoverable.
+- Hardened the frontend verifier to require the shared menu controller, live status state, skeleton loading and launcher discovery persistence.
+- Stabilized the sidebar menu dismissal callback to avoid unnecessary effect churn while menus remain open.
+- Verification status: 98/98 navigation modes resolve to a visual route in the source audit; runtime build/browser/Tauri verification remains pending in this environment.

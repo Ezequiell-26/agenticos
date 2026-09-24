@@ -741,6 +741,65 @@ async fn create_job(
     }
 }
 
+async fn list_runs(state: web::Data<RuntimeState>) -> impl Responder {
+    let runs = state.kernel.runs.read().await;
+    let mut result: Vec<RunResponse> = runs
+        .values()
+        .map(|run| RunResponse {
+            run_id: run.run_id.as_str().to_string(),
+            state: format!("{:?}", run.state),
+            version: run.version,
+        })
+        .collect();
+    result.sort_by(|left, right| left.run_id.cmp(&right.run_id));
+    HttpResponse::Ok().json(serde_json::json!({
+        "runs": result,
+        "count": result.len(),
+    }))
+}
+
+async fn get_job(job_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
+    let job_id = job_id.into_inner();
+    match state.scheduler.get(&job_id).await {
+        Some(job) => HttpResponse::Ok().json(job),
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "job not found".to_string(),
+            code: "JOB_NOT_FOUND",
+        }),
+    }
+}
+
+async fn list_ready_jobs(state: web::Data<RuntimeState>) -> impl Responder {
+    let jobs = state.scheduler.next_ready(100).await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "jobs": jobs,
+        "count": jobs.len(),
+    }))
+}
+
+async fn cancel_job(job_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
+    let job_id = job_id.into_inner();
+    match state.scheduler.cancel(&job_id).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
+            "job_id": job_id,
+            "state": "Cancelled",
+        })),
+        Err(error) => {
+            if state.scheduler.get(&job_id).await.is_none() {
+                HttpResponse::NotFound().json(ErrorResponse {
+                    error: "job not found".to_string(),
+                    code: "JOB_NOT_FOUND",
+                })
+            } else {
+                HttpResponse::Conflict().json(ErrorResponse {
+                    error,
+                    code: "JOB_CANCEL_FAILED",
+                })
+            }
+        }
+    }
+}
+
 async fn list_jobs(state: web::Data<RuntimeState>) -> impl Responder {
     let jobs = state.scheduler.list().await;
     HttpResponse::Ok().json(serde_json::json!({"jobs": jobs, "count": jobs.len()}))
@@ -1363,6 +1422,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(list_provider_models),
             )
             .route("/api/models", web::get().to(list_models))
+            .route("/api/runs", web::get().to(list_runs))
             .route("/api/runs", web::post().to(create_run))
             .route("/api/runs/{run_id}", web::get().to(get_run))
             .route("/api/runs/{run_id}/cancel", web::post().to(cancel_run))
@@ -1378,7 +1438,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(list_children),
             )
             .route("/api/jobs", web::get().to(list_jobs))
+            .route("/api/jobs/ready", web::get().to(list_ready_jobs))
             .route("/api/jobs", web::post().to(create_job))
+            .route("/api/jobs/{job_id}", web::get().to(get_job))
+            .route("/api/jobs/{job_id}/cancel", web::post().to(cancel_job))
             .route("/api/workflows", web::get().to(list_workflows))
             .route("/api/workflows", web::post().to(create_workflow))
             .route(

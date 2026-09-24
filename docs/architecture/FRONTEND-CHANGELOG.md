@@ -1167,3 +1167,10 @@ Verification status:
 - Corrected the historical evidence compatibility rule to use the fixed policy timestamp only, because legacy schema_version=1 records may use statuses other than `completed` (for example `implemented`).
 - Records before `2026-09-24T01:00:00Z` can remain immutable without an `evidence` field; current/future records remain strict.
 - Verification status: awaiting the new CI run.
+
+## 2026-09-24 — Continuity legacy schema compatibility
+
+- Generalized the fixed historical compatibility boundary so schema_version=1 records created before `2026-09-24T01:00:00Z` are not rejected for missing fields that were introduced by the newer journal contract.
+- Current/future records remain fully strict against `required_operation_fields` and the evidence policy.
+- This resolves the observed `previous_commit` failure in the historical Knowledge Studio record without rewriting that record or weakening current work requirements.
+- Verification status: awaiting the next CI run.

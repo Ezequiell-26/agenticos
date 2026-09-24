@@ -1289,3 +1289,13 @@ Verification status:
 - Added responsive browser workspace styling for narrow desktop and mobile-sized viewports.
 - Preserved the runtime boundary: browser navigation, DOM mutation, network calls, downloads and recordings remain preview intents until browser services are connected.
 - Verification status: source-level wiring only; fresh CI and browser execution evidence remains pending.
+
+
+## 2026-09-24 — Responsive shell and navigation resilience
+
+- Wired the App shell's centralized `setMode` callback into `WorkspaceOverview`, so nested platform surfaces can navigate back through the canonical navigation registry.
+- Added an accessible skip link and an explicit workspace landmark for keyboard users.
+- Added responsive shell breakpoints for narrower Tauri windows: agent inspector and workspace sidebar progressively collapse, dense grids reflow, command strips remain horizontally navigable, and dock/editor surfaces adapt without changing runtime ownership.
+- Added a frontend architecture regression guard so the workspace navigation callback cannot silently be removed.
+- Preserved the monochrome design language and reduced-motion behavior.
+- Verification status: source updates applied; production build, browser execution, accessibility execution and Tauri rendering remain pending.

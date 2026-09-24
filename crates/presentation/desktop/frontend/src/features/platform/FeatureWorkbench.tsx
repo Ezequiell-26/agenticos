@@ -220,6 +220,7 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
   const [view, setView] = useState<'Overview' | 'Activity'>('Overview')
   const [favorite, setFavorite] = useState(false)
   const [density, setDensity] = useState<'Comfortable' | 'Compact'>('Comfortable')
+  const [statePreview, setStatePreview] = useState<'Ready' | 'Loading' | 'Empty' | 'Error' | 'Offline' | 'Approval'>('Ready')
 
   useEffect(() => {
     setQuery('')
@@ -227,6 +228,7 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
     setView('Overview')
     setFavorite(false)
     setDensity('Comfortable')
+    setStatePreview('Ready')
   }, [mode])
   const normalized = query.trim().toLowerCase()
   const visible = useMemo(() => config.items.filter(item => !normalized || item.join(' ').toLowerCase().includes(normalized)), [config.items, normalized])
@@ -251,6 +253,21 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
         {config.metrics.map(([label, value, sub]) => <MetricCard key={label} label={label} value={value} sub={sub} />)}
       </section>
 
+      <div className="feature-state-preview" aria-label="Preview surface state">
+        <span className="feature-state-preview__label">State preview</span>
+        {(['Ready', 'Loading', 'Empty', 'Error', 'Offline', 'Approval'] as const).map((state) => (
+          <button
+            key={state}
+            type="button"
+            className={statePreview === state ? 'feature-state-button feature-state-button--active' : 'feature-state-button'}
+            aria-pressed={statePreview === state}
+            onClick={() => setStatePreview(state)}
+          >
+            {state}
+          </button>
+        ))}
+      </div>
+
       <div className="feature-workbench__toolbar">
         <div className="feature-workbench__tabs" role="tablist" aria-label="Feature views">
           {(['Overview', 'Activity'] as const).map(tab => <button key={tab} type="button" role="tab" aria-selected={view === tab} className={view === tab ? 'feature-tab feature-tab--active' : 'feature-tab'} onClick={() => setView(tab)}><Icon name={tab === 'Overview' ? 'layers' : 'activity'} size={13} />{tab}</button>)}
@@ -262,7 +279,35 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
         </div>
       </div>
 
-      {view === 'Overview' ? (
+      {statePreview !== 'Ready' ? (
+        <section className={`feature-state-panel feature-state-panel--${statePreview.toLowerCase()}`} role={statePreview === 'Error' ? 'alert' : 'status'} aria-live="polite">
+          <div className="feature-state-panel__icon">
+            <Icon name={statePreview === 'Error' ? 'alert' : statePreview === 'Offline' ? 'cloud' : statePreview === 'Approval' ? 'shield' : statePreview === 'Loading' ? 'refresh' : 'archive'} size={18} />
+          </div>
+          <div>
+            <span className="eyebrow">{statePreview} state</span>
+            <strong>
+              {statePreview === 'Loading' ? 'Workspace surface is loading' :
+               statePreview === 'Empty' ? 'No items are available yet' :
+               statePreview === 'Error' ? 'Workspace surface needs recovery' :
+               statePreview === 'Offline' ? 'Runtime is currently unavailable' :
+               'Human approval is required'}
+            </strong>
+            <p>
+              {statePreview === 'Loading' ? 'Keep the surrounding shell interactive while the selected module prepares its data.' :
+               statePreview === 'Empty' ? 'Use the primary action above to create the first local presentation item.' :
+               statePreview === 'Error' ? 'The failure should remain isolated to this surface so the rest of the workspace stays usable.' :
+               statePreview === 'Offline' ? 'The UI can remain navigable while runtime-owned operations wait for reconnection.' :
+               'Sensitive or destructive actions must remain blocked until an explicit approval contract resolves.'}
+            </p>
+          </div>
+          <div className="feature-state-panel__actions">
+            <button className="studio-button" type="button" onClick={() => setStatePreview('Ready')}>Return ready</button>
+            {statePreview === 'Error' && <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Recovery requested for ' + mode)}>Retry preview</button>}
+            {statePreview === 'Offline' && <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Reconnect requested for ' + mode)}>Reconnect</button>}
+          </div>
+        </section>
+      ) : view === 'Overview' ? (
         <div className="feature-workbench__grid">
           <Panel title="Workspace items">
             <div className="feature-list">

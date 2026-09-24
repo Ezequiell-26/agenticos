@@ -159,7 +159,7 @@ const EVIDENCE_POLICY_CUTOFF = Date.parse("2026-09-24T01:00:00Z");
 const ids = new Set();
 for (const { op, lineNumber } of journalEntries) {
   const modern = op.schema_version === 1;
-  const operationId = String(op.operation_id ?? op.operation ?? `legacy-line-${index + 1}`).trim();
+  const operationId = String(op.operation_id ?? op.operation ?? `legacy-line-${lineNumber}`).trim();
 
   if (typeof op.timestamp !== "string" || Number.isNaN(Date.parse(op.timestamp))) {
     fail(`journal operation ${operationId} has an invalid timestamp`);

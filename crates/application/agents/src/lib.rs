@@ -258,6 +258,22 @@ impl SubagentManager {
         Ok(child)
     }
 
+    /// Remove a child record after a failed orchestration attempt.
+    pub async fn remove_child(&self, child_run_id: &str) -> Result<(), String> {
+        let removed = self.children.write().await.remove(child_run_id);
+        if removed.is_none() {
+            return Ok(());
+        }
+        if let Some(db) = &self.db {
+            sqlx::query("DELETE FROM agent_children WHERE child_run_id = ?")
+                .bind(child_run_id)
+                .execute(db.as_ref())
+                .await
+                .map_err(|error| format!("child deletion failed: {error}"))?;
+        }
+        Ok(())
+    }
+
     /// List child runs for a parent.
     pub async fn children_of(&self, parent_run_id: &str) -> Vec<ChildRun> {
         let mut children: Vec<_> = self

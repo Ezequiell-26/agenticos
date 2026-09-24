@@ -248,6 +248,7 @@ struct CreateAgentRequest {
 struct SpawnAgentRequest {
     agent_id: String,
     parent_depth: Option<u16>,
+    objective: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -935,21 +936,158 @@ async fn spawn_agent(
     request: web::Json<SpawnAgentRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    match state
+    let parent_run_id = path.into_inner();
+    let parent = match RunId::new(parent_run_id.clone()) {
+        Ok(id) => id,
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_PARENT_RUN_ID",
+            })
+        }
+    };
+
+    match state.kernel.get_or_recover_run(&parent).await {
+        Ok(run) if matches!(run.state, RunState::Completed | RunState::Failed | RunState::Cancelled) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: "cannot spawn a subagent from a terminal run".to_string(),
+                code: "PARENT_RUN_TERMINAL",
+            });
+        }
+        Ok(_) => {}
+        Err(_) => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error: "parent run not found".to_string(),
+                code: "PARENT_RUN_NOT_FOUND",
+            })
+        }
+    }
+
+    let child = match state
         .subagents
         .spawn_child(
-            &path.into_inner(),
+            parent.as_str(),
             &request.agent_id,
             request.parent_depth.unwrap_or(0),
         )
         .await
     {
-        Ok(child) => HttpResponse::Created().json(child),
-        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
-            error,
-            code: "SUBAGENT_SPAWN_FAILED",
-        }),
+        Ok(child) => child,
+        Err(error) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error,
+                code: "SUBAGENT_SPAWN_FAILED",
+            })
+        }
+    };
+
+    let child_run_id = match RunId::new(child.child_run_id.clone()) {
+        Ok(id) => id,
+        Err(error) => {
+            let _ = state.subagents.remove_child(&child.child_run_id).await;
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SUBAGENT_RUN_ID_INVALID",
+            });
+        }
+    };
+
+    let objective = request
+        .objective
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            format!(
+                "Execute delegated work for agent '{}' from parent run '{}'.",
+                child.agent_id, parent.as_str()
+            )
+        });
+
+    let created = match state.kernel.create_run(child_run_id.clone()).await {
+        Ok(run) => run,
+        Err(error) => {
+            let _ = state.subagents.remove_child(&child.child_run_id).await;
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SUBAGENT_RUN_CREATE_FAILED",
+            });
+        }
+    };
+
+    if let Err(error) = state
+        .kernel
+        .transition_run(&child_run_id, RunState::Admitted, created.version)
+        .await
+    {
+        let _ = state.subagents.remove_child(&child.child_run_id).await;
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SUBAGENT_RUN_ADMISSION_FAILED",
+        });
     }
+
+    if let Err(error) = state
+        .memory
+        .store_message(
+            &format!("{}-objective", child_run_id.as_str()),
+            child_run_id.as_str(),
+            "objective",
+            &objective,
+        )
+        .await
+    {
+        let _ = state
+            .kernel
+            .get_or_recover_run(&child_run_id)
+            .await
+            .and_then(|run| async {
+                state
+                    .kernel
+                    .transition_run(&child_run_id, RunState::Failed, run.version)
+                    .await
+            }
+            .await);
+        let _ = state.subagents.remove_child(&child.child_run_id).await;
+        return HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SUBAGENT_OBJECTIVE_PERSIST_FAILED",
+        });
+    }
+
+    let job = JobSpec {
+        job_id: format!("job-{}", child_run_id.as_str()),
+        run_id: child_run_id.as_str().to_string(),
+        task: objective.clone(),
+        dependencies: vec![],
+        priority: 90,
+        max_attempts: 3,
+    };
+
+    if let Err(error) = state.scheduler.enqueue(job.clone()).await {
+        if let Ok(run) = state.kernel.get_or_recover_run(&child_run_id).await {
+            let _ = state
+                .kernel
+                .transition_run(&child_run_id, RunState::Failed, run.version)
+                .await;
+        }
+        let _ = state.subagents.remove_child(&child.child_run_id).await;
+        return HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "SUBAGENT_JOB_ENQUEUE_FAILED",
+        });
+    }
+
+    HttpResponse::Created().json(serde_json::json!({
+        "child": child,
+        "run": {
+            "run_id": child_run_id.as_str(),
+            "state": "Admitted",
+        },
+        "job": job,
+        "objective": objective,
+    }))
 }
 
 async fn list_children(

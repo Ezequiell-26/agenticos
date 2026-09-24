@@ -23,6 +23,7 @@ use agenticos_contracts::{
     SandboxStatus,
 };
 use agenticos_execution::SecureToolService;
+use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
     SqliteSnapshotStore,
@@ -68,6 +69,7 @@ pub struct RuntimeState {
     tool_runtime: Arc<ToolRuntime>,
     reasoning: Arc<ReasoningEngine>,
     metrics: Arc<RuntimeMetrics>,
+    evaluation: Arc<EvaluationRegistry>,
     model: String,
 }
 
@@ -196,6 +198,7 @@ impl RuntimeState {
                 selection_strategy: SelectionStrategy::Balanced,
             })),
             metrics: Arc::new(RuntimeMetrics::new()),
+            evaluation: Arc::new(EvaluationRegistry::new()),
             model,
         })
     }
@@ -303,6 +306,16 @@ struct CreateApprovalRequest {
 #[derive(Debug, Deserialize)]
 struct CreateWorkflowRequest {
     workflow: WorkflowDefinition,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateEvaluationCaseRequest {
+    case: EvaluationCase,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvaluateCaseRequest {
+    output: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -660,6 +673,60 @@ async fn call_mcp_tool(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
+        }),
+    }
+}
+
+async fn list_evaluation_cases(state: web::Data<RuntimeState>) -> impl Responder {
+    let cases = state.evaluation.list_cases().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "cases": cases,
+        "count": cases.len(),
+    }))
+}
+
+async fn create_evaluation_case(
+    request: web::Json<CreateEvaluationCaseRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.evaluation.register(request.case.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.case.clone()),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "EVALUATION_CASE_INVALID",
+        }),
+    }
+}
+
+async fn run_evaluation_case(
+    case_id: web::Path<String>,
+    request: web::Json<EvaluateCaseRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.output.len() > 2_000_000 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "evaluation output exceeds the supported limit".to_string(),
+            code: "EVALUATION_OUTPUT_TOO_LARGE",
+        });
+    }
+    match state.evaluation.evaluate(&case_id, &request.output).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "EVALUATION_CASE_NOT_FOUND",
+        }),
+    }
+}
+
+async fn get_evaluation_result(
+    case_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.evaluation.result(&case_id).await {
+        Some(result) => HttpResponse::Ok().json(result),
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "evaluation result not found".to_string(),
+            code: "EVALUATION_RESULT_NOT_FOUND",
         }),
     }
 }
@@ -2301,6 +2368,22 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
             .route("/api/metrics", web::get().to(runtime_metrics))
+            .route(
+                "/api/evaluation/cases",
+                web::get().to(list_evaluation_cases),
+            )
+            .route(
+                "/api/evaluation/cases",
+                web::post().to(create_evaluation_case),
+            )
+            .route(
+                "/api/evaluation/cases/{case_id}/run",
+                web::post().to(run_evaluation_case),
+            )
+            .route(
+                "/api/evaluation/cases/{case_id}/result",
+                web::get().to(get_evaluation_result),
+            )
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
             .route(

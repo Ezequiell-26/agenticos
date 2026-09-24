@@ -19,11 +19,29 @@ export interface ChatMessage {
   timestamp: number
 }
 
+export interface RuntimeApiRecord {
+  [key: string]: unknown
+}
+
+export interface RuntimeProviderStatus {
+  provider_id: string
+  name: string
+  configured: boolean
+  models: string[]
+  health: string
+  requests_used: number
+  requests_per_minute?: number | null
+  tokens_used: number
+  tokens_per_minute?: number | null
+}
+
 export interface AgentStatusSnapshot {
   agentName: string
   state: AgentRunState
+  runtimeState?: string
   provider: string
   model: string
+  providers?: RuntimeProviderStatus[]
   latencyMs?: number
 }
 
@@ -35,14 +53,205 @@ export interface ConversationSummary {
   pinned?: boolean
 }
 
+export interface RuntimeModel {
+  model_id: string
+  provider_id: string
+  name: string
+  context_window?: number | null
+  capabilities: string[]
+}
+
+export interface RuntimeProviderRegistration {
+  provider_id: string
+  name: string
+  base_url: string
+  models: string[]
+  capabilities: string[]
+  api_key?: string
+}
+
+export interface RuntimeHealthCheck {
+  provider_id: string
+  status: string
+  last_check: number
+  message?: string | null
+}
+
+export interface RuntimeQuota {
+  provider_id: string
+  requests_per_minute?: number | null
+  tokens_per_minute?: number | null
+  current_usage: number
+}
+
+export interface RuntimeRetryPolicy {
+  max_attempts: number
+  initial_backoff_ms: number
+  max_backoff_ms: number
+  exponential_backoff: boolean
+}
+
+export interface RuntimeFallbackConfig {
+  primary_provider: string
+  fallback_providers: string[]
+  auto_failover: boolean
+}
+
+export interface RuntimeRun {
+  run_id: string
+  state: string
+  version: number
+  objective?: string
+}
+
+export interface RuntimeMemoryRecord {
+  namespace: string
+  key: string
+  value: string
+  tags?: string[]
+  importance?: number
+  expires_at?: number
+  updated_at?: number
+  created_at?: number
+}
+
+export interface RuntimeSearchResult {
+  query: string
+  results: RuntimeApiRecord[]
+  count: number
+}
+
 export interface RuntimeServices {
   chat: {
-    sendMessage(sessionId: string, message: string): Promise<ChatMessage>
+    sendMessage(sessionId: string, message: string, options?: { model?: string }): Promise<ChatMessage>
   }
   status: {
     get(): Promise<AgentStatusSnapshot>
   }
   conversations: {
     history(sessionId: string): Promise<ChatMessage[]>
+    search(query: string, limit?: number): Promise<RuntimeSearchResult>
+  }
+  models: {
+    list(): Promise<RuntimeModel[]>
+  }
+  providers: {
+    list(): Promise<RuntimeProviderStatus[]>
+    register(request: RuntimeProviderRegistration): Promise<RuntimeProviderStatus | null>
+    remove(providerId: string): Promise<void>
+    models(providerId: string): Promise<string[]>
+    refreshModels(providerId: string): Promise<string[]>
+    health(providerId: string): Promise<RuntimeHealthCheck>
+    quota(providerId: string): Promise<RuntimeQuota>
+    setQuota(providerId: string, quota: Omit<RuntimeQuota, 'provider_id'>): Promise<RuntimeQuota>
+    retry(providerId: string): Promise<RuntimeRetryPolicy>
+    setRetry(providerId: string, policy: RuntimeRetryPolicy): Promise<RuntimeRetryPolicy>
+    fallback(providerId: string): Promise<RuntimeFallbackConfig>
+    setFallback(providerId: string, config: Omit<RuntimeFallbackConfig, 'primary_provider'> & { primary_provider?: string }): Promise<RuntimeFallbackConfig>
+  }
+  tools: {
+    list(): Promise<RuntimeApiRecord[]>
+    call(request: { tool_id: string; agent_id: string; grant_id: string; parameters?: RuntimeApiRecord }): Promise<RuntimeApiRecord>
+    execute(request: { session_id: string; user_id?: string; grant_id: string; command: string; timeout_ms?: number }): Promise<RuntimeApiRecord>
+  }
+  mcp: {
+    list(): Promise<RuntimeApiRecord[]>
+    register(server: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    remove(serverId: string): Promise<void>
+    setEnabled(serverId: string, enabled: boolean): Promise<RuntimeApiRecord>
+    tools(serverId: string): Promise<RuntimeApiRecord[]>
+    call(serverId: string, toolName: string, argumentsValue: unknown, grantId: string): Promise<RuntimeApiRecord>
+    sync(serverId: string): Promise<RuntimeApiRecord>
+  }
+  runs: {
+    list(): Promise<RuntimeRun[]>
+    create(objective: string, runId?: string): Promise<RuntimeRun>
+    get(runId: string): Promise<RuntimeRun>
+    cancel(runId: string): Promise<RuntimeApiRecord>
+    snapshot(runId: string): Promise<RuntimeApiRecord>
+    artifacts(runId: string): Promise<RuntimeApiRecord[]>
+  }
+  subagents: {
+    list(): Promise<RuntimeApiRecord[]>
+    create(agent: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    children(parentRunId: string): Promise<RuntimeApiRecord[]>
+    delegate(parentRunId: string, request: RuntimeApiRecord): Promise<RuntimeApiRecord>
+  }
+  jobs: {
+    list(): Promise<RuntimeApiRecord[]>
+    ready(): Promise<RuntimeApiRecord[]>
+    create(job: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    get(jobId: string): Promise<RuntimeApiRecord>
+    cancel(jobId: string): Promise<RuntimeApiRecord>
+  }
+  workflows: {
+    list(): Promise<RuntimeApiRecord[]>
+    create(workflow: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    start(workflowId: string): Promise<RuntimeApiRecord>
+    ready(workflowId: string): Promise<RuntimeApiRecord[]>
+    state(workflowId: string): Promise<RuntimeApiRecord>
+    transition(workflowId: string, nodeId: string, state: string): Promise<RuntimeApiRecord>
+  }
+  memory: {
+    list(namespace: string, query?: string, limit?: number): Promise<RuntimeMemoryRecord[]>
+    upsert(record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>): Promise<RuntimeMemoryRecord>
+    remove(namespace: string, key: string): Promise<void>
+    purge(): Promise<{ removed: number }>
+  }
+  capabilities: {
+    list(): Promise<RuntimeApiRecord[]>
+    issue(request: { capability_type: string; resource: string; permission: string; expires_at?: number; grant_id: string }): Promise<RuntimeApiRecord>
+    revoke(grantId: string): Promise<void>
+  }
+  approvals: {
+    list(): Promise<RuntimeApiRecord[]>
+    create(request: { run_id: string; action: string; resource: string; expires_at?: number }): Promise<RuntimeApiRecord>
+    resolve(approvalId: string, approved: boolean): Promise<RuntimeApiRecord>
+  }
+  skills: {
+    list(): Promise<RuntimeApiRecord[]>
+  }
+  source: {
+    inspect(source: string): Promise<RuntimeApiRecord>
+    analyze(source: string): Promise<RuntimeApiRecord>
+    file(owner: string, repo: string, path: string, reference?: string): Promise<RuntimeApiRecord>
+  }
+  evaluation: {
+    cases(): Promise<RuntimeApiRecord[]>
+    create(testCase: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    run(caseId: string): Promise<RuntimeApiRecord>
+    result(caseId: string): Promise<RuntimeApiRecord>
+  }
+  terminal: {
+    list(): Promise<RuntimeApiRecord[]>
+    create(request: { command: string; cwd?: string; grant_id: string }): Promise<RuntimeApiRecord>
+    get(terminalId: string): Promise<RuntimeApiRecord>
+    input(terminalId: string, input: string, grantId: string): Promise<RuntimeApiRecord>
+    output(terminalId: string, grantId: string, after?: number, limit?: number): Promise<RuntimeApiRecord>
+    close(terminalId: string, grantId: string): Promise<RuntimeApiRecord>
+    remove(terminalId: string, grantId: string): Promise<void>
+  }
+  artifacts: {
+    create(request: RuntimeApiRecord): Promise<RuntimeApiRecord>
+    get(artifactId: string): Promise<RuntimeApiRecord>
+    content(artifactId: string): Promise<RuntimeApiRecord>
+    remove(artifactId: string): Promise<void>
+  }
+  reasoning: {
+    plan(objective: string): Promise<RuntimeApiRecord>
+  }
+  metrics: {
+    get(): Promise<RuntimeApiRecord>
+  }
+  audit: {
+    list(limit?: number): Promise<RuntimeApiRecord[]>
+  }
+  usage: {
+    summary(): Promise<RuntimeApiRecord>
+    records(): Promise<RuntimeApiRecord[]>
+    setPricing(request: RuntimeApiRecord): Promise<RuntimeApiRecord>
+  }
+  sandbox: {
+    status(): Promise<RuntimeApiRecord>
   }
 }

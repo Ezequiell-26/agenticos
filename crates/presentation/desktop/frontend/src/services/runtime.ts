@@ -19,6 +19,8 @@ import type {
   RuntimeServices,
   RuntimeStreamEvent,
   RuntimeWorkerJob,
+  RuntimeWorkspaceEntry,
+  RuntimeWorkspaceFile,
 } from '../types/runtime'
 
 export class RuntimeHttpError extends Error {
@@ -505,6 +507,27 @@ export class AgenticosRuntime implements RuntimeServices {
 
   readonly skills = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/skills'), 'skills'),
+  }
+
+  readonly workspace = {
+    list: async (path: string, grantId: string): Promise<RuntimeWorkspaceEntry[]> => {
+      const params = new URLSearchParams({ path, grant_id: grantId })
+      const data = await this.transport.get<RuntimeApiRecord>(`/api/workspace/list?${params.toString()}`)
+      return arrayOfRecords(data.entries).map((entry) => ({
+        path: readString(entry, 'path') ?? '',
+        directory: Boolean(entry.directory),
+        file: Boolean(entry.file),
+        size_bytes: typeof entry.size_bytes === 'number' ? entry.size_bytes : null,
+      })).filter((entry) => entry.path)
+    },
+    readFile: async (path: string, grantId: string): Promise<RuntimeWorkspaceFile> => {
+      const params = new URLSearchParams({ path, grant_id: grantId })
+      return this.transport.get<RuntimeWorkspaceFile>(`/api/workspace/file?${params.toString()}`)
+    },
+    writeFile: async (path: string, content: string, grantId: string) =>
+      this.transport.post<RuntimeApiRecord>('/api/workspace/file', { path, content, grant_id: grantId }),
+    patchFile: async (path: string, expected: string, replacement: string, grantId: string) =>
+      this.transport.post<RuntimeApiRecord>('/api/workspace/patch', { path, expected, replacement, grant_id: grantId }),
   }
 
   readonly source = {

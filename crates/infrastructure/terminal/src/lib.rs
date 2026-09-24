@@ -156,10 +156,7 @@ impl TerminalManager {
     }
 
     /// Open using environment configuration.
-    pub async fn from_env(
-        database_url: &str,
-        root: impl Into<PathBuf>,
-    ) -> Result<Self, String> {
+    pub async fn from_env(database_url: &str, root: impl Into<PathBuf>) -> Result<Self, String> {
         let max_sessions = std::env::var("AGENTICOS_MAX_TERMINALS")
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
@@ -208,11 +205,7 @@ impl TerminalManager {
     }
 
     /// Create an interactive shell session inside the workspace.
-    pub async fn create(
-        &self,
-        command: &str,
-        cwd: Option<&str>,
-    ) -> Result<TerminalRecord, String> {
+    pub async fn create(&self, command: &str, cwd: Option<&str>) -> Result<TerminalRecord, String> {
         let command = command.trim();
         if command.is_empty() {
             return Err("terminal command is required".to_string());
@@ -377,11 +370,7 @@ impl TerminalManager {
     }
 
     /// Write input into a running terminal session.
-    pub async fn write_input(
-        &self,
-        terminal_id: &str,
-        input: &str,
-    ) -> Result<(), String> {
+    pub async fn write_input(&self, terminal_id: &str, input: &str) -> Result<(), String> {
         if terminal_id.trim().is_empty() {
             return Err("terminal_id is required".to_string());
         }
@@ -572,10 +561,8 @@ mod tests {
 
     #[tokio::test]
     async fn recovery_marks_running_sessions_orphaned() {
-        let db_path = std::env::temp_dir().join(format!(
-            "agenticos-terminal-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let db_path =
+            std::env::temp_dir().join(format!("agenticos-terminal-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", db_path.display());
 
         let first = TerminalManager::open(&url, ".", 4, 8).await.unwrap();

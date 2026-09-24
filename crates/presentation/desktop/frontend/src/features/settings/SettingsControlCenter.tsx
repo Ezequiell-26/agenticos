@@ -417,14 +417,24 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
       </header>
 
       <div className="control-center-scopebar">
-        <div className="control-center-scopes" role="tablist" aria-label="Configuration scope">
+        <div className="control-center-scopes" role="tablist" aria-label="Configuration scope" aria-orientation="horizontal">
           {([
             ['global', 'Global'],
             ['project', 'Project'],
             ['session', 'Session'],
             ['agent', 'Agent'],
           ] as const).map(([id, label]) => (
-            <button key={id} type="button" className={state.scope === id ? 'control-center-scope control-center-scope--active' : 'control-center-scope'} onClick={() => update('scope', id)}>{label}</button>
+            <button key={id} id={'settings-scope-tab-' + id} type="button" role="tab" tabIndex={state.scope === id ? 0 : -1} aria-selected={state.scope === id} aria-controls="settings-scope-content" className={state.scope === id ? 'control-center-scope control-center-scope--active' : 'control-center-scope'} onClick={() => update('scope', id)} onKeyDown={(event) => {
+              const scopes = ['global', 'project', 'session', 'agent'] as const
+              const index = scopes.indexOf(id)
+              const nextIndex = event.key === 'ArrowRight' ? (index + 1) % scopes.length : event.key === 'ArrowLeft' ? (index - 1 + scopes.length) % scopes.length : event.key === 'Home' ? 0 : event.key === 'End' ? scopes.length - 1 : -1
+              if (nextIndex >= 0) {
+                event.preventDefault()
+                const next = scopes[nextIndex]
+                update('scope', next)
+                window.requestAnimationFrame(() => document.getElementById('settings-scope-tab-' + next)?.focus())
+              }
+            }}>{label}</button>
           ))}
         </div>
         <div className="control-center-status">
@@ -457,7 +467,7 @@ export default function SettingsControlCenter({ notify }: SettingsControlCenterP
         </div>
       )}
 
-      <div className="control-center-layout">
+      <div id="settings-scope-content" className="control-center-layout" role="tabpanel" aria-labelledby={"settings-scope-tab-" + state.scope} tabIndex={0}>
         <aside className="control-center-nav" aria-label="Settings sections">
           <div className="control-center-nav__caption">Configuration</div>
           {visibleSections.map((item) => (

@@ -24,7 +24,7 @@ export default function CodeEditorSurface({
   const [matchCase, setMatchCase] = useState(false)
   const [wrap, setWrap] = useState(false)
   const [minimap, setMinimap] = useState(false)
-  const [gotoLineOpen, setGotoLineOpen] = useState(false)
+  const [goToLineOpen, setGoToLineOpen] = useState(false)
   const [gotoLine, setGotoLine] = useState('1')
   const [focusedLine, setFocusedLine] = useState(1)
   const [focusedColumn, setFocusedColumn] = useState(1)
@@ -77,7 +77,7 @@ export default function CodeEditorSurface({
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') {
         event.preventDefault()
-        setGotoLineOpen(true)
+        setGoToLineOpen(true)
         setGotoLine(String(focusedLine))
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
@@ -86,14 +86,14 @@ export default function CodeEditorSurface({
         setDirty(false)
       }
       if (event.key === 'Escape') {
-        if (gotoLineOpen) setGotoLineOpen(false)
+        if (goToLineOpen) setGoToLineOpen(false)
         else if (findOpen) setFindOpen(false)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [findOpen, focusedLine, gotoLineOpen, onSave])
+  }, [findOpen, focusedLine, goToLineOpen, onSave])
 
   function syncCursor() {
     const selection = editorRef.current?.selectionStart ?? 0
@@ -167,7 +167,7 @@ export default function CodeEditorSurface({
     let offset = 0
     for (let index = 1; index < target; index += 1) offset += (lines[index - 1]?.length ?? 0) + 1
     setGotoLine(String(target))
-    setGotoLineOpen(false)
+    setGoToLineOpen(false)
     selectRange(offset, offset)
     setFocusedLine(target)
     setFocusedColumn(1)
@@ -223,8 +223,8 @@ export default function CodeEditorSurface({
         </div>
       </div>
 
-      {gotoLineOpen && <div className="code-editor-goto">
-        <label>Go to line <input autoFocus value={gotoLine} onChange={(event) => setGotoLine(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); goToLine() } if (event.key === 'Escape') setGotoLineOpen(false) }} /></label>
+      {goToLineOpen && <div className="code-editor-goto">
+        <label>Go to line <input autoFocus value={gotoLine} onChange={(event) => setGotoLine(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); goToLine() } if (event.key === 'Escape') setGoToLineOpen(false) }} /></label>
         <button type="button" className="code-editor-tool" onClick={goToLine}>Go</button>
       </div>}
 

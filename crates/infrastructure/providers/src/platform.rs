@@ -1365,7 +1365,10 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
         let request_id = request.request_id.clone();
         let mut payload = serde_json::json!({
             "model": request.model,
-            "messages": [{"role": "user", "content": request.input}],
+            "messages": [{
+                "role": "user",
+                "content": openai_chat_message_content(&request.input, request.parameters.as_deref())?,
+            }],
             "stream": true,
         });
 
@@ -1801,7 +1804,13 @@ async fn execute_protocol(
             let url = normalize_endpoint(&provider.base_url, "/v1/responses", "/responses");
             let mut payload = serde_json::json!({
                 "model": request.model,
-                "input": request.input,
+                "input": [{
+                    "role": "user",
+                    "content": openai_responses_input_content(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
+                }],
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
             let mut builder = client.post(url).header("x-request-id", &request.request_id);
@@ -1852,7 +1861,13 @@ async fn execute_protocol(
             let mut payload = serde_json::json!({
                 "model": request.model,
                 "max_tokens": 4096,
-                "messages": [{"role": "user", "content": request.input}],
+                "messages": [{
+                    "role": "user",
+                    "content": anthropic_message_content(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
+                }],
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
             let mut builder = client
@@ -1903,7 +1918,10 @@ async fn execute_protocol(
             let mut payload = serde_json::json!({
                 "contents": [{
                     "role": "user",
-                    "parts": [{"text": request.input}],
+                    "parts": gemini_message_parts(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
                 }],
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
@@ -2064,6 +2082,227 @@ fn normalize_gemini_endpoint(
     Ok(url)
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+enum NormalizedInputPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image")]
+    Image {
+        mime_type: String,
+        data: String,
+        detail: Option<String>,
+    },
+    #[serde(rename = "image_url")]
+    ImageUrl {
+        url: String,
+        detail: Option<String>,
+    },
+}
+
+fn normalized_input_parts(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<Option<Vec<NormalizedInputPart>>, ContractError> {
+    let Some(parameters) = parameters.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let value = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
+        ContractError::ParseError(format!("invalid provider parameters: {error}"))
+    })?;
+    let Some(parts) = value.get("input_parts") else {
+        return Ok(None);
+    };
+    let parts = serde_json::from_value::<Vec<NormalizedInputPart>>(parts.clone()).map_err(|error| {
+        ContractError::ParseError(format!("invalid input_parts: {error}"))
+    })?;
+    if parts.is_empty() || parts.len() > 64 {
+        return Err(ContractError::ParseError(
+            "input_parts must contain between 1 and 64 parts".to_string(),
+        ));
+    }
+
+    let mut normalized = Vec::with_capacity(parts.len() + 1);
+    let mut has_text = false;
+    for part in parts {
+        match part {
+            NormalizedInputPart::Text { text } => {
+                if text.len() > 1_000_000 {
+                    return Err(ContractError::ParseError(
+                        "text input part exceeds supported limits".to_string(),
+                    ));
+                }
+                has_text = has_text || !text.trim().is_empty();
+                normalized.push(NormalizedInputPart::Text { text });
+            }
+            NormalizedInputPart::Image {
+                mime_type,
+                data,
+                detail,
+            } => {
+                if !mime_type.starts_with("image/") || data.is_empty() || data.len() > 20_000_000 {
+                    return Err(ContractError::ParseError(
+                        "image input part is invalid or too large".to_string(),
+                    ));
+                }
+                normalized.push(NormalizedInputPart::Image {
+                    mime_type,
+                    data,
+                    detail,
+                });
+            }
+            NormalizedInputPart::ImageUrl { url, detail } => {
+                if !(url.starts_with("https://") || url.starts_with("http://")) || url.len() > 4096
+                {
+                    return Err(ContractError::ParseError(
+                        "image URL input part must use an HTTP(S) URL".to_string(),
+                    ));
+                }
+                normalized.push(NormalizedInputPart::ImageUrl { url, detail });
+            }
+        }
+    }
+
+    if !input.trim().is_empty() && !has_text {
+        normalized.insert(
+            0,
+            NormalizedInputPart::Text {
+                text: input.to_string(),
+            },
+        );
+    }
+
+    Ok(Some(normalized))
+}
+
+fn openai_chat_message_content(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<serde_json::Value, ContractError> {
+    let Some(parts) = normalized_input_parts(input, parameters)? else {
+        return Ok(serde_json::Value::String(input.to_string()));
+    };
+    let values = parts
+        .into_iter()
+        .map(|part| match part {
+            NormalizedInputPart::Text { text } => serde_json::json!({
+                "type": "text",
+                "text": text,
+            }),
+            NormalizedInputPart::Image { mime_type, data, detail } => serde_json::json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": format!("data:{mime_type};base64,{data}"),
+                    "detail": detail.unwrap_or_else(|| "auto".to_string()),
+                },
+            }),
+            NormalizedInputPart::ImageUrl { url, detail } => serde_json::json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": url,
+                    "detail": detail.unwrap_or_else(|| "auto".to_string()),
+                },
+            }),
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::Value::Array(values))
+}
+
+fn openai_responses_input_content(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<serde_json::Value, ContractError> {
+    let Some(parts) = normalized_input_parts(input, parameters)? else {
+        return Ok(serde_json::json!([{
+            "type": "input_text",
+            "text": input,
+        }]));
+    };
+    let values = parts
+        .into_iter()
+        .map(|part| match part {
+            NormalizedInputPart::Text { text } => serde_json::json!({
+                "type": "input_text",
+                "text": text,
+            }),
+            NormalizedInputPart::Image { mime_type, data, detail } => serde_json::json!({
+                "type": "input_image",
+                "image_url": format!("data:{mime_type};base64,{data}"),
+                "detail": detail.unwrap_or_else(|| "auto".to_string()),
+            }),
+            NormalizedInputPart::ImageUrl { url, detail } => serde_json::json!({
+                "type": "input_image",
+                "image_url": url,
+                "detail": detail.unwrap_or_else(|| "auto".to_string()),
+            }),
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::Value::Array(values))
+}
+
+fn anthropic_message_content(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<serde_json::Value, ContractError> {
+    let Some(parts) = normalized_input_parts(input, parameters)? else {
+        return Ok(serde_json::Value::String(input.to_string()));
+    };
+    let mut values = Vec::with_capacity(parts.len());
+    for part in parts {
+        values.push(match part {
+            NormalizedInputPart::Text { text } => serde_json::json!({
+                "type": "text",
+                "text": text,
+            }),
+            NormalizedInputPart::Image { mime_type, data, .. } => serde_json::json!({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": mime_type,
+                    "data": data,
+                },
+            }),
+            NormalizedInputPart::ImageUrl { url, .. } => serde_json::json!({
+                "type": "image",
+                "source": {
+                    "type": "url",
+                    "url": url,
+                },
+            }),
+        });
+    }
+    Ok(serde_json::Value::Array(values))
+}
+
+fn gemini_message_parts(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<serde_json::Value, ContractError> {
+    let Some(parts) = normalized_input_parts(input, parameters)? else {
+        return Ok(serde_json::json!([{"text": input}]));
+    };
+    let mut values = Vec::with_capacity(parts.len());
+    for part in parts {
+        values.push(match part {
+            NormalizedInputPart::Text { text } => serde_json::json!({
+                "text": text,
+            }),
+            NormalizedInputPart::Image { mime_type, data, .. } => serde_json::json!({
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": data,
+                },
+            }),
+            NormalizedInputPart::ImageUrl { .. } => {
+                return Err(ContractError::ParseError(
+                    "Gemini image_url parts require an uploaded file or inline image data".to_string(),
+                ))
+            }
+        });
+    }
+    Ok(serde_json::Value::Array(values))
+}
+
 fn merge_parameters(
     payload: &mut serde_json::Value,
     parameters: Option<&str>,
@@ -2081,7 +2320,9 @@ fn merge_parameters(
         ContractError::ParseError("provider payload must be an object".to_string())
     })?;
     for (key, value) in object {
-        target.insert(key.clone(), value.clone());
+        if key != "input_parts" {
+            target.insert(key.clone(), value.clone());
+        }
     }
     Ok(())
 }

@@ -309,7 +309,11 @@ pub struct SqliteIdempotencyStore {
 impl SqliteIdempotencyStore {
     /// Open or initialize the idempotency store.
     pub async fn new(connection_string: &str, ttl_seconds: u64) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(connection_string)
+            .await?;
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS idempotency_records (
                 idempotency_key TEXT PRIMARY KEY,
@@ -2445,7 +2449,8 @@ impl ReactAgent {
                             role: msg.role,
                             content: msg.content.clone(),
                             timestamp: msg.timestamp.max(0) as u64,
-                            token_count: ((msg.content.chars().count() as u32).saturating_add(3) / 4)
+                            token_count: ((msg.content.chars().count() as u32).saturating_add(3)
+                                / 4)
                                 .max(1),
                             run_id: run_id.clone(),
                         })
@@ -3489,9 +3494,14 @@ pub struct SqliteMemory {
 impl SqliteMemory {
     /// Create a new SQLite memory store.
     pub async fn new(database_url: &str) -> Result<Self, ContractError> {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url).await.map_err(|e| {
-            ContractError::ParseError(format!("Failed to connect to SQLite: {}", e))
-        })?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
+            .await
+            .map_err(|e| {
+                ContractError::ParseError(format!("Failed to connect to SQLite: {}", e))
+            })?;
 
         // Create tables
         Self::initialize_schema(&pool).await?;

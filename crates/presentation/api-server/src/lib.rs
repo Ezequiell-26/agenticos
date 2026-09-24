@@ -1701,6 +1701,37 @@ async fn create_artifact(
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct ArtifactListQuery {
+    run_id: Option<String>,
+    limit: Option<usize>,
+}
+
+async fn list_artifacts(
+    query: web::Query<ArtifactListQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let limit = query.limit.unwrap_or(100).clamp(1, 500);
+    let run_id = query
+        .run_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    match state.artifacts.list(run_id, limit).await {
+        Ok(records) => HttpResponse::Ok().json(serde_json::json!({
+            "artifacts": records,
+            "count": records.len(),
+            "limit": limit,
+            "run_id": run_id,
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_LIST_FAILED",
+        }),
+    }
+}
+
 async fn get_artifact(
     artifact_id: web::Path<String>,
     state: web::Data<RuntimeState>,
@@ -5025,6 +5056,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 "/api/terminals/{terminal_id}",
                 web::delete().to(delete_terminal),
             )
+            .route("/api/artifacts", web::get().to(list_artifacts))
             .route("/api/artifacts", web::post().to(create_artifact))
             .route("/api/artifacts/{artifact_id}", web::get().to(get_artifact))
             .route(

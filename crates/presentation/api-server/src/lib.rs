@@ -657,12 +657,8 @@ impl RuntimeState {
                 .map_err(ContractError::ParseError)?,
         );
         let skills = Arc::new(Self::load_skills().await);
-        let session_cache_capacity = runtime_env_usize(
-            "AGENTICOS_MAX_CACHED_SESSIONS",
-            256,
-            16,
-            4096,
-        );
+        let session_cache_capacity =
+            runtime_env_usize("AGENTICOS_MAX_CACHED_SESSIONS", 256, 16, 4096);
         let agent_execution_concurrency =
             Arc::new(Semaphore::new(agent_execution_concurrency_limit()));
 
@@ -963,16 +959,13 @@ impl RuntimeState {
             agent.add_skill(skill);
         }
 
-        let recovery_history_limit = runtime_env_usize(
-            "AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT",
-            64,
-            8,
-            256,
-        );
+        let recovery_history_limit =
+            runtime_env_usize("AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT", 64, 8, 256);
         if let Ok(history) = self
             .memory
             .get_session_history(session_id, recovery_history_limit)
-            .await {
+            .await
+        {
             let completed_turns = history
                 .iter()
                 .filter(|message| message.role == "user")
@@ -5211,10 +5204,5 @@ fn agent_execution_concurrency_limit() -> usize {
         .map(|value| value.get())
         .unwrap_or(4);
     let default_limit = cores.saturating_mul(2).clamp(4, 32);
-    runtime_env_usize(
-        "AGENTICOS_MAX_AGENT_CONCURRENCY",
-        default_limit,
-        2,
-        64,
-    )
+    runtime_env_usize("AGENTICOS_MAX_AGENT_CONCURRENCY", default_limit, 2, 64)
 }

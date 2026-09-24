@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 
 type WorkflowStepKind = 'trigger' | 'agent' | 'tool' | 'condition' | 'approval' | 'handoff'
@@ -36,6 +37,33 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
   const [steps, setSteps] = useState(initialSteps)
   const [selectedId, setSelectedId] = useState('s2')
   const [enabled, setEnabled] = useState(true)
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.workflows.list().then((remoteWorkflows) => {
+      if (cancelled || remoteWorkflows.length === 0) return
+      const workflow = remoteWorkflows[0]
+      const remoteId = typeof workflow.workflow_id === 'string' ? workflow.workflow_id : typeof workflow.id === 'string' ? workflow.id : 'runtime-workflow'
+      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
+      if (nodes.length > 0) {
+        const mapped = nodes.map((node, index) => ({
+          id: typeof node.id === 'string' ? node.id : `remote-${index + 1}`,
+          kind: ['trigger','agent','tool','condition','approval','handoff'].includes(String(node.kind)) ? String(node.kind) as WorkflowStepKind : 'tool',
+          title: typeof node.title === 'string' ? node.title : typeof node.name === 'string' ? node.name : `Runtime step ${index + 1}`,
+          detail: typeof node.detail === 'string' ? node.detail : 'Runtime workflow node',
+          status: 'ready' as const,
+        }))
+        setSteps(mapped)
+        setSelectedId(mapped[0].id)
+      }
+      if (typeof workflow.enabled === 'boolean') setEnabled(workflow.enabled)
+      onAction(`Loaded workflow ${remoteId} from runtime`)
+    }).catch(() => {
+      // Keep the local workflow draft while runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [onAction])
 
   const selected = steps.find((step) => step.id === selectedId) ?? steps[0]
 
@@ -63,7 +91,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
   return (
     <div className="workflow-builder">
       <aside className="workflow-builder__sidebar">
-        <div className="workflow-builder__sidebar-head"><div><span className="eyebrow">Workflow</span><strong>Frontend delivery</strong></div><span className={enabled ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled ? 'Enabled' : 'Paused'}</span></div>
+        <div className="workflow-builder__sidebar-head"><div><span className="eyebrow">Workflow · {runtimeSyncing ? 'syncing' : 'runtime'}</span><strong>Frontend delivery</strong></div><span className={enabled ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled ? 'Enabled' : 'Paused'}</span></div>
         <div className="workflow-builder__steps">
           {steps.map((step, index) => (
             <button type="button" key={step.id} className={selectedId === step.id ? 'workflow-builder__step workflow-builder__step--active' : 'workflow-builder__step'} onClick={() => setSelectedId(step.id)}>

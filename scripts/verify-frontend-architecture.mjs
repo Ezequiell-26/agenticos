@@ -235,6 +235,29 @@ if (!appSource.includes('role="status"') || !appSource.includes('aria-live="poli
   process.exit(1);
 }
 
+const featureWorkbenchSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/features/platform/FeatureWorkbench.tsx",
+  "utf8",
+);
+const notificationDrawerSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/NotificationDrawer.tsx",
+  "utf8",
+);
+if (
+  !featureWorkbenchSource.includes('role="tablist"') ||
+  !featureWorkbenchSource.includes('role="tabpanel"') ||
+  !featureWorkbenchSource.includes("aria-controls={'feature-panel-' + tab.toLowerCase()}") ||
+  !featureWorkbenchSource.includes("event.key === 'Home'") ||
+  !notificationDrawerSource.includes('role="dialog"') ||
+  !notificationDrawerSource.includes("onUnreadChange") ||
+  !notificationDrawerSource.includes("persistIds")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — reusable feature workbench tabs and global notification state must remain contract-complete.",
+  );
+  process.exit(1);
+}
+
 const navigationLauncherSource = readFileSync(
   "crates/presentation/desktop/frontend/src/components/NavigationLauncher.tsx",
   "utf8",

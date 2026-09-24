@@ -7,6 +7,7 @@ import type { RailMode } from '../navigation'
 interface QuickActionsMenuProps {
   onCreateConversation: () => void
   onSelectMode: (mode: RailMode) => void
+  compact?: boolean
 }
 
 type QuickAction = {
@@ -24,7 +25,7 @@ const actions: QuickAction[] = [
   { id: 'import', label: 'Import package', detail: 'Bring rules, context or sessions', icon: 'arrow-down' },
 ]
 
-export default function QuickActionsMenu({ onCreateConversation, onSelectMode }: QuickActionsMenuProps) {
+export default function QuickActionsMenu({ onCreateConversation, onSelectMode, compact = false }: QuickActionsMenuProps) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -43,8 +44,8 @@ export default function QuickActionsMenu({ onCreateConversation, onSelectMode }:
 
   return (
     <div className="quick-actions-wrap">
-      <button ref={triggerRef} id="quick-actions-trigger" className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="quick-actions-menu" aria-haspopup="menu">
-        <Icon name="plus" size={14} /> Create
+      <button ref={triggerRef} id="quick-actions-trigger" className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="quick-actions-menu" aria-haspopup="menu" title="Create" aria-label="Create">
+        <Icon name="plus" size={14} />{!compact && ' Create'}
       </button>
       {open && (
         <div ref={menuRef} id="quick-actions-menu" className="quick-actions-menu" role="menu" aria-labelledby="quick-actions-trigger">

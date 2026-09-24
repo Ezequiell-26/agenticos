@@ -26,7 +26,7 @@ export interface UiLayoutPreferences {
 
 export const defaultUiPreferences: UiPreferences = {
   theme: 'Monochrome',
-  accent: 'White',
+  accent: 'Blue',
   density: 'Comfortable',
   uiScale: 100,
   fontSize: 13,

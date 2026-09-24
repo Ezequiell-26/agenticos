@@ -1421,3 +1421,12 @@ Verification status:
 - Unified the stacking order as defense-in-depth for transitions: menus and popovers sit above the dock, the launcher above menus, floating drawers above the launcher, modal backdrops above drawers, and toasts on top.
 - Raised the command palette and global search backdrop above every menu (previously z-index 30, which let open menus float on top of the palette).
 - Verification status: tsc, Vite build and the frontend architecture contract pass; exclusivity verified in the browser preview (Create → Customize closes Create; launcher closes Customize; Ctrl+K closes launcher; Escape closes the palette).
+
+## 2026-09-25 — Hermes-parity shell restyle
+
+- Rebuilt the workspace sidebar on the Hermes reference layout: SESSIONS / BOTS / TERMINAL tabs with roving keyboard support, a quick navigation list (New session with Ctrl+N, Capabilities, Messaging, Artifacts, Scheduled jobs, Memory, RSS, Kanban, Newswire, Resetwatch) mapped to existing routed surfaces, a session search field, PINNED and SESSIONS sections with dot rows and relative timestamps, and a footer icon row.
+- Restyled the topbar: centered active session title with runtime dot and the Create quick-action trigger, icon-only right cluster, and runtime state delegated to the status bar.
+- Restructured the chat composer into the single rounded Hermes bar: compact enhancement icons, "What are we building?" input, attach/slash/tools/settings icons, context chip, model and effort dropdowns, voice placeholder and a round accent send button, with a slim token/format meta row.
+- Restyled the status bar into the dense Hermes strip (brand, quick action, runtime, Agents, Cron, Webhooks, session, guardrails, language and version chips).
+- Switched the default accent to Blue to match the reference visual identity (existing persisted preferences keep their accent).
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; sidebar tabs, composer and status bar verified in the browser preview.

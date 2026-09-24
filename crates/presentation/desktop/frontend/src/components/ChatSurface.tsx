@@ -216,10 +216,9 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <div><strong>Agent session</strong><span>Private runtime workspace · {agent} · {agentMode}</span></div>
         </div>
         <div className="chat-header__actions">
-          <div className="model-chip"><span className="status-dot status-dot--live" /><select value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></div>
-          <button className={`soft-button ${advancedOpen ? 'soft-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls"><Icon name="settings" size={14} />Controls</button>
-          <button className={`soft-button ${runDrawerOpen ? 'soft-button--active' : ''}`} type="button" title="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} />Trace</button>
-          <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
+          <button className={`icon-button ${advancedOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls" aria-label="Agent controls"><Icon name="settings" size={16} /></button>
+          <button className={`icon-button ${runDrawerOpen ? 'icon-button--active' : ''}`} type="button" title="Open run trace" aria-label="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={16} /></button>
+          <button className="icon-button" type="button" title="Search session history" aria-label="Search session history" onClick={onOpenPalette}><Icon name="history" size={16} /></button>
           <div className="session-menu-wrap" ref={sessionMenuRef}>
             <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
             {sessionMenuOpen && <div className="session-menu" role="menu">
@@ -293,20 +292,26 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
               <button type="button" className={rememberContext ? 'composer-tool--active' : ''} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={13} /> Remember context</button>
             </div>
           )}
-          <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <ChatEnhancementDock compact onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
+          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="What are we building?" rows={1} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
               <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
               <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
               <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
-              <span className="context-chip"><Icon name="folder" size={12} /> {contextScope}</span>
-              <span className="context-chip"><Icon name="code" size={12} /> {tokenEstimate.toLocaleString()} est. tokens</span>
-              <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
             </div>
-            <span className="composer-hint">{model} · {effort} · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'} · {promptHistory.length} recent prompts</span>
-            {running ? <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button> : <button className="send-button" disabled={!canSend} onClick={() => void submit()} type="button"><Icon name="send" size={15} />Send</button>}
+            <div className="composer-right">
+              <span className="context-chip" title="Context scope"><Icon name="folder" size={12} /> {contextScope}</span>
+              <span className="composer-select-wrap" title="Model routing"><select className="composer-select" value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></span>
+              <span className="composer-select-wrap" title="Effort"><select className="composer-select" value={effort} onChange={(event) => { setEffort(event.target.value); setNotice(`Effort: ${event.target.value}`) }} aria-label="Select effort">{effortLevels.map((item) => <option key={item}>{item}</option>)}</select></span>
+              <button className="composer-icon" type="button" title="Voice dictation" aria-label="Voice dictation" onClick={() => setNotice('Voice dictation activates with the runtime')}><Icon name="mic" size={15} /></button>
+              {running ? <button className="send-button send-button--stop send-button--round" onClick={onStop} type="button"><Icon name="stop" size={14} /></button> : <button className="send-button send-button--round" disabled={!canSend} onClick={() => void submit()} type="button" aria-label="Send message"><Icon name="send" size={14} /></button>}
+            </div>
+          </div>
+          <div className="composer-meta">
+            <span className="composer-hint"><Icon name="code" size={11} /> {tokenEstimate.toLocaleString()} est. tokens · {maxTokens} max · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'} · {promptHistory.length} prompts</span>
+            <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
           </div>
         </div>
         {notice && <div className="composer-notice" role="status" aria-live="polite">{notice}</div>}

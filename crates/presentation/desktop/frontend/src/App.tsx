@@ -158,6 +158,11 @@ function App() {
         setGlobalSearchOpen((open) => !open)
         return
       }
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault()
+        handleCreateConversation()
+        return
+      }
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'b') {
         event.preventDefault()
         setLeftPanelOpen((open) => !open)
@@ -196,7 +201,10 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const visibleTitle = useMemo(() => navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center', [mode])
+  const visibleTitle = useMemo(() => {
+    if (mode === 'chat') return conversations.find((conversation) => conversation.id === sessionId)?.title ?? 'Command Center'
+    return navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center'
+  }, [mode, conversations, sessionId])
 
   async function handleSend(message: string) {
     const userMessage: ChatMessage = {
@@ -285,6 +293,7 @@ function App() {
         onOpenSearch={() => setPaletteOpen(true)}
         onSelectConversation={handleSelectConversation}
         onConversationAction={handleConversationAction}
+        onNavigate={setMode}
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
 
@@ -293,25 +302,20 @@ function App() {
         {running ? 'Agent run in progress.' : `Runtime ${status.provider === 'Runtime offline' ? 'offline' : 'connected'}; agent state ${status.state}.`}
       </div>
       <main id="workspace-content" className="workspace-main" aria-label="AgentiCOS workspace">
-        <header className="topbar">
-          <div className="topbar__title">
-            <span className="eyebrow">AgentiCOS</span>
-            <span className="topbar__group">{navigationItems.find((item) => item.id === mode)?.group ?? 'build'}</span>
+        <header className="topbar topbar--hermes">
+          <div className="topbar__center">
+            <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} aria-hidden="true" />
             <h1>{visibleTitle}</h1>
+            <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} compact />
           </div>
           <div className="topbar__right">
-            <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} />
             <CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} />
-            <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
-            <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
-            <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} />Search</button>
+            <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" aria-label="Toggle bottom dock" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} /></button>
+            <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" aria-label="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} /></button>
+            <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" aria-label="Universal search" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} /></button>
             <button className={notificationsOpen ? 'notification-button notification-button--active' : 'notification-button'} type="button" title="Notifications" aria-label={'Notifications · ' + notificationUnread + ' unread'} aria-expanded={notificationsOpen} aria-controls="agenticos-notification-drawer" onClick={() => setNotificationsOpen((open) => !open)}>
               <Icon name="bell" size={15} />{notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
             </button>
-            <span className={runtimeSyncing ? 'runtime-chip runtime-chip--syncing' : 'runtime-chip'} aria-live="polite" title={"Runtime: " + status.provider}>
-              <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
-              {runtimeSyncing ? 'syncing' : status.state}
-            </span>
             <button className="icon-button" aria-label="Command palette" title="Command palette" onClick={() => setPaletteOpen(true)} type="button">
               <Icon name="command" size={17} />
             </button>

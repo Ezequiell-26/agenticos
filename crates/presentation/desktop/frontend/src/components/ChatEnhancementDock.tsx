@@ -5,6 +5,7 @@ import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 interface ChatEnhancementDockProps {
   onInsert: (text: string) => void
   onAction: (message: string) => void
+  compact?: boolean
 }
 
 const contexts = [
@@ -44,7 +45,7 @@ const commands = [
   ['/run-everything', 'Configure automatic execution preview'],
 ]
 
-export default function ChatEnhancementDock({ onInsert, onAction }: ChatEnhancementDockProps) {
+export default function ChatEnhancementDock({ onInsert, onAction, compact = false }: ChatEnhancementDockProps) {
   const [open, setOpen] = useState<'context' | 'commands' | 'more' | null>(null)
   useExclusiveOverlay('chat-enhancements', open !== null, () => setOpen(null))
 
@@ -53,27 +54,30 @@ export default function ChatEnhancementDock({ onInsert, onAction }: ChatEnhancem
     setOpen(null)
   }
 
+  const buttons: Array<{ id: 'context' | 'commands' | 'more' | null; label: string; icon: Parameters<typeof Icon>[0]['name']; title: string; onClick: () => void }> = [
+    { id: 'context', label: 'Context', icon: 'archive', title: 'Context sources', onClick: () => setOpen(open === 'context' ? null : 'context') },
+    { id: 'commands', label: 'Commands', icon: 'command', title: 'Slash commands', onClick: () => setOpen(open === 'commands' ? null : 'commands') },
+    { id: null, label: 'Background', icon: 'cloud', title: 'Background agent task', onClick: () => onAction('Background-agent task staged in preview') },
+    { id: null, label: 'Checkpoint', icon: 'git', title: 'Create checkpoint', onClick: () => onAction('Checkpoint created in preview') },
+    { id: null, label: 'Branch', icon: 'branch', title: 'Branch conversation', onClick: () => onAction('Conversation branch created in preview') },
+    { id: 'more', label: 'More', icon: 'more', title: 'More composer actions', onClick: () => setOpen(open === 'more' ? null : 'more') },
+  ]
+
   return (
     <div className="chat-enhancement-dock">
-      <div className="chat-enhancement-dock__group">
-        <button type="button" className={`composer-enhance-button ${open === 'context' ? 'composer-enhance-button--active' : ''}`} onClick={() => setOpen(open === 'context' ? null : 'context')}>
-          <Icon name="archive" size={13} /> Context
-        </button>
-        <button type="button" className={`composer-enhance-button ${open === 'commands' ? 'composer-enhance-button--active' : ''}`} onClick={() => setOpen(open === 'commands' ? null : 'commands')}>
-          <Icon name="command" size={13} /> Commands
-        </button>
-        <button type="button" className="composer-enhance-button" onClick={() => onAction('Background-agent task staged in preview')}>
-          <Icon name="cloud" size={13} /> Background
-        </button>
-        <button type="button" className="composer-enhance-button" onClick={() => onAction('Checkpoint created in preview')}>
-          <Icon name="git" size={13} /> Checkpoint
-        </button>
-        <button type="button" className="composer-enhance-button" onClick={() => onAction('Conversation branch created in preview')}>
-          <Icon name="branch" size={13} /> Branch
-        </button>
-        <button type="button" className={`composer-enhance-button ${open === 'more' ? 'composer-enhance-button--active' : ''}`} onClick={() => setOpen(open === 'more' ? null : 'more')}>
-          <Icon name="more" size={13} /> More
-        </button>
+      <div className={'chat-enhancement-dock__group' + (compact ? ' chat-enhancement-dock__group--compact' : '')}>
+        {buttons.map((button) => (
+          <button
+            key={button.label}
+            type="button"
+            title={button.title}
+            aria-label={compact ? button.title : undefined}
+            className={`composer-enhance-button ${open === button.id && button.id ? 'composer-enhance-button--active' : ''}`}
+            onClick={button.onClick}
+          >
+            <Icon name={button.icon} size={13} />{!compact && button.label}
+          </button>
+        ))}
       </div>
 
       {open && (

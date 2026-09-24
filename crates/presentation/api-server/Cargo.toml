@@ -12,6 +12,7 @@ agenticos-execution = { path = "../../application/execution" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-memory = { path = "../../infrastructure/memory" }
+agenticos-mcp = { path = "../../infrastructure/mcp" }
 agenticos-providers = { path = "../../infrastructure/providers" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-scheduler = { path = "../../application/scheduler" }

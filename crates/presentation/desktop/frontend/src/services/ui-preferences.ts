@@ -63,6 +63,18 @@ export function readUiLayoutPreferences(): UiLayoutPreferences {
   return layout
 }
 
+export function updateUiPreferences(patch: Partial<UiPreferences>) {
+  const next = { ...readUiPreferences(), ...patch }
+  try {
+    window.localStorage.setItem(UI_PREFERENCES_STORAGE_KEY, JSON.stringify({ settings: next }))
+  } catch {
+    // Persistence is optional; active UI preferences still apply for this session.
+  }
+  applyUiPreferences(next)
+  emitUiPreferencesChanged()
+  return next
+}
+
 export function applyUiPreferences(preferences: UiPreferences) {
   const root = document.documentElement
   root.dataset.agenticosTheme = preferences.theme.toLowerCase().replace(/\s+/g, '-')

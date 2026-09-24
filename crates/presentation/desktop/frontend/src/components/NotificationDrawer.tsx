@@ -50,7 +50,7 @@ interface NotificationDrawerProps {
   onUnreadChange?: (count: number) => void
 }
 
-export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavigate }: NotificationDrawerProps) {
+export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavigate, onUnreadChange }: NotificationDrawerProps) {
   const [items, setItems] = useState<NotificationItem[]>(() => {
     const read = readIds()
     return seed.map((item) => read.has(item.id) ? { ...item, read: true } : item)

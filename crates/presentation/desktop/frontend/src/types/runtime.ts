@@ -284,6 +284,7 @@ export interface RuntimeServices {
     remove(terminalId: string, grantId: string): Promise<void>
   }
   artifacts: {
+    list(options?: { runId?: string; limit?: number }): Promise<RuntimeApiRecord[]>
     create(request: RuntimeApiRecord): Promise<RuntimeApiRecord>
     upload(content: Blob | ArrayBuffer, options?: { kind?: string; mimeType?: string; runId?: string; trusted?: boolean; expiresAt?: number; metadata?: RuntimeApiRecord }): Promise<RuntimeApiRecord>
     get(artifactId: string): Promise<RuntimeApiRecord>

@@ -577,15 +577,18 @@ impl KernelRuntime {
         to: RunState,
         expected_version: u64,
     ) -> Result<(), ContractError> {
-        let mut runs = self.runs.write().await;
-        let run = runs
-            .get_mut(run_id)
+        let previous = self
+            .runs
+            .read()
+            .await
+            .get(run_id)
+            .cloned()
             .ok_or(ContractError::MissingCapability)?;
 
-        let from_state = run.state;
-        run.transition(to, expected_version)?;
+        let mut updated = previous.clone();
+        let from_state = updated.state;
+        updated.transition(to, expected_version)?;
 
-        // Persist state transition event
         let event = SerializedEvent {
             event_type: "RunStateChanged".to_string(),
             data: format!(
@@ -593,17 +596,17 @@ impl KernelRuntime {
                 run_id.as_str(),
                 from_state,
                 to,
-                run.version
+                updated.version
             ),
             schema_version: 1,
         };
 
         let stream_id = format!("run:{}", run_id.as_str());
-        let current_version = run.version - 1; // Use version before increment
         self.event_store
-            .append(&stream_id, current_version, vec![event])
+            .append(&stream_id, previous.version, vec![event])
             .await?;
 
+        self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
     }
 
@@ -622,41 +625,46 @@ impl KernelRuntime {
         owner_id: String,
         expires_at: u64,
     ) -> Result<LeaseRecord, ContractError> {
-        let mut runs = self.runs.write().await;
-        let run = runs
-            .get_mut(run_id)
+        let current = self.get_or_recover_run(run_id).await?;
+        let mut updated = current.clone();
+        updated.acquire_lease(owner_id, expires_at)?;
+        let lease = updated
+            .lease
+            .clone()
             .ok_or(ContractError::MissingCapability)?;
-
-        run.acquire_lease(owner_id.clone(), expires_at)?;
-        run.lease.clone().ok_or(ContractError::MissingCapability)
+        self.runs.write().await.insert(run_id.clone(), updated);
+        Ok(lease)
     }
 
     /// Request cancellation of a run.
     pub async fn cancel_run(&self, run_id: &RunId) -> Result<(), ContractError> {
-        let mut runs = self.runs.write().await;
-        let run = runs
-            .get_mut(run_id)
+        let previous = self
+            .runs
+            .read()
+            .await
+            .get(run_id)
+            .cloned()
             .ok_or(ContractError::MissingCapability)?;
 
-        let before_version = run.version;
-        run.request_cancellation()?;
+        let mut updated = previous.clone();
+        updated.request_cancellation()?;
 
-        // Persist cancellation event
         let event = SerializedEvent {
             event_type: "RunCancellationRequested".to_string(),
             data: format!(
                 r#"{{"run_id":"{}","state":"{:?}"}}"#,
                 run_id.as_str(),
-                run.state
+                updated.state
             ),
             schema_version: 1,
         };
 
         let stream_id = format!("run:{}", run_id.as_str());
         self.event_store
-            .append(&stream_id, before_version, vec![event])
+            .append(&stream_id, previous.version, vec![event])
             .await?;
 
+        self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
     }
 

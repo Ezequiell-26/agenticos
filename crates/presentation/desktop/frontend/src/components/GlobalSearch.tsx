@@ -91,6 +91,12 @@ export default function GlobalSearch({
       } else if (event.key === 'ArrowUp' && filtered.length) {
         event.preventDefault()
         setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
+      } else if (event.key === 'Home' && filtered.length) {
+        event.preventDefault()
+        setSelectedIndex(0)
+      } else if (event.key === 'End' && filtered.length) {
+        event.preventDefault()
+        setSelectedIndex(filtered.length - 1)
       } else if (event.key === 'Enter' && filtered.length) {
         event.preventDefault()
         const item = filtered[selectedIndex]
@@ -110,14 +116,25 @@ export default function GlobalSearch({
       <section ref={dialogRef} className="global-search" role="dialog" aria-modal="true" aria-label="Universal search" onMouseDown={(event) => event.stopPropagation()}>
         <div className="global-search__head">
           <Icon name="search" size={17} />
-          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anything in AgentiCOS…" aria-label="Search anything in AgentiCOS" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search anything in AgentiCOS…"
+            aria-label="Search anything in AgentiCOS"
+            role="combobox"
+            aria-controls="global-search-results"
+            aria-expanded="true"
+            aria-autocomplete="list"
+            aria-activedescendant={filtered[selectedIndex] ? 'global-search-' + filtered[selectedIndex].id : undefined}
+          />
           <kbd>Ctrl+Shift+F</kbd>
           <button type="button" className="icon-button" aria-label="Close search" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div className="global-search__meta">{filtered.length} result{filtered.length === 1 ? '' : 's'} · navigation, settings, sessions and platform surfaces</div>
-        <div className="global-search__list" role="listbox" aria-label="Search results">
+        <div id="global-search-results" className="global-search__list" role="listbox" aria-label="Search results">
           {filtered.map((item, index) => (
-            <button type="button" key={item.id} role="option" aria-selected={index === selectedIndex} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
+            <button id={'global-search-' + item.id} type="button" key={item.id} role="option" aria-selected={index === selectedIndex} className={index === selectedIndex ? 'global-search__row global-search__row--active' : 'global-search__row'} onClick={() => { if (item.mode) onSelectMode(item.mode); if (item.conversationId) onSelectConversation(item.conversationId); onClose() }}>
               <span className="global-search__icon"><Icon name={item.icon} size={14} /></span>
               <span><strong>{item.label}</strong><small>{item.detail}</small></span>
               <em>{item.group}</em>

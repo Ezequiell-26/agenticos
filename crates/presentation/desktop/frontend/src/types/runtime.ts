@@ -316,4 +316,9 @@ export interface RuntimeServices {
   }
 }
 
-export type ChatSendOptions = { model?: string }
+export interface ChatSendOptions {
+  model?: string
+  maxTokens?: number
+  temperature?: number
+  responseFormat?: 'Markdown' | 'Plain text' | 'Structured' | 'Code first'
+}

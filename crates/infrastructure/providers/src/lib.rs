@@ -8,8 +8,9 @@ use agenticos_contracts::{
     ModelProvider, ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
+use std::time::Duration;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-providers";
@@ -504,6 +505,48 @@ impl Default for FallbackManager {
     }
 }
 
+/// Shared HTTP client used by every provider adapter.
+///
+/// Reusing one client preserves connection pooling and keep-alive sockets across
+/// provider requests instead of rebuilding the transport for every call.
+static SHARED_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+pub(crate) fn shared_http_client() -> reqwest::Client {
+    SHARED_HTTP_CLIENT
+        .get_or_init(|| {
+            let timeout_ms = std::env::var("AGENTICOS_PROVIDER_TIMEOUT_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(120_000)
+                .clamp(1_000, 600_000);
+            let connect_timeout_ms = std::env::var("AGENTICOS_PROVIDER_CONNECT_TIMEOUT_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(10_000)
+                .clamp(250, 120_000);
+            let max_idle_per_host = std::env::var("AGENTICOS_HTTP_MAX_IDLE_PER_HOST")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(8)
+                .clamp(1, 32);
+            let pool_idle_timeout_ms = std::env::var("AGENTICOS_HTTP_POOL_IDLE_TIMEOUT_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(90_000)
+                .clamp(1_000, 600_000);
+
+            reqwest::Client::builder()
+                .connect_timeout(Duration::from_millis(connect_timeout_ms))
+                .timeout(Duration::from_millis(timeout_ms))
+                .pool_idle_timeout(Some(Duration::from_millis(pool_idle_timeout_ms)))
+                .pool_max_idle_per_host(max_idle_per_host)
+                .tcp_nodelay(true)
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new())
+        })
+        .clone()
+}
+
 /// Generic HTTP model provider.
 #[derive(Debug)]
 pub struct HttpModelProvider {
@@ -520,7 +563,7 @@ impl HttpModelProvider {
         Self {
             provider_id,
             base_url,
-            client: reqwest::Client::new(),
+            client: shared_http_client(),
         }
     }
 }

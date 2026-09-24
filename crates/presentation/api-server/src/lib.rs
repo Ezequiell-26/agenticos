@@ -17,6 +17,7 @@ use agenticos_a2a::{
     text_from_message, A2aMessage, A2aTaskRecord, A2aTaskStore, AgentCapabilities, AgentCard,
     AgentInterface, AgentSkill, JsonRpcError, JsonRpcRequest, JsonRpcResponse, TaskState, TaskView,
 };
+use agenticos_artifacts::{ArtifactRange, ArtifactStore};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
@@ -136,6 +137,7 @@ pub struct RuntimeState {
     idempotency: Arc<SqliteIdempotencyStore>,
     source_forge: Arc<GitHubSourceClient>,
     a2a_tasks: Arc<A2aTaskStore>,
+    artifacts: Arc<ArtifactStore>,
     model: String,
 }
 
@@ -302,6 +304,19 @@ impl RuntimeState {
                 A2aTaskStore::open(&database_url)
                     .await
                     .map_err(ContractError::ParseError)?,
+            ),
+            artifacts: Arc::new(
+                ArtifactStore::open(
+                    &database_url,
+                    std::env::var("AGENTICOS_ARTIFACT_ROOT")
+                        .unwrap_or_else(|_| ".agenticos/artifacts".to_string()),
+                    std::env::var("AGENTICOS_MAX_ARTIFACT_BYTES")
+                        .ok()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or(agenticos_artifacts::DEFAULT_MAX_ARTIFACT_BYTES),
+                )
+                .await
+                .map_err(ContractError::ParseError)?,
             ),
             model,
         })
@@ -591,6 +606,233 @@ struct ToolCallRequest {
     agent_id: String,
     grant_id: String,
     parameters: Option<serde_json::Value>,
+}
+
+async fn create_artifact(
+    request: HttpRequest,
+    body: web::Bytes,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let metadata_value = match request
+        .headers()
+        .get("x-artifact-metadata")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(raw) if raw.len() <= 64 * 1024 => match serde_json::from_str(raw) {
+            Ok(value) => value,
+            Err(error) => {
+                return HttpResponse::BadRequest().json(ErrorResponse {
+                    error: format!("invalid x-artifact-metadata: {error}"),
+                    code: "ARTIFACT_METADATA_INVALID",
+                })
+            }
+        },
+        Some(_) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "artifact metadata exceeds supported limits".to_string(),
+                code: "ARTIFACT_METADATA_TOO_LARGE",
+            })
+        }
+        None => serde_json::json!({}),
+    };
+
+    let kind = request
+        .headers()
+        .get("x-artifact-kind")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("generic");
+    let mime_type = request
+        .headers()
+        .get(actix_web::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let run_id = request
+        .headers()
+        .get("x-run-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let trusted = request
+        .headers()
+        .get("x-artifact-trusted")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+    let expires_at = request
+        .headers()
+        .get("x-artifact-expires-at")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+
+    match state
+        .artifacts
+        .put_bytes(
+            run_id,
+            kind,
+            mime_type,
+            &body,
+            expires_at,
+            trusted,
+            metadata_value,
+        )
+        .await
+    {
+        Ok(record) => HttpResponse::Created().json(record),
+        Err(error) if error.contains("size limit") => {
+            HttpResponse::PayloadTooLarge().json(ErrorResponse {
+                error,
+                code: "ARTIFACT_TOO_LARGE",
+            })
+        }
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_CREATE_FAILED",
+        }),
+    }
+}
+
+async fn get_artifact(
+    artifact_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.artifacts.get(&artifact_id).await {
+        Ok(Some(record)) => HttpResponse::Ok().json(record),
+        Ok(None) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "artifact not found".to_string(),
+            code: "ARTIFACT_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_QUERY_FAILED",
+        }),
+    }
+}
+
+async fn get_artifact_content(
+    artifact_id: web::Path<String>,
+    request: HttpRequest,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let id = artifact_id.into_inner();
+    let record = match state.artifacts.get(&id).await {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error: "artifact not found".to_string(),
+                code: "ARTIFACT_NOT_FOUND",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error,
+                code: "ARTIFACT_QUERY_FAILED",
+            })
+        }
+    };
+
+    let requested_range = parse_single_byte_range(
+        request
+            .headers()
+            .get(actix_web::http::header::RANGE)
+            .and_then(|value| value.to_str().ok()),
+        record.size_bytes,
+    );
+
+    match state.artifacts.read_range(&id, requested_range.clone()).await {
+        Ok(bytes) => {
+            let mut response = HttpResponse::Ok();
+            response.content_type(record.mime_type);
+            if let Some(range) = requested_range {
+                response.status(actix_web::http::StatusCode::PARTIAL_CONTENT);
+                response.insert_header((
+                    actix_web::http::header::CONTENT_RANGE,
+                    format!(
+                        "bytes {}-{}/{}",
+                        range.start,
+                        range.end.saturating_sub(1),
+                        record.size_bytes
+                    ),
+                ));
+            }
+            response.body(bytes)
+        }
+        Err(error) => HttpResponse::RequestedRangeNotSatisfiable().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_RANGE_INVALID",
+        }),
+    }
+}
+
+async fn list_run_artifacts(
+    run_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.artifacts.list_for_run(&run_id).await {
+        Ok(records) => HttpResponse::Ok().json(serde_json::json!({
+            "run_id": run_id.into_inner(),
+            "artifacts": records,
+            "count": records.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_RUN_QUERY_FAILED",
+        }),
+    }
+}
+
+async fn delete_artifact(
+    artifact_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.artifacts.delete(&artifact_id).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "artifact not found".to_string(),
+            code: "ARTIFACT_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "ARTIFACT_DELETE_FAILED",
+        }),
+    }
+}
+
+fn parse_single_byte_range(value: Option<&str>, size: u64) -> Option<ArtifactRange> {
+    let value = value?.trim();
+    let spec = value.strip_prefix("bytes=")?;
+    if spec.contains(',') {
+        return None;
+    }
+    let (start, end) = spec.split_once('-')?;
+
+    if start.is_empty() {
+        let suffix = end.parse::<u64>().ok()?;
+        if suffix == 0 {
+            return None;
+        }
+        let length = suffix.min(size);
+        return Some(ArtifactRange {
+            start: size.saturating_sub(length),
+            end: size,
+        });
+    }
+
+    let start = start.parse::<u64>().ok()?;
+    if start >= size {
+        return None;
+    }
+    let end = if end.is_empty() {
+        size
+    } else {
+        end.parse::<u64>().ok()?.saturating_add(1).min(size)
+    };
+    if end <= start {
+        None
+    } else {
+        Some(ArtifactRange { start, end })
+    }
 }
 
 async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
@@ -3470,6 +3712,20 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/audit", web::get().to(list_audit))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/artifacts", web::post().to(create_artifact))
+            .route("/api/artifacts/{artifact_id}", web::get().to(get_artifact))
+            .route(
+                "/api/artifacts/{artifact_id}/content",
+                web::get().to(get_artifact_content),
+            )
+            .route(
+                "/api/artifacts/{artifact_id}",
+                web::delete().to(delete_artifact),
+            )
+            .route(
+                "/api/runs/{run_id}/artifacts",
+                web::get().to(list_run_artifacts),
+            )
             .route("/api/tools/call", web::post().to(execute_registered_tool))
             .route(
                 "/api/tools/mcp/{server_id}/sync",

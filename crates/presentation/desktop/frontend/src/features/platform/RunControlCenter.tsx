@@ -23,7 +23,7 @@ export default function RunControlCenter({ onAction }: { onAction: (message: str
   const [runtimeRun, setRuntimeRun] = useState<RuntimeRun | null>(null)
   const [runtimeArtifacts, setRuntimeArtifacts] = useState<RuntimeApiRecord[]>([])
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
-  const [paused, setPaused] = useState(false)
+  const [paused] = useState(false)
   const [autoCheckpoint, setAutoCheckpoint] = useState(true)
   const [retryBudget, setRetryBudget] = useState(2)
   const [tab, setTab] = useState<'Execution' | 'Checkpoints' | 'Handoffs' | 'Artifacts'>('Execution')

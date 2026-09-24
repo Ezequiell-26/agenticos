@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
 
 type CapabilityState = 'Available' | 'Requires setup' | 'Unavailable' | 'Disabled'
 interface Capability {
@@ -29,9 +30,44 @@ const initial: Capability[] = [
 const groups = ['All', 'AI', 'Execution', 'Web', 'Integrations', 'Media']
 
 export default function CapabilityRegistry() {
-  const [items] = useState(initial)
+  const [items, setItems] = useState(initial)
   const [group, setGroup] = useState('All')
   const [query, setQuery] = useState('')
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.capabilities.list().then((grants) => {
+      if (cancelled || grants.length === 0) return
+      const mapped: Capability[] = grants.map((grant, index) => {
+        const type = typeof grant.capability_type === 'string' ? grant.capability_type : 'Unknown'
+        const resource = typeof grant.resource === 'string' ? grant.resource : 'unknown'
+        const permission = typeof grant.permission === 'string' ? grant.permission : ''
+        return {
+          id: typeof grant.grant_id === 'string' ? grant.grant_id : 'grant-' + (index + 1),
+          label: permission || type,
+          group: type,
+          state: 'Available',
+          detail: resource,
+          latency: 'Runtime',
+        }
+      })
+      setItems(mapped)
+    }).catch(() => {
+      // Keep the local catalog while the runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  async function revoke(id: string) {
+    try {
+      await runtime.capabilities.revoke(id)
+      setItems((current) => current.filter((item) => item.id !== id))
+    } catch (error) {
+      // Preserve the runtime error at the presentation boundary.
+      throw error
+    }
+  }
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -43,8 +79,8 @@ export default function CapabilityRegistry() {
   return (
     <div className="capability-registry">
       <div className="capability-summary">{(['Available','Requires setup','Unavailable','Disabled'] as CapabilityState[]).map((state) => <div key={state}><small>{state}</small><strong>{counts[state]}</strong></div>)}</div>
-      <div className="capability-toolbar"><label className="control-center-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" /></label><div className="customize-manager__filters">{groups.map((item) => <button type="button" key={item} className={group === item ? 'customize-filter customize-filter--active' : 'customize-filter'} onClick={() => setGroup(item)}>{item}</button>)}</div></div>
-      <div className="capability-list">{visible.map((item) => <div className="capability-row" key={item.id}><span className="customize-row__icon"><Icon name={item.group === 'AI' ? 'bot' : item.group === 'Execution' ? 'terminal' : item.group === 'Web' ? 'globe' : item.group === 'Media' ? 'layout' : 'network'} size={13} /></span><div><strong>{item.label}</strong><small>{item.detail}</small></div><span className={`capability-pill capability-pill--${item.state.toLowerCase().replace(/\\s+/g, '-')}`}>{item.state}</span><small className="capability-latency">{item.latency}</small></div>)}</div>
+      <div className="capability-toolbar"><span className="mono-text">{runtimeSyncing ? 'Syncing runtime grants…' : 'Runtime grants'}</span><label className="control-center-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" /></label><div className="customize-manager__filters">{groups.map((item) => <button type="button" key={item} className={group === item ? 'customize-filter customize-filter--active' : 'customize-filter'} onClick={() => setGroup(item)}>{item}</button>)}</div></div>
+      <div className="capability-list">{visible.map((item) => <div className="capability-row" key={item.id}><span className="customize-row__icon"><Icon name={item.group === 'AI' ? 'bot' : item.group === 'Execution' ? 'terminal' : item.group === 'Web' ? 'globe' : item.group === 'Media' ? 'layout' : 'network'} size={13} /></span><div><strong>{item.label}</strong><small>{item.detail}</small></div><span className={`capability-pill capability-pill--${item.state.toLowerCase().replace(/\\s+/g, '-')}`}>{item.state}</span><small className="capability-latency">{item.latency}</small>{!runtimeSyncing && item.id.startsWith('grant-') === false && <button type="button" className="studio-button" onClick={() => void revoke(item.id).catch(() => undefined)}>Revoke</button>}</div>)}</div>
     </div>
   )
 }

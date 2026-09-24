@@ -12,18 +12,8 @@ const policyRows: ReadonlyArray<readonly [string, string, boolean]> = [
   ['Destructive confirmation', 'Delete/reset/force operations require a human step', true],
 ]
 
-const auditRows: ReadonlyArray<readonly [string, string, string, string]> = [
-  ['16:31:02', 'policy.check', 'pass', 'write policy evaluated'],
-  ['16:31:04', 'credential.access', 'blocked', 'secret value remained hidden'],
-  ['16:31:06', 'tool.approval', 'approved', 'terminal execution request'],
-  ['16:31:09', 'workspace.scope', 'pass', 'path remained inside workspace'],
-  ['16:31:12', 'handoff', 'pass', 'artifact package sealed'],
-]
-
-const sessions: ReadonlyArray<readonly [string, string, string, string]> = [
-  ['Current desktop', 'Local', 'Active now', 'Trusted'],
-  ['Automation preview', 'Workflow', '8m ago', 'Isolated'],
-  ['Browser preview', 'Web session', '14m ago', 'Ephemeral'],
+const fallbackAudit: Array<Record<string, unknown>> = [
+  { timestamp: 0, action: 'policy.check', outcome: 'pass', resource: 'presentation fallback' },
 ]
 
 export default function SecurityCenter({ onAction }: { onAction: (message: string) => void }) {
@@ -44,6 +34,8 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
   }, [])
 
   const enabled = useMemo(() => policies.size, [policies])
+  const blockedEvents = runtimeAudit.filter((event) => String(event.outcome ?? '').toLowerCase() === 'blocked').length
+  const auditRows = runtimeAudit.length > 0 ? runtimeAudit : fallbackAudit
 
   function toggle(name: string) {
     setPolicies((current) => {
@@ -51,14 +43,24 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
       next.has(name) ? next.delete(name) : next.add(name)
       return next
     })
-    onAction(name + ' policy toggled in preview')
+    onAction(name + ' policy toggled locally; runtime policy remains authoritative')
+  }
+
+  async function resolveApproval(approvalId: string, approved: boolean) {
+    try {
+      await runtime.approvals.resolve(approvalId, approved)
+      setRuntimeApprovals(await runtime.approvals.list())
+      onAction(approved ? 'Approval granted in runtime' : 'Approval denied in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Approval resolution failed')
+    }
   }
 
   return (
     <div className="security-center">
       <div className="security-center__summary">
-        <div className="security-score"><div className="security-shield"><Icon name="shield" size={26} /></div><div><span className="eyebrow">Workspace status</span><strong>Protected</strong><small>{enabled}/{policyRows.length} guardrails enabled in preview</small></div></div>
-        <div className="security-summary-grid"><Metric label="Secrets exposed" value="0" /><Metric label="Blocked events" value={String(runtimeAudit.filter((event) => String(event.outcome ?? '').toLowerCase() === 'blocked').length)} /><Metric label="Pending approvals" value={String(runtimeApprovals.length)} /><Metric label="Audit events" value={runtimeSyncing ? 'Syncing' : String(runtimeAudit.length)} /></div>
+        <div className="security-score"><div className="security-shield"><Icon name="shield" size={26} /></div><div><span className="eyebrow">Workspace status</span><strong>Runtime guarded</strong><small>{runtimeSyncing ? 'Synchronizing runtime state…' : enabled + '/' + policyRows.length + ' presentation guardrails enabled'}</small></div></div>
+        <div className="security-summary-grid"><Metric label="Secrets exposed" value="0" /><Metric label="Blocked events" value={String(blockedEvents)} /><Metric label="Pending approvals" value={String(runtimeApprovals.length)} /><Metric label="Audit events" value={runtimeSyncing ? 'Syncing' : String(runtimeAudit.length)} /></div>
       </div>
 
       <div className="security-center__tabs" role="tablist" aria-label="Security center" aria-orientation="horizontal">
@@ -69,30 +71,20 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
       </div>
 
       <div id="security-tabpanel" className="security-center__body" role="tabpanel" aria-labelledby={'security-tab-' + tab.toLowerCase()} tabIndex={0}>
-        {tab === 'Overview' && <div className="security-overview"><div className="security-overview-grid"><Panel title="Execution boundary"><Row label="File scope" value="Workspace only" /><Row label="Network" value="Policy + confirm" /><Row label="Destructive" value="Blocked by default" /><Row label="Credentials" value="External boundary" /></Panel><Panel title="Current posture"><div className="security-posture"><div className="security-posture-bar"><span style={{ width: '94%' }} /></div><div><span>Policy coverage</span><strong>94%</strong></div></div><div className="callout"><Icon name="shield" size={13} /><span>Security values in this screen are visual preview state; runtime authorization is enforced outside the React layer.</span></div></Panel></div><Panel title="Protected operations"><div className="protected-operation-grid"><span><Icon name="check" size={12} />Read-only inspection</span><span><Icon name="check" size={12} />Scoped file changes</span><span><Icon name="check" size={12} />Approval-gated tools</span><span><Icon name="check" size={12} />Redacted credentials</span></div></Panel></div>}
+        {tab === 'Overview' && <div className="security-overview"><div className="security-overview-grid"><Panel title="Execution boundary"><Row label="File scope" value="Workspace only" /><Row label="Network" value="Policy + confirm" /><Row label="Destructive" value="Blocked by default" /><Row label="Credentials" value="External boundary" /></Panel><Panel title="Runtime posture"><div className="security-posture"><div className="security-posture-bar"><span style={{ width: '94%' }} /></div><div><span>Presentation policy coverage</span><strong>94%</strong></div></div><div className="callout"><Icon name="shield" size={13} /><span>Authorization, approvals and audit records are read from the runtime; presentation toggles do not grant capabilities.</span></div></Panel></div><Panel title="Pending approvals"><div className="security-session-list">{runtimeApprovals.length === 0 ? <span className="review-empty">No pending approval requests.</span> : runtimeApprovals.slice(0, 8).map((approval, index) => <div className="security-session-row" key={String(approval.approval_id ?? index)}><div><strong>{String(approval.action ?? 'Approval request')}</strong><span>{String(approval.resource ?? '—')} · {String(approval.run_id ?? 'unbound')}</span></div><button className="studio-button studio-button--active" type="button" onClick={() => void resolveApproval(String(approval.approval_id ?? ''), true)}>Approve</button><button className="studio-button" type="button" onClick={() => void resolveApproval(String(approval.approval_id ?? ''), false)}>Deny</button></div>)}</div></Panel></div>}
 
         {tab === 'Policies' && <div className="security-policy-list">{policyRows.map(([name, detail]) => <div className="security-policy-row" key={name}><div><strong>{name}</strong><span>{detail}</span></div><button className={policies.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={policies.has(name)} onClick={() => toggle(name)}><span /></button></div>)}</div>}
 
-        {tab === 'Audit' && <div className="security-audit"><div className="security-audit-head"><span>Event time</span><span>Action</span><span>Result</span><span>Resource</span></div>{(runtimeAudit.length > 0 ? runtimeAudit : auditRows.map(([time, event, result, detail]) => ({ timestamp: time, action: event, outcome: result, resource: detail }))).map((event, index) => <div className="security-audit-row" key={String(event.event_id ?? index)}><span>{new Date(Number(event.timestamp ?? 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span><strong>{String(event.action ?? 'audit event')}</strong><span className={['pass','approved','success'].includes(String(event.outcome ?? '').toLowerCase()) ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{String(event.outcome ?? 'unknown')}</span><span>{String(event.resource ?? '—')}</span></div>)}</div>
+        {tab === 'Audit' && <div className="security-audit"><div className="security-audit-head"><span>Event time</span><span>Action</span><span>Result</span><span>Resource</span></div>{auditRows.map((event, index) => <div className="security-audit-row" key={String(event.event_id ?? index)}><span>{event.timestamp ? new Date(Number(event.timestamp) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}</span><strong>{String(event.action ?? 'audit event')}</strong><span className={['pass','approved','success'].includes(String(event.outcome ?? '').toLowerCase()) ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{String(event.outcome ?? 'unknown')}</span><span>{String(event.resource ?? '—')}</span></div>)}</div>}
 
+        {tab === 'Sessions' && <div className="security-session-list"><div className="security-session-row"><div className="security-session-icon"><Icon name="bot" size={14} /></div><div><strong>Current desktop</strong><span>Local runtime · authenticated boundary</span></div><span className="state-pill state-pill--completed">Active</span></div></div>}
 
-        {tab === 'Sessions' && <div className="security-session-list">{sessions.map(([name, type, age, state]) => <div className="security-session-row" key={name}><div className="security-session-icon"><Icon name={type === 'Web session' ? 'globe' : 'bot'} size={14} /></div><div><strong>{name}</strong><span>{type} · {age}</span></div><span className="state-pill state-pill--completed">{state}</span><button className="studio-button" type="button" onClick={() => onAction(name + ' session controls opened in preview')}>Manage</button></div>)}</div>}
-
-        {tab === 'Recovery' && runtimeApprovals.length > 0 ? <div className="security-recovery-grid"><Panel title="Pending approvals"><div className="security-session-list">{runtimeApprovals.slice(0, 12).map((approval, index) => <div className="security-session-row" key={String(approval.approval_id ?? index)}><div><strong>{String(approval.action ?? 'Approval request')}</strong><span>{String(approval.resource ?? '—')} · {String(approval.run_id ?? 'unbound')}</span></div><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.approvals.resolve(String(approval.approval_id ?? ''), true).then(() => runtime.approvals.list()).then(setRuntimeApprovals).catch((error) => onAction(error instanceof Error ? error.message : 'Approval resolution failed'))}>Approve</button><button className="studio-button" type="button" onClick={() => void runtime.approvals.resolve(String(approval.approval_id ?? ''), false).then(() => runtime.approvals.list()).then(setRuntimeApprovals).catch((error) => onAction(error instanceof Error ? error.message : 'Approval resolution failed'))}>Deny</button></div>)}</div></Panel></div> : null}
-        {tab === 'Recovery' && <div className="security-recovery-grid"><Panel title="Recovery checkpoint"><div className="recovery-card"><span className="eyebrow">Latest safe point</span><strong>CP-028 · 31m ago</strong><p>Restores presentation-local state and the selected workspace snapshot.</p><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Recovery preview opened')}>Open recovery</button></div></Panel><Panel title="Emergency controls"><div className="emergency-list"><button type="button" onClick={() => onAction('All sessions revoke staged in preview')}><Icon name="shield" size={13} /> Revoke all sessions</button><button type="button" onClick={() => onAction('Local credentials purge staged in preview')}><Icon name="history" size={13} /> Purge local credential metadata</button><button type="button" onClick={() => onAction('Workspace lock staged in preview')}><Icon name="shield" size={13} /> Lock workspace</button></div></Panel></div>}
+        {tab === 'Recovery' && <div className="security-recovery-grid"><Panel title="Runtime recovery"><div className="recovery-card"><span className="eyebrow">Runtime snapshots</span><strong>Available through run checkpoints</strong><p>Use the run and artifact contracts for durable recovery rather than presentation-only state.</p><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Open runtime run checkpoints from the Runs surface')}>Open checkpoints</button></div></Panel><Panel title="Emergency controls"><div className="emergency-list"><button type="button" onClick={() => onAction('Session revocation requires a dedicated runtime session contract')}><Icon name="shield" size={13} /> Revoke sessions</button><button type="button" onClick={() => onAction('Credential purge remains provider-owned')}><Icon name="history" size={13} /> Credential purge</button></div></Panel></div>}
       </div>
     </div>
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="security-metric"><span>{label}</span><strong>{value}</strong></div>
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return <div className="security-row"><span>{label}</span><strong>{value}</strong></div>
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="security-panel"><div className="security-panel__head"><strong>{title}</strong><span className="mono-text">preview</span></div><div className="security-panel__body">{children}</div></section>
-}
+function Metric({ label, value }: { label: string; value: string }) { return <div className="security-metric"><span>{label}</span><strong>{value}</strong></div> }
+function Row({ label, value }: { label: string; value: string }) { return <div className="security-row"><span>{label}</span><strong>{value}</strong></div> }
+function Panel({ title, children }: { title: string; children: ReactNode }) { return <section className="security-panel"><div className="security-panel__head"><strong>{title}</strong><span className="mono-text">runtime</span></div><div className="security-panel__body">{children}</div></section> }

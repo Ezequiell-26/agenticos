@@ -4,6 +4,7 @@
 //! Run/job scheduler with dependency-aware readiness.
 
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -62,6 +63,7 @@ pub struct JobRecord {
 #[derive(Debug, Clone)]
 pub struct JobScheduler {
     jobs: Arc<RwLock<HashMap<String, JobRecord>>>,
+    db: Option<Arc<SqlitePool>>,
 }
 
 impl JobScheduler {
@@ -70,6 +72,119 @@ impl JobScheduler {
         Self {
             jobs: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            jobs: Arc::new(RwLock::new(HashMap::new())),
+            db: None,
+        }
+    }
+
+    /// Open a SQLite-backed scheduler and recover persisted jobs.
+    pub async fn open(database_url: &str) -> Result<Self, String> {
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| format!("scheduler database connection failed: {error}"))?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS scheduler_jobs (
+                job_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                task TEXT NOT NULL,
+                dependencies TEXT NOT NULL,
+                priority INTEGER NOT NULL,
+                max_attempts INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                attempts INTEGER NOT NULL,
+                last_error TEXT
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| format!("scheduler schema initialization failed: {error}"))?;
+
+        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>)>(
+            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error FROM scheduler_jobs",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("scheduler recovery query failed: {error}"))?;
+
+        let mut jobs = HashMap::with_capacity(rows.len());
+        for (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error) in rows {
+            let dependencies: Vec<String> = serde_json::from_str(&dependencies)
+                .map_err(|error| format!("scheduler dependencies are invalid for {job_id}: {error}"))?;
+            let state = match state.as_str() {
+                "Pending" => JobState::Pending,
+                "Ready" => JobState::Ready,
+                "Running" => JobState::Running,
+                "Succeeded" => JobState::Succeeded,
+                "Failed" => JobState::Failed,
+                "Cancelled" => JobState::Cancelled,
+                other => return Err(format!("scheduler job {job_id} has unknown state {other}")),
+            };
+            jobs.insert(
+                job_id.clone(),
+                JobRecord {
+                    spec: JobSpec {
+                        job_id,
+                        run_id,
+                        task,
+                        dependencies,
+                        priority,
+                        max_attempts: max_attempts as u32,
+                    },
+                    state,
+                    attempts: attempts.max(0) as u32,
+                    last_error,
+                },
+            );
+        }
+
+        Ok(Self {
+            jobs: Arc::new(RwLock::new(jobs)),
+            db: Some(Arc::new(db)),
+        })
+    }
+
+    async fn persist(&self, record: &JobRecord) -> Result<(), String> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let dependencies = serde_json::to_string(&record.spec.dependencies)
+            .map_err(|error| format!("scheduler dependencies serialization failed: {error}"))?;
+        sqlx::query(
+            r#"
+            INSERT INTO scheduler_jobs
+                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(job_id) DO UPDATE SET
+                run_id = excluded.run_id,
+                task = excluded.task,
+                dependencies = excluded.dependencies,
+                priority = excluded.priority,
+                max_attempts = excluded.max_attempts,
+                state = excluded.state,
+                attempts = excluded.attempts,
+                last_error = excluded.last_error
+            "#,
+        )
+        .bind(&record.spec.job_id)
+        .bind(&record.spec.run_id)
+        .bind(&record.spec.task)
+        .bind(dependencies)
+        .bind(record.spec.priority)
+        .bind(record.spec.max_attempts.max(1) as i64)
+        .bind(format!("{:?}", record.state))
+        .bind(record.attempts as i64)
+        .bind(record.last_error.as_deref())
+        .execute(db)
+        .await
+        .map_err(|error| format!("scheduler persistence failed: {error}"))?;
+        Ok(())
     }
 
     /// Add a job if the identifier is unique.
@@ -102,15 +217,15 @@ impl JobScheduler {
         } else {
             JobState::Pending
         };
-        jobs.insert(
-            spec.job_id.clone(),
-            JobRecord {
-                spec,
-                state,
-                attempts: 0,
-                last_error: None,
-            },
-        );
+        let record = JobRecord {
+            spec,
+            state,
+            attempts: 0,
+            last_error: None,
+        };
+        jobs.insert(record.spec.job_id.clone(), record.clone());
+        drop(jobs);
+        self.persist(&record).await?;
         Ok(())
     }
 
@@ -160,11 +275,17 @@ impl JobScheduler {
         if record.attempts >= record.spec.max_attempts.max(1) {
             record.state = JobState::Failed;
             record.last_error = Some("maximum attempts reached".to_string());
-            return Ok(record.clone());
+            let result = record.clone();
+            drop(jobs);
+            self.persist(&result).await?;
+            return Ok(result);
         }
         record.attempts += 1;
         record.state = JobState::Running;
-        Ok(record.clone())
+        let result = record.clone();
+        drop(jobs);
+        self.persist(&result).await?;
+        Ok(result)
     }
 
     /// Finish a job.
@@ -189,6 +310,9 @@ impl JobScheduler {
             JobState::Failed
         };
         record.last_error = error;
+        let result = record.clone();
+        drop(jobs);
+        self.persist(&result).await?;
         Ok(())
     }
 
@@ -208,6 +332,9 @@ impl JobScheduler {
             ));
         }
         record.state = JobState::Cancelled;
+        let result = record.clone();
+        drop(jobs);
+        self.persist(&result).await?;
         Ok(())
     }
 
@@ -233,6 +360,39 @@ impl Default for JobScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn sqlite_scheduler_recovers_jobs_after_restart() {
+        let path = std::env::temp_dir().join(format!("agenticos-scheduler-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = JobScheduler::open(&url).await.expect("open scheduler");
+        first
+            .enqueue(JobSpec {
+                job_id: "durable-job".into(),
+                run_id: "durable-run".into(),
+                task: "persist me".into(),
+                dependencies: vec![],
+                priority: 10,
+                max_attempts: 3,
+            })
+            .await
+            .expect("enqueue durable job");
+        first.start("durable-job").await.expect("start durable job");
+        first
+            .complete("durable-job", true, None)
+            .await
+            .expect("complete durable job");
+        drop(first);
+
+        let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
+        let record = recovered.get("durable-job").await.expect("recover job");
+        assert_eq!(record.state, JobState::Succeeded);
+        assert_eq!(record.spec.task, "persist me");
+        assert_eq!(record.attempts, 1);
+
+        let _ = std::fs::remove_file(path);
+    }
 
     #[tokio::test]
     async fn cancelling_running_job_is_terminal() {

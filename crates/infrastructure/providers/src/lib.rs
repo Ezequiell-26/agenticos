@@ -273,6 +273,14 @@ impl QuotaTracker {
         Ok(())
     }
 
+    /// Return quota state together with the active request-window start.
+    pub async fn get_state(&self, provider_id: &str) -> Option<(QuotaInfo, u64)> {
+        let mut quotas = self.quotas.write().await;
+        let state = quotas.get_mut(provider_id)?;
+        Self::refresh_window(state, unix_time());
+        Some((state.quota.clone(), state.window_started_at))
+    }
+
     /// Increment usage for a provider.
     ///
     /// This preserves the historical API while enforcing the configured

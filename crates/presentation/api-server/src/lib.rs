@@ -475,7 +475,6 @@ struct WorkflowTransitionRequest {
     state: WorkflowNodeState,
 }
 
-
 #[derive(Debug, Deserialize)]
 struct MemorySearchQuery {
     namespace: String,
@@ -2756,7 +2755,7 @@ async fn execute_tool(
         Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
             error: error.to_string(),
             code: "TOOL_EXECUTION_DENIED",
-        }),
+        })
     }
 }
 

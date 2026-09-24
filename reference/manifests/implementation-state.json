@@ -2,7 +2,7 @@
   "schema_version": 2,
   "project": "agenticos",
   "mode": "capability-driven-continuous",
-  "baseline_commit": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
+  "baseline_commit": "c20ca4e881ae2f8abca5792cae05b0b1b9007821",
   "policy": {
     "sequential_implementation": false,
     "parallel_workstreams_allowed": true,
@@ -18,7 +18,19 @@
     "status": "in_progress",
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
-    "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213"
+    "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
+    "last_update_commit": "c20ca4e881ae2f8abca5792cae05b0b1b9007821",
+    "next_actions": [
+      "verify the latest governance and backend changes through CI",
+      "continue durable runtime and provider work without sequential-step gating",
+      "promote individual capabilities only when their own verification evidence exists"
+    ],
+    "scope": [
+      "capability-driven governance",
+      "durable scheduler persistence",
+      "provider routing and explicit fallback policy",
+      "durable run recovery through API control plane"
+    ]
   },
   "workstreams": [
     {
@@ -82,7 +94,7 @@
     {
       "id": "durable-runs",
       "owner": "kernel",
-      "status": "verified-historical"
+      "status": "implemented-unverified"
     },
     {
       "id": "agent-engine",

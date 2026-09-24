@@ -2444,6 +2444,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
+            .app_data(
+                web::JsonConfig::default()
+                    .limit(8 * 1024 * 1024),
+            )
             .app_data(data.clone())
             .app_data(web::Data::new(auth_config))
             .wrap(from_fn(api_auth_middleware))

@@ -120,7 +120,7 @@ impl JobScheduler {
             let state = match state.as_str() {
                 "Pending" => JobState::Pending,
                 "Ready" => JobState::Ready,
-                "Running" => JobState::Running,
+                "Running" => JobState::Ready,
                 "Succeeded" => JobState::Succeeded,
                 "Failed" => JobState::Failed,
                 "Cancelled" => JobState::Cancelled,

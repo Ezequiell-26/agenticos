@@ -10,6 +10,7 @@ agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
+agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-providers = { path = "../../infrastructure/providers" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-scheduler = { path = "../../application/scheduler" }

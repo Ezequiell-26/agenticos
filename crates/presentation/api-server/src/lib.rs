@@ -18,6 +18,7 @@ use agenticos_contracts::{
     CapabilityGrant, CapabilityType, ContractError, ModelProvider, ModelRequest, RunId, RunState,
     Sandbox, SandboxStatus,
 };
+use agenticos_memory::PersistentMemoryStore;
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
     SqliteSnapshotStore,
@@ -42,6 +43,7 @@ const DEFAULT_MODEL: &str = "gpt-4o-mini";
 pub struct RuntimeState {
     sessions: Arc<RwLock<HashMap<String, Arc<ReactAgent>>>>,
     memory: Arc<SqliteMemory>,
+    persistent_memory: Arc<PersistentMemoryStore>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
     subagents: Arc<SubagentManager>,
@@ -70,6 +72,7 @@ impl RuntimeState {
         let database_url = std::env::var("AGENTICOS_DATABASE_URL")
             .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
         let memory = Arc::new(SqliteMemory::new(&database_url).await?);
+        let persistent_memory = Arc::new(PersistentMemoryStore::new(&database_url).await?);
 
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
             ContractError::ParseError(format!("failed to initialize event store: {e}"))
@@ -121,6 +124,7 @@ impl RuntimeState {
         Ok(Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             memory,
+            persistent_memory,
             provider,
             kernel,
             subagents,
@@ -660,6 +664,98 @@ async fn resolve_approval(
     }
 }
 
+async fn list_memory(
+    query: web::Query<MemorySearchQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let namespace = query.namespace.trim();
+    if namespace.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "namespace must not be empty".to_string(),
+            code: "INVALID_MEMORY_NAMESPACE",
+        });
+    }
+
+    let limit = query.limit.unwrap_or(100).clamp(1, 500);
+    let result = match query.q.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        Some(search) => state.persistent_memory.search(namespace, search, limit).await,
+        None => state.persistent_memory.list(namespace, limit).await,
+    };
+
+    match result {
+        Ok(records) => HttpResponse::Ok().json(serde_json::json!({
+            "namespace": namespace,
+            "records": records,
+            "count": records.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_QUERY_FAILED",
+        }),
+    }
+}
+
+async fn upsert_memory(
+    request: web::Json<CreateMemoryRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let namespace = request.namespace.trim();
+    let key = request.key.trim();
+    if namespace.is_empty() || key.is_empty() || request.value.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "namespace, key and value are required".to_string(),
+            code: "INVALID_MEMORY",
+        });
+    }
+
+    match state
+        .persistent_memory
+        .upsert(
+            namespace,
+            key,
+            &request.value,
+            request.tags.as_deref().unwrap_or(&[]),
+            request.importance.unwrap_or(0.5),
+            request.expires_at.unwrap_or(0),
+        )
+        .await
+    {
+        Ok(record) => HttpResponse::Ok().json(record),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_WRITE_FAILED",
+        }),
+    }
+}
+
+async fn delete_memory(
+    path: web::Path<(String, String)>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (namespace, key) = path.into_inner();
+    match state.persistent_memory.delete(&namespace, &key).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "memory record not found".to_string(),
+            code: "MEMORY_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_DELETE_FAILED",
+        }),
+    }
+}
+
+async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
+    match state.persistent_memory.purge_expired().await {
+        Ok(removed) => HttpResponse::Ok().json(serde_json::json!({ "removed": removed })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_PURGE_FAILED",
+        }),
+    }
+}
+
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);
     let status: SandboxStatus = state
@@ -730,6 +826,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 "/api/approvals/{approval_id}",
                 web::post().to(resolve_approval),
             )
+            .route("/api/memory", web::get().to(list_memory))
+            .route("/api/memory", web::post().to(upsert_memory))
+            .route("/api/memory/{namespace}/{key}", web::delete().to(delete_memory))
+            .route("/api/memory/purge", web::post().to(purge_memory))
             .route("/api/sandbox/status", web::get().to(sandbox_status))
     })
     .bind((host, port))?

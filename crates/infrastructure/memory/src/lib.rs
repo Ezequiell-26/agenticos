@@ -287,3 +287,279 @@ mod tests {
         });
     }
 }
+
+
+/// Persistent, namespace-aware long-term memory record.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct PersistentMemoryRecord {
+    /// Stable memory identifier.
+    pub memory_id: String,
+    /// Isolation namespace such as project, user, agent, or run.
+    pub namespace: String,
+    /// Logical memory key.
+    pub key: String,
+    /// Stored value.
+    pub value: String,
+    /// JSON-encoded tags.
+    pub tags: String,
+    /// Importance used for retrieval ordering.
+    pub importance: f64,
+    /// Creation timestamp in seconds.
+    pub created_at: i64,
+    /// Optional expiration timestamp in seconds.
+    pub expires_at: i64,
+}
+
+/// SQLite-backed long-term memory store.
+#[derive(Debug, Clone)]
+pub struct PersistentMemoryStore {
+    db: Arc<sqlx::SqlitePool>,
+}
+
+impl PersistentMemoryStore {
+    /// Open or initialize the memory database.
+    pub async fn new(database_url: &str) -> Result<Self, ContractError> {
+        let db = sqlx::SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("memory database connection failed: {error}"))
+            })?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS memory_records (
+                memory_id TEXT PRIMARY KEY,
+                namespace TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                tags TEXT NOT NULL DEFAULT '[]',
+                importance REAL NOT NULL DEFAULT 0.5,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(namespace, key)
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory schema initialization failed: {error}"))
+        })?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_memory_namespace_created ON memory_records(namespace, created_at DESC)",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory index initialization failed: {error}"))
+        })?;
+
+        Ok(Self { db: Arc::new(db) })
+    }
+
+    /// Insert or update a namespace/key record.
+    pub async fn upsert(
+        &self,
+        namespace: &str,
+        key: &str,
+        value: &str,
+        tags: &[String],
+        importance: f64,
+        expires_at: i64,
+    ) -> Result<PersistentMemoryRecord, ContractError> {
+        let memory_id = format!("mem-{}", uuid::Uuid::new_v4());
+        let now = unix_time() as i64;
+        let tags_json = serde_json::to_string(tags).map_err(|error| {
+            ContractError::ParseError(format!("memory tags serialization failed: {error}"))
+        })?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO memory_records
+                (memory_id, namespace, key, value, tags, importance, created_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(namespace, key) DO UPDATE SET
+                value = excluded.value,
+                tags = excluded.tags,
+                importance = excluded.importance,
+                expires_at = excluded.expires_at
+            "#,
+        )
+        .bind(&memory_id)
+        .bind(namespace)
+        .bind(key)
+        .bind(value)
+        .bind(tags_json)
+        .bind(importance.clamp(0.0, 1.0))
+        .bind(now)
+        .bind(expires_at.max(0))
+        .execute(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("memory upsert failed: {error}")))?;
+
+        self.get(namespace, key)
+            .await?
+            .ok_or(ContractError::Persistence)
+    }
+
+    /// Get a live record by namespace and key.
+    pub async fn get(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<PersistentMemoryRecord>, ContractError> {
+        sqlx::query_as::<_, PersistentMemoryRecord>(
+            r#"
+            SELECT memory_id, namespace, key, value, tags, importance, created_at, expires_at
+            FROM memory_records
+            WHERE namespace = ? AND key = ?
+              AND (expires_at = 0 OR expires_at > ?)
+            "#,
+        )
+        .bind(namespace)
+        .bind(key)
+        .bind(unix_time() as i64)
+        .fetch_optional(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("memory lookup failed: {error}")))
+    }
+
+    /// List live records for a namespace.
+    pub async fn list(
+        &self,
+        namespace: &str,
+        limit: usize,
+    ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
+        sqlx::query_as::<_, PersistentMemoryRecord>(
+            r#"
+            SELECT memory_id, namespace, key, value, tags, importance, created_at, expires_at
+            FROM memory_records
+            WHERE namespace = ?
+              AND (expires_at = 0 OR expires_at > ?)
+            ORDER BY importance DESC, created_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(namespace)
+        .bind(unix_time() as i64)
+        .bind(limit.clamp(1, 500) as i64)
+        .fetch_all(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("memory list failed: {error}")))
+    }
+
+    /// Search keys, values, and tags for a namespace.
+    pub async fn search(
+        &self,
+        namespace: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
+        let escaped = query.trim().replace('%', "");
+        let pattern = format!("%{escaped}%");
+        sqlx::query_as::<_, PersistentMemoryRecord>(
+            r#"
+            SELECT memory_id, namespace, key, value, tags, importance, created_at, expires_at
+            FROM memory_records
+            WHERE namespace = ?
+              AND (expires_at = 0 OR expires_at > ?)
+              AND (key LIKE ? OR value LIKE ? OR tags LIKE ?)
+            ORDER BY importance DESC, created_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(namespace)
+        .bind(unix_time() as i64)
+        .bind(&pattern)
+        .bind(&pattern)
+        .bind(&pattern)
+        .bind(limit.clamp(1, 500) as i64)
+        .fetch_all(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("memory search failed: {error}")))
+    }
+
+    /// Delete a record by namespace and key.
+    pub async fn delete(&self, namespace: &str, key: &str) -> Result<bool, ContractError> {
+        let result = sqlx::query("DELETE FROM memory_records WHERE namespace = ? AND key = ?")
+            .bind(namespace)
+            .bind(key)
+            .execute(&*self.db)
+            .await
+            .map_err(|error| ContractError::ParseError(format!("memory delete failed: {error}")))?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Remove expired records.
+    pub async fn purge_expired(&self) -> Result<u64, ContractError> {
+        let result =
+            sqlx::query("DELETE FROM memory_records WHERE expires_at != 0 AND expires_at <= ?")
+                .bind(unix_time() as i64)
+                .execute(&*self.db)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("memory purge failed: {error}"))
+                })?;
+        Ok(result.rows_affected())
+    }
+}
+
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+#[cfg(test)]
+mod persistent_memory_tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[tokio::test]
+    async fn persists_and_searches_records() {
+        let path = std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+        store
+            .upsert(
+                "project:test",
+                "goal",
+                "build a resilient agent runtime",
+                &["architecture".to_string()],
+                0.9,
+                0,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(store.list("project:test", 10).await.unwrap().len(), 1);
+        assert_eq!(
+            store.search("project:test", "resilient", 10).await.unwrap().len(),
+            1
+        );
+        assert!(store.get("project:test", "goal").await.unwrap().is_some());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn expired_records_are_not_returned() {
+        let path = std::env::temp_dir().join(format!("agenticos-memory-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+        let expired = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+            - 1;
+        store
+            .upsert("session:test", "old", "expired", &[], 0.2, expired)
+            .await
+            .unwrap();
+        assert!(store.get("session:test", "old").await.unwrap().is_none());
+        assert_eq!(store.purge_expired().await.unwrap(), 1);
+        let _ = std::fs::remove_file(path);
+    }
+}

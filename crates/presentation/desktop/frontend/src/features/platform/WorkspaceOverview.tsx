@@ -3,7 +3,6 @@ import { analyticsCards, backgroundJobs, notifications, tasks } from './platform
 import { MetricCard, Panel, Shell, Toast } from './PlatformPrimitives'
 
 export function WorkspaceOverview({ onAction }: { onAction: (message: string) => void }) {
-  const unread = notifications.filter((item) => !item[4]).length
   const activeTasks = tasks.filter((item) => item[3] === 'In progress' || item[3] === 'Ready').length
   const runningAgents = backgroundJobs.filter((item) => item[3] === 'working').length
 

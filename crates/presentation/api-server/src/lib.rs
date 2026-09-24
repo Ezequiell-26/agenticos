@@ -2293,7 +2293,7 @@ async fn transition_workflow_node(
     }
 }
 
-async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {
+async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {
     let workflows = state.workflows.list().await;
     HttpResponse::Ok().json(serde_json::json!({"workflows": workflows, "count": workflows.len()}))
 }

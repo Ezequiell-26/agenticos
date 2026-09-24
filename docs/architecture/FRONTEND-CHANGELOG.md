@@ -1075,3 +1075,19 @@ Verification status:
 - Exposed the keyboard shortcut center from the global Command Palette as well as the `?` shortcut.
 - Preserved the monochrome visual language, reduced-motion behavior and frontend/runtime boundary.
 - Verification status: source-level only. Production build, browser execution, accessibility execution and Tauri rendering remain unverified.
+
+## 2026-09-24 — Provider diagnostics depth
+
+- Added ProviderRouteSimulator for deterministic, presentation-only route-decision replay across timeout, rate-limit, context, tool-compatibility and outage scenarios.
+- Added ProviderCapabilityMatrix to preview model/provider compatibility for Tools, Vision, Streaming, Structured output and Long context requirements.
+- Added ProviderEvidenceLedger to separate available deterministic evidence from pending CI/runtime-adapter evidence and blocked security/manual review.
+- Integrated the three surfaces into Provider Studio without adding provider transport, credentials, durable state or runtime authorization to React.
+- Verification status: source wiring verified; production build, browser/Tauri execution and Step 25 acceptance remain pending.
+
+## 2026-09-24 — CI continuity and formatting repair
+
+- Identified the concrete CI failures on the then-current main: API-server rustfmt drift and continuity validation against historical journal ordering/evidence shape.
+- Restored crates/presentation/api-server/src/lib.rs to the formatting expected by cargo fmt --all -- --check.
+- Hardened scripts/verify-agent-continuity.mjs to parse timezone-aware timestamps safely and preserve a fixed compatibility allowlist for historical completed operations that predate the strict evidence field.
+- Historical journal lines were not rewritten or deleted; new operations remain subject to the strict evidence contract.
+- Verification status: repair commits submitted to CI; full repository verification remains pending.

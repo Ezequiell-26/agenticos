@@ -141,6 +141,30 @@ impl WorkspaceFs {
         .map_err(|e| format!("workspace file is not UTF-8: {e}"))
     }
 
+    /// Replace one exact source fragment and persist the result atomically.
+    ///
+    /// The expected fragment must occur exactly once. This prevents accidental
+    /// broad replacements and makes an agent edit auditable.
+    pub async fn apply_patch(
+        &self,
+        relative: &str,
+        expected: &str,
+        replacement: &str,
+    ) -> Result<(), String> {
+        if expected.is_empty() {
+            return Err("expected patch fragment must not be empty".to_string());
+        }
+        let content = self.read_text(relative).await?;
+        let matches = content.matches(expected).count();
+        if matches != 1 {
+            return Err(format!(
+                "expected patch fragment must occur exactly once, found {matches}"
+            ));
+        }
+        let updated = content.replacen(expected, replacement, 1);
+        self.write_text(relative, &updated).await
+    }
+
     pub async fn write_text(&self, relative: &str, content: &str) -> Result<(), String> {
         if content.len() > self.max_write_bytes {
             return Err("workspace write exceeds configured size limit".to_string());
@@ -204,6 +228,20 @@ impl WorkspaceFs {
         &self.root
     }
 }
+
+    #[tokio::test]
+    async fn apply_patch_rejects_ambiguous_replacements() {
+        let root = std::env::temp_dir().join(format!(
+            "agenticos-workspace-patch-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let fs = WorkspaceFs::open(&root, 1024, 1024, 100).await.unwrap();
+        fs.write_text("file.txt", "same\nsame").await.unwrap();
+        assert!(fs.apply_patch("file.txt", "same", "changed").await.is_err());
+        fs.apply_patch("file.txt", "same\nsame", "changed").await.unwrap();
+        assert_eq!(fs.read_text("file.txt").await.unwrap(), "changed");
+        let _ = std::fs::remove_dir_all(root);
+    }
 
 #[cfg(test)]
 mod tests {

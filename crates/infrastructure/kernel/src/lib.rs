@@ -3451,7 +3451,7 @@ impl SqliteMemory {
 }
 
 /// Conversation message stored in SQLite.
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, serde::Serialize, sqlx::FromRow)]
 pub struct ConversationMessage {
     /// Message ID
     pub id: String,

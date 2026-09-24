@@ -260,7 +260,8 @@ function assertArchitectureCompletenessManifest(value: {
     !Array.isArray(value.capabilities) ||
     !value.capabilities.length ||
     !value.policy.architecture_only ||
-    !value.policy.implementation_requires_step_unlock ||
+    value.policy.implementation_requires_step_unlock ||
+    !value.policy.capability_level_verification ||
     !value.policy.canonical_agent_loop_modification_requires_adr ||
     !value.policy.future_scope_preimplementation_forbidden ||
     !value.policy.reference_first ||

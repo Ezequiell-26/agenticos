@@ -660,14 +660,13 @@ async fn get_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -> i
             })
         }
     };
-    let runs = state.kernel.runs.read().await;
-    match runs.get(&id) {
-        Some(run) => HttpResponse::Ok().json(RunResponse {
+    match state.kernel.get_or_recover_run(&id).await {
+        Ok(run) => HttpResponse::Ok().json(RunResponse {
             run_id: id.as_str().to_string(),
             state: format!("{:?}", run.state),
             version: run.version,
         }),
-        None => HttpResponse::NotFound().json(ErrorResponse {
+        Err(_) => HttpResponse::NotFound().json(ErrorResponse {
             error: "run not found".to_string(),
             code: "RUN_NOT_FOUND",
         }),
@@ -684,6 +683,12 @@ async fn cancel_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -
             })
         }
     };
+    if state.kernel.get_or_recover_run(&id).await.is_err() {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "run not found".to_string(),
+            code: "RUN_NOT_FOUND",
+        });
+    }
     match state.kernel.cancel_run(&id).await {
         Ok(()) => HttpResponse::Ok()
             .json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"})),
@@ -704,6 +709,12 @@ async fn snapshot_run(run_id: web::Path<String>, state: web::Data<RuntimeState>)
             })
         }
     };
+    if state.kernel.get_or_recover_run(&id).await.is_err() {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "run not found".to_string(),
+            code: "RUN_NOT_FOUND",
+        });
+    }
     match state.kernel.create_snapshot(&id).await {
         Ok(snapshot) => HttpResponse::Ok().json(snapshot),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {

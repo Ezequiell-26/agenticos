@@ -1,4 +1,6 @@
-import type { NavigationGroup, RailMode } from './navigation'\n\nexport type NavigationSection =
+import type { NavigationGroup, RailMode } from './navigation'
+
+export type NavigationSection =
   | 'workspace'
   | 'build'
   | 'run'

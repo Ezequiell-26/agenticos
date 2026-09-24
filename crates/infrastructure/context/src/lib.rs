@@ -43,7 +43,7 @@ impl ContextBudget {
 }
 
 /// Result of deterministic context preparation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextPlan {
     /// Messages selected for model input, oldest to newest.
     pub messages: Vec<Message>,

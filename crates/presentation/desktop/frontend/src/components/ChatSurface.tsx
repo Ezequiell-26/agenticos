@@ -48,7 +48,7 @@ function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: 
       <div className={`message-bubble ${isUser ? 'message-bubble--user' : ''} ${isSystem ? 'message-bubble--system' : ''}`}>
         <div className="message-meta"><span>{isUser ? 'You' : isSystem ? 'System' : 'AgentiCOS'}</span><time>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
         <p>{message.content}</p>
-        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => onAction('Response copied')}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
+        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => void copyResponse(message.content)}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
       </div>
     </article>
   )
@@ -65,6 +65,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [temperature, setTemperature] = useState('0.3')
   const [responseFormat, setResponseFormat] = useState(responseFormats[0])
   const [slashOpen, setSlashOpen] = useState(false)
+  const [slashIndex, setSlashIndex] = useState(0)
   const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
@@ -84,6 +85,8 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])
+
+  useEffect(() => { setSlashIndex(0) }, [slashMatches.length, slashOpen])
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
 
   useEffect(() => {
@@ -107,9 +110,42 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [messages, running])
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (slashOpen && slashMatches.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSlashIndex((index) => (index + 1) % slashMatches.length)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSlashIndex((index) => (index - 1 + slashMatches.length) % slashMatches.length)
+        return
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        const [command, description] = slashMatches[slashIndex]
+        useSlashCommand(command, description)
+        return
+      }
+      if (event.key === 'Enter' && !event.shiftKey && draft.trimStart().startsWith('/')) {
+        event.preventDefault()
+        const [command, description] = slashMatches[slashIndex]
+        useSlashCommand(command, description)
+        return
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       if (canSend) void submit()
+    }
+  }
+
+  async function copyResponse(content: string) {
+    try {
+      await navigator.clipboard.writeText(content)
+      setNotice('Response copied to clipboard')
+    } catch {
+      setNotice('Clipboard access is unavailable in this surface')
     }
   }
 
@@ -225,7 +261,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
       <footer className="composer-wrap">
         <div className="composer-shell">
-          {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description]) => <button type="button" key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
+          {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description], index) => <button type="button" role="option" aria-selected={index === slashIndex} className={index === slashIndex ? 'slash-command--active' : ''} key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span><kbd>{index === slashIndex ? 'Tab' : ''}</kbd></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
             <div className="composer-tools">
@@ -237,7 +273,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             </div>
           )}
           <ChatEnhancementDock onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); setSlashOpen(value.trimStart().startsWith('/')) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
+          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Ask AgentiCOS to build, inspect, research, debug or execute…" rows={3} value={draft} />
           <div className="composer-toolbar">
             <div className="composer-actions">
               <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
@@ -252,7 +288,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             {running ? <button className="send-button send-button--stop" onClick={onStop} type="button"><Icon name="stop" size={15} />Stop</button> : <button className="send-button" disabled={!canSend} onClick={() => void submit()} type="button"><Icon name="send" size={15} />Send</button>}
           </div>
         </div>
-        {notice && <div className="composer-notice">{notice}</div>}
+        {notice && <div className="composer-notice" role="status" aria-live="polite">{notice}</div>}
       </footer>
       <AgentRunDrawer open={runDrawerOpen} running={running} onAction={setNotice} onClose={() => setRunDrawerOpen(false)} />
     </section>

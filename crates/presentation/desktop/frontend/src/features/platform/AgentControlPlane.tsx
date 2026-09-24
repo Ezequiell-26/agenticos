@@ -1,6 +1,7 @@
 import './AgentControlPlane.css'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
 import { Panel, Metric, Tag } from './PlatformPrimitives'
 
 type Props = { onAction: (message: string) => void }
@@ -29,24 +30,51 @@ const budgets = [
 ]
 
 export function AgentControlPlane({ onAction }: Props) {
+  const [liveAgents, setLiveAgents] = useState(agents)
   const [selected, setSelected] = useState(agents[0][0])
   const [tab, setTab] = useState<'policy' | 'budget' | 'behavior'>('policy')
   const [armed, setArmed] = useState(false)
-  const selectedAgent = useMemo(() => agents.find((item) => item[0] === selected) ?? agents[0], [selected])
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.subagents.list().then((remote) => {
+      if (cancelled || remote.length === 0) return
+      const mapped = remote.map((agent, index) => {
+        const id = typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1)
+        const role = typeof agent.role === 'string' ? agent.role : 'Runtime agent'
+        const toolCount = Array.isArray(agent.capabilities) ? agent.capabilities.length : 0
+        return [id, role, 'Runtime-selected', String(toolCount), 'Runtime', 'Runtime'] as const
+      })
+      setLiveAgents(mapped)
+      setSelected((currentId) => mapped.some((agent) => agent[0] === currentId) ? currentId : mapped[0][0])
+    }).catch(() => {}).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  async function testAgent() {
+    try {
+      await runtime.reasoning.plan('Test execution profile for agent ' + selectedAgent[0] + '. Validate decomposition, boundaries and verification requirements.')
+      onAction(selectedAgent[0] + ' runtime preflight completed')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime agent test failed')
+    }
+  }
+  const selectedAgent = useMemo(() => liveAgents.find((item) => item[0] === selected) ?? liveAgents[0], [liveAgents, selected])
 
   return (
     <section className="agent-control-plane">
       <div className="platform-grid platform-grid--4">
-        <Metric label="Active agents" value="4" />
+        <Metric label="Active agents" value={String(liveAgents.length)} />
         <Metric label="Guarded actions" value="17" />
-        <Metric label="Pending approvals" value="2" />
+        <Metric label="Pending approvals" value="Runtime" />
         <Metric label="Context headroom" value="28%" />
       </div>
 
       <div className="agent-control-layout">
         <Panel title="Agent fleet">
           <div className="platform-list">
-            {agents.map(([name, role, model, tools, mode, scope]) => (
+            {liveAgents.map(([name, role, model, tools, mode, scope]) => (
               <button type="button" key={name} className={selected === name ? 'agent-control-row agent-control-row--active' : 'agent-control-row'} onClick={() => setSelected(name)}>
                 <span className="agent-control-row__icon"><Icon name="bot" size={14} /></span>
                 <span><strong>{name}</strong><small>{role} · {model}</small></span>
@@ -59,7 +87,7 @@ export function AgentControlPlane({ onAction }: Props) {
         <Panel title={selectedAgent[0]}>
           <div className="agent-control-identity">
             <div><span className="eyebrow">{selectedAgent[1]}</span><h2>{selectedAgent[0]}</h2><p>Explicit execution profile. Runtime enforcement remains outside this presentation layer.</p></div>
-            <span className="state-pill state-pill--completed">Configured</span>
+            <span className="state-pill state-pill--completed">{runtimeSyncing ? 'Syncing' : 'Runtime configured'}</span>
           </div>
           <div className="agent-control-tabs" role="tablist" aria-label="Agent configuration">
             {(['policy', 'budget', 'behavior'] as const).map((item) => (
@@ -75,7 +103,7 @@ export function AgentControlPlane({ onAction }: Props) {
 
           <div className="platform-actions">
             <button className="studio-button" type="button" onClick={() => onAction('Agent configuration diff opened in preview')}>View diff</button>
-            <button className="studio-button" type="button" onClick={() => onAction('Agent test run staged in preview')}><Icon name="play" size={13} /> Test agent</button>
+            <button className="studio-button" type="button" onClick={() => void testAgent()}><Icon name="play" size={13} /> Test agent</button>
             <button className={armed ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => { setArmed((value) => !value); onAction(armed ? 'Deployment preview disarmed' : 'Deployment preview armed') }}><Icon name="shield" size={13} /> {armed ? 'Disarm release' : 'Arm release preview'}</button>
           </div>
         </Panel>

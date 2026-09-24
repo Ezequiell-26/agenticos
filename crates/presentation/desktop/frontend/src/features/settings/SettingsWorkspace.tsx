@@ -14,6 +14,7 @@ interface SettingsWorkspaceProps {
   notify: (message: string) => void
   onClose?: () => void
   onNavigate?: (mode: RailMode) => void
+  initialSection?: string
 }
 
 interface WorkspaceSection {
@@ -60,8 +61,8 @@ function flattenTarget(sectionId: string): { section: WorkspaceSection; child?: 
   return { section, child }
 }
 
-export default function SettingsWorkspace({ notify, onClose, onNavigate }: SettingsWorkspaceProps) {
-  const [activeId, setActiveId] = useState('model/main')
+export default function SettingsWorkspace({ notify, onClose, onNavigate, initialSection = 'model/main' }: SettingsWorkspaceProps) {
+  const [activeId, setActiveId] = useState(initialSection)
   const [query, setQuery] = useState('')
   const [modelGroupOpen, setModelGroupOpen] = useState(true)
   const searchRef = useRef<HTMLInputElement>(null)

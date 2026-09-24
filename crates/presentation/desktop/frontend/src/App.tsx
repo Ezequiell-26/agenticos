@@ -95,6 +95,7 @@ function App() {
   const [toast, setToast] = useState('')
   const [layoutsOpen, setLayoutsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState('model/main')
   const runtimeSyncSequence = useRef(0)
   useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
   useExclusiveOverlay('global-search', globalSearchOpen, () => setGlobalSearchOpen(false))
@@ -290,10 +291,10 @@ function App() {
     setPaletteOpen(false)
   }
 
-  function handleConversationAction(id: string, action: 'pin' | 'rename' | 'archive', value?: string) {
+  function handleConversationAction(id: string, action: 'pin' | 'rename' | 'archive' | 'delete', value?: string) {
     if (action === 'pin') { setConversations((current) => current.map((conversation) => conversation.id === id ? { ...conversation, pinned: !conversation.pinned } : conversation)); return }
     if (action === 'rename' && value) { setConversations((current) => current.map((conversation) => conversation.id === id ? { ...conversation, title: value } : conversation)); return }
-    if (action === 'archive') {
+    if (action === 'archive' || action === 'delete') {
       setConversations((current) => current.filter((conversation) => conversation.id !== id))
       if (sessionId === id) { setSessionId('default'); setMode('chat'); setMessages(starterMessages) }
     }
@@ -316,6 +317,8 @@ function App() {
         onNavigate={setMode}
         onOpenNotifications={() => setNotificationsOpen((open) => !open)}
         notificationUnread={notificationUnread}
+        onAction={setToast}
+        onOpenAppearance={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
         footerExtra={<CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} iconOnly />}
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
@@ -413,7 +416,7 @@ function App() {
       {settingsOpen && (
         <div className="settings-modal-backdrop" role="presentation" onMouseDown={() => setSettingsOpen(false)}>
           <div className="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(event) => event.stopPropagation()}>
-            <SettingsWorkspace notify={setToast} onClose={() => setSettingsOpen(false)} onNavigate={(nextMode) => { setSettingsOpen(false); setMode(nextMode) }} />
+            <SettingsWorkspace notify={setToast} onClose={() => setSettingsOpen(false)} onNavigate={(nextMode) => { setSettingsOpen(false); setMode(nextMode) }} initialSection={settingsSection} />
           </div>
         </div>
       )}

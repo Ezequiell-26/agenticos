@@ -16,20 +16,22 @@ interface WorkspaceSidebarProps {
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
   onOpenSearch: () => void
-  onConversationAction?: (id: string, action: 'pin' | 'rename' | 'archive', value?: string) => void
+  onConversationAction?: (id: string, action: 'pin' | 'rename' | 'archive' | 'delete', value?: string) => void
   onNavigate?: (mode: RailMode) => void
   onOpenNotifications?: () => void
   notificationUnread?: number
+  onAction?: (message: string) => void
+  onOpenAppearance?: () => void
   footerExtra?: ReactNode
   runtimeConnected: boolean
 }
 
 const quickNav: Array<{ label: string; icon: Parameters<typeof Icon>[0]['name']; mode: RailMode | 'new-session' }> = [
   { label: 'New session', icon: 'plus', mode: 'new-session' },
-  { label: 'Capabilities', icon: 'tool', mode: 'tools' },
+  { label: 'Capabilities', icon: 'spark', mode: 'tools' },
   { label: 'Messaging', icon: 'message', mode: 'channels' },
-  { label: 'Artifacts', icon: 'file-code', mode: 'artifacts' },
-  { label: 'Scheduled jobs', icon: 'calendar', mode: 'automations' },
+  { label: 'Artifacts', icon: 'archive', mode: 'artifacts' },
+  { label: 'Scheduled jobs', icon: 'clock', mode: 'automations' },
   { label: 'Memory', icon: 'database', mode: 'memory' },
   { label: 'RSS', icon: 'globe', mode: 'integrations' },
   { label: 'Kanban', icon: 'layers', mode: 'kanban' },
@@ -62,6 +64,8 @@ export default function WorkspaceSidebar({
   onNavigate,
   onOpenNotifications,
   notificationUnread = 0,
+  onAction,
+  onOpenAppearance,
   footerExtra,
   runtimeConnected,
 }: WorkspaceSidebarProps) {
@@ -69,8 +73,10 @@ export default function WorkspaceSidebar({
   const [filter, setFilter] = useState<SidebarFilter>('All')
   const [tab, setTab] = useState<SidebarTab>('SESSIONS')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
+  const [submenu, setSubmenu] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [unreadIds, setUnreadIds] = useState<ReadonlySet<string>>(new Set())
   const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const menuRef = useRef<HTMLDivElement>(null)
   const activeMenuButton = menuOpen ? menuButtonRefs.current[menuOpen] : null
@@ -94,8 +100,26 @@ export default function WorkspaceSidebar({
   const pinnedConversations = filtered.filter((conversation) => conversation.pinned)
   const sessionRows = pinnedConversations.length > 0 ? filtered.filter((conversation) => !conversation.pinned) : filtered
 
+  function toggleUnread(id: string) {
+    setMenuOpen(null)
+    setSubmenu(null)
+    setUnreadIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function openAppearance() {
+    setMenuOpen(null)
+    setSubmenu(null)
+    onOpenAppearance?.()
+  }
+
   function beginRename(conversation: ConversationSummary) {
     setMenuOpen(null)
+    setSubmenu(null)
     setEditingId(conversation.id)
     setEditingTitle(conversation.title)
   }
@@ -108,8 +132,13 @@ export default function WorkspaceSidebar({
   }
 
   function renderConversationRow(conversation: ConversationSummary) {
+    const isUnread = unreadIds.has(conversation.id)
     return (
-      <div className={activeConversation === conversation.id ? 'conversation-row conversation-row--active' : 'conversation-row'} key={conversation.id}>
+      <div
+        className={activeConversation === conversation.id ? 'conversation-row conversation-row--active' : 'conversation-row'}
+        key={conversation.id}
+        onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setSubmenu(null); setMenuOpen(conversation.id) }}
+      >
         {editingId === conversation.id ? (
           <div className="conversation-rename">
             <input autoFocus aria-label="Rename conversation" value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') commitRename(conversation.id); if (event.key === 'Escape') setEditingId(null) }} />
@@ -117,8 +146,8 @@ export default function WorkspaceSidebar({
           </div>
         ) : (
           <>
-            <button className="conversation-main-button" onClick={() => onSelectConversation(conversation.id)} type="button">
-              <span className={activeConversation === conversation.id ? 'conversation-dot conversation-dot--active' : 'conversation-dot'} aria-hidden="true" />
+            <button className="conversation-main-button" onClick={() => { onSelectConversation(conversation.id); setUnreadIds((current) => { if (!current.has(conversation.id)) return current; const next = new Set(current); next.delete(conversation.id); return next }) }} type="button">
+              <span className={activeConversation === conversation.id || isUnread ? 'conversation-dot conversation-dot--active' : 'conversation-dot'} aria-hidden="true" />
               <div className="conversation-row__copy"><strong>{conversation.title}</strong></div>
               <time>{relativeTime(conversation.timestamp)}</time>
             </button>
@@ -128,9 +157,30 @@ export default function WorkspaceSidebar({
               </button>
               {menuOpen === conversation.id && (
                 <div ref={menuRef} className="conversation-menu" role="menu" aria-label={"Actions for " + conversation.title}>
-                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'pin') }}><Icon name="archive" size={13} /><span>{conversation.pinned ? 'Unpin' : 'Pin'}</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onAction?.('New window opens through the desktop runtime') }}><Icon name="layout" size={13} /><span>New window</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onAction?.('Open in terminal through the desktop runtime') }}><Icon name="terminal" size={13} /><span>Open in terminal</span></button>
+                  <div className="conversation-menu__divider" aria-hidden="true" />
                   <button type="button" role="menuitem" onClick={() => beginRename(conversation)}><Icon name="code" size={13} /><span>Rename</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'pin') }}><Icon name="paperclip" size={13} /><span>{conversation.pinned ? 'Unpin' : 'Pin'}</span></button>
+                  <button type="button" role="menuitem" onClick={() => toggleUnread(conversation.id)}><Icon name="message" size={13} /><span>{unreadIds.has(conversation.id) ? 'Mark as read' : 'Mark as unread'}</span></button>
+                  <button type="button" role="menuitem" onClick={openAppearance}><Icon name="spark" size={13} /><span>Appearance</span><Icon name="chevron-right" size={11} /></button>
+                  <button type="button" role="menuitem" onClick={() => { void navigator.clipboard?.writeText(conversation.id); setMenuOpen(null); onAction?.('Session ID copied to clipboard') }}><Icon name="copy" size={13} /><span>Copy ID</span></button>
+                  <div className="conversation-menu__divider" aria-hidden="true" />
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onAction?.('Session branch staged in preview') }}><Icon name="branch" size={13} /><span>Branch</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onAction?.('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export</span></button>
+                  <div className="conversation-submenu-wrap">
+                    <button type="button" role="menuitem" aria-expanded={submenu === 'move'} onClick={() => setSubmenu(submenu === 'move' ? null : 'move')}><Icon name="folder" size={13} /><span>Move to project</span><Icon name="chevron-right" size={11} /></button>
+                    {submenu === 'move' && (
+                      <div className="conversation-submenu">
+                        {['Personal workspace', 'agenticos'].map((project) => (
+                          <button key={project} type="button" role="menuitem" onClick={() => { setMenuOpen(null); setSubmenu(null); onAction?.(`Moved to ${project} (preview)`) }}>{project}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="conversation-menu__divider" aria-hidden="true" />
                   <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'archive') }}><Icon name="archive" size={13} /><span>Archive</span></button>
+                  <button type="button" role="menuitem" className="conversation-menu__danger" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'delete') }}><Icon name="x" size={13} /><span>Delete</span></button>
                 </div>
               )}
             </div>

@@ -1488,6 +1488,13 @@ Verification status:
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; default-closed behavior, globe toggle and reopen verified in the browser preview.
 
+## 2026-09-25 — Icon clarity pass on the sidebar feature list
+
+- Reassigned the quick navigation icons so each feature reads at a glance: Capabilities uses the capability spark, Artifacts the artifact box and Scheduled jobs the clock (previously wrench, code file and calendar).
+- Messaging, Memory, RSS, Kanban, Newswire, Resetwatch and New session keep their established icons.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; sidebar verified in the browser preview.
+
 ## 2026-09-25 — Frontend technical cleanup: unused Tailwind integration removed
 
 - Technical audit of the frontend stack: 115 TSX components, 12 TS modules and 35 CSS files — zero `.js`/`.jsx` sources, zero `any` typings, zero debug `console.log` calls (only two `console.error` in error boundaries), strict TypeScript (`strict`, `noUnusedLocals`, `noUnusedParameters`) and no duplicated helpers.

@@ -2632,3 +2632,12 @@ body { background: var(--shell-black); }
 .browser-tab__close { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 4px; color: #6d6d78; }
 .browser-tab__close:hover { background: #26262e; color: #f0f0f4; }
 .session-tab--toggle-active { color: var(--agenticos-accent); }
+
+/* ─── Full session menu: submenus, danger action, unread dot ───────────────── */
+.conversation-menu__divider { height: 1px; margin: 4px 8px; background: #1e1e24; }
+.conversation-menu__danger { color: #e5484d; }
+.conversation-menu__danger:hover { color: #ff6b6f; background: rgba(229, 72, 77, .08) !important; }
+.conversation-submenu-wrap { position: relative; }
+.conversation-submenu { margin: 3px 6px 4px 26px; padding: 4px; border: 1px solid #222228; border-radius: 8px; background: #101014; }
+.conversation-submenu [role="menuitem"] { min-height: 28px; font-size: 11px; color: #b9b9c2; }
+.conversation-dot--unread { background: var(--agenticos-accent) !important; }

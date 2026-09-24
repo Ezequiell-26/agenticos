@@ -40,7 +40,7 @@ pub enum SelectionStrategy {
 }
 
 /// Reasoning plan.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReasoningPlan {
     pub steps: Vec<PlanStep>,
     pub estimated_cost: PlanCost,
@@ -48,7 +48,7 @@ pub struct ReasoningPlan {
 }
 
 /// Plan step.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PlanStep {
     pub id: String,
     pub action: String,
@@ -57,7 +57,7 @@ pub struct PlanStep {
 }
 
 /// Plan cost.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PlanCost {
     pub tokens: u64,
     pub monetary: f64,
@@ -90,7 +90,7 @@ impl ReasoningEngine {
         }
 
         let clauses: Vec<&str> = objective
-            .split(|ch| matches!(ch, '.' | ';' | '\n'))
+            .split(['.', ';', '\n'])
             .map(str::trim)
             .filter(|clause| !clause.is_empty())
             .take(self.planner.max_steps)
@@ -257,7 +257,7 @@ impl Default for EngineConfig {
 }
 
 /// Plan evaluation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EvaluationResult {
     pub score: f64,
     pub risk_assessment: RiskAssessment,
@@ -265,7 +265,7 @@ pub struct EvaluationResult {
 }
 
 /// Risk assessment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RiskAssessment {
     pub low_risk: bool,
     pub medium_risk: bool,

@@ -28,6 +28,7 @@ use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_tools::ToolRegistry;
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -53,6 +54,7 @@ pub struct RuntimeState {
     capabilities: Arc<CapabilityManager>,
     sandbox: Arc<ProcessSandbox>,
     secure_tools: Arc<SecureToolService>,
+    tools: Arc<ToolRegistry>,
     reasoning: Arc<ReasoningEngine>,
     model: String,
 }
@@ -101,6 +103,8 @@ impl RuntimeState {
             capabilities.clone(),
             sandbox.clone(),
         ));
+        let tools = Arc::new(ToolRegistry::new());
+        seed_tool_catalog(&tools).await?;
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
@@ -140,6 +144,7 @@ impl RuntimeState {
             capabilities,
             sandbox,
             secure_tools,
+            tools,
             reasoning: Arc::new(ReasoningEngine::new(EngineConfig {
                 max_steps: 12,
                 enable_learning: true,
@@ -209,6 +214,76 @@ struct RunResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct CreateApprovalRequest {
+    run_id: String,
+    action: String,
+    resource: String,
+    expires_at: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApprovalDecision {
+    approved: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateProviderRequest {
+    provider_id: String,
+    name: String,
+    base_url: String,
+    models: Vec<String>,
+    capabilities: Option<Vec<String>>,
+    api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderTestRequest {
+    model: String,
+    input: String,
+    request_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateMemoryRequest {
+    namespace: String,
+    key: String,
+    value: String,
+    tags: Option<Vec<String>>,
+    importance: Option<f64>,
+    expires_at: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemorySearchQuery {
+    namespace: String,
+    q: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExecuteRunRequest {
+    objective: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateCapabilityRequest {
+    grant_id: String,
+    capability_type: String,
+    resource: String,
+    permission: String,
+    expires_at: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ToolExecutionRequest {
+    session_id: String,
+    user_id: Option<String>,
+    grant_id: String,
+    command: String,
+    timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CreateAgentRequest {
     agent: AgentDefinition,
 }
@@ -230,16 +305,13 @@ struct PlanRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct ApprovalDecision {
-    approved: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateApprovalRequest {
-    run_id: String,
-    action: String,
-    resource: String,
-    expires_at: Option<u64>,
+struct ToolInvokeRequest {
+    session_id: String,
+    agent_id: Option<String>,
+    user_id: Option<String>,
+    grant_id: String,
+    tool_id: String,
+    parameters: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -369,6 +441,456 @@ async fn list_providers(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "providers": providers,
         "count": providers.len()
+    }))
+}
+
+async fn create_provider(
+    request: web::Json<CreateProviderRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = request.provider_id.trim();
+    let name = request.name.trim();
+    let base_url = request.base_url.trim();
+
+    if provider_id.is_empty() || name.is_empty() || base_url.is_empty() || request.models.is_empty()
+    {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "provider_id, name, base_url and at least one model are required".to_string(),
+            code: "INVALID_PROVIDER",
+        });
+    }
+
+    if base_url.contains('@') {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "provider base URLs must not embed HTTP credentials".to_string(),
+            code: "PROVIDER_URL_CREDENTIALS",
+        });
+    }
+
+    let entry = agenticos_contracts::ProviderEntry {
+        provider_id: provider_id.to_string(),
+        name: name.to_string(),
+        base_url: base_url.to_string(),
+        models: request
+            .models
+            .iter()
+            .map(|model| model.trim())
+            .filter(|model| !model.is_empty())
+            .map(str::to_string)
+            .collect(),
+        capabilities: request
+            .capabilities
+            .clone()
+            .unwrap_or_else(|| vec!["chat".to_string()]),
+    };
+
+    if entry.models.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "at least one non-empty model is required".to_string(),
+            code: "INVALID_PROVIDER_MODELS",
+        });
+    }
+
+    match state
+        .provider
+        .register(entry, request.api_key.clone())
+        .await
+    {
+        Ok(()) => {
+            let status = state
+                .provider
+                .list_status()
+                .await
+                .into_iter()
+                .find(|provider| provider.provider_id == provider_id);
+            HttpResponse::Created().json(status)
+        }
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_REGISTRATION_FAILED",
+        }),
+    }
+}
+
+async fn delete_provider(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.provider.remove(&provider_id).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_DELETE_FAILED",
+        }),
+    }
+}
+
+async fn invoke_tool(
+    request: web::Json<ToolInvokeRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let tool_id = request.tool_id.trim();
+    if request.session_id.trim().is_empty()
+        || request.grant_id.trim().is_empty()
+        || tool_id.is_empty()
+    {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "session_id, grant_id and tool_id are required".to_string(),
+            code: "INVALID_TOOL_INVOKE",
+        });
+    }
+
+    let Some(tool) = state.tools.get(tool_id).await else {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "tool is not registered".to_string(),
+            code: "TOOL_NOT_FOUND",
+        });
+    };
+
+    let permission = tool
+        .required_permissions
+        .first()
+        .cloned()
+        .unwrap_or_else(|| tool_id.to_string());
+    let capability_type = match tool_id {
+        "memory.search" => CapabilityType::Read,
+        "memory.write" | "memory.delete" => CapabilityType::Write,
+        _ => CapabilityType::Execute,
+    };
+    let resource = match tool_id {
+        "process.execute" => "process/command".to_string(),
+        "memory.search" | "memory.write" | "memory.delete" => {
+            format!(
+                "memory/{}",
+                request
+                    .parameters
+                    .get("namespace")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("*")
+            )
+        }
+        "provider.chat" => format!(
+            "provider/{}",
+            request
+                .parameters
+                .get("provider_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        "subagent.spawn" => format!(
+            "subagent/{}",
+            request
+                .parameters
+                .get("parent_run_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        "workflow.execute" => format!(
+            "workflow/{}",
+            request
+                .parameters
+                .get("workflow_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        _ => tool_id.to_string(),
+    };
+
+    let authorized = match state
+        .capabilities
+        .authorize(&request.grant_id, capability_type, &resource, &permission)
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TOOL_AUTHORIZATION_FAILED",
+            });
+        }
+    };
+
+    if !authorized {
+        return HttpResponse::Forbidden().json(ErrorResponse {
+            error: "capability grant does not authorize this tool".to_string(),
+            code: "TOOL_NOT_AUTHORIZED",
+        });
+    }
+
+    let result = match tool_id {
+        "process.execute" => {
+            let command = request
+                .parameters
+                .get("command")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("command is required".to_string()));
+            match command {
+                Ok(command) => state
+                    .secure_tools
+                    .execute_command(
+                        request.session_id.trim(),
+                        request.user_id.as_deref(),
+                        request.grant_id.trim(),
+                        command,
+                        request
+                            .parameters
+                            .get("timeout_ms")
+                            .and_then(|value| value.as_u64()),
+                    )
+                    .await
+                    .map(|execution| {
+                        serde_json::json!({
+                            "success": execution.success,
+                            "output": execution.output,
+                        })
+                    }),
+                Err(error) => Err(error),
+            }
+        }
+        "memory.search" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .unwrap_or("global");
+            let query = request
+                .parameters
+                .get("q")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            state
+                .persistent_memory
+                .search(
+                    namespace,
+                    query,
+                    request
+                        .parameters
+                        .get("limit")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(50) as usize,
+                )
+                .await
+                .map(|records| serde_json::json!({ "records": records }))
+        }
+        "memory.write" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("namespace is required".to_string()));
+            let key = request
+                .parameters
+                .get("key")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("key is required".to_string()));
+            let value = request
+                .parameters
+                .get("value")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("value is required".to_string()));
+            match (namespace, key, value) {
+                (Ok(namespace), Ok(key), Ok(value)) => {
+                    let tags = request
+                        .parameters
+                        .get("tags")
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(|item| item.as_str().map(str::to_string))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    state
+                        .persistent_memory
+                        .upsert(
+                            namespace,
+                            key,
+                            value,
+                            &tags,
+                            request
+                                .parameters
+                                .get("importance")
+                                .and_then(|value| value.as_f64())
+                                .unwrap_or(0.5),
+                            request
+                                .parameters
+                                .get("expires_at")
+                                .and_then(|value| value.as_i64())
+                                .unwrap_or(0),
+                        )
+                        .await
+                        .map(|record| serde_json::to_value(record).unwrap_or_default())
+                }
+                (Err(error), _, _) | (_, Err(error), _) | (_, _, Err(error)) => Err(error),
+            }
+        }
+        "memory.delete" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("namespace is required".to_string()));
+            let key = request
+                .parameters
+                .get("key")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("key is required".to_string()));
+            match (namespace, key) {
+                (Ok(namespace), Ok(key)) => state
+                    .persistent_memory
+                    .delete(namespace, key)
+                    .await
+                    .map(|removed| serde_json::json!({ "removed": removed })),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "provider.chat" => {
+            let model = request
+                .parameters
+                .get("model")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("model is required".to_string()));
+            let input = request
+                .parameters
+                .get("input")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("input is required".to_string()));
+            match (model, input) {
+                (Ok(model), Ok(input)) => state
+                    .provider
+                    .execute_routed(ModelRequest {
+                        request_id: format!("req-{}", uuid::Uuid::new_v4()),
+                        model: model.to_string(),
+                        input: input.to_string(),
+                        parameters: None,
+                    })
+                    .await
+                    .and_then(|response| {
+                        serde_json::to_value(response)
+                            .map_err(|error| ContractError::ParseError(error.to_string()))
+                    }),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "subagent.spawn" => {
+            let parent_run_id = request
+                .parameters
+                .get("parent_run_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("parent_run_id is required".to_string()));
+            let agent_id = request
+                .parameters
+                .get("agent_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("agent_id is required".to_string()));
+            match (parent_run_id, agent_id) {
+                (Ok(parent_run_id), Ok(agent_id)) => state
+                    .subagents
+                    .spawn_child(
+                        parent_run_id,
+                        agent_id,
+                        request
+                            .parameters
+                            .get("parent_depth")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0) as u16,
+                    )
+                    .await
+                    .map(|child| serde_json::to_value(child).unwrap_or_default())
+                    .map_err(ContractError::ParseError),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "workflow.execute" => {
+            let workflow_id = request
+                .parameters
+                .get("workflow_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("workflow_id is required".to_string()));
+            match workflow_id {
+                Ok(workflow_id) => state
+                    .workflows
+                    .initial_state(workflow_id)
+                    .await
+                    .map(|state| serde_json::to_value(state).unwrap_or_default())
+                    .map_err(ContractError::ParseError),
+                Err(error) => Err(error),
+            }
+        }
+        _ => Err(ContractError::ParseError(format!(
+            "tool '{}' has no runtime implementation",
+            tool_id
+        ))),
+    };
+
+    match result {
+        Ok(result) => HttpResponse::Ok().json(serde_json::json!({
+            "tool_id": tool_id,
+            "session_id": request.session_id,
+            "success": true,
+            "result": result,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "TOOL_INVOCATION_FAILED",
+        }),
+    }
+}
+
+async fn test_provider(
+    request: web::Json<ProviderTestRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.model.trim().is_empty() || request.input.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model and input are required".to_string(),
+            code: "INVALID_PROVIDER_TEST",
+        });
+    }
+
+    let model_request = ModelRequest {
+        request_id: request
+            .request_id
+            .clone()
+            .unwrap_or_else(|| format!("req-{}", uuid::Uuid::new_v4())),
+        model: request.model.trim().to_string(),
+        input: request.input.clone(),
+        parameters: None,
+    };
+
+    match state.provider.execute_routed(model_request).await {
+        Ok(response) => HttpResponse::Ok().json(response),
+        Err(error) => HttpResponse::BadGateway().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_TEST_FAILED",
+        }),
+    }
+}
+
+async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
+    let entries = state.tools.list().await;
+    let tools: Vec<_> = entries
+        .into_iter()
+        .map(|entry| {
+            serde_json::json!({
+                "tool_id": entry.tool_id,
+                "name": entry.name,
+                "description": entry.description,
+                "capabilities": entry.capabilities,
+                "required_permissions": entry.required_permissions,
+                "context_requirements": entry.context_requirements,
+            })
+        })
+        .collect();
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "tools": tools,
+        "count": tools.len(),
     }))
 }
 
@@ -864,6 +1386,89 @@ async fn execute_tool(
     }
 }
 
+async fn seed_tool_catalog(registry: &ToolRegistry) -> Result<(), ContractError> {
+    let entries = [
+        (
+            "process.execute",
+            "Process execution",
+            "Execute allowlisted local commands through the capability-gated sandbox.",
+            vec!["process.execute"],
+            vec!["process.execute"],
+            vec!["sandbox"],
+        ),
+        (
+            "memory.search",
+            "Memory search",
+            "Search persistent long-term memory.",
+            vec!["memory.read"],
+            vec!["memory.read"],
+            vec!["memory"],
+        ),
+        (
+            "memory.write",
+            "Memory write",
+            "Create or update persistent long-term memory.",
+            vec!["memory.write"],
+            vec!["memory.write"],
+            vec!["memory"],
+        ),
+        (
+            "memory.delete",
+            "Memory delete",
+            "Delete one persistent memory record.",
+            vec!["memory.write"],
+            vec!["memory.write"],
+            vec!["memory"],
+        ),
+        (
+            "provider.chat",
+            "Provider chat",
+            "Route a model-neutral request through the provider platform.",
+            vec!["model.request"],
+            vec!["model.request"],
+            vec!["provider"],
+        ),
+        (
+            "run.execute",
+            "Run execution",
+            "Execute an admitted durable run through the agent runtime.",
+            vec!["run.execute"],
+            vec!["run.execute"],
+            vec!["runtime"],
+        ),
+        (
+            "subagent.spawn",
+            "Subagent delegation",
+            "Create a bounded child run with inherited authority and budgets.",
+            vec!["subagent.spawn"],
+            vec!["subagent.spawn"],
+            vec!["agents"],
+        ),
+        (
+            "workflow.execute",
+            "Workflow execution",
+            "Advance a dependency-aware workflow through its runnable nodes.",
+            vec!["workflow.execute"],
+            vec!["workflow.execute"],
+            vec!["workflows"],
+        ),
+    ];
+
+    for (tool_id, name, description, capabilities, permissions, contexts) in entries {
+        registry
+            .register(agenticos_contracts::ToolEntry {
+                tool_id: tool_id.to_string(),
+                name: name.to_string(),
+                description: description.to_string(),
+                capabilities: capabilities.into_iter().map(str::to_string).collect(),
+                required_permissions: permissions.into_iter().map(str::to_string).collect(),
+                context_requirements: contexts.into_iter().map(str::to_string).collect(),
+            })
+            .await?;
+    }
+    Ok(())
+}
+
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);
     let status: SandboxStatus = state
@@ -886,11 +1491,9 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
     let data = web::Data::new(state);
-    let cors = Cors::permissive();
-
     HttpServer::new(move || {
         App::new()
-            .wrap(cors.clone())
+            .wrap(Cors::permissive())
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))
@@ -904,7 +1507,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/providers", web::get().to(list_providers))
+            .route("/api/providers", web::post().to(create_provider))
+            .route(
+                "/api/providers/{provider_id}",
+                web::delete().to(delete_provider),
+            )
+            .route("/api/providers/test", web::post().to(test_provider))
             .route("/api/models", web::get().to(list_models))
+            .route("/api/tools", web::get().to(list_tools))
+            .route("/api/tools/invoke", web::post().to(invoke_tool))
             .route("/api/runs", web::post().to(create_run))
             .route("/api/runs/{run_id}", web::get().to(get_run))
             .route("/api/runs/{run_id}/cancel", web::post().to(cancel_run))
@@ -941,6 +1552,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::delete().to(delete_memory),
             )
             .route("/api/memory/purge", web::post().to(purge_memory))
+            .route("/api/tools", web::get().to(list_tools))
             .route("/api/capabilities", web::get().to(list_capabilities))
             .route("/api/capabilities", web::post().to(issue_capability))
             .route(

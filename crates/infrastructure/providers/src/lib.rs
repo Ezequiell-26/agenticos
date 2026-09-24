@@ -46,6 +46,11 @@ impl ProviderRegistry {
         let providers = self.providers.read().await;
         providers.values().cloned().collect()
     }
+
+    /// Remove a provider.
+    pub async fn remove(&self, provider_id: &str) -> bool {
+        self.providers.write().await.remove(provider_id).is_some()
+    }
 }
 
 impl Default for ProviderRegistry {
@@ -96,6 +101,15 @@ impl ModelCatalog {
             .cloned()
             .collect()
     }
+
+    /// Remove all models belonging to a provider.
+    pub async fn remove_by_provider(&self, provider_id: &str) -> Result<(), ContractError> {
+        self.models
+            .write()
+            .await
+            .retain(|_, model| model.provider_id != provider_id);
+        Ok(())
+    }
 }
 
 impl Default for ModelCatalog {
@@ -142,6 +156,15 @@ impl CredentialPool {
     }
 
     /// Remove expired credentials.
+    /// Remove all credentials belonging to a provider.
+    pub async fn remove_for_provider(&self, provider_id: &str) -> Result<usize, ContractError> {
+        let mut credentials = self.credentials.write().await;
+        let before = credentials.len();
+        credentials.retain(|_, credential| credential.provider_id != provider_id);
+        Ok(before - credentials.len())
+    }
+
+    /// Remove credentials that have already expired.
     pub async fn remove_expired(&self, now: u64) -> Result<usize, ContractError> {
         let mut credentials = self.credentials.write().await;
         let before = credentials.len();

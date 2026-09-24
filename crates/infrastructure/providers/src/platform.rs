@@ -93,7 +93,8 @@ impl ProviderPlatform {
 
     /// List provider status without exposing API keys.
     pub async fn list_status(&self) -> Vec<ProviderStatus> {
-        let providers = self.registry.list().await;
+        let mut providers = self.registry.list().await;
+        providers.sort_by(|left, right| left.provider_id.cmp(&right.provider_id));
         let mut result = Vec::with_capacity(providers.len());
         for provider in providers {
             let configured = !self
@@ -250,9 +251,30 @@ impl ProviderPlatform {
         Ok(platform)
     }
 
-    /// List known models.
+    /// Remove a provider, its models and its credentials.
+    pub async fn remove(&self, provider_id: &str) -> Result<bool, ContractError> {
+        let removed = self.registry.remove(provider_id).await;
+        if removed {
+            self.catalog.remove_by_provider(provider_id).await?;
+            self.credentials.remove_for_provider(provider_id).await?;
+        }
+        Ok(removed)
+    }
+
+    /// Return quota information for a provider when configured.
+    pub async fn quota(&self, provider_id: &str) -> Option<agenticos_contracts::QuotaInfo> {
+        self.quotas.get(provider_id).await
+    }
+
+    /// List known models in deterministic order.
     pub async fn list_models(&self) -> Vec<agenticos_contracts::ModelEntry> {
-        self.catalog.list().await
+        let mut models = self.catalog.list().await;
+        models.sort_by(|left, right| {
+            left.provider_id
+                .cmp(&right.provider_id)
+                .then_with(|| left.model_id.cmp(&right.model_id))
+        });
+        models
     }
 }
 

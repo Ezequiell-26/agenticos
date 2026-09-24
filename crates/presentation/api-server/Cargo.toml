@@ -15,6 +15,7 @@ agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-providers = { path = "../../infrastructure/providers" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-scheduler = { path = "../../application/scheduler" }
+agenticos-tools = { path = "../../infrastructure/tools" }
 agenticos-security = { path = "../../infrastructure/security" }
 agenticos-workflows = { path = "../../application/workflows" }
 serde = { workspace = true, features = ["derive"] }

@@ -9,7 +9,7 @@ Read, in order:
 2. `reference/manifests/implementation-state.json`
 3. the latest entries of `reference/journal/agent-operations.jsonl`
 4. `docs/architecture/AGENT-CONTINUITY-PROTOCOL.md`
-5. the current step acceptance contract and relevant reference evidence.
+5. the relevant capability contract, reference evidence and verification requirements.
 
 If these sources contradict each other, stop. Do not guess. Run the repository consistency verifier before making a state-changing implementation decision.
 
@@ -38,8 +38,8 @@ Do not claim behavior, API compatibility, licensing or provenance that repositor
 ## Verification rule
 
 Never mark VERIFIED merely because code exists.
-A step becomes VERIFIED only after every required check in its manifest has recorded evidence. Unavailable checks remain UNVERIFIED or BLOCKED.
-A VERIFIED vertical slice means its declared acceptance contract was verified; it does not imply production completeness of every future capability behind that boundary.
+A capability becomes VERIFIED only after its declared acceptance checks have recorded evidence. Unavailable checks remain UNVERIFIED or BLOCKED.
+A VERIFIED capability means its declared acceptance contract was verified; it does not imply production completeness of adjacent capabilities.
 
 
 ## Required operation report
@@ -49,7 +49,7 @@ Every operation must record what changed, what was created, what was deleted, wh
 ## Continuity gate
 
 Run `npm run verify` before declaring the current operation complete.
-The repository state, not conversational memory, is the source of truth.
+The repository state, not conversational memory, is the source of truth. It tracks workstreams and capability status independently.
 
 
 ## Frontend-specific continuity
@@ -66,4 +66,4 @@ Every frontend change must append a changelog entry and an operation-journal ent
 
 Do not start a dev server and assume it works. When frontend runtime verification is authorized, use the browser verification procedure and record evidence.
 
-The presence of existing UI code does not override the sequential implementation state. Future frontend implementation must use the step currently authorized by `reference/manifests/implementation-state.json`.
+The presence of existing UI code does not override runtime contracts. Frontend work may proceed when its workstream dependencies and verification boundaries are satisfied.

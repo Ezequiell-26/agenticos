@@ -37,6 +37,7 @@ use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::{
     audit::{AuditEvent, AuditStore},
+    cost::{CostLedger, TokenPricing},
     metrics::RuntimeMetrics,
 };
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
@@ -351,6 +352,7 @@ pub struct RuntimeState {
     a2a_tasks: Arc<A2aTaskStore>,
     artifacts: Arc<ArtifactStore>,
     workspace: Arc<WorkspaceFs>,
+    cost_ledger: Arc<CostLedger>,
     model: String,
 }
 
@@ -427,6 +429,11 @@ impl RuntimeState {
         );
         let workspace = Arc::new(
             WorkspaceFs::from_env()
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
+        let cost_ledger = Arc::new(
+            CostLedger::open(&database_url)
                 .await
                 .map_err(ContractError::ParseError)?,
         );
@@ -597,6 +604,7 @@ impl RuntimeState {
             ),
             artifacts: artifacts.clone(),
             workspace: workspace.clone(),
+            cost_ledger,
             model,
         })
     }
@@ -1543,6 +1551,66 @@ async fn get_evaluation_result(
         None => HttpResponse::NotFound().json(ErrorResponse {
             error: "evaluation result not found".to_string(),
             code: "EVALUATION_RESULT_NOT_FOUND",
+        }),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct UsageQuery {
+    since: Option<u64>,
+    limit: Option<usize>,
+}
+
+async fn usage_summary(
+    query: web::Query<UsageQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .cost_ledger
+        .summary_since(query.since.unwrap_or(0))
+        .await
+    {
+        Ok((tokens, cost_usd)) => HttpResponse::Ok().json(serde_json::json!({
+            "tokens": tokens,
+            "cost_usd": cost_usd,
+            "since": query.since.unwrap_or(0),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "USAGE_SUMMARY_FAILED",
+        }),
+    }
+}
+
+async fn usage_records(
+    query: web::Query<UsageQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state
+        .cost_ledger
+        .list_recent(query.limit.unwrap_or(50))
+        .await
+    {
+        Ok(records) => HttpResponse::Ok().json(serde_json::json!({
+            "records": records,
+            "count": records.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "USAGE_LIST_FAILED",
+        }),
+    }
+}
+
+async fn set_usage_pricing(
+    request: web::Json<TokenPricing>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.cost_ledger.set_pricing(request.into_inner()).await {
+        Ok(()) => HttpResponse::Ok().finish(),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "USAGE_PRICING_INVALID",
         }),
     }
 }
@@ -3953,6 +4021,9 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/a2a", web::post().to(a2a_rpc))
             .route("/ready", web::get().to(readiness_check))
             .route("/api/metrics", web::get().to(runtime_metrics))
+            .route("/api/usage/summary", web::get().to(usage_summary))
+            .route("/api/usage/records", web::get().to(usage_records))
+            .route("/api/usage/pricing", web::post().to(set_usage_pricing))
             .route(
                 "/api/source/github/inspect",
                 web::post().to(inspect_github_repository),

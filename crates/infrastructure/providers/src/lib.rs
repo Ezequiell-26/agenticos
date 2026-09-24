@@ -384,20 +384,38 @@ impl Default for FallbackManager {
 #[derive(Debug)]
 pub struct HttpModelProvider {
     provider_id: String,
-    #[allow(dead_code)]
     base_url: String,
-    #[allow(dead_code)]
     client: reqwest::Client,
 }
 
 impl HttpModelProvider {
-    /// Create a new HTTP model provider.
+    /// Create a new bounded HTTP model provider.
     pub fn new(provider_id: String, base_url: String) -> Self {
+        let timeout_ms = std::env::var("AGENTICOS_PROVIDER_TIMEOUT_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(120_000)
+            .clamp(1_000, 600_000);
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self {
             provider_id,
-            base_url,
-            client: reqwest::Client::new(),
+            base_url: normalize_chat_url(&base_url),
+            client,
         }
+    }
+}
+
+fn normalize_chat_url(base_url: &str) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{trimmed}/chat/completions")
+    } else {
+        format!("{trimmed}/v1/chat/completions")
     }
 }
 
@@ -408,18 +426,28 @@ impl ModelProvider for HttpModelProvider {
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        // Make actual HTTP call to the provider
-        let url = format!("{}/v1/chat/completions", self.base_url);
-        let response = self
-            .client
-            .post(&url)
-            .json(&serde_json::json!({
-                "model": request.model,
-                "messages": [{"role": "user", "content": request.input}],
-                "request_id": request.request_id
-            }))
-            .send()
-            .await;
+        let mut payload = serde_json::json!({
+            "model": request.model,
+            "messages": [{"role": "user", "content": request.input}],
+            "request_id": request.request_id
+        });
+        if let Some(parameters) = &request.parameters {
+            let extra = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider parameters must be valid JSON: {error}"
+                ))
+            })?;
+            let target = payload.as_object_mut().ok_or_else(|| {
+                ContractError::ParseError("provider request payload is not an object".to_string())
+            })?;
+            let extra = extra.as_object().ok_or_else(|| {
+                ContractError::ParseError("provider parameters must be a JSON object".to_string())
+            })?;
+            for (key, value) in extra {
+                target.insert(key.clone(), value.clone());
+            }
+        }
+        let response = self.client.post(&self.base_url).json(&payload).send().await;
 
         match response {
             Ok(resp) => {

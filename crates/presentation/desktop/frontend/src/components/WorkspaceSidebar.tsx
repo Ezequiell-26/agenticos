@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
+import PanelResizeHandle from './PanelResizeHandle'
 
 type SidebarFilter = 'All' | 'Pinned' | 'Recent'
 
@@ -57,6 +58,7 @@ export default function WorkspaceSidebar({
 
   return (
     <aside className="workspace-sidebar">
+      <PanelResizeHandle axis="sidebar" />
       <div className="workspace-sidebar__header">
         <div>
           <div className="eyebrow">Workspace</div>

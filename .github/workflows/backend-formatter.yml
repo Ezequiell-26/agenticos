@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   format-backend:
-    if: ${{ !contains(github.event.head_commit.message, 'chore(style): format backend') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -18,6 +17,7 @@ jobs:
       - name: Format workspace
         run: cargo fmt --all
       - name: Commit formatted Rust
+        shell: bash
         run: |
           if git diff --quiet; then
             exit 0

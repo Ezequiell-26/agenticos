@@ -617,6 +617,41 @@ fn normalize_github_repo(source: &str) -> Result<String, SourceForgeError> {
     Ok(format!("{}/{}", parts[0], parts[1]))
 }
 
+#[cfg(test)]
+mod github_source_tests {
+    use super::*;
+
+    #[test]
+    fn github_repo_normalization_accepts_supported_forms() {
+        assert_eq!(
+            normalize_github_repo("https://github.com/openai/openai-python").unwrap(),
+            "openai/openai-python"
+        );
+        assert_eq!(
+            normalize_github_repo("github.com/rust-lang/cargo.git").unwrap(),
+            "rust-lang/cargo"
+        );
+    }
+
+    #[test]
+    fn github_repo_normalization_rejects_unsafe_or_ambiguous_sources() {
+        assert!(normalize_github_repo("https://example.com/a/b").is_err());
+        assert!(normalize_github_repo("https://github.com/a/b/c").is_err());
+        assert!(normalize_github_repo("github.com/a/../b").is_err());
+    }
+
+    #[test]
+    fn source_path_rejects_traversal() {
+        assert!(normalize_source_path("../README.md").is_err());
+        assert!(normalize_source_path("/etc/passwd").is_err());
+        assert!(normalize_source_path("src//lib.rs").is_err());
+        assert_eq!(
+            normalize_source_path("src/lib.rs").unwrap(),
+            "src/lib.rs"
+        );
+    }
+}
+
 fn normalize_source_path(path: &str) -> Result<String, SourceForgeError> {
     let path = path.trim();
     if path.is_empty()

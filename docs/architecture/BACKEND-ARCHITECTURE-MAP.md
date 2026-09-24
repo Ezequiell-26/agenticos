@@ -52,6 +52,10 @@ The model provider is immutable runtime state. Provider routing/fallback is a se
 5. Destructive tools require explicit authorization before execution.
 6. Runtime errors are returned as structured error codes.
 
+## Current hardening note
+
+The provider integration slice now treats transport and protocol failures as errors instead of successful response values, enabling failover and retry layers to observe failure conditions. Deterministic integration coverage also exercises health-driven selection, fallback ordering and concurrent quota accounting.
+
 ## Next backend slices
 
 1. Multi-provider registry + health/quota routing using the existing kernel router.

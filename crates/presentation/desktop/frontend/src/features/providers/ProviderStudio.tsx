@@ -70,6 +70,10 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
     maxAttempts: 3,
     cooldownMs: 5000,
   })
+  const [quotaData, setQuotaData] = useState<{ requests_per_minute?: number | null; tokens_per_minute?: number | null; current_usage: number; current_token_usage?: number }>({ current_usage: 0 })
+  const [retryData, setRetryData] = useState({ max_attempts: 3, initial_backoff_ms: 250, max_backoff_ms: 4000, exponential_backoff: true })
+  const [fallbackData, setFallbackData] = useState({ primary_provider: '', fallback_providers: [] as string[], auto_failover: false })
+  const [runtimePolicySyncing, setRuntimePolicySyncing] = useState(false)
 
   const provider = liveProviders.find((item) => item.name === selected) ?? liveProviders[0]
   const visibleModels = useMemo(() => liveModels.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [liveModels, query])
@@ -101,7 +105,23 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
 
   useEffect(() => {
     const current = liveProviders.find((item) => item.name === selected)
-    if (current) void loadProviderModels(current.id)
+    if (!current) return
+    void loadProviderModels(current.id)
+    let cancelled = false
+    setRuntimePolicySyncing(true)
+    void Promise.allSettled([
+      runtime.providers.quota(current.id),
+      runtime.providers.retry(current.id),
+      runtime.providers.fallback(current.id),
+    ]).then(([quota, retry, fallback]) => {
+      if (cancelled) return
+      if (quota.status === 'fulfilled') setQuotaData(quota.value)
+      if (retry.status === 'fulfilled') setRetryData(retry.value)
+      if (fallback.status === 'fulfilled') setFallbackData(fallback.value)
+    }).finally(() => {
+      if (!cancelled) setRuntimePolicySyncing(false)
+    })
+    return () => { cancelled = true }
   }, [liveProviders, selected])
 
   async function loadProviderModels(providerId?: string) {
@@ -205,18 +225,23 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
 
           {tab === 'Models' && <div className="provider-models"><div className="provider-model-toolbar"><input className="mini-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search models…" /><span className="mono-text">{compare.length}/3 compare slots</span></div>{visibleModels.map(([name, category, context, speed, route]) => <div className="provider-model-row" key={name}><div><strong>{name}</strong><span>{category} · {route}</span></div><span className="mono-text">{context}</span><span>{speed}</span><button className={compare.includes(name) ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => toggleCompare(name)}>Compare</button></div>)}{compare.length > 0 && <div className="provider-compare-strip">{compare.map((name) => <span key={name}>{name}<button type="button" onClick={() => toggleCompare(name)} aria-label={'Remove ' + name}>×</button></span>)}</div>}</div>}
 
-          {tab === 'Routing' && <div className="provider-routing-list">{routingRules.map(([task, model, order, policy]) => <div className="provider-routing-row" key={task}><div><strong>{task}</strong><small>{policy}</small></div><span className="mono-text">{model}</span><span>{order}</span><button className="icon-button" type="button" title="Edit route" onClick={() => onAction(task + ' routing opened in preview')}><Icon name="chevron-right" size={13} /></button></div>)}</div>}
+          {tab === 'Routing' && <div className="provider-routing-list">
+            <div className="provider-routing-row"><div><strong>Runtime primary</strong><small>Provider order returned by the runtime.</small></div><span className="mono-text">{fallbackData.primary_provider || provider.id}</span><span>{fallbackData.auto_failover ? 'Auto failover' : 'Primary only'}</span><button className="icon-button" type="button" title="Refresh routing policy" onClick={() => void runtime.providers.fallback(provider.id).then(setFallbackData).then(() => onAction('Routing policy refreshed from runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Routing policy refresh failed'))}><Icon name="refresh" size={13} /></button></div>
+            {(fallbackData.fallback_providers.length > 0 ? fallbackData.fallback_providers : ['No fallback providers configured']).map((fallback, index) => <div className="provider-routing-row" key={fallback + index}><div><strong>Fallback {index + 1}</strong><small>{fallback === 'No fallback providers configured' ? 'Configure fallback providers through the runtime contract.' : 'Runtime fallback route.'}</small></div><span className="mono-text">{fallback}</span><span>{fallbackData.auto_failover ? 'Eligible' : 'Standby'}</span><span /></div>)}
+            {routingRules.map(([task, model, order, policy]) => <div className="provider-routing-row" key={task}><div><strong>{task}</strong><small>{policy}</small></div><span className="mono-text">{model}</span><span>{order}</span><button className="icon-button" type="button" title="Edit route" onClick={() => onAction('Task routing remains runtime-owned; use provider fallback controls for live policy') }><Icon name="chevron-right" size={13} /></button></div>)}
+          </div>
 
           {tab === 'Resilience' && <div className="provider-resilience">
             <div className="provider-resilience__summary">
               <div><span className="eyebrow">Failure simulation</span><strong>Resilience matrix</strong><small>Exercise failover, health-check and recovery policies without executing provider traffic.</small></div>
               <div className="provider-resilience__summary-actions">
-                <button className="studio-button" type="button" onClick={() => onAction('Resilience suite queued in preview')}><Icon name="play" size={13} /> Run suite</button>
-                <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Resilience policy opened in preview')}><Icon name="shield" size={13} /> Policy</button>
+                <button className="studio-button" type="button" onClick={() => void runtime.providers.health(provider.id).then((health) => onAction(`${provider.name} live health: ${health.status}`)).catch((error) => onAction(error instanceof Error ? error.message : 'Provider health check failed'))}><Icon name="play" size={13} /> Check runtime</button>
+                <button className="studio-button studio-button--active" type="button" onClick={() => void runtime.providers.retry(provider.id).then(setRetryData).then(() => onAction('Retry policy refreshed from runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Retry policy refresh failed'))}><Icon name="shield" size={13} /> Refresh policy</button>
               </div>
             </div>
             <div className="provider-resilience__metrics">
               <MetricCard label="Scenarios" value={String(resilienceScenarios.length)} sub="Declared failure modes" />
+              <MetricCard label="Runtime retry" value={String(retryData.max_attempts)} sub={runtimePolicySyncing ? 'Syncing runtime policy' : 'Max attempts'} />
               <MetricCard label="Passed" value={String(Object.values(scenarioResults).filter((value) => value === 'Passed').length)} sub="Local preview results" />
               <MetricCard label="Pending" value={String(resilienceScenarios.filter((scenario) => !scenarioResults[scenario.id]).length)} sub="Awaiting simulation" />
               <MetricCard label="Guarded" value="2" sub="Require explicit runtime evidence" />
@@ -312,7 +337,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
               </div>
             </div>
             <div className="provider-resilience-policy">
-              <div className="provider-resilience-policy__head"><div><span className="eyebrow">Policy editor</span><strong>Resilience controls</strong><small>Shape the presentation contract that the runtime adapter will enforce later.</small></div><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Resilience policy saved in preview')}><Icon name="check" size={13} /> Save policy</button></div>
+              <div className="provider-resilience-policy__head"><div><span className="eyebrow">Runtime policy · {runtimePolicySyncing ? 'syncing' : 'synced'}</span><strong>Resilience controls</strong><small>Live retry and fallback configuration is read from and written to the runtime.</small></div><button className="studio-button studio-button--active" type="button" onClick={() => void Promise.all([runtime.providers.setRetry(provider.id, retryData), runtime.providers.setFallback(provider.id, { fallback_providers: fallbackData.fallback_providers, auto_failover: resiliencePolicy.autoFailover })]).then(([retry, fallback]) => { setRetryData(retry); setFallbackData(fallback); onAction('Resilience policy saved to runtime') }).catch((error) => onAction(error instanceof Error ? error.message : 'Resilience policy save failed'))}><Icon name="check" size={13} /> Save runtime policy</button></div>
               <div className="provider-resilience-policy__grid">
                 {[
                   ['autoFailover','Automatic failover','Advance to the next compatible route after a bounded failure.'],
@@ -329,9 +354,9 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                 })}
               </div>
               <div className="provider-resilience-policy__numbers">
-                <label><span>Max attempts</span><input aria-label="Maximum retry attempts" type="number" min="1" max="8" value={resiliencePolicy.maxAttempts} onChange={(event) => setResiliencePolicy((current) => ({ ...current, maxAttempts: Math.min(8, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
-                <label><span>Cooldown (ms)</span><input aria-label="Provider cooldown milliseconds" type="number" min="0" max="60000" step="1000" value={resiliencePolicy.cooldownMs} onChange={(event) => setResiliencePolicy((current) => ({ ...current, cooldownMs: Math.min(60000, Math.max(0, Number(event.target.value) || 0)) }))} /></label>
-                <div><span>Route order</span><strong>Primary → Fallback → Local</strong></div>
+                <label><span>Max attempts</span><input aria-label="Maximum retry attempts" type="number" min="1" max="20" value={retryData.max_attempts} onChange={(event) => setRetryData((current) => ({ ...current, max_attempts: Math.min(20, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
+                <label><span>Initial backoff (ms)</span><input aria-label="Initial retry backoff milliseconds" type="number" min="0" max="60000" step="50" value={retryData.initial_backoff_ms} onChange={(event) => setRetryData((current) => ({ ...current, initial_backoff_ms: Math.min(current.max_backoff_ms, Math.max(0, Number(event.target.value) || 0)) }))} /></label><label><span>Max backoff (ms)</span><input aria-label="Maximum retry backoff milliseconds" type="number" min="0" max="600000" step="100" value={retryData.max_backoff_ms} onChange={(event) => setRetryData((current) => ({ ...current, max_backoff_ms: Math.max(current.initial_backoff_ms, Math.min(600000, Number(event.target.value) || 0)) }))} /></label>
+                <div><span>Route order</span><strong>{[fallbackData.primary_provider || provider.id, ...fallbackData.fallback_providers].join(' → ')}</strong></div>
               </div>
             </div>
             <div className="callout"><Icon name="shield" size={14} /><span>Live health, circuit state and incident persistence must come from the provider runtime adapter; this timeline is a UI contract preview.</span></div>
@@ -339,12 +364,12 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
 
           {tab === 'Quotas' && (
             <div className="provider-quota-grid">
-              <MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" />
-              <MetricCard label="Monthly budget" value="41%" sub="shared account preview" />
-              <MetricCard label="Requests" value="2,184" sub="rolling period" />
-              <MetricCard label="Tokens" value="3.2M" sub="input + output preview" />
+              <MetricCard label="Requests/min" value={quotaData.requests_per_minute ? String(quotaData.requests_per_minute) : '—'} sub={runtimePolicySyncing ? 'Syncing runtime quota' : 'Configured limit'} />
+              <MetricCard label="Tokens/min" value={quotaData.tokens_per_minute ? String(quotaData.tokens_per_minute) : '—'} sub="Configured limit" />
+              <MetricCard label="Requests used" value={String(quotaData.current_usage)} sub="Runtime counter" />
+              <MetricCard label="Tokens used" value={String(quotaData.current_token_usage ?? 0)} sub="Runtime counter" />
               <div className="provider-quota-bars">
-                {[['Primary', 68], ['Fallback', 41], ['Local', 22]].map(([name, value]) => (
+                {[['Requests', quotaData.requests_per_minute ? Math.min(100, Math.round((quotaData.current_usage / quotaData.requests_per_minute) * 100)) : 0], ['Tokens', quotaData.tokens_per_minute ? Math.min(100, Math.round(((quotaData.current_token_usage ?? 0) / quotaData.tokens_per_minute) * 100)) : 0]].map(([name, value]) => (
                   <div key={name}>
                     <span>{name}</span>
                     <div className="progress"><span style={{ width: String(value) + '%' }} /></div>

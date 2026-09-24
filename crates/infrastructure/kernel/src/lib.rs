@@ -1005,7 +1005,11 @@ pub struct SqliteEventStore {
 impl SqliteEventStore {
     /// Create a new SQLite event store with the given connection string.
     pub async fn new(connection_string: &str) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(connection_string)
+            .await?;
 
         // Initialize schema
         sqlx::query(

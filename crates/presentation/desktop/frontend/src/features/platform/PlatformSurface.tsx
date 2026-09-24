@@ -136,12 +136,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     )
   }
 
-  if (mode === 'overview') return (
-    <Shell>
-      <WorkspaceOverview onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
+  if (mode === 'overview') return <WorkspaceOverview onAction={notify} />
 
   if (mode === 'tasks') return (
     <Shell>
@@ -164,12 +159,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     </Shell>
   )
 
-  if (mode === 'permissions') return (
-    <Shell>
-      <PermissionsMatrix onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
+  if (mode === 'permissions') return <PermissionsMatrix onAction={notify} />
 
   if (mode === 'canvas') return (
     <Shell>

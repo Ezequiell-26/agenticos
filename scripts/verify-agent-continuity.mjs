@@ -101,7 +101,7 @@ const operationsRaw = await readText("reference/journal/agent-operations.jsonl")
 
 function skipLegacyJournalSeparator(source, index) {
   let cursor = skipWhitespace(source, index);
-  if (source[cursor] === "\\\\" && source[cursor + 1] === "n") {
+  if (source[cursor] === "\\" && source[cursor + 1] === "n") {
     cursor += 2;
     cursor = skipWhitespace(source, cursor);
   }

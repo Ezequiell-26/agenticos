@@ -1456,8 +1456,6 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.sshHost = readString(terminal, 'ssh_host', current.sshHost)
     next.sshUser = readString(terminal, 'ssh_user', current.sshUser)
     next.sshPort = readNumber(terminal, 'ssh_port', current.sshPort)
-    next.fileReadMaxChars = readNumber(terminal, 'file_read_max_chars', current.fileReadMaxChars)
-    next.contextFileMaxChars = readNumber(terminal, 'context_file_max_chars', current.contextFileMaxChars)
   }
   if (memory) {
     next.memoryEnabled = readBoolean(memory, 'memory_enabled', current.memoryEnabled)
@@ -1710,6 +1708,8 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.envSubstitutionTemplate = readString(hermesEnvironment, 'template', current.envSubstitutionTemplate)
   }
 
+  next.fileReadMaxChars = readNumber(payload, 'file_read_max_chars', current.fileReadMaxChars)
+  next.contextFileMaxChars = readNumber(payload, 'context_file_max_chars', current.contextFileMaxChars)
   if (typeof payload.timezone === 'string') next.timezone = payload.timezone
   if (hermesUi) {
     next.theme = readString(hermesUi, 'theme', current.theme) as Theme
@@ -1789,8 +1789,6 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       ssh_host: settings.sshHost || null,
       ssh_user: settings.sshUser || null,
       ssh_port: settings.sshPort,
-      file_read_max_chars: settings.fileReadMaxChars,
-      context_file_max_chars: settings.contextFileMaxChars,
     },
     memory: {
       memory_enabled: settings.memoryEnabled,
@@ -2051,6 +2049,8 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
         template: settings.envSubstitutionTemplate,
       },
     },
+    file_read_max_chars: settings.fileReadMaxChars,
+    context_file_max_chars: settings.contextFileMaxChars,
     timezone: settings.timezone,
     ui: {
       theme: settings.theme,

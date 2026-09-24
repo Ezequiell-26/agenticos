@@ -545,6 +545,28 @@ async fn retry_policy_and_quota_state_can_be_combined_for_resilient_provider_wor
 }
 
 #[tokio::test]
+async fn provider_status_never_exposes_credential_value() {
+    let platform = ProviderPlatform::new();
+    platform
+        .register(
+            provider_with_base_url(
+                "secret-provider",
+                "http://127.0.0.1:43123",
+                &["secret-model"],
+            ),
+            Some("super-secret-provider-key".to_string()),
+        )
+        .await
+        .expect("register provider with secret");
+
+    let statuses = platform.list_status().await;
+    let payload = serde_json::to_string(&statuses).expect("serialize provider status");
+
+    assert!(payload.contains("secret-provider"));
+    assert!(!payload.contains("super-secret-provider-key"));
+}
+
+#[tokio::test]
 async fn credential_pool_keeps_credentials_scoped_to_their_provider() {
     let pool = CredentialPool::new();
 

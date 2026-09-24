@@ -815,6 +815,7 @@ mod tests {
                     current_usage: 9,
                 },
                 unix_time().saturating_sub(61),
+                0,
             )
             .await
             .unwrap();
@@ -822,6 +823,34 @@ mod tests {
         assert_eq!(tracker.get("resettable").await.unwrap().current_usage, 0);
         tracker.consume_request("resettable").await.unwrap();
         assert_eq!(tracker.get("resettable").await.unwrap().current_usage, 1);
+    }
+
+    #[tokio::test]
+    async fn token_quota_blocks_requests_after_actual_usage_reaches_limit() {
+        let tracker = QuotaTracker::new();
+        tracker
+            .set_quota(QuotaInfo {
+                provider_id: "token-limited".to_string(),
+                requests_per_minute: Some(100),
+                tokens_per_minute: Some(10),
+                current_usage: 0,
+            })
+            .await
+            .unwrap();
+
+        tracker.consume_request("token-limited").await.unwrap();
+        tracker.record_tokens("token-limited", 10).await.unwrap();
+
+        let error = tracker
+            .consume_request("token-limited")
+            .await
+            .expect_err("token quota should block the next request");
+
+        assert!(error.to_string().contains("token quota exceeded"));
+        assert_eq!(
+            tracker.token_usage("token-limited").await,
+            Some(10)
+        );
     }
 
     #[test]

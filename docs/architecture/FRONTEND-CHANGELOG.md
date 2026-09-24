@@ -1333,3 +1333,14 @@ Verification status:
 - Made panel drag updates apply live through CSS/UI state while persisting only the final width, avoiding LocalStorage writes on every pointer movement.
 - Reasserted compact shell grid breakpoints after the desktop variable-based grid definition so narrow-window layout remains authoritative.
 - Verification status: source correction applied; production build, browser interaction and Tauri rendering remain pending.
+
+
+## 2026-09-24 — IDE interaction and focus management
+
+- Added a reusable focus-trap primitive for modal/launcher surfaces with initial-focus management and focus restoration after close.
+- Applied focus management to Command Palette, Global Search, Keyboard Shortcuts and All Features launcher.
+- Added ArrowUp/ArrowDown keyboard navigation and focus return for conversation context menus.
+- Completed Workspace Dock tab-to-tabpanel relationships for assistive technology and direct keyboard focus.
+- Documented Home/End keyboard controls for adjustable panel widths.
+- Added architecture-gate coverage for overlay focus, keyboard menus and dock semantics.
+- Verification status: source-level contract checks applied; production build, browser execution and Tauri/accessibility rendering remain pending.

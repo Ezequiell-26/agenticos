@@ -71,6 +71,34 @@ const chatSurfaceSource = readFileSync(
   "crates/presentation/desktop/frontend/src/components/ChatSurface.tsx",
   "utf8",
 );
+const focusTrapSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/hooks/useFocusTrap.ts",
+  "utf8",
+);
+const sidebarSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/WorkspaceSidebar.tsx",
+  "utf8",
+);
+const dockSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx",
+  "utf8",
+);
+if (
+  !focusTrapSource.includes("FOCUSABLE") ||
+  !focusTrapSource.includes("previous?.focus()") ||
+  !focusTrapSource.includes("event.key !== 'Tab'") ||
+  !sidebarSource.includes('aria-haspopup="menu"') ||
+  !sidebarSource.includes("ArrowDown") ||
+  !sidebarSource.includes("ArrowUp") ||
+  !dockSource.includes("role="tabpanel"") ||
+  !dockSource.includes("aria-controls={'workspace-dock-panel-' + item.toLowerCase()}")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — overlay focus, keyboard menus and dock tab semantics are required.",
+  );
+  process.exit(1);
+}
+
 if (
   !launcherSource.includes('role="combobox"') ||
   !launcherSource.includes('role="listbox"') ||

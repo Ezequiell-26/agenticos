@@ -1055,3 +1055,14 @@ Verification status:
 - Added a resilience policy editor for automatic failover, health-aware selection, circuit breaking, bounded retries, maximum attempts and cooldown.
 - Kept every control presentation-only; no provider calls, credential reads, durable state writes or runtime failover behavior were introduced.
 - Verification status: static/source checks only. Frontend build, browser/Tauri verification and the authorized Step 25 acceptance suite remain unverified.
+
+## 2026-09-24 — Frontend shell polish, global shortcuts and resilient surface states
+
+- Added a global `KeyboardShortcuts` dialog with keyboard-first navigation, accessible dialog semantics and a complete shortcut inventory.
+- Wired `?` to open the shortcut center and `Ctrl/Cmd+1…9` to jump across the primary navigation entries.
+- Added real Focus Mode shell composition that hides secondary panels without creating a second application shell.
+- Added narrow-desktop responsive behavior below 1000px so the application no longer requires the 1180px global minimum when the viewport is constrained.
+- Improved runtime status semantics with live-region output and corrected the notification control to use the notification icon plus accessible unread labeling.
+- Added full generic `FeatureWorkbench` state previews for Ready, Loading, Empty, Error, Offline and Approval, including recovery/reconnect presentation actions and reduced-motion behavior.
+- Preserved the runtime boundary: shortcut actions and state previews remain presentation-only.
+- Verification status: source-level audit only. Build, browser, accessibility execution and Tauri rendering remain unverified.

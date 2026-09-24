@@ -167,7 +167,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
           <div className="workflow-builder__toolbar-actions">
             <button className="studio-button" type="button" onClick={() => moveSelected(-1)}><Icon name="arrow-up" size={13} /> Up</button>
             <button className="studio-button" type="button" onClick={() => moveSelected(1)}><Icon name="arrow-down" size={13} /> Down</button>
-            <button className="studio-button" type="button" onClick={() => void saveRuntimeWorkflow()}><Icon name="save" size={13} /> Save runtime</button>
+            <button className="studio-button" type="button" onClick={() => void saveRuntimeWorkflow()}><Icon name="download" size={13} /> Save runtime</button>
             <button className="studio-button studio-button--active" type="button" onClick={() => void startRuntimeWorkflow()}><Icon name="play" size={13} /> Start</button>
             <button className={enabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setEnabled((value) => !value)}>{enabled ? 'Pause UI' : 'Enable UI'}</button>
           </div>

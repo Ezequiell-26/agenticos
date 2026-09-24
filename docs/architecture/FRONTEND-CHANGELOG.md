@@ -1139,3 +1139,10 @@ Verification status:
 - This resolves the concrete TypeScript parser failure reported by CI (`TS1005: '}' expected`) before the Quotas tab.
 - The subsequent quota JSX normalization remains in place; no provider behavior or runtime boundary was changed.
 - Verification status: awaiting the latest CI run.
+
+## 2026-09-24 — Continuity historical-record short-circuit
+
+- Hardened the continuity verifier again after CI continued to report a historical evidence failure despite the timestamp predicate being satisfied in source inspection.
+- Completed records before the fixed `2026-09-24T01:00:00Z` cutoff now exit the evidence-validation branch explicitly after checking `next_step`; records at/after the cutoff remain subject to strict non-empty evidence requirements.
+- The failure message for current records now includes the operation timestamp and cutoff to make any future policy mismatch diagnosable directly from CI logs.
+- Verification status: awaiting the newest CI run.

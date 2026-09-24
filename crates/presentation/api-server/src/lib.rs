@@ -1093,6 +1093,134 @@ async fn execute_tool(
     }
 }
 
+async fn scheduler_worker(state: RuntimeState) {
+    loop {
+        let ready_jobs = state.scheduler.next_ready(8).await;
+        if ready_jobs.is_empty() {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            continue;
+        }
+
+        for queued_job in ready_jobs {
+            let started_job = match state.scheduler.start(&queued_job.spec.job_id).await {
+                Ok(job) => job,
+                Err(error) => {
+                    tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
+                    continue;
+                }
+            };
+
+            let run_id = RunId::new(started_job.spec.run_id.clone()).ok();
+            if let Some(run_id) = run_id.clone() {
+                let run = state.kernel.runs.read().await.get(&run_id).cloned();
+                match run {
+                    Some(run) if matches!(run.state, RunState::Cancelling | RunState::Cancelled) => {
+                        let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
+                        if run.state == RunState::Cancelling {
+                            let _ = state
+                                .kernel
+                                .transition_run(&run_id, RunState::Cancelled, run.version)
+                                .await;
+                        }
+                        continue;
+                    }
+                    Some(run) if run.state == RunState::Admitted => {
+                        if let Err(error) = state
+                            .kernel
+                            .transition_run(&run_id, RunState::Running, run.version)
+                            .await
+                        {
+                            let _ = state
+                                .scheduler
+                                .complete(&started_job.spec.job_id, false, Some(error.to_string()))
+                                .await;
+                            continue;
+                        }
+                    }
+                    Some(_) => {}
+                    None => {
+                        let _ = state
+                            .scheduler
+                            .complete(
+                                &started_job.spec.job_id,
+                                false,
+                                Some("run not found".to_string()),
+                            )
+                            .await;
+                        continue;
+                    }
+                }
+            }
+
+            let session_id = format!("run:{}", started_job.spec.run_id);
+            let agent = state.session_agent(&session_id).await;
+            match agent.execute_turn(&started_job.spec.task).await {
+                Ok(response) => {
+                    if let Some(run_id) = run_id {
+                        let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
+                        if let Some(run) = current_run {
+                            let transition = match run.state {
+                                RunState::Cancelling => state
+                                    .kernel
+                                    .transition_run(&run_id, RunState::Cancelled, run.version)
+                                    .await,
+                                RunState::Running => state
+                                    .kernel
+                                    .transition_run(&run_id, RunState::Completed, run.version)
+                                    .await,
+                                _ => Ok(()),
+                            };
+                            if let Err(error) = transition {
+                                tracing::error!(run_id = %run_id.as_str(), %error, "failed to finalize run after successful execution");
+                            }
+                        }
+                    }
+                    if let Err(error) = state
+                        .memory
+                        .store_message(
+                            &format!("{}-result", started_job.spec.run_id),
+                            &started_job.spec.run_id,
+                            "assistant",
+                            &response,
+                        )
+                        .await
+                    {
+                        tracing::warn!(job_id = %started_job.spec.job_id, %error, "failed to persist execution result");
+                    }
+                    let _ = state
+                        .scheduler
+                        .complete(&started_job.spec.job_id, true, None)
+                        .await;
+                }
+                Err(error) => {
+                    let final_attempt = started_job.attempts >= started_job.spec.max_attempts.max(1);
+                    if final_attempt {
+                        if let Some(run_id) = run_id {
+                            let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
+                            if let Some(run) = current_run {
+                                if run.state == RunState::Running {
+                                    if let Err(transition_error) = state
+                                        .kernel
+                                        .transition_run(&run_id, RunState::Failed, run.version)
+                                        .await
+                                    {
+                                        tracing::error!(run_id = %run_id.as_str(), %transition_error, "failed to mark run as failed");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    tracing::error!(job_id = %started_job.spec.job_id, %error, final_attempt, "agent execution failed");
+                    let _ = state
+                        .scheduler
+                        .complete(&started_job.spec.job_id, false, Some(error.to_string()))
+                        .await;
+                }
+            }
+        }
+    }
+}
+
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);
     let status: SandboxStatus = state

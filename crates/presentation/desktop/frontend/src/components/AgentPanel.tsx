@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { AgentStatusSnapshot } from '../types/runtime'
 import Icon from './Icon'
+import PanelResizeHandle from './PanelResizeHandle'
 
 type AgentTab = 'Agent' | 'Context' | 'Task' | 'Safety'
 
@@ -33,6 +34,7 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
 
   return (
     <aside className="agent-panel">
+      <PanelResizeHandle axis="inspector" />
       <div className="panel-heading">
         <div>
           <div className="eyebrow">Agent inspector</div>

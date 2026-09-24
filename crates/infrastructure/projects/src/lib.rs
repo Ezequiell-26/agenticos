@@ -55,8 +55,8 @@ impl ProjectRegistry {
         let rows =
             sqlx::query_as::<_, (String, String)>("SELECT project_id, payload FROM projects")
                 .fetch_all(&db)
-        .await
-        .map_err(|error| format!("project recovery failed: {error}"))?;
+                .await
+                .map_err(|error| format!("project recovery failed: {error}"))?;
 
         let mut projects = HashMap::with_capacity(rows.len());
         for (project_id, payload) in rows {

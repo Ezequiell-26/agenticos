@@ -429,7 +429,9 @@ impl A2aClient {
             .supported_interfaces
             .iter()
             .find(|interface| {
-                interface.protocol_binding.eq_ignore_ascii_case(A2A_PROTOCOL_BINDING)
+                interface
+                    .protocol_binding
+                    .eq_ignore_ascii_case(A2A_PROTOCOL_BINDING)
                     && interface.protocol_version == A2A_PROTOCOL_VERSION
             })
             .or_else(|| card.supported_interfaces.first())
@@ -472,11 +474,7 @@ impl A2aClient {
         Self::from_agent_card(&card)
     }
 
-    async fn call(
-        &self,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, String> {
+    async fn call(&self, method: &str, params: Value) -> Result<Value, String> {
         if method.trim().is_empty() {
             return Err("A2A method must not be empty".to_string());
         }
@@ -499,10 +497,7 @@ impl A2aClient {
             .map_err(|error| format!("A2A request failed: {error}"))?;
 
         if !response.status().is_success() {
-            return Err(format!(
-                "A2A request returned HTTP {}",
-                response.status()
-            ));
+            return Err(format!("A2A request returned HTTP {}", response.status()));
         }
 
         let envelope = response

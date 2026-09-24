@@ -314,8 +314,7 @@ impl From<ConfigError> for ContractError {
 }
 
 /// Capability grant type.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CapabilityType {
     /// Read-only capability.
     Read,

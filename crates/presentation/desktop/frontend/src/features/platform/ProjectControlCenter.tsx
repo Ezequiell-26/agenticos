@@ -152,9 +152,9 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
           <Panel title="Workspace health">
             <div className="health-list">
               {[
-                ['Runtime', health?.status ?? 'Offline preview', health?.status === 'ok' || health?.status === 'healthy' ? 'Ready' : runtimeSyncing ? 'Pending' : 'Warning'],
+                ['Runtime', String(health?.status ?? 'Offline preview'), health?.status === 'ok' || health?.status === 'healthy' ? 'Ready' : runtimeSyncing ? 'Pending' : 'Warning'],
                 ['Git', 'Clean preview', 'Ready'],
-                ['Context', readiness ? String(readiness.status ?? 'ready') + ' · ' + (readiness.provider_configured ? 'provider configured' : 'no provider') : 'Budget pending', readiness?.healthy_provider ? 'Ready' : 'Pending'],
+                ['Context', readiness ? String(readiness.status ?? 'ready') + ' · ' + (readiness.provider_configured === true ? 'provider configured' : 'no provider') : 'Budget pending', readiness?.healthy_provider === true ? 'Ready' : 'Pending'],
                 ['Policies', 'Fail-closed', 'Ready'],
                 ['Evidence', runtimeRuns.length ? String(runtimeRuns.length) + ' runs visible' : 'No runs loaded', runtimeRuns.length ? 'Ready' : 'Pending'],
               ].map(([name, detail, state]) => (

@@ -38,7 +38,7 @@ const slashCommands = [
   ['/gateway', 'Inspect messaging gateway.'],
 ] as const
 
-function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: (action: string) => void }) {
+function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; onAction: (action: string) => void; onCopy: (content: string) => void }) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
@@ -48,7 +48,7 @@ function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: 
       <div className={`message-bubble ${isUser ? 'message-bubble--user' : ''} ${isSystem ? 'message-bubble--system' : ''}`}>
         <div className="message-meta"><span>{isUser ? 'You' : isSystem ? 'System' : 'AgentiCOS'}</span><time>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
         <p>{message.content}</p>
-        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => void copyResponse(message.content)}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
+        {!isSystem && !isUser && <div className="message-actions"><button type="button" title="Copy response" onClick={() => void onCopy(message.content)}><Icon name="copy" size={13} /></button><button type="button" title="Regenerate response" onClick={() => onAction('Regenerate queued in preview')}><Icon name="history" size={13} /></button><button type="button" title="Open response tools" onClick={() => onAction('Response actions opened')}><Icon name="more" size={13} /></button></div>}
       </div>
     </article>
   )
@@ -269,7 +269,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           </div>
         ) : (
           <div className="message-stack">
-            {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} />)}
+            {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} onCopy={(content) => void copyResponse(content)} />)}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
             <div ref={messagesEndRef} aria-hidden="true" />
           </div>

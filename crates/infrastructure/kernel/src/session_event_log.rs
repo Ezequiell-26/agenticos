@@ -207,7 +207,7 @@ impl SessionEventLog {
 
     /// Get events by type.
     pub fn get_events_by_type(&self, event_type: &str) -> Vec<SessionEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.lock_events();
         events
             .iter()
             .filter(|e| {

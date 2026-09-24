@@ -1316,3 +1316,13 @@ Verification status:
 - Added an architecture regression guard for route-scoped recovery behavior.
 - Preserved local error isolation and the existing runtime boundary.
 - Verification status: source-level guard added; production build, browser execution and Tauri rendering remain pending.
+
+
+## 2026-09-24 — Persistent panel resizing
+
+- Added accessible pointer and keyboard resizing for the workspace sidebar and agent inspector.
+- Persisted panel widths through the existing UI preference store and exposed their current values through separator semantics.
+- Added desktop-only resize affordances that disappear at compact breakpoints where those panels are already hidden.
+- Added an architecture regression guard for persistence and keyboard/pointer resize behavior.
+- Preserved the existing layout preference boundaries and runtime ownership.
+- Verification status: source-level checks applied; production build, browser interaction and Tauri rendering remain pending.

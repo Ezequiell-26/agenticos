@@ -60,10 +60,13 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
           <div className="memory-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search memory…" aria-label="Search memory" /></div>
           <select value={scope} onChange={(event) => setScope(event.target.value as MemoryScope | 'All')} aria-label="Memory scope"><option>All</option><option>Workspace</option><option>Project</option><option>Agent</option><option>Session</option></select>
         </div>
-        <div className="memory-tabs" role="tablist" aria-label="Memory filters">
-          {(['All', 'Pinned', 'Recent'] as MemoryTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'memory-tab memory-tab--active' : 'memory-tab'} onClick={() => setTab(item)}>{item}</button>)}
+        <div className="memory-tabs" role="tablist" aria-label="Memory filters" aria-orientation="horizontal">
+          {(['All', 'Pinned', 'Recent'] as MemoryTab[]).map((item, index, tabs) => <button type="button" key={item} id={'memory-tab-' + item.toLowerCase()} role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="memory-list-panel" className={tab === item ? 'memory-tab memory-tab--active' : 'memory-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+            const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('memory-tab-' + next.toLowerCase())?.focus()) }
+          }}>{item}</button>)}
         </div>
-        <div className="memory-stats-mini"><span>{items.length} items</span><span>{items.filter((item) => item.pinned).length} pinned</span><span>{items.reduce((sum, item) => sum + Number(item.tokens), 0)} tokens</span></div>
+        <div id="memory-list-panel" className="memory-list" role="tabpanel" aria-labelledby={'memory-tab-' + tab.toLowerCase()} tabIndex={0}><span>{items.length} items</span><span>{items.filter((item) => item.pinned).length} pinned</span><span>{items.reduce((sum, item) => sum + Number(item.tokens), 0)} tokens</span></div>
         <div className="memory-list">
           {visible.length === 0 ? <div className="memory-empty">No memory matches the current filters.</div> : visible.map((item) => <button type="button" key={item.id} className={active.id === item.id ? 'memory-item memory-item--active' : 'memory-item'} onClick={() => setSelected(item.id)}><div className="memory-item__icon"><Icon name={item.pinned ? 'archive' : 'history'} size={13} /></div><div><strong>{item.title}</strong><span>{item.scope} · {item.priority}</span></div><small>{item.tokens}</small></button>)}
         </div>

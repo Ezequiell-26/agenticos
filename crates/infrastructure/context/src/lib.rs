@@ -133,7 +133,10 @@ fn fold_repeated_lines(input: &str) -> (String, usize) {
     let mut repeat_count = 0usize;
     let mut folded = 0usize;
 
-    let flush = |output: &mut String, previous: &mut Option<&str>, repeat_count: &mut usize, folded: &mut usize| {
+    let flush = |output: &mut String,
+                  previous: &mut Option<&str>,
+                  repeat_count: &mut usize,
+                  folded: &mut usize| {
         if let Some(line) = *previous {
             if *repeat_count > 1 {
                 output.push_str(line);
@@ -154,9 +157,11 @@ fn fold_repeated_lines(input: &str) -> (String, usize) {
         let line = line.trim_end();
         if line.is_empty() {
             if repeat_count > 0 {
-        flush(&mut output, &mut previous, &mut repeat_count, &mut folded);
-    }
-            if !output.is_empty() && !output.ends_with("\n\n") { output.push('\n'); }
+                flush(&mut output, &mut previous, &mut repeat_count, &mut folded);
+            }
+            if !output.is_empty() && !output.ends_with("\n\n") {
+                output.push('\n');
+            }
             continue;
         }
 

@@ -1181,3 +1181,11 @@ Verification status:
 - Historical completed operations still require a durable `next_step`; current/future modern records retain the full strict contract.
 - This addresses the successive legacy failures observed after the initial evidence-field migration without rewriting historical journal content.
 - Verification status: awaiting the next CI run.
+
+## 2026-09-24 — Continuity migration anchor hardening
+
+- Replaced timestamp-based historical schema compatibility with an append-only migration anchor: `ci-error-repair-rustfmt-continuity-2026-09-24`.
+- This matches the actual journal history: entries before that operation use mixed historical schemas, while entries from the anchor onward use the strict schema/evidence contract.
+- Added a fail-closed guard if the migration anchor is ever missing, and reject schema-less legacy records after the strict boundary.
+- This avoids misclassifying historical records with timezone offsets or inconsistent legacy field sets as current work.
+- Verification status: awaiting the next GitHub Actions run.

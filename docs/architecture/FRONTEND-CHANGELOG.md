@@ -1037,3 +1037,12 @@ Verification status:
 - Corrected the generic-route regex after inspection so the verifier extracts the declared mode list reliably.
 - This keeps the architecture gate aligned with the consolidated frontend routing model instead of requiring one conditional branch per surface.
 - Verification status: source-level route audit is clean; the actual repository `npm run verify` and desktop frontend build still require CI/local execution evidence.
+
+## 2026-09-24 — Provider resilience, verification and health diagnostics
+
+- Expanded `ProviderStudio` with a Resilience workspace for primary timeouts, rate limits, context overflow, tool incompatibility and provider outage scenarios.
+- Added a Verification workspace aligned to the actual provider integration-test concepts in `provider_plane_integration.rs`: multi-provider registry/catalog composition, declared failover order, disabled failover, health-driven selection, bounded retry + quota state, provider-scoped credentials, deterministic transport and multi-provider orchestration.
+- Added a Health diagnostics timeline with selectable 15m/1h/24h windows, status transitions, incident-style entries and evidence inspection actions.
+- Added responsive styling in `ProviderResilience.css` while preserving the existing monochrome design system.
+- All new controls remain presentation-local; they do not execute provider traffic or claim CI/runtime verification.
+- Verification status: source inspection and route ownership remain clean. Frontend build, browser/Tauri verification and Step 25 acceptance evidence remain unverified.

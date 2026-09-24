@@ -2519,11 +2519,18 @@ impl ReactAgent {
 
     /// Execute one full ReAct loop turn.
     pub async fn execute_turn(&self, input: &str) -> Result<String, ContractError> {
-        if self.is_finished() {
-            return Err(ContractError::ParseError(
-                "Maximum turns reached".to_string(),
-            ));
-        }
+        // Reserve the turn atomically so concurrent requests cannot reuse the same turn.
+        let current_turn = {
+            let mut inner = self.inner.lock().unwrap();
+            if inner.current_turn >= self.max_turns {
+                return Err(ContractError::ParseError(
+                    "Maximum turns reached".to_string(),
+                ));
+            }
+            let turn = inner.current_turn;
+            inner.current_turn += 1;
+            turn
+        };
 
         // Snapshot required state without holding the lock across await boundaries
         let (
@@ -2620,9 +2627,14 @@ impl ReactAgent {
         // Store user input in SQLite memory if available
         if let Some(memory) = &memory {
             let msg_id = format!("user-{}", current_turn);
-            let _ = memory
+            memory
                 .store_message(&msg_id, &session_id, "user", input)
-                .await;
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "failed to persist user message: {error}"
+                    ))
+                })?;
         }
 
         // Use planner to decompose complex tasks if available
@@ -2651,9 +2663,14 @@ impl ReactAgent {
         // Store assistant thought in SQLite memory if available
         if let Some(memory) = &memory {
             let msg_id = format!("assistant-{}", current_turn);
-            let _ = memory
+            memory
                 .store_message(&msg_id, &session_id, "assistant", &thought)
-                .await;
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "failed to persist assistant message: {error}"
+                    ))
+                })?;
         }
 
         // Log assistant message event
@@ -2905,7 +2922,7 @@ impl ReactAgent {
                     code: code.to_string(),
                     timeout_ms: 30000,
                     memory_limit_bytes: 1024 * 1024 * 100,
-                    allowed_capabilities: vec!["execute".to_string()],
+                    allowed_capabilities: vec!["process.execute".to_string()],
                 };
                 let _ = sandbox.execute(request).await;
             }
@@ -2940,17 +2957,23 @@ impl ReactAgent {
             };
             let event = SerializedEvent {
                 event_type: "checkpoint".to_string(),
-                data: serde_json::to_string(&checkpoint).unwrap_or_default(),
+                data: serde_json::to_string(&checkpoint).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "failed to serialize checkpoint: {error}"
+                    ))
+                })?,
                 schema_version: 1,
             };
             let stream_id = format!("agent-{}", session_id);
-            let _ = store
+            store
                 .append(&stream_id, current_turn as u64, vec![event])
-                .await;
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "failed to persist checkpoint: {error}"
+                    ))
+                })?;
         }
-
-        // Increment turn
-        self.increment_turn();
 
         Ok(result)
     }
@@ -2980,9 +3003,10 @@ impl ReactAgent {
         self.inner.lock().unwrap().current_turn
     }
 
-    /// Increment turn count.
+    /// Increment the current turn for callers that manage turns externally.
     pub fn increment_turn(&self) {
-        self.inner.lock().unwrap().current_turn += 1;
+        let mut inner = self.inner.lock().unwrap();
+        inner.current_turn = inner.current_turn.saturating_add(1);
     }
 
     /// Check if agent has reached max turns.
@@ -3522,9 +3546,47 @@ impl ToolExecutor {
         Self { workdir }
     }
 
+    fn safe_path(&self, path: &str) -> Result<PathBuf, String> {
+        let relative = std::path::Path::new(path);
+        if relative.is_absolute()
+            || path
+                .split(['/', '\\'])
+                .any(|segment| segment == "..")
+        {
+            return Err(format!("path '{}' escapes the workspace", path));
+        }
+
+        let root = std::fs::canonicalize(&self.workdir)
+            .map_err(|error| format!("workspace is unavailable: {error}"))?;
+        let candidate = self.workdir.join(relative);
+
+        if candidate.exists() {
+            let canonical = std::fs::canonicalize(&candidate)
+                .map_err(|error| format!("path '{}' cannot be resolved: {error}", path))?;
+            if !canonical.starts_with(&root) {
+                return Err(format!("path '{}' escapes the workspace", path));
+            }
+            Ok(canonical)
+        } else {
+            let parent = candidate
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new(&self.workdir));
+            let canonical_parent = std::fs::canonicalize(parent).map_err(|error| {
+                format!("parent directory for '{}' cannot be resolved: {error}", path)
+            })?;
+            if !canonical_parent.starts_with(&root) {
+                return Err(format!("path '{}' escapes the workspace", path));
+            }
+            Ok(candidate)
+        }
+    }
+
     /// Execute a file read operation.
     pub fn read_file(&self, path: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::read_to_string(&full_path) {
             Ok(content) => ToolResult::success(content),
             Err(e) => ToolResult::failure(format!("Failed to read file: {}", e)),
@@ -3533,7 +3595,10 @@ impl ToolExecutor {
 
     /// Execute a file write operation.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::write(&full_path, content) {
             Ok(_) => ToolResult::success(format!("File written: {}", path)),
             Err(e) => ToolResult::failure(format!("Failed to write file: {}", e)),
@@ -3542,7 +3607,10 @@ impl ToolExecutor {
 
     /// Edit a specific line in a file.
     pub fn edit_line(&self, path: &str, line_number: usize, new_content: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::read_to_string(&full_path) {
             Ok(content) => {
                 let mut lines: Vec<&str> = content.lines().collect();
@@ -3565,7 +3633,10 @@ impl ToolExecutor {
 
     /// Insert a line at a specific position in a file.
     pub fn insert_line(&self, path: &str, line_number: usize, new_content: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::read_to_string(&full_path) {
             Ok(content) => {
                 let mut lines: Vec<&str> = content.lines().collect();
@@ -3589,7 +3660,10 @@ impl ToolExecutor {
 
     /// Delete a specific line from a file.
     pub fn delete_line(&self, path: &str, line_number: usize) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::read_to_string(&full_path) {
             Ok(content) => {
                 let mut lines: Vec<&str> = content.lines().collect();
@@ -3613,7 +3687,10 @@ impl ToolExecutor {
 
     /// Find and replace text in a file.
     pub fn find_and_replace(&self, path: &str, find: &str, replace: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         match std::fs::read_to_string(&full_path) {
             Ok(content) => {
                 let new_content = content.replace(find, replace);
@@ -3631,7 +3708,10 @@ impl ToolExecutor {
 
     /// Check if a file exists.
     pub fn file_exists(&self, path: &str) -> ToolResult {
-        let full_path = self.workdir.join(path);
+        let full_path = match self.safe_path(path) {
+            Ok(path) => path,
+            Err(error) => return ToolResult::failure(error),
+        };
         if full_path.exists() {
             ToolResult::success(format!("File exists: {}", path))
         } else {
@@ -3788,9 +3868,13 @@ impl ToolExecutor {
             ));
         }
 
-        let output = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(command)
+        let args: Vec<&str> = command.split_whitespace().collect();
+        if args.is_empty() {
+            return ToolResult::failure("Command must not be empty".to_string());
+        }
+
+        let output = std::process::Command::new(args[0])
+            .args(&args[1..])
             .current_dir(&self.workdir)
             .output();
 
@@ -4508,6 +4592,19 @@ impl Default for LLMConfig {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn tool_executor_rejects_workspace_traversal() {
+        let root = std::env::temp_dir().join(format!("agenticos-tool-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let executor = super::ToolExecutor::new(root.clone());
+
+        let result = executor.read_file("../outside.txt");
+        assert!(!result.success);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+
     use super::*;
 
     fn test_runtime() -> tokio::runtime::Runtime {

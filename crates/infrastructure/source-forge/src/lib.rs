@@ -381,3 +381,252 @@ mod tests {
         });
     }
 }
+
+/// GitHub repository metadata fetched from the live GitHub API.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GitHubRepositoryInfo {
+    /// Normalized owner/repository identifier.
+    pub repo_id: String,
+    /// Canonical repository URL.
+    pub url: String,
+    /// Default branch reported by GitHub.
+    pub default_branch: String,
+    /// SPDX license identifier when GitHub reports one.
+    pub license: Option<String>,
+    /// Primary language reported by GitHub.
+    pub language: Option<String>,
+    /// Public star count reported by GitHub.
+    pub stars: u64,
+}
+
+/// A bounded source-file response.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceFile {
+    /// Repository identifier.
+    pub repo_id: String,
+    /// Requested path.
+    pub path: String,
+    /// Resolved reference.
+    pub reference: String,
+    /// UTF-8 file content.
+    pub content: String,
+    /// Whether the remote response was truncated.
+    pub truncated: bool,
+}
+
+/// Source inspection failures.
+#[derive(Debug, thiserror::Error)]
+pub enum SourceForgeError {
+    /// The GitHub source string is malformed.
+    #[error("invalid GitHub repository source: {0}")]
+    InvalidSource(String),
+    /// The outbound HTTP request failed.
+    #[error("GitHub request failed: {0}")]
+    Request(String),
+    /// GitHub returned an unsuccessful status.
+    #[error("GitHub API returned HTTP {status}: {message}")]
+    Api {
+        /// HTTP status.
+        status: u16,
+        /// Short API message.
+        message: String,
+    },
+    /// The response payload could not be decoded.
+    #[error("GitHub response decode failed: {0}")]
+    Decode(String),
+    /// The requested source file exceeded the configured bound.
+    #[error("source file exceeds the configured size limit")]
+    TooLarge,
+}
+
+/// Bounded GitHub source inspector.
+#[derive(Clone, Debug)]
+pub struct GitHubSourceClient {
+    client: reqwest::Client,
+    api_base: String,
+    token: Option<String>,
+    max_file_bytes: usize,
+}
+
+impl GitHubSourceClient {
+    /// Create a client from environment configuration.
+    pub fn from_env() -> Result<Self, SourceForgeError> {
+        let user_agent = format!("AgentiCOS/{}", env!("CARGO_PKG_VERSION"));
+        let client = reqwest::Client::builder()
+            .user_agent(user_agent)
+            .build()
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+
+        let api_base = std::env::var("AGENTICOS_GITHUB_API_URL")
+            .unwrap_or_else(|_| "https://api.github.com".to_string())
+            .trim_end_matches('/')
+            .to_string();
+        let max_file_bytes = std::env::var("AGENTICOS_SOURCE_MAX_FILE_BYTES")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(2 * 1024 * 1024)
+            .clamp(1, 16 * 1024 * 1024);
+
+        Ok(Self {
+            client,
+            api_base,
+            token: std::env::var("GITHUB_TOKEN")
+                .ok()
+                .filter(|value| !value.trim().is_empty()),
+            max_file_bytes,
+        })
+    }
+
+    /// Inspect a public GitHub repository.
+    pub async fn inspect_repository(
+        &self,
+        source: &str,
+    ) -> Result<GitHubRepositoryInfo, SourceForgeError> {
+        let repo_id = normalize_github_repo(source)?;
+        let response = self
+            .request(format!("/repos/{repo_id}"))
+            .send()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        let response = self.ensure_success(response).await?;
+        #[derive(Deserialize)]
+        struct License {
+            spdx_id: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct RepoPayload {
+            full_name: String,
+            html_url: String,
+            default_branch: String,
+            language: Option<String>,
+            stargazers_count: u64,
+            license: Option<License>,
+        }
+        let payload = response
+            .json::<RepoPayload>()
+            .await
+            .map_err(|error| SourceForgeError::Decode(error.to_string()))?;
+
+        Ok(GitHubRepositoryInfo {
+            repo_id: payload.full_name,
+            url: payload.html_url,
+            default_branch: payload.default_branch,
+            license: payload.license.and_then(|license| license.spdx_id),
+            language: payload.language,
+            stars: payload.stargazers_count,
+        })
+    }
+
+    /// Fetch a UTF-8 file from a repository at an optional ref.
+    pub async fn fetch_file(
+        &self,
+        repo: &str,
+        path: &str,
+        reference: Option<&str>,
+    ) -> Result<SourceFile, SourceForgeError> {
+        let repo_id = normalize_github_repo(repo)?;
+        let path = normalize_source_path(path)?;
+        let mut request = self
+            .request(format!("/repos/{repo_id}/contents/{path}"))
+            .header("Accept", "application/vnd.github.raw");
+        if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
+            if reference.len() > 256 || reference.contains(['', '
+']) {
+                return Err(SourceForgeError::InvalidSource(
+                    "invalid Git reference".to_string(),
+                ));
+            }
+            request = request.query(&[("ref", reference)]);
+        }
+
+        let response = request
+            .send()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        let response = self.ensure_success(response).await?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        if bytes.len() > self.max_file_bytes {
+            return Err(SourceForgeError::TooLarge);
+        }
+        let content = String::from_utf8(bytes.to_vec())
+            .map_err(|error| SourceForgeError::Decode(error.to_string()))?;
+
+        Ok(SourceFile {
+            repo_id,
+            path,
+            reference: reference.unwrap_or("default").to_string(),
+            content,
+            truncated: false,
+        })
+    }
+
+    fn request(&self, path: String) -> reqwest::RequestBuilder {
+        let mut request = self.client.get(format!("{}{}", self.api_base, path));
+        if let Some(token) = &self.token {
+            request = request.bearer_auth(token);
+        }
+        request
+    }
+
+    async fn ensure_success(
+        &self,
+        response: reqwest::Response,
+    ) -> Result<reqwest::Response, SourceForgeError> {
+        let status = response.status();
+        if status.is_success() {
+            return Ok(response);
+        }
+        let message = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "unknown GitHub API error".to_string());
+        let mut message = message;
+        if message.len() > 1024 {
+            message.truncate(1024);
+        }
+        Err(SourceForgeError::Api {
+            status: status.as_u16(),
+            message,
+        })
+    }
+}
+
+fn normalize_github_repo(source: &str) -> Result<String, SourceForgeError> {
+    let value = source
+        .trim()
+        .trim_end_matches('/')
+        .trim_end_matches(".git")
+        .trim_start_matches("https://github.com/")
+        .trim_start_matches("http://github.com/")
+        .trim_start_matches("github.com/")
+        .trim();
+
+    let parts = value.split('/').collect::<Vec<_>>();
+    if parts.len() != 2
+        || parts.iter().any(|part| {
+            part.is_empty()
+                || part.len() > 128
+                || part.contains(['\\', '?', '#', ' ', '\r', '\n'])
+        })
+    {
+        return Err(SourceForgeError::InvalidSource(source.trim().to_string()));
+    }
+    Ok(format!("{}/{}", parts[0], parts[1]))
+}
+
+fn normalize_source_path(path: &str) -> Result<String, SourceForgeError> {
+    let path = path.trim();
+    if path.is_empty()
+        || path.len() > 2048
+        || std::path::Path::new(path).is_absolute()
+        || path.split('/').any(|segment| segment == ".." || segment.is_empty())
+    {
+        return Err(SourceForgeError::InvalidSource(
+            "invalid source file path".to_string(),
+        ));
+    }
+    Ok(path.to_string())
+}

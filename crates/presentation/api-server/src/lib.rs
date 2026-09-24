@@ -39,6 +39,7 @@ use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_source_forge::{GitHubSourceClient, SourceFile, GitHubRepositoryInfo};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -70,6 +71,7 @@ pub struct RuntimeState {
     reasoning: Arc<ReasoningEngine>,
     metrics: Arc<RuntimeMetrics>,
     evaluation: Arc<EvaluationRegistry>,
+    source_forge: Arc<GitHubSourceClient>,
     model: String,
 }
 
@@ -203,6 +205,10 @@ impl RuntimeState {
                     .await
                     .map_err(ContractError::ParseError)?,
             ),
+            source_forge: Arc::new(
+                GitHubSourceClient::from_env()
+                    .map_err(|error| ContractError::ParseError(error.to_string()))?,
+            ),
             model,
         })
     }
@@ -320,6 +326,17 @@ struct CreateEvaluationCaseRequest {
 #[derive(Debug, Deserialize)]
 struct EvaluateCaseRequest {
     output: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct InspectRepositoryRequest {
+    source: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SourceFileQuery {
+    path: String,
+    reference: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -684,6 +701,45 @@ async fn call_mcp_tool(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
+        }),
+    }
+}
+
+async fn inspect_github_repository(
+    request: web::Json<InspectRepositoryRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.source.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "source is required".to_string(),
+            code: "SOURCE_INVALID",
+        });
+    }
+    match state.source_forge.inspect_repository(&request.source).await {
+        Ok(info) => HttpResponse::Ok().json(info),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SOURCE_INSPECTION_FAILED",
+        }),
+    }
+}
+
+async fn fetch_github_source_file(
+    path: web::Path<(String, String)>,
+    query: web::Query<SourceFileQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (owner, repo) = path.into_inner();
+    let repo_id = format!("{owner}/{repo}");
+    match state
+        .source_forge
+        .fetch_file(&repo_id, &query.path, query.reference.as_deref())
+        .await
+    {
+        Ok(file) => HttpResponse::Ok().json(file),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "SOURCE_FILE_FETCH_FAILED",
         }),
     }
 }
@@ -2461,6 +2517,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
             .route("/api/metrics", web::get().to(runtime_metrics))
+            .route(
+                "/api/source/github/inspect",
+                web::post().to(inspect_github_repository),
+            )
+            .route(
+                "/api/source/github/{owner}/{repo}/file",
+                web::get().to(fetch_github_source_file),
+            )
             .route(
                 "/api/evaluation/cases",
                 web::get().to(list_evaluation_cases),

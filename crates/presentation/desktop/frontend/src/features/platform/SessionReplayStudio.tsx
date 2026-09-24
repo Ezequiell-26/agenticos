@@ -15,6 +15,7 @@ const branches=[['main','Stable baseline','0 mutations'],['mission/provider-rout
 
 export function SessionReplayStudio({onAction}:{onAction:(message:string)=>void}){
  const [selected,setSelected]=useState(2),[branch,setBranch]=useState(branches[1][0]),[playing,setPlaying]=useState(false),[filter,setFilter]=useState<EventKind|'all'>('all')
+ const [speed,setSpeed]=useState('1×'),[compareMode,setCompareMode]=useState(false),[forkName,setForkName]=useState('review-fork'),[restoreTarget,setRestoreTarget]=useState('CP-031')
  const visible=useMemo(()=>events.filter(e=>filter==='all'||e[1]===filter),[filter])
  const event=visible[Math.min(selected,visible.length-1)]??events[0]
  const act=(m:string)=>onAction(m+' staged in preview')
@@ -25,7 +26,25 @@ export function SessionReplayStudio({onAction}:{onAction:(message:string)=>void}
    <Panel title="Session branches"><div className="session-replay__branches">{branches.map(([id,title,detail])=><button key={id} type="button" className={branch===id?'replay-branch replay-branch--active':'replay-branch'} onClick={()=>setBranch(id)}><Icon name="branch" size={14}/><span><strong>{id}</strong><small>{title} · {detail}</small></span><Icon name="chevron-right" size={12}/></button>)}</div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Compare branches')}>Compare</button><button className="studio-button" type="button" onClick={()=>act('Rename branch')}>Rename</button></div></Panel>
    <Panel title="Current event"><div className="session-replay__event-head"><span className="eyebrow">{event[1]}</span><code>{event[0]}</code></div><h2>{event[2]}</h2><p>{event[3]}</p><div className="session-replay__event-facts"><div><span>Branch</span><strong>{branch}</strong></div><div><span>Replay position</span><strong>{selected+1} / {visible.length}</strong></div><div><span>Context delta</span><strong>+2.4k tokens</strong></div><div><span>Evidence</span><strong>2 linked items</strong></div></div><div className="platform-actions"><button className="studio-button" type="button" onClick={()=>act('Open event context')}>Context</button><button className="studio-button" type="button" onClick={()=>act('Open linked artifact')}>Artifacts</button><button className="studio-button studio-button--active" type="button" onClick={()=>act('Restore event preview')}>Restore preview</button></div></Panel>
   </div>
-  <Panel title="Trajectory timeline"><div className="session-replay__filters">{(['all','prompt','tool','model','approval','artifact','checkpoint'] as const).map(item=><button className={filter===item?'studio-button studio-button--active':'studio-button'} key={item} onClick={()=>{setFilter(item as typeof filter);setSelected(0)}} type="button">{item}</button>)}</div><div className="session-replay__timeline">{visible.map((item,index)=><button key={item[0]+item[2]} type="button" className={index===selected?'replay-event replay-event--active':'replay-event'} onClick={()=>setSelected(index)}><span className="replay-event__dot"><Icon name={item[1]==='tool'?'tool':item[1]==='checkpoint'?'git':item[1]==='approval'?'lock':item[1]==='artifact'?'archive':item[1]==='model'?'bot':'message'} size={11}/></span><span><strong>{item[2]}</strong><small>{item[0]} · {item[3]}</small></span></button>)}</div></Panel>
-  <div className="session-replay__footer"><span><Icon name="shield" size={12}/> Original session remains immutable in preview mode.</span><span>Replay, fork and restore execute only after session-runtime contracts are connected.</span></div>
+  <Panel title="Trajectory timeline">
+   <div className="session-replay__replaybar">
+    <button className="icon-button" type="button" aria-label="Previous event" title="Previous event" onClick={()=>setSelected((value)=>Math.max(0,value-1))}><Icon name="arrow-down" size={12}/></button>
+    <input aria-label="Replay position" type="range" min="0" max={Math.max(0,visible.length-1)} value={Math.min(selected,Math.max(0,visible.length-1))} onChange={(event)=>setSelected(Number(event.target.value))}/>
+    <button className="icon-button" type="button" aria-label="Next event" title="Next event" onClick={()=>setSelected((value)=>Math.min(visible.length-1,value+1))}><Icon name="arrow-up" size={12}/></button>
+    <span className="mono-text">{selected+1} / {visible.length}</span>
+    <select value={speed} onChange={(event)=>setSpeed(event.target.value)} aria-label="Replay speed"><option>0.5×</option><option>1×</option><option>2×</option><option>4×</option></select>
+   </div>
+   <div className="session-replay__filters">{(['all','prompt','tool','model','approval','artifact','checkpoint'] as const).map(item=><button className={filter===item?'studio-button studio-button--active':'studio-button'} key={item} onClick={()=>{setFilter(item as typeof filter);setSelected(0)}} type="button">{item}</button>)}</div><div className="session-replay__timeline">{visible.map((item,index)=><button key={item[0]+item[2]} type="button" className={index===selected?'replay-event replay-event--active':'replay-event'} onClick={()=>setSelected(index)}><span className="replay-event__dot"><Icon name={item[1]==='tool'?'tool':item[1]==='checkpoint'?'git':item[1]==='approval'?'lock':item[1]==='artifact'?'archive':item[1]==='model'?'bot':'message'} size={11}/></span><span><strong>{item[2]}</strong><small>{item[0]} · {item[3]}</small></span></button>)}</div></Panel>
+  <div className="session-replay__recovery-bar">
+   <div><span className="eyebrow">Recovery workspace</span><strong>{compareMode ? 'Compare branches' : 'Prepare fork / restore'}</strong><small>{compareMode ? 'Review divergence before choosing a recovery path.' : 'Name the fork and target a known checkpoint without changing the original session.'}</small></div>
+   <div className="session-replay__recovery-controls">
+    <label><span>Fork name</span><input value={forkName} onChange={(event)=>setForkName(event.target.value)} /></label>
+    <label><span>Restore target</span><select value={restoreTarget} onChange={(event)=>setRestoreTarget(event.target.value)}><option>CP-031</option><option>CP-030</option><option>CP-029</option></select></label>
+    <button className={compareMode?'studio-button studio-button--active':'studio-button'} type="button" onClick={()=>setCompareMode((value)=>!value)}><Icon name="git" size={12}/>{compareMode?'Exit compare':'Compare branches'}</button>
+    <button className="studio-button studio-button--active" type="button" onClick={()=>act('Restore '+restoreTarget)}>Restore preview</button>
+    <button className="studio-button" type="button" onClick={()=>act('Fork '+forkName)}>Fork preview</button>
+   </div>
+  </div>
+  <div className="session-replay__footer"><span><Icon name="shield" size={12}/> Original session remains immutable in preview mode.</span><span>Replay speed {speed} · {compareMode?'comparison mode enabled':'single-branch mode'}.</span></div>
  </div>
 }

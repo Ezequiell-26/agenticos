@@ -4,6 +4,7 @@
 //! Deterministic replay/evaluation primitives for backend regression checks.
 
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -120,12 +121,90 @@ impl ReplayEvaluator {
 pub struct EvaluationRegistry {
     cases: Arc<RwLock<HashMap<String, EvaluationCase>>>,
     results: Arc<RwLock<HashMap<String, EvaluationResult>>>,
+    db: Option<Arc<SqlitePool>>,
 }
 
 impl EvaluationRegistry {
     /// Create an empty evaluation registry.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Open a SQLite-backed registry and recover cases/results.
+    pub async fn open(database_url: &str) -> Result<Self, String> {
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| format!("evaluation database connection failed: {error}"))?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS evaluation_cases (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
+            .execute(&db)
+            .await
+            .map_err(|error| format!("evaluation case schema failed: {error}"))?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS evaluation_results (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
+            .execute(&db)
+            .await
+            .map_err(|error| format!("evaluation result schema failed: {error}"))?;
+
+        let case_rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT case_id, payload FROM evaluation_cases ORDER BY case_id",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("evaluation case recovery failed: {error}"))?;
+        let result_rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT case_id, payload FROM evaluation_results ORDER BY case_id",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("evaluation result recovery failed: {error}"))?;
+
+        let mut cases = HashMap::with_capacity(case_rows.len());
+        for (case_id, payload) in case_rows {
+            let case = serde_json::from_str(&payload)
+                .map_err(|error| format!("invalid persisted evaluation case {case_id}: {error}"))?;
+            cases.insert(case_id, case);
+        }
+        let mut results = HashMap::with_capacity(result_rows.len());
+        for (case_id, payload) in result_rows {
+            let result = serde_json::from_str(&payload)
+                .map_err(|error| format!("invalid persisted evaluation result {case_id}: {error}"))?;
+            results.insert(case_id, result);
+        }
+
+        Ok(Self {
+            cases: Arc::new(RwLock::new(cases)),
+            results: Arc::new(RwLock::new(results)),
+            db: Some(Arc::new(db)),
+        })
+    }
+
+    async fn persist_case(&self, case: &EvaluationCase) -> Result<(), String> {
+        let Some(db) = &self.db else { return Ok(()); };
+        let payload = serde_json::to_string(case)
+            .map_err(|error| format!("evaluation case serialization failed: {error}"))?;
+        sqlx::query(
+            "INSERT INTO evaluation_cases (case_id, payload) VALUES (?, ?) ON CONFLICT(case_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&case.case_id)
+        .bind(payload)
+        .execute(db.as_ref())
+        .await
+        .map_err(|error| format!("evaluation case persistence failed: {error}"))?;
+        Ok(())
+    }
+
+    async fn persist_result(&self, result: &EvaluationResult) -> Result<(), String> {
+        let Some(db) = &self.db else { return Ok(()); };
+        let payload = serde_json::to_string(result)
+            .map_err(|error| format!("evaluation result serialization failed: {error}"))?;
+        sqlx::query(
+            "INSERT INTO evaluation_results (case_id, payload) VALUES (?, ?) ON CONFLICT(case_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&result.case_id)
+        .bind(payload)
+        .execute(db.as_ref())
+        .await
+        .map_err(|error| format!("evaluation result persistence failed: {error}"))?;
+        Ok(())
     }
 
     /// Register or replace a case.
@@ -136,10 +215,19 @@ impl EvaluationRegistry {
         if case.objective.trim().is_empty() {
             return Err("objective is required".to_string());
         }
-        self.cases
+        let previous = self
+            .cases
             .write()
             .await
-            .insert(case.case_id.clone(), case);
+            .insert(case.case_id.clone(), case.clone());
+        if let Err(error) = self.persist_case(&case).await {
+            let mut cases = self.cases.write().await;
+            match previous {
+                Some(previous) => { cases.insert(case.case_id.clone(), previous); }
+                None => { cases.remove(&case.case_id); }
+            }
+            return Err(error);
+        }
         Ok(())
     }
 
@@ -218,6 +306,20 @@ mod tests {
         assert_eq!(result.matched_fragments, 1);
         assert!(result.exceeded_output_limit);
         assert!(result.score < 1.0);
+    }
+
+    #[tokio::test]
+    async fn registry_recovers_cases_and_results() {
+        let path = std::env::temp_dir().join(format!("agenticos-evaluation-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let first = EvaluationRegistry::open(&url).await.unwrap();
+        first.register(case()).await.unwrap();
+        first.evaluate("basic", "hello agent").await.unwrap();
+        drop(first);
+        let second = EvaluationRegistry::open(&url).await.unwrap();
+        assert_eq!(second.list_cases().await.len(), 1);
+        assert_eq!(second.result("basic").await.unwrap().score, 1.0);
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

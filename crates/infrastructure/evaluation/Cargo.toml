@@ -9,3 +9,5 @@ agenticos-contracts = { path = "../../domain/contracts" }
 
 [lints]
 workspace = true
+
+sqlx = { workspace = true, features = ["sqlite", "runtime-tokio-rustls"] }

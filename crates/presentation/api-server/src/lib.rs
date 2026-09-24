@@ -198,7 +198,11 @@ impl RuntimeState {
                 selection_strategy: SelectionStrategy::Balanced,
             })),
             metrics: Arc::new(RuntimeMetrics::new()),
-            evaluation: Arc::new(EvaluationRegistry::new()),
+            evaluation: Arc::new(
+                EvaluationRegistry::open(&database_url)
+                    .await
+                    .map_err(ContractError::ParseError)?,
+            ),
             model,
         })
     }

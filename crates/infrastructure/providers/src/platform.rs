@@ -1866,13 +1866,12 @@ fn normalize_agenticos_chat_parameters(
             if let Some(value) = temperature {
                 generation.insert("temperature".to_string(), serde_json::json!(value));
             }
-            if let Some(value) = response_format
+            if response_format
                 .as_ref()
                 .and_then(|item| item.get("type"))
                 .and_then(|item| item.as_str())
-                .filter(|value| *value == "json_object")
+                .is_some_and(|value| value == "json_object")
             {
-                let _ = value;
                 generation.insert("responseMimeType".to_string(), serde_json::json!("application/json"));
             }
             if !generation.is_empty() {

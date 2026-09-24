@@ -27,5 +27,5 @@ export function Tag({ label }: { label: string }) {
 
 export function Toast({ message }: { message: string }) {
   if (!message) return null
-  return <div className="platform-toast"><Icon name="check" size={14} /><span>{message}</span></div>
+  return <div className="platform-toast" role="status" aria-live="polite"><Icon name="check" size={14} /><span>{message}</span></div>
 }

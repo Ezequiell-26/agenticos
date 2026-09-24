@@ -32,8 +32,8 @@ use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
-use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_scheduler::{JobScheduler, JobSpec, JobState};
+use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine};
 use serde::{Deserialize, Serialize};
@@ -397,7 +397,11 @@ async fn sync_mcp_tools(
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let server_id = server_id.into_inner();
-    match state.tool_runtime.sync_mcp_server(&state.mcp, &server_id).await {
+    match state
+        .tool_runtime
+        .sync_mcp_server(&state.mcp, &server_id)
+        .await
+    {
         Ok(tools) => HttpResponse::Ok().json(serde_json::json!({
             "server_id": server_id,
             "tools": tools,

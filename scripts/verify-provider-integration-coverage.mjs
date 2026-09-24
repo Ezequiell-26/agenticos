@@ -13,6 +13,8 @@ const requiredTests = [
   "credential_pool_keeps_credentials_scoped_to_their_provider",
   "http_model_provider_executes_against_a_deterministic_local_provider",
   "multi_provider_orchestration_selects_healthy_provider_and_executes_transport",
+  "provider_platform_executes_through_fallback_after_primary_transport_failure",
+  "provider_platform_retries_transient_transport_failure_before_succeeding",
 ];
 
 for (const name of requiredTests) {

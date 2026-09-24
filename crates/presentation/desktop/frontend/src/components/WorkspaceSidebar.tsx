@@ -1,8 +1,9 @@
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import PanelResizeHandle from './PanelResizeHandle'
+import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
 
 type SidebarFilter = 'All' | 'Pinned' | 'Recent'
 
@@ -31,8 +32,13 @@ export default function WorkspaceSidebar({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const menuRef = useRef<HTMLDivElement>(null)
+  const activeMenuButton = menuOpen ? menuButtonRefs.current[menuOpen] : null
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  if (menuOpen && activeMenuButton) triggerRef.current = activeMenuButton
+  useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: () => setMenuOpen(null) })
 
-  useEffect(() => {
+  /*
     if (!menuOpen) return
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       const current = menuButtonRefs.current[menuOpen]
@@ -58,7 +64,8 @@ export default function WorkspaceSidebar({
       menu?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
     })
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [menuOpen])
+  }
+  */
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -113,9 +120,23 @@ export default function WorkspaceSidebar({
         <kbd>⌘K</kbd>
       </div>
 
-      <div className="sidebar-filters" role="tablist" aria-label="Conversation filters">
+      <div className="sidebar-filters" role="tablist" aria-label="Conversation filters" aria-orientation="horizontal">
         {(['All', 'Pinned', 'Recent'] as SidebarFilter[]).map((item) => (
-          <button key={item} type="button" role="tab" aria-selected={filter === item} className={filter === item ? 'sidebar-filter sidebar-filter--active' : 'sidebar-filter'} onClick={() => setFilter(item)}>
+          <button key={item} id={'conversation-filter-' + item.toLowerCase()} type="button" role="tab" tabIndex={filter === item ? 0 : -1} aria-selected={filter === item} aria-controls="conversation-list" className={filter === item ? 'sidebar-filter sidebar-filter--active' : 'sidebar-filter'} onClick={() => setFilter(item)} onKeyDown={(event) => {
+            const filters = ['All', 'Pinned', 'Recent'] as SidebarFilter[]
+            const currentIndex = filters.indexOf(item)
+            const nextIndex = event.key === 'ArrowRight' || event.key === 'ArrowDown'
+              ? (currentIndex + 1) % filters.length
+              : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                ? (currentIndex - 1 + filters.length) % filters.length
+                : event.key === 'Home' ? 0 : event.key === 'End' ? filters.length - 1 : -1
+            if (nextIndex >= 0) {
+              event.preventDefault()
+              const next = filters[nextIndex]
+              setFilter(next)
+              window.requestAnimationFrame(() => document.getElementById('conversation-filter-' + next.toLowerCase())?.focus())
+            }
+          }}>
             {item}{item === 'Pinned' && <span>{conversations.filter((conversation) => conversation.pinned).length}</span>}
           </button>
         ))}
@@ -126,7 +147,7 @@ export default function WorkspaceSidebar({
           <span>Conversations</span>
           <span className="count-pill">{filtered.length}</span>
         </div>
-        <div className="conversation-list">
+        <div id="conversation-list" className="conversation-list" role="tabpanel" aria-labelledby={"conversation-filter-" + filter.toLowerCase()} tabIndex={0}>
           {filtered.length === 0 ? (
             <div className="sidebar-empty">{query ? 'No conversations match “' + query + '”.' : 'No conversations in this filter.'}</div>
           ) : (
@@ -149,7 +170,7 @@ export default function WorkspaceSidebar({
                         <Icon name="more" size={13} />
                       </button>
                       {menuOpen === conversation.id && (
-                        <div className="conversation-menu" role="menu">
+                        <div ref={menuRef} className="conversation-menu" role="menu" aria-label={"Actions for " + conversation.title}>
                           <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'pin') }}><Icon name="archive" size={13} /><span>{conversation.pinned ? 'Unpin' : 'Pin'}</span></button>
                           <button type="button" role="menuitem" onClick={() => beginRename(conversation)}><Icon name="code" size={13} /><span>Rename</span></button>
                           <button type="button" role="menuitem" onClick={() => { setMenuOpen(null); onConversationAction?.(conversation.id, 'archive') }}><Icon name="archive" size={13} /><span>Archive</span></button>

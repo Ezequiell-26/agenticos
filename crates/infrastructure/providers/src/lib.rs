@@ -401,6 +401,17 @@ impl HttpModelProvider {
     }
 }
 
+fn normalize_chat_url(base_url: &str) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{trimmed}/chat/completions")
+    } else {
+        format!("{trimmed}/v1/chat/completions")
+    }
+}
+
 #[async_trait::async_trait]
 impl ModelProvider for HttpModelProvider {
     fn provider_id(&self) -> &str {
@@ -409,7 +420,7 @@ impl ModelProvider for HttpModelProvider {
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         // Make actual HTTP call to the provider
-        let url = format!("{}/v1/chat/completions", self.base_url);
+        let url = normalize_chat_url(&self.base_url);
         let response = self
             .client
             .post(&url)
@@ -476,6 +487,23 @@ impl ModelProvider for HttpModelProvider {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_normalize_chat_url() {
+        assert_eq!(
+            normalize_chat_url("http://localhost:8000"),
+            "http://localhost:8000/v1/chat/completions"
+        );
+        assert_eq!(
+            normalize_chat_url("http://localhost:8000/v1"),
+            "http://localhost:8000/v1/chat/completions"
+        );
+        assert_eq!(
+            normalize_chat_url("http://localhost:8000/v1/chat/completions"),
+            "http://localhost:8000/v1/chat/completions"
+        );
+    }
+
+
     use super::*;
 
     fn test_runtime() -> tokio::runtime::Runtime {

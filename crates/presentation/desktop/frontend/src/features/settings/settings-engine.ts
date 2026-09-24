@@ -100,7 +100,7 @@ export function importSettingsStore<T extends object>(
 ): SettingsStore<T> {
   const parsed = JSON.parse(serialized) as Partial<SettingsStore<T>>
   const initial = createSettingsStore(defaults)
-  const scopes = parsed.scopes ?? {}
+  const scopes = (parsed.scopes ?? {}) as Partial<Record<SettingsScope, T>>
   const normalize = (scope: SettingsScope): T => ({ ...defaults, ...(scopes[scope] ?? {}) })
 
   return {

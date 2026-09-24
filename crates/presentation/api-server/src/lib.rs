@@ -1940,7 +1940,10 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                 .start_as(&queued_job.spec.job_id, worker_id.clone(), 120)
                 .await
             {
-                Ok(job) => job,
+                Ok(job) => {
+                    state.metrics.record_scheduler_claim();
+                    job
+                }
                 Err(error) => {
                     tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
                     return;
@@ -2102,7 +2105,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                     {
                         tracing::warn!(job_id = %started_job.spec.job_id, %error, "failed to persist execution result");
                     }
-                    let _ = state
+                    let completion = state
                         .scheduler
                         .complete_as(
                             &started_job.spec.job_id,
@@ -2112,6 +2115,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                             None,
                         )
                         .await;
+                    state.metrics.record_scheduler_completion(completion.is_ok());
                 }
                 Err(error) => {
                     let final_attempt =
@@ -2146,7 +2150,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                         }
                     }
                     tracing::error!(job_id = %started_job.spec.job_id, %error, final_attempt, "agent execution failed");
-                    let _ = state
+                    let completion = state
                         .scheduler
                         .complete_as(
                             &started_job.spec.job_id,
@@ -2156,6 +2160,7 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                             Some(error.to_string()),
                         )
                         .await;
+                    state.metrics.record_scheduler_completion(completion.is_ok() && final_attempt);
                 }
             }
 }

@@ -5706,7 +5706,6 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     .await
 }
 
-
 fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
     std::env::var(name)
         .ok()

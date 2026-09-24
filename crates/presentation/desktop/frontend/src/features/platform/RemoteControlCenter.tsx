@@ -27,7 +27,7 @@ const notifications = [
 
 export default function RemoteControlCenter({ onAction }: { onAction: (message: string) => void }) {
   const [tab,setTab]=useState<Tab>('Sessions')
-  const [selectedSession,setSelectedSession]=useState(sessions[0][0])
+  const [selectedSession,setSelectedSession]=useState<string>(sessions[0][0])
   const [pushEnabled,setPushEnabled]=useState(true)
   const [reconnectEnabled,setReconnectEnabled]=useState(true)
   const current=useMemo(()=>sessions.find((session)=>session[0]===selectedSession)??sessions[0],[selectedSession])

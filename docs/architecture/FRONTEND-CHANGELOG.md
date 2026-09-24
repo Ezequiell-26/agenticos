@@ -1377,3 +1377,13 @@ Verification status:
 - Added `test:contracts` and `check` package scripts and made the frontend verification workflow execute architecture contracts before the Vite production build.
 - Preserved runtime ownership: notification state, recent/pinned discovery and feature state are UI-only persistence; no provider credentials, network operations or runtime authorities were introduced.
 - Verification status: remote source audit confirms navigation coverage and newly added contracts; local clone/build execution was attempted but the environment cannot resolve GitHub, so runtime/browser/Tauri verification remains pending.
+
+## 2026-09-24 — Deep control-surface accessibility and editor pass
+
+- Standardized keyboard-accessible tabs across Security, Agent Studio, Tools, Skills, Memory, Browser, Operations, Provider, Final Control and Task Execution surfaces.
+- Added explicit tabpanel relationships and roving keyboard behavior to the affected control surfaces without changing runtime ownership.
+- Expanded the code editor with find/replace, case-sensitive matching, next/previous navigation, replace-all, go-to-line, real cursor column reporting and an unsaved-change indicator.
+- Added runtime synchronization/recovery UX using `Promise.allSettled`, a visible retry path and a sequence guard that ignores stale responses after session changes.
+- Added repository-level contract checks that scan the complete TSX tree for broken tab/menu semantics and direct network calls from presentation surfaces.
+- Extended the frontend CI workflow with contract checks before the Vite production build and added `test:contracts` / `check` package scripts.
+- Verification status: Actions for the latest commits are queued/pending while the environment is unable to execute the repository locally; source-level audit continues to pass for navigation coverage.

@@ -310,6 +310,32 @@ impl AgentTool for WorkspaceTool {
                     "entries": self.workspace.list(&args.path).await.map_err(ContractError::ParseError)?,
                 })
             }
+            "fs.patch" => {
+                let args = serde_json::from_str::<serde_json::Value>(&request.parameters)
+                    .map_err(|error| {
+                        ContractError::ParseError(format!("invalid fs.patch arguments: {error}"))
+                    })?;
+                let path = args
+                    .get("path")
+                    .and_then(|value| value.as_str())
+                    .ok_or_else(|| ContractError::ParseError("fs.patch path is required".to_string()))?;
+                let expected = args
+                    .get("expected")
+                    .and_then(|value| value.as_str())
+                    .ok_or_else(|| ContractError::ParseError("fs.patch expected is required".to_string()))?;
+                let replacement = args
+                    .get("replacement")
+                    .and_then(|value| value.as_str())
+                    .ok_or_else(|| ContractError::ParseError("fs.patch replacement is required".to_string()))?;
+                self.workspace
+                    .apply_patch(path, expected, replacement)
+                    .await
+                    .map_err(ContractError::ParseError)?;
+                serde_json::json!({
+                    "path": path,
+                    "patched": true,
+                })
+            }
             _ => return Err(ContractError::MissingCapability),
         };
 
@@ -470,6 +496,7 @@ impl RuntimeState {
             ("fs.read", "Read workspace file", "filesystem.read"),
             ("fs.write", "Write workspace file", "filesystem.write"),
             ("fs.list", "List workspace directory", "filesystem.list"),
+            ("fs.patch", "Apply exact workspace patch", "filesystem.patch"),
         ] {
             tool_runtime
                 .register(

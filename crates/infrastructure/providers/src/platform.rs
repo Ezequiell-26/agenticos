@@ -1373,9 +1373,10 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let body = response.text().await.unwrap_or_else(|_| {
-                "failed to read provider streaming error response".to_string()
-            });
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "failed to read provider streaming error response".to_string());
             let mut detail = body;
             if detail.len() > 4_096 {
                 detail.truncate(4_096);

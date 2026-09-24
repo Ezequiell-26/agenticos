@@ -202,7 +202,7 @@ impl CapabilityManager {
         action: impl Into<String>,
         resource: impl Into<String>,
         expires_at: u64,
-    ) -> ApprovalRequest {
+    ) -> Result<ApprovalRequest, ContractError> {
         let request = ApprovalRequest {
             approval_id: format!("approval-{}", uuid::Uuid::new_v4()),
             run_id: run_id.into(),
@@ -218,9 +218,9 @@ impl CapabilityManager {
             .insert(request.approval_id.clone(), request.clone());
         if let Err(error) = self.persist_approval(&request).await {
             let _ = self.approvals.write().await.remove(&request.approval_id);
-            tracing::error!(error = ?error, approval_id = %request.approval_id, "failed to persist approval request");
+            return Err(error);
         }
-        request
+        Ok(request)
     }
 
     /// Resolve an approval request.

@@ -31,7 +31,7 @@ use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
-    SqliteSnapshotStore,
+    Skill, SqliteSnapshotStore,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
@@ -353,6 +353,7 @@ pub struct RuntimeState {
     artifacts: Arc<ArtifactStore>,
     workspace: Arc<WorkspaceFs>,
     cost_ledger: Arc<CostLedger>,
+    skills: Arc<Vec<Skill>>,
     model: String,
 }
 
@@ -437,6 +438,7 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let skills = Arc::new(Self::load_skills().await);
 
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
@@ -605,8 +607,52 @@ impl RuntimeState {
             artifacts: artifacts.clone(),
             workspace: workspace.clone(),
             cost_ledger,
+            skills,
             model,
         })
+    }
+
+    async fn load_skills() -> Vec<Skill> {
+        let root = std::env::var("AGENTICOS_SKILLS_ROOT")
+            .unwrap_or_else(|_| "skills".to_string());
+        let mut directory = match tokio::fs::read_dir(&root).await {
+            Ok(directory) => directory,
+            Err(error) => {
+                tracing::warn!(%error, root = %root, "skill directory unavailable");
+                return Vec::new();
+            }
+        };
+
+        let mut skills = Vec::new();
+        while let Ok(Some(entry)) = directory.next_entry().await {
+            if skills.len() >= 128 {
+                break;
+            }
+            let path = entry.path().join("SKILL.md");
+            let metadata = match tokio::fs::metadata(&path).await {
+                Ok(metadata) if metadata.is_file() && metadata.len() <= 512 * 1024 => metadata,
+                _ => continue,
+            };
+            let _ = metadata;
+            let content = match tokio::fs::read_to_string(&path).await {
+                Ok(content) => content,
+                Err(error) => {
+                    tracing::warn!(%error, path = %path.display(), "failed to read skill");
+                    continue;
+                }
+            };
+            match Skill::from_markdown(&content) {
+                Ok(skill) => skills.push(skill),
+                Err(error) => tracing::warn!(
+                    %error,
+                    path = %path.display(),
+                    "invalid SKILL.md skipped"
+                ),
+            }
+        }
+
+        skills.sort_by(|left, right| left.name.cmp(&right.name));
+        skills
     }
 
     async fn session_agent(&self, session_id: &str, model: Option<&str>) -> Arc<ReactAgent> {
@@ -624,6 +670,9 @@ impl RuntimeState {
         }
         agent.set_memory(self.memory.clone());
         agent.set_model_provider(self.provider.clone());
+        for skill in self.skills.iter().cloned() {
+            agent.add_skill(skill);
+        }
 
         if let Ok(history) = self.memory.get_session_history(session_id, 256).await {
             let completed_turns = history
@@ -1635,6 +1684,21 @@ async fn set_usage_pricing(
             code: "USAGE_PRICING_INVALID",
         }),
     }
+}
+
+async fn list_skills(state: web::Data<RuntimeState>) -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "skills": state.skills.iter().map(|skill| {
+            serde_json::json!({
+                "name": skill.name,
+                "version": skill.version,
+                "author": skill.author,
+                "platforms": skill.platforms,
+                "description": skill.description,
+            })
+        }).collect::<Vec<_>>(),
+        "count": state.skills.len(),
+    }))
 }
 
 async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
@@ -4199,6 +4263,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::post().to(worker_complete),
             )
             .route("/api/metrics", web::get().to(runtime_metrics))
+            .route("/api/skills", web::get().to(list_skills))
             .route("/api/usage/summary", web::get().to(usage_summary))
             .route("/api/usage/records", web::get().to(usage_records))
             .route("/api/usage/pricing", web::post().to(set_usage_pricing))

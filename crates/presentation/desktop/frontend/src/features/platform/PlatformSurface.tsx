@@ -549,7 +549,7 @@ class SurfaceErrorBoundary extends React.Component<{ children: ReactNode }, { ha
 
 function PlatformSurface({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   return (
-    <SurfaceErrorBoundary>
+    <SurfaceErrorBoundary key={mode}>
       <Suspense fallback={
       <section className="surface-loading" aria-live="polite">
         <span className="surface-loading__spinner" />

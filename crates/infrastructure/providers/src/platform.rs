@@ -2105,6 +2105,42 @@ mod tests {
     }
 
     #[test]
+    fn provider_protocol_detects_anthropic_and_gemini() {
+        let anthropic = ProviderEntry {
+            provider_id: "anthropic".into(),
+            name: "Anthropic".into(),
+            base_url: "https://api.anthropic.com".into(),
+            models: vec!["claude".into()],
+            capabilities: vec![],
+        };
+        let gemini = ProviderEntry {
+            provider_id: "gemini".into(),
+            name: "Gemini".into(),
+            base_url: "https://generativelanguage.googleapis.com".into(),
+            models: vec!["gemini".into()],
+            capabilities: vec![],
+        };
+        assert_eq!(detect_protocol(&anthropic), ProviderProtocol::AnthropicMessages);
+        assert_eq!(detect_protocol(&gemini), ProviderProtocol::Gemini);
+    }
+
+    #[test]
+    fn provider_endpoint_normalization_is_stable() {
+        assert_eq!(
+            normalize_endpoint("https://api.example.com/v1", "/v1/responses", "/responses"),
+            "https://api.example.com/v1/responses"
+        );
+        assert_eq!(
+            normalize_endpoint(
+                "https://api.anthropic.com/v1",
+                "/v1/messages",
+                "/messages"
+            ),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    #[test]
     fn provider_http_retry_classification_is_transient_only() {
         assert!(super::is_retryable_provider_error(
             &ContractError::ParseError(

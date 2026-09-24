@@ -7,9 +7,11 @@ use agenticos_contracts::{
     ModelResponse, ProviderEntry,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
 
@@ -1309,12 +1311,7 @@ impl AuthenticatedOpenAiProvider {
     }
 }
 
-#[async_trait::async_trait]
-impl ModelProvider for AuthenticatedOpenAiProvider {
-    fn provider_id(&self) -> &str {
-        &self.provider_id
-    }
-
+impl AuthenticatedOpenAiProvider {
     async fn list_models(&self) -> Result<Vec<String>, ContractError> {
         let mut request = self.client.get(&self.models_url());
         if let Some(api_key) = &self.api_key {
@@ -1526,6 +1523,14 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
         };
 
         Ok(Box::pin(stream))
+    }
+
+}
+
+#[async_trait::async_trait]
+impl ModelProvider for AuthenticatedOpenAiProvider {
+    fn provider_id(&self) -> &str {
+        &self.provider_id
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
@@ -2078,6 +2083,7 @@ async fn execute_protocol(
         }
     }
 }
+
 
 async fn list_provider_models(
     provider: &ProviderEntry,

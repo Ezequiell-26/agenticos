@@ -318,7 +318,7 @@ pub struct PersistentMemoryStore {
 impl PersistentMemoryStore {
     /// Open or initialize the memory database.
     pub async fn new(database_url: &str) -> Result<Self, ContractError> {
-        let db = sqlx::SqlitePoolOptions::new()
+        let db = sqlx::sqlite::SqlitePoolOptions::new()
             .min_connections(1)
             .max_connections(4)
             .connect(database_url)

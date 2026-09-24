@@ -212,7 +212,7 @@ impl SourceIntelligenceEngine {
                         license,
                         language,
                         stars: stars.max(0) as u64,
-                        status: parse_repository_status(&status),
+                        status: Self::parse_repository_status(&status),
                     },
                 );
             }
@@ -303,7 +303,7 @@ impl SourceIntelligenceEngine {
             .bind(&metadata.license)
             .bind(&metadata.language)
             .bind(metadata.stars as i64)
-            .bind(repository_status_name(&metadata.status))
+            .bind(Self::repository_status_name(&metadata.status))
             .execute(db.as_ref())
             .await
             .map_err(|error| {
@@ -336,30 +336,30 @@ impl SourceIntelligenceEngine {
             .join("\n");
         let corpus_lower = corpus.to_ascii_lowercase();
 
-        let patterns = [
+        let patterns: &[(&str, &[&str])] = &[
             (
                 "http-client",
-                ["reqwest", "axios", "httpx", "requests", "fetch("],
+                &["reqwest", "axios", "httpx", "requests", "fetch("],
             ),
             (
                 "async-runtime",
-                ["tokio", "asyncio", "async fn", "async def"],
+                &["tokio", "asyncio", "async fn", "async def"],
             ),
-            ("mcp", ["model context protocol", "mcp-server", "mcp::"]),
+            ("mcp", &["model context protocol", "mcp-server", "mcp::"]),
             (
                 "agent-orchestration",
-                ["subagent", "multi-agent", "langchain", "autogen", "crewai"],
+                &["subagent", "multi-agent", "langchain", "autogen", "crewai"],
             ),
-            ("workflow", ["workflow", "dag", "state machine"]),
+            ("workflow", &["workflow", "dag", "state machine"]),
             (
                 "database",
-                ["sqlx", "sqlite", "postgres", "mysql", "prisma", "redis"],
+                &["sqlx", "sqlite", "postgres", "mysql", "prisma", "redis"],
             ),
             (
                 "vector-search",
-                ["qdrant", "chroma", "vector database", "embedding"],
+                &["qdrant", "chroma", "vector database", "embedding"],
             ),
-            ("cli", ["clap", "argparse", "commander", "cobra"]),
+            ("cli", &["clap", "argparse", "commander", "cobra"]),
         ];
 
         for (capability, needles) in patterns {

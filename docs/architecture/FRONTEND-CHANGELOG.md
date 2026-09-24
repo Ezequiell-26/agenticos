@@ -1132,3 +1132,10 @@ Verification status:
 - Reworked the provider quota panel JSX into explicit nested elements after CI reported a parser failure at the quota block.
 - Preserved the same presentation-only quota data and interaction surface; no provider runtime behavior changed.
 - Verification status: awaiting the latest GitHub Actions build and continuity gates.
+
+## 2026-09-24 — Provider Health JSX closure repair
+
+- Fixed the provider Health tab conditional by closing its JSX expression correctly.
+- This resolves the concrete TypeScript parser failure reported by CI (`TS1005: '}' expected`) before the Quotas tab.
+- The subsequent quota JSX normalization remains in place; no provider behavior or runtime boundary was changed.
+- Verification status: awaiting the latest CI run.

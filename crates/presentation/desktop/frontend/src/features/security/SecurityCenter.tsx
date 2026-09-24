@@ -29,6 +29,19 @@ const sessions: ReadonlyArray<readonly [string, string, string, string]> = [
 export default function SecurityCenter({ onAction }: { onAction: (message: string) => void }) {
   const [tab, setTab] = useState<SecurityTab>('Overview')
   const [policies, setPolicies] = useState(() => new Set(policyRows.filter((item) => item[2]).map((item) => item[0])))
+  const [runtimeAudit, setRuntimeAudit] = useState<Array<Record<string, unknown>>>([])
+  const [runtimeApprovals, setRuntimeApprovals] = useState<Array<Record<string, unknown>>>([])
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.allSettled([runtime.audit.list(100), runtime.approvals.list()]).then(([auditResult, approvalResult]) => {
+      if (cancelled) return
+      if (auditResult.status === 'fulfilled') setRuntimeAudit(auditResult.value)
+      if (approvalResult.status === 'fulfilled') setRuntimeApprovals(approvalResult.value)
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const enabled = useMemo(() => policies.size, [policies])
 
@@ -61,10 +74,11 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
         {tab === 'Policies' && <div className="security-policy-list">{policyRows.map(([name, detail]) => <div className="security-policy-row" key={name}><div><strong>{name}</strong><span>{detail}</span></div><button className={policies.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={policies.has(name)} onClick={() => toggle(name)}><span /></button></div>)}</div>}
 
         {tab === 'Audit' && <div className="security-audit"><div className="security-audit-head"><span>Event time</span><span>Action</span><span>Result</span><span>Resource</span></div>{(runtimeAudit.length > 0 ? runtimeAudit : auditRows.map(([time, event, result, detail]) => ({ timestamp: time, action: event, outcome: result, resource: detail }))).map((event, index) => <div className="security-audit-row" key={String(event.event_id ?? index)}><span>{new Date(Number(event.timestamp ?? 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span><strong>{String(event.action ?? 'audit event')}</strong><span className={['pass','approved','success'].includes(String(event.outcome ?? '').toLowerCase()) ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{String(event.outcome ?? 'unknown')}</span><span>{String(event.resource ?? '—')}</span></div>)}</div>
-}
+
 
         {tab === 'Sessions' && <div className="security-session-list">{sessions.map(([name, type, age, state]) => <div className="security-session-row" key={name}><div className="security-session-icon"><Icon name={type === 'Web session' ? 'globe' : 'bot'} size={14} /></div><div><strong>{name}</strong><span>{type} · {age}</span></div><span className="state-pill state-pill--completed">{state}</span><button className="studio-button" type="button" onClick={() => onAction(name + ' session controls opened in preview')}>Manage</button></div>)}</div>}
 
+        {tab === 'Recovery' && runtimeApprovals.length > 0 ? <div className="security-recovery-grid"><Panel title="Pending approvals"><div className="security-session-list">{runtimeApprovals.slice(0, 12).map((approval, index) => <div className="security-session-row" key={String(approval.approval_id ?? index)}><div><strong>{String(approval.action ?? 'Approval request')}</strong><span>{String(approval.resource ?? '—')} · {String(approval.run_id ?? 'unbound')}</span></div><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.approvals.resolve(String(approval.approval_id ?? ''), true).then(() => runtime.approvals.list()).then(setRuntimeApprovals).catch((error) => onAction(error instanceof Error ? error.message : 'Approval resolution failed'))}>Approve</button><button className="studio-button" type="button" onClick={() => void runtime.approvals.resolve(String(approval.approval_id ?? ''), false).then(() => runtime.approvals.list()).then(setRuntimeApprovals).catch((error) => onAction(error instanceof Error ? error.message : 'Approval resolution failed'))}>Deny</button></div>)}</div></Panel></div> : null}
         {tab === 'Recovery' && <div className="security-recovery-grid"><Panel title="Recovery checkpoint"><div className="recovery-card"><span className="eyebrow">Latest safe point</span><strong>CP-028 · 31m ago</strong><p>Restores presentation-local state and the selected workspace snapshot.</p><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Recovery preview opened')}>Open recovery</button></div></Panel><Panel title="Emergency controls"><div className="emergency-list"><button type="button" onClick={() => onAction('All sessions revoke staged in preview')}><Icon name="shield" size={13} /> Revoke all sessions</button><button type="button" onClick={() => onAction('Local credentials purge staged in preview')}><Icon name="history" size={13} /> Purge local credential metadata</button><button type="button" onClick={() => onAction('Workspace lock staged in preview')}><Icon name="shield" size={13} /> Lock workspace</button></div></Panel></div>}
       </div>
     </div>

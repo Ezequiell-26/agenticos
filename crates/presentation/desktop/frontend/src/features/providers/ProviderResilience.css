@@ -72,3 +72,27 @@
 .provider-health__event strong{color:#9e9e9e;font-size:8px;font-weight:500}
 .provider-health__event small{color:#555;font-size:6px}
 @media (max-width:760px){.provider-health__history-head{flex-direction:column}.provider-health__event{grid-template-columns:44px 56px minmax(0,1fr) 28px}}
+
+.provider-resilience-policy{display:flex;flex-direction:column;gap:9px;padding:11px;border:1px solid #1f1f1f;border-radius:9px;background:#0f0f0f}
+.provider-resilience-policy__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.provider-resilience-policy__head>div{display:flex;flex-direction:column;gap:4px}
+.provider-resilience-policy__head strong{color:#c0c0c0;font-size:13px}
+.provider-resilience-policy__head small{max-width:720px;color:#575757;font-size:7px;line-height:1.6}
+.provider-resilience-policy__grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.provider-policy-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #1d1d1d;border-radius:7px;background:#0d0d0d;color:#888;text-align:left;cursor:pointer}
+.provider-policy-row:hover{border-color:#292929;background:#131313}
+.provider-policy-row--on{background:#131313;color:#e0e0e0;border-color:#303030}
+.provider-policy-row__switch{width:20px;height:12px;padding:2px;border:1px solid #333;border-radius:999px;background:#111}
+.provider-policy-row__switch span{display:block;width:6px;height:6px;border-radius:50%;background:#555}
+.provider-policy-row--on .provider-policy-row__switch{background:#e7e7e7;border-color:#e7e7e7}
+.provider-policy-row--on .provider-policy-row__switch span{margin-left:8px;background:#080808}
+.provider-policy-row>span:nth-child(2){display:flex;flex-direction:column;gap:3px;min-width:0}
+.provider-policy-row strong{font-size:8px}
+.provider-policy-row small{color:#555;font-size:6px;line-height:1.4}
+.provider-resilience-policy__numbers{display:grid;grid-template-columns:120px 140px minmax(0,1fr);gap:6px}
+.provider-resilience-policy__numbers>label,.provider-resilience-policy__numbers>div{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #1d1d1d;border-radius:7px;background:#0d0d0d}
+.provider-resilience-policy__numbers label span,.provider-resilience-policy__numbers>div span{color:#555;font-size:6px;text-transform:uppercase;letter-spacing:.08em}
+.provider-resilience-policy__numbers input{width:100%;padding:5px 6px;border:1px solid #292929;border-radius:5px;background:#111;color:#aaa;font:8px ui-monospace,SFMono-Regular,Menlo,monospace}
+.provider-resilience-policy__numbers>div strong{color:#aaa;font-size:8px}
+@media (max-width:850px){.provider-resilience-policy__grid{grid-template-columns:1fr}.provider-resilience-policy__numbers{grid-template-columns:1fr 1fr}.provider-resilience-policy__numbers>div{grid-column:1 / -1}}
+@media (max-width:560px){.provider-resilience-policy__head{flex-direction:column}.provider-resilience-policy__numbers{grid-template-columns:1fr}}

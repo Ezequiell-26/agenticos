@@ -868,11 +868,21 @@ mod tests {
 }
 
 /// Capability-gated tool execution service.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SecureToolService {
     capabilities: Arc<agenticos_security::CapabilityManager>,
     sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
     pipeline: Arc<agenticos_kernel::ToolExecutionPipeline>,
+}
+
+impl std::fmt::Debug for SecureToolService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecureToolService")
+            .field("capabilities", &"<CapabilityManager>")
+            .field("sandbox", &"<ProcessSandbox>")
+            .field("pipeline", &"<ToolExecutionPipeline>")
+            .finish()
+    }
 }
 
 impl SecureToolService {
@@ -914,7 +924,7 @@ impl SecureToolService {
             return Err(ContractError::MissingCapability);
         }
 
-        let context = agenticos_kernel::ToolExecutionContext::new(
+        let mut context = agenticos_kernel::ToolExecutionContext::new(
             "process.execute".to_string(),
             serde_json::json!({
                 "command": command,
@@ -922,6 +932,9 @@ impl SecureToolService {
             }),
             session_id.to_string(),
         );
+        if let Some(user_id) = user_id.filter(|value| !value.trim().is_empty()) {
+            context = context.with_user_id(user_id.to_string());
+        }
 
         let sandbox = self.sandbox.clone();
         let command = command.to_string();

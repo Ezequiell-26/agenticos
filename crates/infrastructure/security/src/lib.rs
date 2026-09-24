@@ -126,6 +126,17 @@ impl CapabilityManager {
         let request = approvals
             .get_mut(approval_id)
             .ok_or(ContractError::MissingCapability)?;
+        if request.state != ApprovalState::Pending {
+            return Err(ContractError::ParseError(
+                "approval is no longer pending".to_string(),
+            ));
+        }
+        if request.expires_at != 0 && request.expires_at <= unix_time() {
+            request.state = ApprovalState::Expired;
+            return Err(ContractError::ParseError(
+                "approval request has expired".to_string(),
+            ));
+        }
         request.state = if approved {
             ApprovalState::Approved
         } else {
@@ -155,17 +166,25 @@ impl CapabilityManager {
 
     /// Check whether an approval is currently granted.
     pub async fn is_approved(&self, approval_id: &str) -> bool {
-        self.approvals
-            .read()
-            .await
-            .get(approval_id)
-            .map(|request| request.state == ApprovalState::Approved)
-            .unwrap_or(false)
+        let mut approvals = self.approvals.write().await;
+        let Some(request) = approvals.get_mut(approval_id) else {
+            return false;
+        };
+        if request.state == ApprovalState::Approved
+            && request.expires_at != 0
+            && request.expires_at <= unix_time()
+        {
+            request.state = ApprovalState::Expired;
+            return false;
+        }
+        request.state == ApprovalState::Approved
     }
 
     /// Return a redacted inventory of issued grants.
     pub async fn list_grants(&self) -> Vec<CapabilityGrant> {
-        self.grants.read().await.values().cloned().collect()
+        let mut grants: Vec<_> = self.grants.read().await.values().cloned().collect();
+        grants.sort_by(|left, right| left.grant_id.cmp(&right.grant_id));
+        grants
     }
 }
 

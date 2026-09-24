@@ -58,6 +58,7 @@ pub struct JobRecord {
     pub last_error: Option<String>,
 }
 
+/// Dependency-aware scheduler for bounded run jobs.
 #[derive(Debug, Clone)]
 pub struct JobScheduler {
     jobs: Arc<RwLock<HashMap<String, JobRecord>>>,
@@ -75,6 +76,22 @@ impl JobScheduler {
     pub async fn enqueue(&self, spec: JobSpec) -> Result<(), String> {
         if spec.job_id.trim().is_empty() || spec.run_id.trim().is_empty() {
             return Err("job_id and run_id are required".to_string());
+        }
+        if spec
+            .dependencies
+            .iter()
+            .any(|dependency| dependency == &spec.job_id)
+        {
+            return Err("job cannot depend on itself".to_string());
+        }
+        if spec
+            .dependencies
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != spec.dependencies.len()
+        {
+            return Err("job dependencies must be unique".to_string());
         }
         let mut jobs = self.jobs.write().await;
         if jobs.contains_key(&spec.job_id) {
@@ -134,7 +151,10 @@ impl JobScheduler {
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
-        if record.state == JobState::Pending && !dependencies_satisfied {
+        if !matches!(record.state, JobState::Pending | JobState::Ready) {
+            return Err(format!("job cannot start from state {:?}", record.state));
+        }
+        if !dependencies_satisfied {
             return Err("job dependencies are not satisfied".to_string());
         }
         if record.attempts >= record.spec.max_attempts.max(1) {
@@ -158,6 +178,9 @@ impl JobScheduler {
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
+        if record.state != JobState::Running {
+            return Err(format!("job cannot complete from state {:?}", record.state));
+        }
         record.state = if success {
             JobState::Succeeded
         } else if record.attempts < record.spec.max_attempts.max(1) {
@@ -175,6 +198,9 @@ impl JobScheduler {
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
+        if matches!(record.state, JobState::Succeeded | JobState::Failed | JobState::Cancelled) {
+            return Err(format!("job cannot be cancelled from state {:?}", record.state));
+        }
         record.state = JobState::Cancelled;
         Ok(())
     }

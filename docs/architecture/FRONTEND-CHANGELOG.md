@@ -1509,3 +1509,11 @@ Verification status:
 - Visual output is byte-identical: the production bundle hash (`index-D_OjoF9l.js`) is unchanged before and after the removal.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite pass after the cleanup; `dist/index.html` is generated for the Tauri `frontendDist` and the browser preview is visually identical.
+
+## 2026-09-25 — Backend runtime wiring
+
+- Expanded `frontend/src/services/runtime.ts` into the typed HTTP boundary for the runtime API: chat, models, providers, tools, MCP, runs, subagents, jobs, workflows, memory, capabilities, approvals, skills, source inspection, evaluation, terminals, artifacts, reasoning, metrics, audit, usage and sandbox status.
+- Expanded `frontend/src/types/runtime.ts` with the corresponding transport/domain contracts and provider/run/memory records.
+- Chat now synchronizes the live model catalog and sends the selected model to `POST /api/agent/chat`.
+- Provider, memory, MCP, run, tool, subagent and workflow surfaces now hydrate from runtime data when available, preserving presentation fixtures only as an offline fallback.
+- Runtime HTTP errors now retain backend error codes instead of being silently converted into successful responses.

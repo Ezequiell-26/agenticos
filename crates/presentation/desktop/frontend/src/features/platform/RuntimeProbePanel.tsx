@@ -26,7 +26,8 @@ export default function RuntimeProbePanel({ mode, onAction }: RuntimeProbePanelP
     if (mode === 'playground') return 'Live models'
     if (mode === 'routing') return 'Provider routes'
     if (mode === 'execution' || mode === 'environment-lab') return 'Sandbox'
-    if (mode === 'knowledge' || mode === 'imports' || mode === 'integrations') return 'Source forge'
+    if (mode === 'knowledge' || mode === 'imports') return 'Source forge'
+    if (mode === 'integrations') return 'A2A Agent Card'
     if (mode === 'sessions') return 'Conversation search'
     return 'Runtime health'
   }, [mode])
@@ -55,8 +56,12 @@ export default function RuntimeProbePanel({ mode, onAction }: RuntimeProbePanelP
         const records = await runtime.providers.list(); next.records = records as unknown as RuntimeApiRecord[]; next.summary = `${records.length} runtime providers`
       } else if (mode === 'execution' || mode === 'environment-lab') {
         const sandbox = await runtime.sandbox.status(); next.records = [sandbox]; next.summary = `Sandbox: ${asText(sandbox.status ?? sandbox.state ?? 'unknown')}`
-      } else if (mode === 'knowledge' || mode === 'imports' || mode === 'integrations') {
+      } else if (mode === 'knowledge' || mode === 'imports') {
         next.summary = 'Source forge endpoint available'
+      } else if (mode === 'integrations') {
+        const card = await runtime.a2a.agentCard()
+        next.records = [card]
+        next.summary = typeof card.name === 'string' ? card.name : 'A2A Agent Card available'
       } else if (mode === 'sessions') {
         next.summary = query.trim() ? 'Conversation search ready' : 'Enter a query to test conversation search'
       }
@@ -88,11 +93,22 @@ export default function RuntimeProbePanel({ mode, onAction }: RuntimeProbePanelP
         onAction(`Evaluation completed: ${asText(result)}`)
         return
       }
-      if (mode === 'knowledge' || mode === 'imports' || mode === 'integrations') {
+      if (mode === 'knowledge' || mode === 'imports') {
         const source = window.prompt('GitHub source (owner/repo or URL)')?.trim()
         if (!source) return
         const result = await runtime.source.inspect(source)
         onAction(`Source inspection completed: ${asText(result)}`)
+        return
+      }
+      if (mode === 'integrations') {
+        const textMessage = window.prompt('A2A message text')?.trim()
+        if (!textMessage) return
+        const result = await runtime.a2a.sendMessage({
+          message_id: 'ui-' + Date.now(),
+          role: 'user',
+          parts: [{ text: textMessage }],
+        })
+        onAction(`A2A message sent: ${asText(result.id ?? result.task_id ?? result)}`)
         return
       }
       if (mode === 'sessions') {

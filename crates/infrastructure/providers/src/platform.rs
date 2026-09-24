@@ -313,11 +313,12 @@ impl ProviderPlatform {
             })?;
 
             for (provider_id, payload) in rows {
-                let state: PersistedProviderState = serde_json::from_str(&payload).map_err(|error| {
-                    ContractError::ParseError(format!(
-                        "invalid persisted runtime state for {provider_id}: {error}"
-                    ))
-                })?;
+                let state: PersistedProviderState =
+                    serde_json::from_str(&payload).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid persisted runtime state for {provider_id}: {error}"
+                        ))
+                    })?;
 
                 if let Some(quota) = state.quota {
                     platform
@@ -368,26 +369,35 @@ impl ProviderPlatform {
         Ok(platform)
     }
 
-    async fn persist_runtime_state(
-        &self,
-        provider_id: &str,
-    ) -> Result<(), ContractError> {
+    async fn persist_runtime_state(&self, provider_id: &str) -> Result<(), ContractError> {
         let Some(db) = self.db.as_ref() else {
             return Ok(());
         };
 
-        let quota = self.quotas.get(provider_id).await.map(|value| PersistedQuota {
-            requests_per_minute: value.requests_per_minute,
-            tokens_per_minute: value.tokens_per_minute,
-            current_usage: value.current_usage,
-        });
-        let retry = self.retries.get_policy(provider_id).await.map(|value| PersistedRetry {
-            max_attempts: value.max_attempts,
-            initial_backoff_ms: value.initial_backoff_ms,
-            max_backoff_ms: value.max_backoff_ms,
-            exponential_backoff: value.exponential_backoff,
-        });
-        let health = self.health.get(provider_id).await.map(|value| PersistedHealth {
+        let quota = self
+            .quotas
+            .get(provider_id)
+            .await
+            .map(|value| PersistedQuota {
+                requests_per_minute: value.requests_per_minute,
+                tokens_per_minute: value.tokens_per_minute,
+                current_usage: value.current_usage,
+            });
+        let retry = self
+            .retries
+            .get_policy(provider_id)
+            .await
+            .map(|value| PersistedRetry {
+                max_attempts: value.max_attempts,
+                initial_backoff_ms: value.initial_backoff_ms,
+                max_backoff_ms: value.max_backoff_ms,
+                exponential_backoff: value.exponential_backoff,
+            });
+        let health = self
+            .health
+            .get(provider_id)
+            .await
+            .map(|value| PersistedHealth {
             status: health_status_name(&value.status).to_string(),
             last_check: value.last_check,
             message: value.message,
@@ -675,10 +685,7 @@ impl ProviderPlatform {
     }
 
     /// Get provider quota state.
-    pub async fn get_quota(
-        &self,
-        provider_id: &str,
-    ) -> Option<agenticos_contracts::QuotaInfo> {
+    pub async fn get_quota(&self, provider_id: &str) -> Option<agenticos_contracts::QuotaInfo> {
         self.quotas.get(provider_id).await
     }
 
@@ -688,9 +695,7 @@ impl ProviderPlatform {
         provider_id: String,
         policy: agenticos_contracts::RetryPolicy,
     ) -> Result<(), ContractError> {
-        self.retries
-            .set_policy(provider_id.clone(), policy)
-            .await?;
+        self.retries.set_policy(provider_id.clone(), policy).await?;
         self.persist_runtime_state(&provider_id).await
     }
 

@@ -45,15 +45,29 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
         </div>
       </div>
 
-      <div className="agent-tabs" role="tablist" aria-label="Agent inspector">
-        {(['Agent', 'Context', 'Task', 'Safety'] as AgentTab[]).map((item) => (
-          <button key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? 'agent-tab agent-tab--active' : 'agent-tab'} onClick={() => setTab(item)}>
+      <div className="agent-tabs" role="tablist" aria-label="Agent inspector" aria-orientation="horizontal">
+        {(['Agent', 'Context', 'Task', 'Safety'] as AgentTab[]).map((item, index, tabs) => (
+          <button key={item} id={'agent-tab-' + item.toLowerCase()} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls={'agent-panel-' + item.toLowerCase()} className={tab === item ? 'agent-tab agent-tab--active' : 'agent-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+            const currentIndex = tabs.indexOf(item)
+            const nextIndex = event.key === 'ArrowRight'
+              ? (currentIndex + 1) % tabs.length
+              : event.key === 'ArrowLeft'
+                ? (currentIndex - 1 + tabs.length) % tabs.length
+                : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) {
+              event.preventDefault()
+              const next = tabs[nextIndex]
+              setTab(next)
+              window.requestAnimationFrame(() => document.getElementById('agent-tab-' + next.toLowerCase())?.focus())
+            }
+          }}>
             {item}
           </button>
         ))}
       </div>
 
       {tab === 'Agent' && (
+        <div id="agent-panel-agent" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-agent" tabIndex={0}>
         <>
           <div className="agent-card agent-card--hero">
             <div className="agent-card__topline">
@@ -81,9 +95,11 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="context-foot"><span>{status.latencyMs ? 'Signal received' : 'Awaiting runtime telemetry'}</span><span>UI does not invent usage</span></div>
           </div>
         </>
+        </div>
       )}
 
       {tab === 'Context' && (
+        <div id="agent-panel-context" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-context" tabIndex={0}>
         <>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Context pack</span><span className="mono-text">62.2k est.</span></div>
@@ -98,9 +114,11 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="callout"><Icon name="history" size={13} /><span>Relevant memory is surfaced before optional history and web sources.</span></div>
           </div>
         </>
+        </div>
       )}
 
       {tab === 'Task' && (
+        <div id="agent-panel-task" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-task" tabIndex={0}>
         <>
           <div className="agent-task-card"><span className="eyebrow">Current objective</span><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Task TASK-104 · P1 · Builder</span></div>
           <div className="panel-section">
@@ -108,9 +126,11 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="agent-task-list">{taskSteps.map(([name, state], index) => <div key={name}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{name}</strong><small>{state}</small></div><Icon name={state === 'Complete' ? 'check' : state === 'Running' ? 'activity' : 'clock'} size={12} /></div>)}</div>
           </div>
         </>
+        </div>
       )}
 
       {tab === 'Safety' && (
+        <div id="agent-panel-safety" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-safety" tabIndex={0}>
         <>
           <div className="safety-banner"><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation-only safety indicators. Runtime authorization remains external to this component.</small></div><span>ACTIVE</span></div>
           <div className="panel-section">
@@ -127,6 +147,7 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="permission-mini-list"><span>Read <strong>Auto</strong></span><span>Write <strong>Confirm</strong></span><span>Network <strong>Confirm</strong></span><span>Destructive <strong>Block</strong></span></div>
           </div>
         </>
+        </div>
       )}
     </aside>
   )

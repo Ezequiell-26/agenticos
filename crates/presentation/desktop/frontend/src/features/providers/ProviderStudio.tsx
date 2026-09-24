@@ -88,7 +88,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
       }))
       setLiveProviders(mapped)
       setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
-      const first = mapped[indexOfFirstProvider(mapped)]
+      const first = mapped[0]
       void loadProviderModels(first?.id)
     }).catch(() => {
       // Static catalog stays available when the local runtime has not started.

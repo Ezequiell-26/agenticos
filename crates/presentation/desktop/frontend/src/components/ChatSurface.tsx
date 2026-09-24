@@ -217,12 +217,12 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <button className={`soft-button ${runDrawerOpen ? 'soft-button--active' : ''}`} type="button" title="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} />Trace</button>
           <button className="soft-button" type="button" title="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} />History</button>
           <div className="session-menu-wrap" ref={sessionMenuRef}>
-            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
+            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
             {sessionMenuOpen && <div className="session-menu" role="menu">
-              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
-              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
-              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
-              <button type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
+              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
+              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
+              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
+              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
             </div>}
           </div>
           <button className="icon-button" aria-label="Open command palette" title="Open command palette" onClick={onOpenPalette} type="button"><Icon name="command" size={17} /></button>
@@ -249,7 +249,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
         </div>
       )}
 
-      <div className="chat-content">
+      <div className="chat-content" aria-busy={running}>
         {messages.length === 0 ? (
           <div className="chat-empty">
             <div className="empty-orb"><Icon name="spark" size={22} /></div>

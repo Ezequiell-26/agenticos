@@ -8,7 +8,11 @@
 //! plane operations to the desktop frontend.
 
 use actix_cors::Cors;
-use actix_web::{dev::Service, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    dev::ServiceRequest,
+    middleware::{from_fn, Next},
+    web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
@@ -1699,6 +1703,35 @@ fn bearer_token(request: &HttpRequest) -> Option<&str> {
         .filter(|value| !value.is_empty())
 }
 
+#[derive(Clone, Debug)]
+struct AuthConfig {
+    token: Option<String>,
+}
+
+async fn api_auth_middleware(
+    config: web::Data<AuthConfig>,
+    req: ServiceRequest,
+    next: Next<impl actix_web::body::MessageBody + 'static>,
+) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
+    let authorized = req.path() == "/health"
+        || config.token.as_deref().is_none_or(|token| {
+            bearer_token(req.request()).is_some_and(|value| value == token)
+        });
+
+    if !authorized {
+        return Ok(req.into_response(
+            HttpResponse::Unauthorized()
+                .json(serde_json::json!({
+                    "error": "authentication required",
+                    "code": "AUTHENTICATION_REQUIRED"
+                }))
+                .map_into_left_body(),
+        ));
+    }
+
+    Ok(next.call(req).await?.map_into_right_body())
+}
+
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
@@ -1766,35 +1799,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             cors
         };
 
-        let expected_token = api_token.clone();
+        let auth_config = AuthConfig {
+            token: api_token.clone(),
+        };
+
         App::new()
             .wrap(cors)
-            .wrap_fn(move |req, srv| {
-                let path = req.path().to_string();
-                let authorized = path == "/health"
-                    || expected_token.as_deref().is_none_or(|token| {
-                        bearer_token(req.request()).is_some_and(|value| value == token)
-                    });
-
-                Box::pin(async move {
-                    if !authorized {
-                        let response = req.into_response(
-                            HttpResponse::Unauthorized()
-                                .json(serde_json::json!({
-                                    "error": "authentication required",
-                                    "code": "AUTHENTICATION_REQUIRED"
-                                }))
-                                .map_into_boxed_body(),
-                        );
-                        return Ok(response);
-                    }
-
-                    srv.call(req)
-                        .await
-                        .map(|response| response.map_into_boxed_body())
-                })
-            })
             .app_data(data.clone())
+            .app_data(web::Data::new(auth_config))
+            .wrap(from_fn(api_auth_middleware))
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))

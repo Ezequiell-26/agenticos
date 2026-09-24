@@ -914,14 +914,18 @@ async fn get_provider_quota(
         });
     }
 
-    match state.provider.get_quota(&provider_id).await {
-        Some(quota) => HttpResponse::Ok().json(quota),
-        None => HttpResponse::Ok().json(serde_json::json!({
-            "provider_id": provider_id,
-            "requests_per_minute": null,
-            "tokens_per_minute": null,
-            "current_usage": 0,
+    match state.provider.list_status().await.into_iter().find(|p| p.provider_id == provider_id) {
+        Some(status) => HttpResponse::Ok().json(serde_json::json!({
+            "provider_id": status.provider_id,
+            "requests_per_minute": status.requests_per_minute,
+            "tokens_per_minute": status.tokens_per_minute,
+            "current_usage": status.requests_used,
+            "current_token_usage": status.tokens_used,
         })),
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        }),
     }
 }
 

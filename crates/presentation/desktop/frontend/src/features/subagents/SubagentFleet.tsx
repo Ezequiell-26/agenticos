@@ -29,7 +29,7 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
         const budget = agent.budget && typeof agent.budget === 'object' && typeof (agent.budget as Record<string, unknown>).max_tokens === 'number'
           ? Math.round(Number((agent.budget as Record<string, unknown>).max_tokens) / 1000) + 'k'
           : 'budgeted'
-        return [name, role, 'Runtime', 'Ready', budget, String(capabilityCount)] as const
+        return [name, role, 'Runtime', 'Ready', budget + ' · ' + capabilityCount + ' capabilities'] as const
       })
       setRuntimeAgents(mapped)
     }).catch(() => {
@@ -88,7 +88,7 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
           {runtimeAgents.map(([lane, name, model, status, budget]) => (
             <button type="button" className="fleet-lane" key={lane} onClick={() => onAction(name + ' opened in specialist builder preview')}>
               <span className={'fleet-lane__status fleet-lane__status--' + status.toLowerCase()}><Icon name={status === 'Running' ? 'activity' : status === 'Ready' ? 'check' : 'clock'} size={11} /></span>
-              <span><strong>{lane} · {name}</strong><small>{model} · {budget} budget · {status}</small></span>
+              <span><strong>{lane} · {name}</strong><small>{model} · {budget} · {status}</small></span>
               <Icon name="chevron-right" size={12} />
             </button>
           ))}

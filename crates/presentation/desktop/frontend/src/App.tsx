@@ -162,7 +162,7 @@ function App() {
     if (requestSequence !== runtimeSyncSequence.current) return
     if (statusResult.status === 'fulfilled') setStatus(statusResult.value)
     if (historyResult.status === 'fulfilled' && historyResult.value.length > 0) setMessages(historyResult.value)
-    if (modelsResult.status === 'fulfilled') setAvailableModels(modelsResult.value.map((model) => model.name || model.model_id).filter(Boolean))
+    if (modelsResult.status === 'fulfilled') setAvailableModels(modelsResult.value.map((model) => model.model_id).filter(Boolean))
     const failures = [statusResult, historyResult, modelsResult].filter((result) => result.status === 'rejected')
     if (failures.length > 0) {
       const firstFailure = failures[0]

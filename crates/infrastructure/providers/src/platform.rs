@@ -39,6 +39,8 @@ struct PersistedQuota {
     requests_per_minute: Option<u32>,
     tokens_per_minute: Option<u32>,
     current_usage: u64,
+    #[serde(default)]
+    window_started_at: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -323,12 +325,15 @@ impl ProviderPlatform {
                 if let Some(quota) = state.quota {
                     platform
                         .quotas
-                        .set_quota(agenticos_contracts::QuotaInfo {
-                            provider_id: provider_id.clone(),
-                            requests_per_minute: quota.requests_per_minute,
-                            tokens_per_minute: quota.tokens_per_minute,
-                            current_usage: quota.current_usage,
-                        })
+                        .restore_quota(
+                            agenticos_contracts::QuotaInfo {
+                                provider_id: provider_id.clone(),
+                                requests_per_minute: quota.requests_per_minute,
+                                tokens_per_minute: quota.tokens_per_minute,
+                                current_usage: quota.current_usage,
+                            },
+                            quota.window_started_at,
+                        )
                         .await?;
                 }
                 if let Some(retry) = state.retry {
@@ -382,6 +387,7 @@ impl ProviderPlatform {
                 requests_per_minute: value.requests_per_minute,
                 tokens_per_minute: value.tokens_per_minute,
                 current_usage: value.current_usage,
+                window_started_at: unix_time(),
             });
         let retry = self
             .retries
@@ -782,21 +788,29 @@ impl ProviderPlatform {
             });
 
         let mut ordered_ids = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        let mut push_provider = |provider_id: String| {
+            if !provider_id.trim().is_empty() && seen.insert(provider_id.clone()) {
+                ordered_ids.push(provider_id);
+            }
+        };
         let mut allow_discovered_fallbacks = true;
         if let Some(primary) = primary_provider.as_deref() {
-            ordered_ids.push(primary.to_string());
+            push_provider(primary.to_string());
             if let Some(config) = self.fallbacks.get_config(primary).await {
                 allow_discovered_fallbacks = config.auto_failover;
                 if config.auto_failover {
-                    ordered_ids.extend(config.fallback_providers);
+                    for fallback in config.fallback_providers {
+                        if fallback != primary {
+                            push_provider(fallback);
+                        }
+                    }
                 }
             }
         }
         if allow_discovered_fallbacks {
             for provider in &providers {
-                if !ordered_ids.iter().any(|id| id == &provider.provider_id) {
-                    ordered_ids.push(provider.provider_id.clone());
-                }
+                push_provider(provider.provider_id.clone());
             }
         }
 
@@ -866,15 +880,22 @@ impl ProviderPlatform {
                     max_backoff_ms: 4_000,
                     exponential_backoff: true,
                 });
+
+            let mut provider_last_error = None;
             for attempt in 0..policy.max_attempts.max(1) {
+                if let Err(error) = self.quotas.consume_request(&provider.provider_id).await {
+                    provider_last_error = Some(error);
+                    break;
+                }
+
                 let client = AuthenticatedOpenAiProvider::new(
                     provider.provider_id.clone(),
                     provider.base_url.clone(),
                     credential.as_ref().map(|value| value.value.clone()),
                 )?;
+
                 match client.execute(routed_request.clone()).await {
                     Ok(response) => {
-                        let _ = self.quotas.increment_usage(&provider.provider_id).await;
                         let _ = self.persist_runtime_state(&provider.provider_id).await;
                         let _ = self
                             .update_health(&provider.provider_id, HealthStatus::Healthy, None)
@@ -882,28 +903,37 @@ impl ProviderPlatform {
                         return Ok(response);
                     }
                     Err(error) => {
-                        last_error = Some(error);
-                        if attempt + 1 < policy.max_attempts.max(1) {
-                            let backoff = if policy.exponential_backoff {
-                                policy
-                                    .initial_backoff_ms
-                                    .saturating_mul(2u64.saturating_pow(attempt))
-                            } else {
-                                policy.initial_backoff_ms
-                            }
-                            .min(policy.max_backoff_ms);
-                            sleep(Duration::from_millis(backoff)).await;
+                        provider_last_error = Some(error.clone());
+                        last_error = Some(error.clone());
+
+                        if !is_retryable_provider_error(&error)
+                            || attempt + 1 >= policy.max_attempts.max(1)
+                        {
+                            break;
                         }
+
+                        let backoff = if policy.exponential_backoff {
+                            policy
+                                .initial_backoff_ms
+                                .saturating_mul(2u64.saturating_pow(attempt))
+                        } else {
+                            policy.initial_backoff_ms
+                        }
+                        .min(policy.max_backoff_ms);
+                        sleep(Duration::from_millis(backoff)).await;
                     }
                 }
             }
-            let _ = self
-                .update_health(
-                    &provider.provider_id,
-                    HealthStatus::Degraded,
-                    last_error.as_ref().map(ToString::to_string),
-                )
-                .await;
+
+            if let Some(error) = provider_last_error {
+                let _ = self
+                    .update_health(
+                        &provider.provider_id,
+                        HealthStatus::Degraded,
+                        Some(error.to_string()),
+                    )
+                    .await;
+            }
         }
         Err(last_error.unwrap_or(ContractError::MissingCapability))
     }
@@ -1078,7 +1108,8 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 detail.push_str("...");
             }
             return Err(ContractError::ParseError(format!(
-                "provider returned HTTP {status}: {detail}"
+                "provider_http_status={}; provider returned HTTP {status}: {detail}",
+                status.as_u16()
             )));
         }
         let json: serde_json::Value = serde_json::from_str(&body).map_err(|error| {
@@ -1106,6 +1137,19 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 .and_then(|v| v.as_u64()),
         })
     }
+}
+
+fn is_retryable_provider_error(error: &ContractError) -> bool {
+    let message = error.to_string();
+    if message.contains("provider_http_status=") {
+        let status = message
+            .split("provider_http_status=")
+            .nth(1)
+            .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
+            .and_then(|value| value.parse::<u16>().ok());
+        return status == Some(429) || status.is_some_and(|value| value >= 500);
+    }
+    message.contains("provider request failed:") || message.contains("provider response failed:")
 }
 
 fn normalize_chat_url(base_url: &str) -> String {

@@ -44,6 +44,14 @@ if (!navigationSource.includes("export const navigationItems") || !navigationSou
 
 
 const appSource = readFileSync("crates/presentation/desktop/frontend/src/App.tsx", "utf8");
+
+if (!appSource.includes("<WorkspaceOverview mode={mode} onNavigate={setMode} />")) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — workspace surfaces must receive the centralized navigation callback.",
+  );
+  process.exit(1);
+}
+
 const platformSource = readFileSync(
   "crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx",
   "utf8",

@@ -243,7 +243,7 @@ export class AgenticosRuntime implements RuntimeServices {
     baseUrl = import.meta.env.VITE_AGENTICOS_API_URL ?? 'http://127.0.0.1:8080',
     apiToken = import.meta.env.VITE_AGENTICOS_API_TOKEN as string | undefined,
   ) {
-    this.baseUrl = baseUrl.replace(/\\/+$/, '')
+    this.baseUrl = baseUrl.replace(/\/+$/, '')
     this.transport = new FetchTransport(this.baseUrl, apiToken?.trim() || undefined)
   }
 

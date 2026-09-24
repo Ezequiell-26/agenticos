@@ -1525,3 +1525,11 @@ Verification status:
 - Chat now synchronizes the live model catalog and sends the selected model to `POST /api/agent/chat`.
 - Provider, memory, MCP, run, tool, subagent and workflow surfaces now hydrate from runtime data when available, preserving presentation fixtures only as an offline fallback.
 - Runtime HTTP errors now retain backend error codes instead of being silently converted into successful responses.
+
+## 2026-09-25 — Runtime recovery banner only after a fully synced runtime
+
+- The "Runtime synchronization failed / Failed to fetch" banner no longer appears when reloading with the API server absent or only partially started (status endpoint up, conversations/models still missing): the shell falls back to its normal Runtime offline state.
+- The recovery banner is now reserved for a runtime that was fully synced (status, conversations and models all fulfilled) and then failed; every sync attempt clears the banner on success.
+- Added a 30s background re-sync so the shell reconnects automatically once the runtime becomes available, without manual reloads.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; reload with the API server up-but-partial shows no banner and the offline state verified in the browser preview.

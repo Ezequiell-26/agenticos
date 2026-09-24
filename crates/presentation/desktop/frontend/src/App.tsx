@@ -98,6 +98,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('model/main')
   const runtimeSyncSequence = useRef(0)
+  const runtimeWasSynced = useRef(false)
   useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
   useExclusiveOverlay('global-search', globalSearchOpen, () => setGlobalSearchOpen(false))
   useExclusiveOverlay('notifications', notificationsOpen, () => setNotificationsOpen(false))
@@ -153,18 +154,25 @@ function App() {
   const refreshRuntime = useCallback(async (targetSessionId: string) => {
     const requestSequence = ++runtimeSyncSequence.current
     setRuntimeSyncing(true)
-    setRuntimeError(null)
     const [statusResult, historyResult, modelsResult] = await Promise.allSettled([
       runtime.status.get(),
       runtime.conversations.history(targetSessionId),
       runtime.models.list(),
     ])
     if (requestSequence !== runtimeSyncSequence.current) return
+    const allFulfilled = [statusResult, historyResult, modelsResult].every((result) => result.status === 'fulfilled')
     if (statusResult.status === 'fulfilled') setStatus(statusResult.value)
     if (historyResult.status === 'fulfilled' && historyResult.value.length > 0) setMessages(historyResult.value)
     if (modelsResult.status === 'fulfilled') setAvailableModels(modelsResult.value.map((model) => model.model_id).filter(Boolean))
+    if (allFulfilled) {
+      runtimeWasSynced.current = true
+      setRuntimeError(null)
+    }
     const failures = [statusResult, historyResult, modelsResult].filter((result) => result.status === 'rejected')
-    if (failures.length > 0) {
+    // A partially reachable or unreachable runtime is the normal offline state
+    // (e.g. UI preview while the API server is still starting); the recovery
+    // banner is only for a runtime that was fully synced and then failed.
+    if (failures.length > 0 && runtimeWasSynced.current) {
       const firstFailure = failures[0]
       const reason = firstFailure.status === 'rejected' ? firstFailure.reason : null
       setRuntimeError(reason instanceof Error ? reason.message : 'Runtime synchronization failed.')
@@ -174,6 +182,8 @@ function App() {
 
   useEffect(() => {
     void refreshRuntime(sessionId)
+    const retry = window.setInterval(() => { void refreshRuntime(sessionId) }, 30000)
+    return () => window.clearInterval(retry)
   }, [refreshRuntime, sessionId])
 
   useEffect(() => {

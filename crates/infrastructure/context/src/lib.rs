@@ -144,8 +144,7 @@ fn fold_repeated_lines(input: &str) -> (String, usize) {
             } else {
                 output.push_str(line);
             }
-            output.push('
-');
+            output.push('\n');
         }
         *previous = None;
         *repeat_count = 0;
@@ -154,11 +153,10 @@ fn fold_repeated_lines(input: &str) -> (String, usize) {
     for line in input.lines() {
         let line = line.trim_end();
         if line.is_empty() {
-            if repeat_count > 0 { flush(&mut output, &mut previous, &mut repeat_count, &mut folded); }
-            if !output.is_empty() && !output.ends_with("
-
-") { output.push('
-'); }
+            if repeat_count > 0 {
+        flush(&mut output, &mut previous, &mut repeat_count, &mut folded);
+    }
+            if !output.is_empty() && !output.ends_with("\n\n") { output.push('\n'); }
             continue;
         }
 
@@ -176,9 +174,10 @@ fn fold_repeated_lines(input: &str) -> (String, usize) {
         }
     }
 
-    if repeat_count > 0 { flush(&mut output, &mut previous, &mut repeat_count, &mut folded); }
-    (output.trim_end_matches('
-').to_string(), folded)
+    if repeat_count > 0 {
+        flush(&mut output, &mut previous, &mut repeat_count, &mut folded);
+    }
+    (output.trim_end_matches('\n').to_string(), folded)
 }
 
 /// Stateless context engine.

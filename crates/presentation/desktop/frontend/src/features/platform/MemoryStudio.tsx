@@ -18,7 +18,7 @@ export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
     let cancelled=false
     void runtime.memory.list('agenticos', undefined, 100).then((records)=>{
       if(cancelled || records.length===0) return
-      const mapped=records.map((record,index)=>({
+      const mapped=records.map((record)=>({
         id: record.key,
         title: record.key,
         type: record.tags?.some(tag=>tag.toLowerCase().includes('semantic')) ? 'Semantic' : 'Episodic',

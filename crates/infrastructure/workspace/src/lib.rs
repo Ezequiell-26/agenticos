@@ -229,7 +229,6 @@ impl WorkspaceFs {
     }
 }
 
-
 #[tokio::test]
 async fn apply_patch_rejects_ambiguous_replacements() {
     let root = std::env::temp_dir().join(format!(

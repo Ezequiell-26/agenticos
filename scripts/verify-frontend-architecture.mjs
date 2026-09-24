@@ -186,6 +186,7 @@ if (legacyChat.includes("fetch(") || legacyChat.includes("/api/agent/")) {
 
 for (const file of [
   "crates/presentation/desktop/frontend/src/components/AppErrorBoundary.tsx",
+  "crates/presentation/desktop/frontend/src/hooks/useMenuKeyboard.ts",
   "crates/presentation/desktop/frontend/src/components/WorkspaceDock.tsx",
   "crates/presentation/desktop/frontend/src/workspace-enhancements.css",
 ]) {
@@ -230,6 +231,24 @@ if (
 if (!appSource.includes('role="status"') || !appSource.includes('aria-live="polite"')) {
   console.error(
     "FRONTEND ARCHITECTURE: FAIL — runtime state must be exposed through an accessible live region.",
+  );
+  process.exit(1);
+}
+
+const navigationLauncherSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/NavigationLauncher.tsx",
+  "utf8",
+);
+if (
+  !navigationLauncherSource.includes('launcherRecentKey') ||
+  !navigationLauncherSource.includes('launcherFavoritesKey') ||
+  !navigationLauncherSource.includes("useState<'All' | 'Recent' | 'Pinned'>") ||
+  !navigationLauncherSource.includes("writeIdList(launcherRecentKey") ||
+  !navigationLauncherSource.includes("writeIdList(launcherFavoritesKey") ||
+  !navigationLauncherSource.includes("event.key.toLowerCase() === 'p'")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — launcher recent/pinned discovery state must remain persistent and keyboard accessible.",
   );
   process.exit(1);
 }

@@ -152,19 +152,13 @@ for (const [index, line] of lines.entries()) {
     }
 
     const operationTimestamp = Date.parse(op.timestamp);
-    const historicalEvidenceCompatible =
-      operationTimestamp < EVIDENCE_POLICY_CUTOFF &&
-      op.verification &&
-      typeof op.verification === "object";
+    const evidenceRequired = operationTimestamp >= EVIDENCE_POLICY_CUTOFF;
 
-    if (op.status === "completed" && historicalEvidenceCompatible) {
-      if (typeof op.next_step !== "string") {
-        fail(`historical completed operation ${operationId} has no next step`);
-      }
-      continue;
-    }
-
-    if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
+    // Historical schema_version=1 records before the evidence policy cutoff
+    // remain immutable and readable. Current/future completed records must
+    // provide explicit evidence, while every completed record still needs a
+    // durable next step.
+    if (op.status === "completed" && evidenceRequired && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
       fail(`completed operation ${operationId} has no evidence`);
     }
     if (op.status === "completed" && typeof op.next_step !== "string") {

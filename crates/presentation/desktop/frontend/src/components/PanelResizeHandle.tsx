@@ -27,7 +27,7 @@ export default function PanelResizeHandle({ axis }: PanelResizeHandleProps) {
     const value = readUiPreferences()[config.key]
     return typeof value === 'number' ? value : config.defaultValue
   })
-  const dragStart = useRef<{ x: number; size: number; pointerId: number } | null>(null)
+  const dragStart = useRef<{ x: number; size: number; pointerId: number; currentSize: number } | null>(null)
 
   useEffect(() => {
     return subscribeUiPreferences(() => {
@@ -47,7 +47,7 @@ export default function PanelResizeHandle({ axis }: PanelResizeHandleProps) {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     document.documentElement.classList.add('agenticos-resizing-columns')
-    dragStart.current = { x: event.clientX, size, pointerId: event.pointerId }
+    dragStart.current = { x: event.clientX, size, pointerId: event.pointerId, currentSize: size }
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -55,8 +55,10 @@ export default function PanelResizeHandle({ axis }: PanelResizeHandleProps) {
     if (!start || start.pointerId !== event.pointerId) return
 
     const delta = event.clientX - start.x
-    const next = axis === 'sidebar' ? start.size + delta : start.size - delta
-    applySize(next)
+    const next = clamp(Math.round(axis === 'sidebar' ? start.size + delta : start.size - delta), config.min, config.max)
+    start.currentSize = next
+    setSize(next)
+    applyUiPreferences({ ...readUiPreferences(), [config.key]: next })
   }
 
   function endResize(event: ReactPointerEvent<HTMLDivElement>) {
@@ -64,7 +66,9 @@ export default function PanelResizeHandle({ axis }: PanelResizeHandleProps) {
     if (!start || start.pointerId !== event.pointerId) return
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     document.documentElement.classList.remove('agenticos-resizing-columns')
+    const value = start.currentSize
     dragStart.current = null
+    updateUiPreferences({ [config.key]: value } as Partial<UiPreferences>)
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {

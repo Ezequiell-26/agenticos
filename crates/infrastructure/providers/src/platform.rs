@@ -2044,7 +2044,13 @@ fn parse_gemini_models(body: &str) -> Result<Vec<String>, ContractError> {
                 .and_then(|value| value.as_str())
                 .or_else(|| item.get("name").and_then(|value| value.as_str()))
         })
-        .filter_map(|value| value.strip_prefix("models/").unwrap_or(value).split(':').next())
+        .filter_map(|value| {
+            value
+                .strip_prefix("models/")
+                .unwrap_or(value)
+                .split(':')
+                .next()
+        })
         .map(ToOwned::to_owned)
         .filter(|value| !value.is_empty())
         .collect())
@@ -2094,10 +2100,7 @@ enum NormalizedInputPart {
         detail: Option<String>,
     },
     #[serde(rename = "image_url")]
-    ImageUrl {
-        url: String,
-        detail: Option<String>,
-    },
+    ImageUrl { url: String, detail: Option<String> },
 }
 
 fn normalized_input_parts(
@@ -2113,9 +2116,8 @@ fn normalized_input_parts(
     let Some(parts) = value.get("input_parts") else {
         return Ok(None);
     };
-    let parts = serde_json::from_value::<Vec<NormalizedInputPart>>(parts.clone()).map_err(|error| {
-        ContractError::ParseError(format!("invalid input_parts: {error}"))
-    })?;
+    let parts = serde_json::from_value::<Vec<NormalizedInputPart>>(parts.clone())
+        .map_err(|error| ContractError::ParseError(format!("invalid input_parts: {error}")))?;
     if parts.is_empty() || parts.len() > 64 {
         return Err(ContractError::ParseError(
             "input_parts must contain between 1 and 64 parts".to_string(),
@@ -2189,7 +2191,11 @@ fn openai_chat_message_content(
                 "type": "text",
                 "text": text,
             }),
-            NormalizedInputPart::Image { mime_type, data, detail } => serde_json::json!({
+            NormalizedInputPart::Image {
+                mime_type,
+                data,
+                detail,
+            } => serde_json::json!({
                 "type": "image_url",
                 "image_url": {
                     "url": format!("data:{mime_type};base64,{data}"),
@@ -2254,7 +2260,9 @@ fn anthropic_message_content(
                 "type": "text",
                 "text": text,
             }),
-            NormalizedInputPart::Image { mime_type, data, .. } => serde_json::json!({
+            NormalizedInputPart::Image {
+                mime_type, data, ..
+            } => serde_json::json!({
                 "type": "image",
                 "source": {
                     "type": "base64",
@@ -2295,7 +2303,8 @@ fn gemini_message_parts(
             }),
             NormalizedInputPart::ImageUrl { .. } => {
                 return Err(ContractError::ParseError(
-                    "Gemini image_url parts require an uploaded file or inline image data".to_string(),
+                    "Gemini image_url parts require an uploaded file or inline image data"
+                        .to_string(),
                 ))
             }
         });
@@ -2394,6 +2403,8 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
         || normalized.starts_with("https://[::1]:")
 }
 
+#[cfg(test)]
+mod tests {
     #[test]
     fn gemini_model_catalog_normalizes_resource_names() {
         let body = r#"{
@@ -2408,7 +2419,7 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
             vec!["gemini-3.8-flash".to_string(), "gemini-special".to_string()]
         );
     }
-
+    
     #[tokio::test]
     async fn anthropic_discovery_uses_configured_models() {
         let provider = ProviderEntry {
@@ -2423,9 +2434,6 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
             vec!["claude-sonnet-5".to_string()]
         );
     }
-
-#[cfg(test)]
-mod tests {
     #[tokio::test]
     async fn provider_update_without_new_api_key_keeps_existing_credential() {
         let platform = ProviderPlatform::new();
@@ -2525,10 +2533,7 @@ mod tests {
         let value = openai_chat_message_content("ignored", Some(parameters)).unwrap();
         assert_eq!(value[0]["type"], "text");
         assert_eq!(value[1]["type"], "image_url");
-        assert_eq!(
-            value[1]["image_url"]["url"],
-            "data:image/png;base64,QUJD"
-        );
+        assert_eq!(value[1]["image_url"]["url"], "data:image/png;base64,QUJD");
         assert_eq!(value[1]["image_url"]["detail"], "low");
     }
 

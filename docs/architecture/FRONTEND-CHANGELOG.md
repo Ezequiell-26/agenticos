@@ -1174,3 +1174,10 @@ Verification status:
 - Current/future records remain fully strict against `required_operation_fields` and the evidence policy.
 - This resolves the observed `previous_commit` failure in the historical Knowledge Studio record without rewriting that record or weakening current work requirements.
 - Verification status: awaiting the next CI run.
+
+## 2026-09-24 — Continuity historical/modern validation split
+
+- Refactored the continuity verifier so pre-cutoff schema_version=1 journal records use an explicit historical compatibility branch and are not subjected to newer `deleted`, `rollback` or evidence-shape requirements.
+- Historical completed operations still require a durable `next_step`; current/future modern records retain the full strict contract.
+- This addresses the successive legacy failures observed after the initial evidence-field migration without rewriting historical journal content.
+- Verification status: awaiting the next CI run.

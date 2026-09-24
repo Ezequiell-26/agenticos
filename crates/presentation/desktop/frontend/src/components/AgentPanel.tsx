@@ -68,7 +68,6 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
 
       {tab === 'Agent' && (
         <div id="agent-panel-agent" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-agent" tabIndex={0}>
-        <>
           <div className="agent-card agent-card--hero">
             <div className="agent-card__topline">
               <span className="live-label"><span className="live-pulse" />{running ? 'Working' : 'Ready'}</span>
@@ -94,13 +93,11 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="context-meter"><span style={{ width: status.latencyMs ? '10%' : '0%' }} /></div>
             <div className="context-foot"><span>{status.latencyMs ? 'Signal received' : 'Awaiting runtime telemetry'}</span><span>UI does not invent usage</span></div>
           </div>
-        </>
         </div>
       )}
 
       {tab === 'Context' && (
         <div id="agent-panel-context" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-context" tabIndex={0}>
-        <>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Context pack</span><span className="mono-text">62.2k est.</span></div>
             <div className="agent-context-meter"><div className="context-meter"><span style={{ width: '72%' }} /></div><div><span>72% used</span><strong>23.4k free</strong></div></div>
@@ -113,26 +110,22 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="panel-section__heading"><span>Memory policy</span><span className="mono-text">Pinned first</span></div>
             <div className="callout"><Icon name="history" size={13} /><span>Relevant memory is surfaced before optional history and web sources.</span></div>
           </div>
-        </>
         </div>
       )}
 
       {tab === 'Task' && (
         <div id="agent-panel-task" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-task" tabIndex={0}>
-        <>
-          <div className="agent-task-card"><span className="eyebrow">Current objective</span><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Task TASK-104 · P1 · Builder</span></div>
+          <div className="agent-task-card><span className="eyebrow">Current objective</span><strong>Complete the current frontend slice without breaking existing contracts.</strong><span>Task TASK-104 · P1 · Builder</span></div>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Execution steps</span><span className="mono-text">{running ? 'active' : 'preview'}</span></div>
             <div className="agent-task-list">{taskSteps.map(([name, state], index) => <div key={name}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{name}</strong><small>{state}</small></div><Icon name={state === 'Complete' ? 'check' : state === 'Running' ? 'activity' : 'clock'} size={12} /></div>)}</div>
           </div>
-        </>
         </div>
       )}
 
       {tab === 'Safety' && (
         <div id="agent-panel-safety" className="agent-tabpanel" role="tabpanel" aria-labelledby="agent-tab-safety" tabIndex={0}>
-        <>
-          <div className="safety-banner"><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation-only safety indicators. Runtime authorization remains external to this component.</small></div><span>ACTIVE</span></div>
+          <div className="safety-banner><Icon name="shield" size={17} /><div><strong>Protected workspace</strong><small>Presentation-only safety indicators. Runtime authorization remains external to this component.</small></div><span>ACTIVE</span></div>
           <div className="panel-section">
             <div className="panel-section__heading"><span>Guardrails</span><Icon name="shield" size={15} /></div>
             <div className="guardrail-list">
@@ -146,7 +139,6 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
             <div className="panel-section__heading"><span>Permission tiers</span><span className="mono-text">fail-closed</span></div>
             <div className="permission-mini-list"><span>Read <strong>Auto</strong></span><span>Write <strong>Confirm</strong></span><span>Network <strong>Confirm</strong></span><span>Destructive <strong>Block</strong></span></div>
           </div>
-        </>
         </div>
       )}
     </aside>

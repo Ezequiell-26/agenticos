@@ -100,7 +100,7 @@ impl PolicyEngine for BasicPolicyEngine {
         // Fetch metadata once; policy evaluation is on the hot path.
         let Some(tool) = self.registry.get(&request.tool_id).await else {
             return Ok(PolicyDecision::Denied("Tool not found".to_string()));
-        }
+        };
 
         // Check required permissions against an issued, scoped, time-valid grant.
         for permission in &tool.required_permissions {

@@ -36,6 +36,28 @@ if (!packageJson.scripts?.dev || !packageJson.scripts?.build) {
   process.exit(1);
 }
 
+const uiPreferencesSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/services/ui-preferences.ts",
+  "utf8",
+);
+const resizeHandleSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/PanelResizeHandle.tsx",
+  "utf8",
+);
+if (
+  !uiPreferencesSource.includes("export function updateUiPreferences") ||
+  !resizeHandleSource.includes('role="separator"') ||
+  !resizeHandleSource.includes('aria-valuenow={size}') ||
+  !resizeHandleSource.includes("onPointerDown={handlePointerDown}") ||
+  !resizeHandleSource.includes("ArrowRight") ||
+  !resizeHandleSource.includes("ArrowLeft")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — adjustable panel widths must remain persisted and keyboard/pointer accessible.",
+  );
+  process.exit(1);
+}
+
 
 const launcherSource = readFileSync(
   "crates/presentation/desktop/frontend/src/components/NavigationLauncher.tsx",

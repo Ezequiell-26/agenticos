@@ -195,4 +195,57 @@ for (const file of [
   }
 }
 
+
+const menuHookSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/hooks/useMenuKeyboard.ts",
+  "utf8",
+);
+const quickActionsSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/QuickActionsMenu.tsx",
+  "utf8",
+);
+const agentPanelSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/AgentPanel.tsx",
+  "utf8",
+);
+if (
+  !menuHookSource.includes("ArrowDown") ||
+  !menuHookSource.includes("ArrowUp") ||
+  !menuHookSource.includes("event.key === 'Home'") ||
+  !menuHookSource.includes("event.key === 'End'") ||
+  !menuHookSource.includes("pointerdown") ||
+  !quickActionsSource.includes('aria-controls="quick-actions-menu"') ||
+  !quickActionsSource.includes("useMenuKeyboard") ||
+  !agentPanelSource.includes('role="tablist"') ||
+  !agentPanelSource.includes('role="tabpanel"') ||
+  !agentPanelSource.includes("aria-controls={'agent-panel-' + item.toLowerCase()}") ||
+  !agentPanelSource.includes("event.key === 'ArrowRight'")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — shared menu keyboard behavior and inspector tab relationships are required.",
+  );
+  process.exit(1);
+}
+
+if (!appSource.includes('role="status"') || !appSource.includes('aria-live="polite"')) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — runtime state must be exposed through an accessible live region.",
+  );
+  process.exit(1);
+}
+
+const workspaceOverviewSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/WorkspaceOverview.tsx",
+  "utf8",
+);
+if (
+  !workspaceOverviewSource.includes('aria-busy="true"') ||
+  !workspaceOverviewSource.includes("surface-loading__skeleton")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — workspace surface loading must provide a real skeleton state.",
+  );
+  process.exit(1);
+}
+
 console.log("FRONTEND ARCHITECTURE: PASS — frontend contract, route coverage, runtime boundaries and shell safeguards are present.");

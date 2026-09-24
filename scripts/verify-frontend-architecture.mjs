@@ -36,6 +36,35 @@ if (!packageJson.scripts?.dev || !packageJson.scripts?.build) {
   process.exit(1);
 }
 
+
+const launcherSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/NavigationLauncher.tsx",
+  "utf8",
+);
+const globalSearchSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/GlobalSearch.tsx",
+  "utf8",
+);
+const chatSurfaceSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/components/ChatSurface.tsx",
+  "utf8",
+);
+if (
+  !launcherSource.includes('role="combobox"') ||
+  !launcherSource.includes('role="listbox"') ||
+  !launcherSource.includes('role="option"') ||
+  !globalSearchSource.includes('role="listbox"') ||
+  !globalSearchSource.includes('role="option"') ||
+  !chatSurfaceSource.includes('aria-haspopup="menu"') ||
+  !chatSurfaceSource.includes('role="menuitem"') ||
+  !chatSurfaceSource.includes('aria-busy={running}')
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — interactive search/menu/busy semantics are required.",
+  );
+  process.exit(1);
+}
+
 const navigationSource = readFileSync("crates/presentation/desktop/frontend/src/navigation.ts", "utf8");
 if (!navigationSource.includes("export const navigationItems") || !navigationSource.includes("export function isPlatformMode")) {
   console.error("FRONTEND ARCHITECTURE: FAIL — centralized navigation registry/type guard is required");

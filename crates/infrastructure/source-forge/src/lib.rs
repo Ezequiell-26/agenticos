@@ -3,6 +3,8 @@
 
 //! reference corpus and source admission boundary. Functionality is introduced only through verified vertical slices.
 
+use serde::{Deserialize, Serialize};
+
 use agenticos_contracts::{
     ContractError, ResourceUsage, Sandbox, SandboxRequest, SandboxResponse, SandboxStatus,
 };

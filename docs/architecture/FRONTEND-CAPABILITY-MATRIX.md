@@ -189,3 +189,14 @@ Current generic `FeatureWorkbench` modes:
 The previous broad fallback that rendered `Security Center` for unrelated unhandled platform modes has been removed. Source audit result: **0 missing platform owners and 0 invalid non-platform owners**.
 
 This is a source-structure result. Frontend build, browser verification, accessibility execution and Tauri rendering remain evidence gates, not implied by route coverage.
+
+
+## Settings parity coverage — 2026-09-24
+
+| Capability | Surface | Coverage | Runtime status |
+| --- | --- | --- | --- |
+| Hermes advanced parity | HermesParityControls | context engine, credential pools, fallback model, auxiliary task routing, voice mode, web crawl, streaming transport, gateway policies, quick commands | presentation preview |
+| Auxiliary model matrix | SettingsStudio + HermesParityControls | provider/model/base URL/timeout contracts for side-task models | adapter pending |
+| Gateway policy parity | HermesParityControls | group-session isolation and unauthorized-DM policy shape | runtime enforcement pending |
+| Quick command contract | HermesParityControls | named zero-LLM command definitions | execution/authorization pending |
+| Portable parity snapshot | SettingsStudio raw config | new fields serialized under hermes_parity | runtime schema reconciliation pending |

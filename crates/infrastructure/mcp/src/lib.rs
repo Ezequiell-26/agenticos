@@ -855,7 +855,7 @@ fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
                         match value {
                             serde_json::Value::String(text) => {
                                 serde_json::Value::String(optimize_tool_output(&text).0)
-                            },
+                            }
                             other => optimize_mcp_value(other),
                         }
                     } else {

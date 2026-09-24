@@ -9,8 +9,8 @@ use agenticos_contracts::{
 };
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
-use tokio::sync::RwLock;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-providers";

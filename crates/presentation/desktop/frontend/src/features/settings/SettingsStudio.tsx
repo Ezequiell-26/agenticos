@@ -34,6 +34,7 @@ export interface SettingsState {
   uiScale: number
   fontSize: number
   experience: 'Simple' | 'Pro'
+  sessionTabsVisible: boolean
   sidebarWidth: number
   inspectorWidth: number
   language: string
@@ -305,6 +306,7 @@ const defaults: SettingsState = {
   uiScale: 100,
   fontSize: 13,
   experience: 'Simple',
+  sessionTabsVisible: true,
   sidebarWidth: 270,
   inspectorWidth: 320,
   language: 'English',

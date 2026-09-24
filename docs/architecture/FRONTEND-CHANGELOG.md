@@ -1447,3 +1447,11 @@ Verification status:
 - Simplified the empty session state to a clean blank surface like the reference.
 - Removed the orphaned ChatEnhancementDock usage from the composer (component file retained for the architecture contract) and the starter prompt grid.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; session tabs, plus menu and effort popover verified in the browser preview.
+
+## 2026-09-25 — Right-click workspace context menu
+
+- Added a Hermes-style right-click context menu across the workspace (text fields keep the native menu): New session, New window, Command palette, Toggle status bar, Show or hide the profile bar, Show or hide session tabs, Settings and Update AgentiCOS.
+- The layout toggles are fully functional through the shared UI preference bridge (status bar, sidebar and session tabs hide and show for real), session tabs gained the persisted `sessionTabsVisible` preference applied as `data-agenticos-tabs`, and Settings navigates to the settings workspace.
+- The menu opens at the cursor with viewport clamping, closes on selection, outside pointer-down or Escape, and participates in the exclusive overlay registry so it never stacks with other menus.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; menu opening, item list, status bar and session tab toggles verified in the browser preview.

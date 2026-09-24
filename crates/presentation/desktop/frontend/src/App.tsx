@@ -8,6 +8,7 @@ import Icon from './components/Icon'
 import NotificationDrawer from './components/NotificationDrawer'
 import QuickActionsMenu from './components/QuickActionsMenu'
 import StatusBar from './components/StatusBar'
+import WorkspaceContextMenu, { type ContextMenuState } from './components/WorkspaceContextMenu'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
@@ -86,11 +87,30 @@ function App() {
   const [notificationUnread, setNotificationUnread] = useState(2)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [toast, setToast] = useState('')
   const runtimeSyncSequence = useRef(0)
   useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
   useExclusiveOverlay('global-search', globalSearchOpen, () => setGlobalSearchOpen(false))
   useExclusiveOverlay('notifications', notificationsOpen, () => setNotificationsOpen(false))
   useExclusiveOverlay('shortcuts', shortcutsOpen, () => setShortcutsOpen(false))
+
+  useEffect(() => {
+    const onContextMenu = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      event.preventDefault()
+      setContextMenu({ x: event.clientX, y: event.clientY })
+    }
+    window.addEventListener('contextmenu', onContextMenu)
+    return () => window.removeEventListener('contextmenu', onContextMenu)
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(''), 2200)
+    return () => window.clearTimeout(timer)
+  }, [toast])
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -347,6 +367,17 @@ function App() {
         open={paletteOpen}
       />
       <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {contextMenu && (
+        <WorkspaceContextMenu
+          anchor={contextMenu}
+          onClose={() => setContextMenu(null)}
+          onCreateConversation={handleCreateConversation}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenSettings={() => setMode('settings')}
+          onAction={setToast}
+        />
+      )}
+      {toast && <div className="studio-toast" role="status"><Icon name="check" size={14} /><span>{toast}</span></div>}
     </div>
   )
 }

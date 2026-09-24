@@ -17,6 +17,7 @@ export interface UiLayoutPreferences {
   bottomDockVisible: boolean
   activityRailCompact: boolean
   statusBarVisible: boolean
+  sessionTabsVisible: boolean
   showTooltips: boolean
   hoverPreview: boolean
   notificationPosition: string
@@ -36,6 +37,7 @@ export const defaultUiPreferences: UiPreferences = {
   bottomDockVisible: false,
   activityRailCompact: true,
   statusBarVisible: true,
+  sessionTabsVisible: true,
   showTooltips: true,
   hoverPreview: true,
   notificationPosition: 'top-right',
@@ -92,6 +94,7 @@ export function applyUiPreferences(preferences: UiPreferences) {
   root.dataset.agenticosDock = preferences.bottomDockVisible ? 'visible' : 'hidden'
   root.dataset.agenticosRail = preferences.activityRailCompact ? 'compact' : 'expanded'
   root.dataset.agenticosStatusbar = preferences.statusBarVisible ? 'visible' : 'hidden'
+  root.dataset.agenticosTabs = preferences.sessionTabsVisible ? 'visible' : 'hidden'
   root.dataset.agenticosTooltips = preferences.showTooltips ? 'visible' : 'hidden'
   root.dataset.agenticosHoverPreview = preferences.hoverPreview ? 'visible' : 'hidden'
   root.dataset.agenticosNotifications = preferences.notificationPosition

@@ -255,14 +255,17 @@ impl WorkflowEngine {
         state.version = state.version.saturating_add(1);
 
         if let Some(db) = &self.db {
-            let previous_version = previous_state.version as i64;
+            let previous_version = previous_state.version;
+            let previous_payload = serde_json::to_string(&previous_state)
+                .map_err(|error| format!("workflow previous-state serialization failed: {error}"))?;
             let payload = serde_json::to_string(state)
                 .map_err(|error| format!("workflow state serialization failed: {error}"))?;
             let updated = sqlx::query(
-                "UPDATE workflow_states SET payload = ? WHERE workflow_id = ? AND payload IS NOT NULL",
+                "UPDATE workflow_states SET payload = ? WHERE workflow_id = ? AND payload = ?",
             )
             .bind(&payload)
             .bind(workflow_id)
+            .bind(&previous_payload)
             .execute(db.as_ref())
             .await
             .map_err(|error| format!("workflow state persistence failed: {error}"))?;

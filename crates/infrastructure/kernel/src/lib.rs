@@ -88,6 +88,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
+fn unix_time() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 /// Pure transition validator for the durable Run state machine.
 pub fn validate_transition(from: RunState, to: RunState) -> Result<(), ContractError> {
     let allowed = matches!(
@@ -502,6 +509,7 @@ impl InMemoryIdempotencyStore {
                 fingerprint,
                 status: IdempotencyStatus::InProgress,
                 result: None,
+                owner: false,
             },
         );
 
@@ -2135,6 +2143,7 @@ impl ReactAgent {
                 skills_catalog: Vec::new(),
                 memory_md: String::new(),
                 user_md: String::new(),
+                static_system_prompt: None,
             }),
         }
     }
@@ -2511,8 +2520,14 @@ impl ReactAgent {
             return self.think_with_router(&router, turn, input).await;
         }
 
-        self.think_inner(provider.as_ref(), turn, input, preferred_model.as_deref())
-            .await
+        self.think_inner(
+            provider.as_ref(),
+            turn,
+            input,
+            preferred_model.as_deref(),
+            None,
+        )
+        .await
     }
 
     /// Execute thought using LLM router for provider selection.

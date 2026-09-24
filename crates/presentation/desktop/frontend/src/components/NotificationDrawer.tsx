@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import Icon from './Icon'
 import type { RailMode } from '../navigation'
@@ -55,7 +55,8 @@ export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavi
     return seed.map((item) => read.has(item.id) ? { ...item, read: true } : item)
   })
   const [filter, setFilter] = useState<'All' | 'Unread' | 'Action'>('All')
-  const dialogRef = useFocusTrap(open, null)
+  const dialogRef = useRef<HTMLElement>(null)
+  useFocusTrap(open, dialogRef)
 
   const visible = useMemo(() => {
     if (filter === 'Unread') return items.filter((item) => !item.read)

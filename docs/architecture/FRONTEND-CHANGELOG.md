@@ -1023,3 +1023,10 @@ Verification status:
 - Verification status: source structure verified. Frontend build, browser verification, accessibility execution, Tauri rendering and Step 25 implementation-state verification remain unverified.
 - Boundary: all new actions are presentation intents; no provider calls, secret handling, durable runtime mutation or execution was introduced.
 - Current implementation-state note: repository remains governed by Step 25 (`integration-test-implementation-phase-3`); this frontend source is preserved but not marked as a verified implementation step.
+
+## 2026-09-24 — Frontend composition hardening
+
+- Removed accidental nested `Shell` composition for `WorkspaceOverview` and `PermissionsMatrix` after route consolidation.
+- Removed non-platform mode checks from `PlatformSurface` and preserved `StudioSurface` ownership for `chat`, `files`, `terminal`, `runs`, `agents`, `artifacts` and `settings`.
+- Kept the shared `FeatureWorkbench` registry limited to typed `PlatformMode` values.
+- Verification status: source ownership audit remains green with 98 navigation IDs, 91 platform modes, zero missing platform owners and zero invalid cross-owner routes. Build/browser/Tauri verification remains pending.

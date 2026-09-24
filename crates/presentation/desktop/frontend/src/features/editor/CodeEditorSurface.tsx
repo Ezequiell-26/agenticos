@@ -93,7 +93,7 @@ export default function CodeEditorSurface({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onSave])
+  }, [findOpen, focusedLine, gotoLineOpen, onSave])
 
   function syncCursor() {
     const selection = editorRef.current?.selectionStart ?? 0
@@ -171,16 +171,6 @@ export default function CodeEditorSurface({
     selectRange(offset, offset)
     setFocusedLine(target)
     setFocusedColumn(1)
-  }
-
-  function jumpToMatch() {
-    const term = query.trim().toLowerCase()
-    if (!term) return
-    const index = value.toLowerCase().indexOf(term)
-    if (index < 0) return
-    editorRef.current?.focus()
-    editorRef.current?.setSelectionRange(index, index + term.length)
-    setFocusedLine(value.slice(0, index).split('\n').length)
   }
 
   return (

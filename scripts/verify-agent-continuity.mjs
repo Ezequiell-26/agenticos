@@ -133,11 +133,18 @@ const LEGACY_EVIDENCE_COMPAT_OPERATION_IDS = new Set([
   "frontend-surface-boundary-hardening-2026-09-24",
 ]);
 
+function hasHistoricalEvidenceCompatibility(operation) {
+  const operationId = typeof operation.operation_id === "string"
+    ? operation.operation_id.trim()
+    : "";
+  return LEGACY_EVIDENCE_COMPAT_OPERATION_IDS.has(operationId);
+}
+
 const ids = new Set();
 for (const [index, line] of lines.entries()) {
   const op = parseJson(line, `reference/journal/agent-operations.jsonl line ${index + 1}`);
   const modern = op.schema_version === 1;
-  const operationId = op.operation_id ?? op.operation ?? `legacy-line-${index + 1}`;
+  const operationId = String(op.operation_id ?? op.operation ?? `legacy-line-${index + 1}`).trim();
 
   if (typeof op.timestamp !== "string" || Number.isNaN(Date.parse(op.timestamp))) {
     fail(`journal operation ${operationId} has an invalid timestamp`);
@@ -169,7 +176,7 @@ for (const [index, line] of lines.entries()) {
     }
 
     const historicalEvidenceCompatible =
-      LEGACY_EVIDENCE_COMPAT_OPERATION_IDS.has(operationId) &&
+      hasHistoricalEvidenceCompatibility(op) &&
       op.verification &&
       typeof op.verification === "object";
 

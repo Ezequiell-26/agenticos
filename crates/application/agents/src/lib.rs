@@ -101,7 +101,9 @@ impl SubagentManager {
 
     /// List definitions.
     pub async fn definitions(&self) -> Vec<AgentDefinition> {
-        self.definitions.read().await.values().cloned().collect()
+        let mut definitions: Vec<_> = self.definitions.read().await.values().cloned().collect();
+        definitions.sort_by(|left, right| left.agent_id.cmp(&right.agent_id));
+        definitions
     }
 
     /// Spawn a bounded child run.
@@ -119,7 +121,14 @@ impl SubagentManager {
             .cloned()
             .ok_or_else(|| format!("agent '{}' is not registered", agent_id))?;
 
-        let children = self.children.read().await;
+        if parent_run_id.trim().is_empty() {
+            return Err("parent_run_id is required".to_string());
+        }
+        if parent_depth >= definition.budget.max_depth {
+            return Err("delegation depth budget exceeded".to_string());
+        }
+
+        let mut children = self.children.write().await;
         if children
             .values()
             .filter(|child| child.parent_run_id == parent_run_id)
@@ -127,11 +136,6 @@ impl SubagentManager {
             >= self.max_children_per_parent
         {
             return Err("maximum child count reached".to_string());
-        }
-        drop(children);
-
-        if parent_depth >= definition.budget.max_depth {
-            return Err("delegation depth budget exceeded".to_string());
         }
 
         let child = ChildRun {
@@ -141,22 +145,22 @@ impl SubagentManager {
             depth: parent_depth + 1,
             budget: definition.budget.clone(),
         };
-        self.children
-            .write()
-            .await
-            .insert(child.child_run_id.clone(), child.clone());
+        children.insert(child.child_run_id.clone(), child.clone());
         Ok(child)
     }
 
     /// List child runs for a parent.
     pub async fn children_of(&self, parent_run_id: &str) -> Vec<ChildRun> {
-        self.children
+        let mut children: Vec<_> = self
+            .children
             .read()
             .await
             .values()
             .filter(|child| child.parent_run_id == parent_run_id)
             .cloned()
-            .collect()
+            .collect();
+        children.sort_by(|left, right| left.child_run_id.cmp(&right.child_run_id));
+        children
     }
 }
 

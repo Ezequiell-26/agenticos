@@ -1281,6 +1281,11 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
+    let worker_state = state.clone();
+    tokio::spawn(async move {
+        scheduler_worker(worker_state).await;
+    });
+
     let data = web::Data::new(state);
     let cors_origins: Vec<String> = std::env::var("AGENTICOS_CORS_ORIGINS")
         .unwrap_or_default()

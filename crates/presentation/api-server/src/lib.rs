@@ -226,7 +226,6 @@ struct ApprovalDecision {
     approved: bool,
 }
 
-
 #[derive(Debug, Deserialize)]
 struct CreateProviderRequest {
     provider_id: String,

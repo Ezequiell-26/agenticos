@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 
 type ToolTab = 'All' | 'Enabled' | 'Risk'
@@ -127,6 +128,27 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
   const [tab, setTab] = useState<ToolTab>('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(toolCatalog[0].name)
+  const [liveTools, setLiveTools] = useState(toolCatalog)
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.tools.list().then((remoteTools) => {
+      if (cancelled || remoteTools.length === 0) return
+      const mapped = remoteTools.map((tool, index) => ({
+        name: typeof tool.name === 'string' ? tool.name : typeof tool.tool_id === 'string' ? tool.tool_id : `tool-${index + 1}`,
+        description: typeof tool.description === 'string' ? tool.description : 'Runtime tool',
+        risk: typeof tool.risk === 'string' ? tool.risk : 'Review',
+        category: typeof tool.category === 'string' ? tool.category : 'Runtime',
+        enabled: tool.enabled !== false,
+      }))
+      setLiveTools(mapped)
+      setEnabled(new Set(mapped.filter((item) => item.enabled).map((item) => item.name)))
+      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+    }).catch(() => {
+      // Keep local tool catalog while runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
   const [enabled, setEnabled] = useState(() => new Set(toolCatalog.filter((tool) => tool.enabled).map((tool) => tool.name)))
 
   const visible = useMemo(() => toolCatalog.filter((tool) => {

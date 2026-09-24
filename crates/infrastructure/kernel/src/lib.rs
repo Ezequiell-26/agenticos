@@ -2891,11 +2891,10 @@ impl ReactAgent {
                     });
                 }
 
-                // Integrate recovery logic
-                let mut inner = self.inner.lock().unwrap();
+                // Integrate recovery logic without holding a synchronous mutex across awaits.
                 let recovery_id = SessionEvent::generate_id("recovery");
 
-                // Log recovery start
+                // Log recovery start.
                 if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
                     log.append(SessionEvent::RecoveryStart {
                         recovery_id: recovery_id.clone(),
@@ -2908,8 +2907,27 @@ impl ReactAgent {
                     });
                 }
 
-                // Check circuit breaker
-                if inner.recovery_state.is_circuit_breaker_open() {
+                let (circuit_breaker_open, failure_triggered, retry) = {
+                    let mut inner = self.inner.lock().unwrap();
+                    if inner.recovery_state.is_circuit_breaker_open() {
+                        (true, false, None)
+                    } else if !inner.recovery_state.record_failure(error_msg.clone()) {
+                        (false, true, None)
+                    } else if inner.recovery_state.increment_retry() {
+                        (
+                            false,
+                            false,
+                            Some((
+                                inner.recovery_state.retry_count,
+                                inner.recovery_state.calculate_backoff_ms(),
+                            )),
+                        )
+                    } else {
+                        (false, false, None)
+                    }
+                };
+
+                if circuit_breaker_open {
                     if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
                         log.append(SessionEvent::RecoveryEnd {
                             recovery_id,
@@ -2926,8 +2944,7 @@ impl ReactAgent {
                     ));
                 }
 
-                // Record failure and check if should continue
-                if !inner.recovery_state.record_failure(error_msg.clone()) {
+                if failure_triggered {
                     if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
                         log.append(SessionEvent::RecoveryEnd {
                             recovery_id,
@@ -2944,12 +2961,11 @@ impl ReactAgent {
                     ));
                 }
 
-                // Attempt retry if not exhausted
-                if inner.recovery_state.increment_retry() {
+                if let Some((attempt_number, backoff_ms)) = retry {
                     if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
                         log.append(SessionEvent::RecoveryAttempt {
                             recovery_id: recovery_id.clone(),
-                            attempt_number: inner.recovery_state.retry_count,
+                            attempt_number,
                             action: format!("retry_tool_execution: {}", action),
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
@@ -2958,14 +2974,8 @@ impl ReactAgent {
                         });
                     }
 
-                    // Exponential backoff before retry
-                    let backoff_ms = inner.recovery_state.calculate_backoff_ms();
-                    drop(inner); // Release lock before sleep
+                    // Exponential backoff before the next attempt.
                     tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-                    let _inner = self.inner.lock().unwrap(); // Re-acquire lock (unused but keeps logic)
-
-                    // For now, just log the attempt with backoff - actual retry would require re-executing the tool
-                    // This is a simplified integration point
                 }
 
                 if let (Some(log), Some(tid)) = (&event_log, &turn_id) {

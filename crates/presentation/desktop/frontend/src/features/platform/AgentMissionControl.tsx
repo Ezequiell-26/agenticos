@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
+import { runtime } from '../../services/runtime'
 
 type AgentMode = 'Plan' | 'Ask' | 'Code' | 'Debug' | 'Research' | 'Review' | 'Release'
 type Isolation = 'Current workspace' | 'Git worktree' | 'Cloud environment'
@@ -61,6 +62,8 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   const [costLimit, setCostLimit] = useState(4)
   const [missionStatus, setMissionStatus] = useState<MissionStatus>('Draft')
   const [enabledContextSources, setEnabledContextSources] = useState<string[]>(contextSources.slice(0, 4))
+  const [runtimeRunId, setRuntimeRunId] = useState<string | null>(null)
+  const [runtimeBusy, setRuntimeBusy] = useState(false)
 
   const activeMode = useMemo(() => modes.find(([id]) => id === mode) ?? modes[2], [mode])
 
@@ -72,15 +75,58 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
     setEnabledContextSources((current) => current.includes(source) ? current.filter((item) => item !== source) : [...current, source])
   }
 
-  function runPreflight() {
-    setMissionStatus(query.trim().length >= 24 ? 'Ready' : 'Blocked')
-    preview('Preflight evaluation')
+  async function runPreflight() {
+    if (query.trim().length < 24) {
+      setMissionStatus('Blocked')
+      preview('Preflight blocked: provide a concrete mission objective')
+      return
+    }
+    setRuntimeBusy(true)
+    try {
+      await runtime.reasoning.plan(query.trim())
+      setMissionStatus('Ready')
+      onAction('Runtime preflight completed')
+    } catch (error) {
+      setMissionStatus('Blocked')
+      onAction(error instanceof Error ? error.message : 'Runtime preflight failed')
+    } finally {
+      setRuntimeBusy(false)
+    }
   }
 
-  function launchMission() {
-    const next: MissionStatus = schedule ? 'Queued' : 'Running'
-    setMissionStatus(query.trim().length >= 24 ? next : 'Blocked')
-    preview(schedule ? 'Mission schedule created' : 'Mission launch')
+  async function launchMission() {
+    if (query.trim().length < 24) {
+      setMissionStatus('Blocked')
+      preview('Mission launch blocked: objective is too short')
+      return
+    }
+    setRuntimeBusy(true)
+    try {
+      const run = await runtime.runs.create(query.trim(), undefined, 'mission-' + Date.now())
+      setRuntimeRunId(run.run_id)
+      setMissionStatus(schedule ? 'Queued' : 'Running')
+      onAction((schedule ? 'Mission queued' : 'Mission created') + ' in runtime: ' + run.run_id)
+    } catch (error) {
+      setMissionStatus('Blocked')
+      onAction(error instanceof Error ? error.message : 'Runtime mission launch failed')
+    } finally {
+      setRuntimeBusy(false)
+    }
+  }
+
+  async function cancelMission() {
+    if (!runtimeRunId) return
+    setRuntimeBusy(true)
+    try {
+      await runtime.runs.cancel(runtimeRunId)
+      setMissionStatus('Blocked')
+      onAction('Mission cancelled in runtime: ' + runtimeRunId)
+      setRuntimeRunId(null)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime mission cancellation failed')
+    } finally {
+      setRuntimeBusy(false)
+    }
   }
 
   return (
@@ -92,7 +138,7 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
           <p>Launch one bounded mission with an explicit mode, model route, context policy, tool scope, isolation strategy and verification contract.</p>
         </div>
         <div className="mission-control__hero-actions">
-          <Tag label="Presentation-only" />
+          <Tag label={runtimeRunId ? 'Runtime run active' : 'Runtime connected'} />
           <button className={parallel ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setParallel((value) => !value)}>
             <Icon name="users" size={13} /> {parallel ? 'Arena enabled' : 'Single agent'}
           </button>
@@ -203,9 +249,9 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
         </div>
         <div className="mission-control__launch">
           <div><span className="eyebrow">{missionName || 'Unnamed mission'} · {missionStatus}</span><strong>{schedule ? 'Scheduled mission' : parallel ? 'Parallel mission' : 'Single mission'} · {mode} · {selectedModel}</strong><small>{isolation} · {contextPreset} context · {route} · {approvalProfile} · {verificationProfile}</small></div>
-          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => preview('Mission plan opened')}>Preview plan</button><button className="studio-button" type="button" onClick={runPreflight}>Preflight</button><button className="studio-button studio-button--active" type="button" onClick={launchMission}>{schedule ? 'Queue mission' : 'Launch mission'}</button></div>
+          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => void runtime.reasoning.plan(query.trim()).then(() => onAction('Runtime mission plan generated')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime planning failed'))}>Plan</button><button className="studio-button" type="button" disabled={runtimeBusy} onClick={() => void runPreflight()}>Preflight</button>{runtimeRunId && <button className="studio-button" type="button" disabled={runtimeBusy} onClick={() => void cancelMission()}><Icon name="stop" size={12} /> Cancel</button>}<button className="studio-button studio-button--active" type="button" disabled={runtimeBusy} onClick={() => void launchMission()}>{schedule ? 'Queue mission' : 'Launch mission'}</button></div>
         </div>
-        <div className="mission-control__boundary"><Icon name="shield" size={13} /><span>UI contract only: launch, queue, tools, model routing and repository isolation are staged visually and do not execute until the corresponding Tauri/Rust services are connected.</span></div>
+        <div className="mission-control__boundary"><Icon name="shield" size={13} /><span>Runs and planning are runtime-backed. Model routing, tool authorization and repository isolation remain governed by their respective backend contracts.</span></div>
       </Panel>
     </div>
   )

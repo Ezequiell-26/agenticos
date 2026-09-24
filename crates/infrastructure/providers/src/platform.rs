@@ -2606,7 +2606,7 @@ mod tests {
     }
 }
 
-fn provider_concurrency_limit( -> usize {
+fn provider_concurrency_limit() -> usize {
     let cores = std::thread::available_parallelism()
         .map(|value| value.get())
         .unwrap_or(4);

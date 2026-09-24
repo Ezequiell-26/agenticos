@@ -4,16 +4,17 @@
 //! Bounded local process execution.
 //!
 //! This crate is an execution boundary, not a claim of kernel-level isolation.
-//! Callers must provide the explicit `process.execute` capability.
+//! Callers must provide the explicit \`process.execute\` capability.
 
 use agenticos_contracts::{
     ContractError, ResourceUsage, Sandbox, SandboxRequest, SandboxResponse, SandboxStatus,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::process::Command;
-use tokio::sync::RwLock;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::process::{Command, Stdio};
 use tokio::time::{timeout, Duration};
 
 /// Returns the architectural owner of this crate.
@@ -24,7 +25,7 @@ pub const OWNER: &str = "agenticos-sandbox";
 pub struct SandboxPolicy {
     /// Maximum execution time in milliseconds.
     pub max_timeout_ms: u64,
-    /// Maximum stdout/stderr payload retained in memory.
+    /// Maximum combined stdout/stderr payload retained in memory.
     pub max_output_bytes: usize,
     /// Allowed executable names. Empty means policy-managed allow.
     pub allowed_commands: Vec<String>,
@@ -65,7 +66,7 @@ impl ProcessSandbox {
         }
     }
 
-    /// Execute a shell command with a hard wall-clock timeout.
+    /// Execute a command without shell expansion and with a hard wall-clock timeout.
     pub async fn execute_command(
         &self,
         command: &str,
@@ -85,35 +86,108 @@ impl ProcessSandbox {
             .first()
             .copied()
             .ok_or_else(|| ContractError::ParseError("command must not be empty".to_string()))?;
+
         let contains_shell_metachar = command.chars().any(|character| {
-            matches!(character, ';' | '|' | '&' | '>' | '<' | '
-        if let Some(dir) = workdir {
-            child.current_dir(dir);
+            matches!(
+                character,
+                ';' | '|' | '&' | '>' | '<' | '$' | '\n' | '\r'
+            ) || character == char::from_u32(96).unwrap_or('\0')
+        });
+        if contains_shell_metachar {
+            return Err(ContractError::ParseError(
+                "shell metacharacters are not allowed in sandbox commands".to_string(),
+            ));
         }
 
-        self.active_processes.fetch_add(1, Ordering::AcqRel);
+        if !self.policy.allowed_commands.is_empty()
+            && !self
+                .policy
+                .allowed_commands
+                .iter()
+                .any(|allowed| allowed == executable)
+        {
+            return Err(ContractError::ParseError(format!(
+                "command '{}' is not allowed by sandbox policy",
+                executable
+            )));
+        }
+
+        let timeout_ms = timeout_ms
+            .unwrap_or(self.policy.max_timeout_ms)
+            .min(self.policy.max_timeout_ms);
+
+        let mut command_builder = Command::new(executable);
+        if args.len() > 1 {
+            command_builder.args(&args[1..]);
+        }
+        command_builder
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        if let Some(dir) = workdir {
+            command_builder.current_dir(dir);
+        }
+
+        let mut child = command_builder.spawn().map_err(|error| {
+            ContractError::ParseError(format!("sandbox process spawn failed: {error}"))
+        })?;
+        child.kill_on_drop(true);
+
+        let stdout = child.stdout.take().ok_or_else(|| {
+            ContractError::ParseError("sandbox stdout pipe unavailable".to_string())
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            ContractError::ParseError("sandbox stderr pipe unavailable".to_string())
+        })?;
+
+        let remaining = Arc::new(AtomicUsize::new(self.policy.max_output_bytes));
+        let stdout_task = tokio::spawn(read_stream_limited(stdout, remaining.clone()));
+        let stderr_task = tokio::spawn(read_stream_limited(stderr, remaining));
+
+        let _active = ActiveProcessGuard::new(self.active_processes.clone());
         let started = Instant::now();
-        let result = timeout(Duration::from_millis(timeout_ms), child.output()).await;
+        let result = timeout(Duration::from_millis(timeout_ms), child.wait()).await;
         let elapsed = started.elapsed().as_millis() as u64;
-        self.active_processes.fetch_sub(1, Ordering::AcqRel);
+
+        if result.is_err() {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+        }
+
+        let stdout = stdout_task
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("sandbox stdout task failed: {error}"))
+            })?
+            .map_err(|error| {
+                ContractError::ParseError(format!("sandbox stdout read failed: {error}"))
+            })?;
+        let stderr = stderr_task
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("sandbox stderr task failed: {error}"))
+            })?
+            .map_err(|error| {
+                ContractError::ParseError(format!("sandbox stderr read failed: {error}"))
+            })?;
 
         match result {
-            Ok(Ok(output)) => {
-                let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
-                if !output.stderr.is_empty() {
-                    combined.push_str("\n");
-                    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+            Ok(Ok(status)) => {
+                let mut combined = String::from_utf8_lossy(&stdout).to_string();
+                if !stderr.is_empty() {
+                    if !combined.is_empty() {
+                        combined.push('\n');
+                    }
+                    combined.push_str(&String::from_utf8_lossy(&stderr));
                 }
-                combined.truncate(self.policy.max_output_bytes);
 
                 Ok(SandboxResponse {
                     request_id: uuid::Uuid::new_v4().to_string(),
-                    success: output.status.success(),
+                    success: status.success(),
                     output: combined,
-                    error: if output.status.success() {
+                    error: if status.success() {
                         None
                     } else {
-                        Some(format!("process exited with status {}", output.status))
+                        Some(format!("process exited with status {status}"))
                     },
                     resource_usage: ResourceUsage {
                         cpu_time_ms: 0,
@@ -145,6 +219,69 @@ impl ProcessSandbox {
                 },
             }),
         }
+    }
+}
+
+async fn read_stream_limited<R>(
+    mut reader: R,
+    remaining: Arc<AtomicUsize>,
+) -> std::io::Result<Vec<u8>>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut retained = Vec::new();
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let read = reader.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+
+        let keep = reserve_output_bytes(&remaining, read);
+        if keep > 0 {
+            retained.extend_from_slice(&buffer[..keep]);
+        }
+    }
+
+    Ok(retained)
+}
+
+fn reserve_output_bytes(remaining: &AtomicUsize, requested: usize) -> usize {
+    loop {
+        let available = remaining.load(Ordering::Acquire);
+        if available == 0 {
+            return 0;
+        }
+
+        let keep = available.min(requested);
+        if remaining
+            .compare_exchange(
+                available,
+                available - keep,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_ok()
+        {
+            return keep;
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ActiveProcessGuard(Arc<AtomicUsize>);
+
+impl ActiveProcessGuard {
+    fn new(active_processes: Arc<AtomicUsize>) -> Self {
+        active_processes.fetch_add(1, Ordering::AcqRel);
+        Self(active_processes)
+    }
+}
+
+impl Drop for ActiveProcessGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
 
@@ -224,177 +361,17 @@ mod tests {
             .unwrap();
         assert!(result.success);
     }
-}
- | '\n' | '\r')
-                || character == char::from_u32(96).unwrap_or('\0')
+
+    #[tokio::test]
+    async fn bounds_retained_output() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 5_000,
+            max_output_bytes: 32,
+            allowed_commands: vec!["printf".to_string()],
         });
-        if contains_shell_metachar {
-            return Err(ContractError::ParseError(
-                "shell metacharacters are not allowed in sandbox commands".to_string(),
-            ));
-        }
-
-        if !self.policy.allowed_commands.is_empty()
-            && !self
-                .policy
-                .allowed_commands
-                .iter()
-                .any(|allowed| allowed == executable)
-        {
-            return Err(ContractError::ParseError(format!(
-                "command '{}' is not allowed by sandbox policy",
-                executable
-            )));
-        }
-
-        let timeout_ms = timeout_ms
-            .unwrap_or(self.policy.max_timeout_ms)
-            .min(self.policy.max_timeout_ms);
-        let mut command_builder = Command::new(executable);
-        if args.len() > 1 {
-            command_builder.args(&args[1..]);
-        }
-        let mut child = command_builder.spawn().map_err(|error| {
-            ContractError::ParseError(format!("sandbox process spawn failed: {error}"))
-        })?;
-        child.kill_on_drop(true);
-        if let Some(dir) = workdir {
-            child.current_dir(dir);
-        }
-
-        {
-            let mut running = self.running.write().await;
-            *running = true;
-        }
-
-        let started = Instant::now();
-        let result = timeout(Duration::from_millis(timeout_ms), child.output()).await;
-        let elapsed = started.elapsed().as_millis() as u64;
-
-        {
-            let mut running = self.running.write().await;
-            *running = false;
-        }
-
-        match result {
-            Ok(Ok(output)) => {
-                let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
-                if !output.stderr.is_empty() {
-                    combined.push_str("\n");
-                    combined.push_str(&String::from_utf8_lossy(&output.stderr));
-                }
-                combined.truncate(self.policy.max_output_bytes);
-
-                Ok(SandboxResponse {
-                    request_id: uuid::Uuid::new_v4().to_string(),
-                    success: output.status.success(),
-                    output: combined,
-                    error: if output.status.success() {
-                        None
-                    } else {
-                        Some(format!("process exited with status {}", output.status))
-                    },
-                    resource_usage: ResourceUsage {
-                        cpu_time_ms: 0,
-                        memory_used_bytes: 0,
-                        execution_time_ms: elapsed,
-                    },
-                })
-            }
-            Ok(Err(error)) => Ok(SandboxResponse {
-                request_id: uuid::Uuid::new_v4().to_string(),
-                success: false,
-                output: String::new(),
-                error: Some(error.to_string()),
-                resource_usage: ResourceUsage {
-                    cpu_time_ms: 0,
-                    memory_used_bytes: 0,
-                    execution_time_ms: elapsed,
-                },
-            }),
-            Err(_) => Ok(SandboxResponse {
-                request_id: uuid::Uuid::new_v4().to_string(),
-                success: false,
-                output: String::new(),
-                error: Some(format!("sandbox timeout after {timeout_ms}ms")),
-                resource_usage: ResourceUsage {
-                    cpu_time_ms: 0,
-                    memory_used_bytes: 0,
-                    execution_time_ms: elapsed,
-                },
-            }),
-        }
-    }
-}
-
-impl Default for ProcessSandbox {
-    fn default() -> Self {
-        Self::new(SandboxPolicy::default())
-    }
-}
-
-#[async_trait::async_trait]
-impl Sandbox for ProcessSandbox {
-    async fn execute(&self, request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
-        self.execute_command(
-            &request.code,
-            Some(request.timeout_ms),
-            None,
-            &request.allowed_capabilities,
-        )
-        .await
-        .map(|mut response| {
-            response.request_id = request.request_id;
-            response
-        })
-    }
-
-    async fn is_available(&self) -> Result<bool, ContractError> {
-        Ok(true)
-    }
-
-    async fn get_status(&self) -> Result<SandboxStatus, ContractError> {
-        if *self.running.read().await {
-            Ok(SandboxStatus::Busy)
-        } else {
-            Ok(SandboxStatus::Ready)
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn rejects_missing_process_capability() {
-        let sandbox = ProcessSandbox::default();
-        let result = sandbox
-            .execute_command("git --version", None, None, &[])
-            .await;
-        assert!(matches!(result, Err(ContractError::MissingCapability)));
-    }
-
-    #[tokio::test]
-    async fn rejects_shell_control_operators() {
-        let sandbox = ProcessSandbox::default();
         let result = sandbox
             .execute_command(
-                "git --version && echo unsafe",
-                None,
-                None,
-                &["process.execute".to_string()],
-            )
-            .await;
-        assert!(matches!(result, Err(ContractError::ParseError(_))));
-    }
-
-    #[tokio::test]
-    async fn executes_allowlisted_command() {
-        let sandbox = ProcessSandbox::default();
-        let result = sandbox
-            .execute_command(
-                "git --version",
+                "printf 0123456789012345678901234567890123456789",
                 None,
                 None,
                 &["process.execute".to_string()],
@@ -402,5 +379,6 @@ mod tests {
             .await
             .unwrap();
         assert!(result.success);
+        assert!(result.output.len() <= 32);
     }
 }

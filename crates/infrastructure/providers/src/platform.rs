@@ -1,5 +1,10 @@
-use crate::{CredentialPool, HealthChecker, ModelCatalog, ProviderRegistry, QuotaTracker, RetryManager};
-use agenticos_contracts::{ContractError, Credential, HealthCheck, HealthStatus, ModelProvider, ModelRequest, ModelResponse, ProviderEntry};
+use crate::{
+    CredentialPool, HealthChecker, ModelCatalog, ProviderRegistry, QuotaTracker, RetryManager,
+};
+use agenticos_contracts::{
+    ContractError, Credential, HealthCheck, HealthStatus, ModelProvider, ModelRequest,
+    ModelResponse, ProviderEntry,
+};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -114,16 +119,29 @@ impl ProviderPlatform {
     }
 
     /// Route a model request to the first compatible healthy provider.
-    pub async fn execute_routed(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
+    pub async fn execute_routed(
+        &self,
+        request: ModelRequest,
+    ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
         let mut last_error = None;
         for provider in providers {
-            let effective_model = if request.model == "default" || request.model == "default-model" {
-                provider.models.first().cloned().unwrap_or_else(|| request.model.clone())
+            let effective_model = if request.model == "default" || request.model == "default-model"
+            {
+                provider
+                    .models
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| request.model.clone())
             } else {
                 request.model.clone()
             };
-            if !provider.models.is_empty() && !provider.models.iter().any(|model| model == &effective_model) {
+            if !provider.models.is_empty()
+                && !provider
+                    .models
+                    .iter()
+                    .any(|model| model == &effective_model)
+            {
                 continue;
             }
             let routed_request = ModelRequest {
@@ -155,7 +173,9 @@ impl ProviderPlatform {
                 .get_for_provider(&provider.provider_id)
                 .await
                 .into_iter()
-                .find(|credential| credential.expires_at == 0 || credential.expires_at > unix_time())
+                .find(|credential| {
+                    credential.expires_at == 0 || credential.expires_at > unix_time()
+                })
                 .ok_or(ContractError::MissingCapability)?;
 
             for attempt in 0..policy.max_attempts.max(1) {
@@ -172,19 +192,24 @@ impl ProviderPlatform {
                         } else {
                             let _ = self.quotas.increment_usage(&provider.provider_id).await;
                         }
-                        let _ = self.health.update(HealthCheck {
-                            provider_id: provider.provider_id.clone(),
-                            status: HealthStatus::Healthy,
-                            last_check: unix_time(),
-                            message: None,
-                        }).await;
+                        let _ = self
+                            .health
+                            .update(HealthCheck {
+                                provider_id: provider.provider_id.clone(),
+                                status: HealthStatus::Healthy,
+                                last_check: unix_time(),
+                                message: None,
+                            })
+                            .await;
                         return Ok(response);
                     }
                     Err(error) => {
                         last_error = Some(error);
                         if attempt + 1 < policy.max_attempts.max(1) {
                             let backoff = if policy.exponential_backoff {
-                                policy.initial_backoff_ms.saturating_mul(2u64.saturating_pow(attempt))
+                                policy
+                                    .initial_backoff_ms
+                                    .saturating_mul(2u64.saturating_pow(attempt))
                             } else {
                                 policy.initial_backoff_ms
                             }
@@ -194,12 +219,15 @@ impl ProviderPlatform {
                     }
                 }
             }
-            let _ = self.health.update(HealthCheck {
-                provider_id: provider.provider_id,
-                status: HealthStatus::Degraded,
-                last_check: unix_time(),
-                message: last_error.as_ref().map(ToString::to_string),
-            }).await;
+            let _ = self
+                .health
+                .update(HealthCheck {
+                    provider_id: provider.provider_id,
+                    status: HealthStatus::Degraded,
+                    last_check: unix_time(),
+                    message: last_error.as_ref().map(ToString::to_string),
+                })
+                .await;
         }
         Err(last_error.unwrap_or(ContractError::MissingCapability))
     }
@@ -211,19 +239,20 @@ impl ProviderPlatform {
             .unwrap_or_else(|_| "openai-compatible".to_string());
         let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
             .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
-        let model = std::env::var("AGENTICOS_MODEL")
-            .unwrap_or_else(|_| "gpt-4o-mini".to_string());
+        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
         let key = std::env::var("AGENTICOS_API_KEY").ok();
-        platform.register(
-            ProviderEntry {
-                provider_id,
-                name: "Environment provider".to_string(),
-                base_url,
-                models: vec![model],
-                capabilities: vec!["chat".to_string()],
-            },
-            key,
-        ).await?;
+        platform
+            .register(
+                ProviderEntry {
+                    provider_id,
+                    name: "Environment provider".to_string(),
+                    base_url,
+                    models: vec![model],
+                    capabilities: vec!["chat".to_string()],
+                },
+                key,
+            )
+            .await?;
         Ok(platform)
     }
 
@@ -265,7 +294,8 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
-        let response = self.client
+        let response = self
+            .client
             .post(&self.base_url)
             .bearer_auth(&self.api_key)
             .json(&serde_json::json!({
@@ -276,17 +306,24 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
             }))
             .send()
             .await
-            .map_err(|error| ContractError::ParseError(format!("provider request failed: {error}")))?;
+            .map_err(|error| {
+                ContractError::ParseError(format!("provider request failed: {error}"))
+            })?;
 
         let status = response.status();
-        let body = response.text().await
-            .map_err(|error| ContractError::ParseError(format!("provider response failed: {error}")))?;
+        let body = response.text().await.map_err(|error| {
+            ContractError::ParseError(format!("provider response failed: {error}"))
+        })?;
         if !status.is_success() {
-            return Err(ContractError::ParseError(format!("provider returned HTTP {status}: {body}")));
+            return Err(ContractError::ParseError(format!(
+                "provider returned HTTP {status}: {body}"
+            )));
         }
-        let json: serde_json::Value = serde_json::from_str(&body)
-            .map_err(|error| ContractError::ParseError(format!("invalid provider response: {error}")))?;
-        let output = json.get("choices")
+        let json: serde_json::Value = serde_json::from_str(&body).map_err(|error| {
+            ContractError::ParseError(format!("invalid provider response: {error}"))
+        })?;
+        let output = json
+            .get("choices")
             .and_then(|value| value.as_array())
             .and_then(|choices| choices.first())
             .and_then(|choice| choice.get("message"))
@@ -294,12 +331,17 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
             .and_then(|content| content.as_str())
             .filter(|content| !content.trim().is_empty())
             .or_else(|| json.get("output").and_then(|value| value.as_str()))
-            .ok_or_else(|| ContractError::ParseError("provider response has no text output".to_string()))?;
+            .ok_or_else(|| {
+                ContractError::ParseError("provider response has no text output".to_string())
+            })?;
         Ok(ModelResponse {
             request_id: request.request_id,
             output: output.to_string(),
             metadata: Some(format!("provider={}", self.provider_id)),
-            tokens_used: json.get("usage").and_then(|usage| usage.get("total_tokens")).and_then(|v| v.as_u64()),
+            tokens_used: json
+                .get("usage")
+                .and_then(|usage| usage.get("total_tokens"))
+                .and_then(|v| v.as_u64()),
         })
     }
 }
@@ -317,9 +359,11 @@ fn normalize_chat_url(base_url: &str) -> String {
 
 fn unix_time() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
-
 
 #[async_trait::async_trait]
 impl ModelProvider for ProviderPlatform {

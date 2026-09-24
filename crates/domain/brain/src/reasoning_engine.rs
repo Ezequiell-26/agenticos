@@ -68,9 +68,15 @@ impl ReasoningEngine {
     /// Create a reasoning engine.
     pub fn new(config: EngineConfig) -> Self {
         Self {
-            planner: Planner { max_steps: config.max_steps.max(1) },
-            evaluator: Evaluator { enable_learning: config.enable_learning },
-            selector: CapabilitySelector { strategy: config.selection_strategy },
+            planner: Planner {
+                max_steps: config.max_steps.max(1),
+            },
+            evaluator: Evaluator {
+                enable_learning: config.enable_learning,
+            },
+            selector: CapabilitySelector {
+                strategy: config.selection_strategy,
+            },
         }
     }
 
@@ -140,7 +146,8 @@ impl ReasoningEngine {
             estimated_tokens: (feedback.split_whitespace().count() as u64 * 8).clamp(32, 1024),
         });
         revised.steps.truncate(self.planner.max_steps);
-        revised.estimated_cost.tokens = revised.steps.iter().map(|step| step.estimated_tokens).sum();
+        revised.estimated_cost.tokens =
+            revised.steps.iter().map(|step| step.estimated_tokens).sum();
         revised.estimated_cost.time_seconds = revised.estimated_cost.tokens.div_ceil(512).max(1);
         revised.confidence = (revised.confidence * 0.9).clamp(0.0, 1.0);
         Ok(revised)
@@ -169,16 +176,25 @@ impl ReasoningEngine {
     /// Evaluate a plan for risk and operational fit.
     pub async fn evaluate(&self, plan: &ReasoningPlan) -> Result<EvaluationResult, BrainError> {
         if plan.steps.is_empty() {
-            return Err(BrainError::ReasoningEngineError("plan has no steps".to_string()));
+            return Err(BrainError::ReasoningEngineError(
+                "plan has no steps".to_string(),
+            ));
         }
         let mut details = Vec::new();
         let mut high_risk = false;
         let mut medium_risk = false;
         for step in &plan.steps {
             let lower = step.action.to_ascii_lowercase();
-            if ["delete", "remove", "publish", "deploy", "send money", "credential"]
-                .iter()
-                .any(|keyword| lower.contains(keyword))
+            if [
+                "delete",
+                "remove",
+                "publish",
+                "deploy",
+                "send money",
+                "credential",
+            ]
+            .iter()
+            .any(|keyword| lower.contains(keyword))
             {
                 high_risk = true;
                 details.push(format!("high-impact action detected in {}", step.id));
@@ -193,7 +209,13 @@ impl ReasoningEngine {
         if self.evaluator.enable_learning {
             details.push("evaluation uses adaptive-runtime hooks when enabled".to_string());
         }
-        let score = if high_risk { 0.45 } else if medium_risk { 0.7 } else { 0.9 };
+        let score = if high_risk {
+            0.45
+        } else if medium_risk {
+            0.7
+        } else {
+            0.9
+        };
         Ok(EvaluationResult {
             score,
             risk_assessment: RiskAssessment {
@@ -254,19 +276,36 @@ pub struct RiskAssessment {
 fn infer_capabilities(text: &str) -> Vec<CapabilityId> {
     let lower = text.to_ascii_lowercase();
     let mut capabilities = Vec::new();
-    if ["code", "rust", "typescript", "python", "bug", "test", "repo"]
-        .iter()
-        .any(|keyword| lower.contains(keyword))
+    if [
+        "code",
+        "rust",
+        "typescript",
+        "python",
+        "bug",
+        "test",
+        "repo",
+    ]
+    .iter()
+    .any(|keyword| lower.contains(keyword))
     {
         capabilities.push("code".to_string());
     }
-    if ["search", "research", "docs", "web"].iter().any(|keyword| lower.contains(keyword)) {
+    if ["search", "research", "docs", "web"]
+        .iter()
+        .any(|keyword| lower.contains(keyword))
+    {
         capabilities.push("research".to_string());
     }
-    if ["file", "write", "edit", "create"].iter().any(|keyword| lower.contains(keyword)) {
+    if ["file", "write", "edit", "create"]
+        .iter()
+        .any(|keyword| lower.contains(keyword))
+    {
         capabilities.push("filesystem".to_string());
     }
-    if ["run", "command", "shell", "terminal", "execute"].iter().any(|keyword| lower.contains(keyword)) {
+    if ["run", "command", "shell", "terminal", "execute"]
+        .iter()
+        .any(|keyword| lower.contains(keyword))
+    {
         capabilities.push("process.execute".to_string());
     }
     if capabilities.is_empty() {
@@ -282,7 +321,10 @@ mod tests {
     #[tokio::test]
     async fn generates_and_evaluates_plan() {
         let engine = ReasoningEngine::new(EngineConfig::default());
-        let plan = engine.generate_plan("inspect the rust repo and run tests").await.unwrap();
+        let plan = engine
+            .generate_plan("inspect the rust repo and run tests")
+            .await
+            .unwrap();
         assert!(!plan.steps.is_empty());
         assert!(plan.estimated_cost.tokens > 0);
         let evaluation = engine.evaluate(&plan).await.unwrap();

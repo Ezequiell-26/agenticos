@@ -73,13 +73,20 @@ impl ProcessSandbox {
         workdir: Option<&std::path::Path>,
         capabilities: &[String],
     ) -> Result<SandboxResponse, ContractError> {
-        if !capabilities.iter().any(|capability| capability == "process.execute") {
+        if !capabilities
+            .iter()
+            .any(|capability| capability == "process.execute")
+        {
             return Err(ContractError::MissingCapability);
         }
 
         let executable = command.split_whitespace().next().unwrap_or_default();
         if !self.policy.allowed_commands.is_empty()
-            && !self.policy.allowed_commands.iter().any(|allowed| allowed == executable)
+            && !self
+                .policy
+                .allowed_commands
+                .iter()
+                .any(|allowed| allowed == executable)
         {
             return Err(ContractError::ParseError(format!(
                 "command '{}' is not allowed by sandbox policy",
@@ -221,7 +228,12 @@ mod tests {
     async fn executes_allowlisted_command() {
         let sandbox = ProcessSandbox::default();
         let result = sandbox
-            .execute_command("git --version", None, None, &["process.execute".to_string()])
+            .execute_command(
+                "git --version",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
             .await
             .unwrap();
         assert!(result.success);

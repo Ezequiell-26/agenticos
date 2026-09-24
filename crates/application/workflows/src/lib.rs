@@ -90,7 +90,11 @@ impl WorkflowEngine {
     }
 
     /// Calculate the next runnable nodes.
-    pub async fn ready_nodes(&self, workflow_id: &str, state: &WorkflowState) -> Result<Vec<WorkflowNode>, String> {
+    pub async fn ready_nodes(
+        &self,
+        workflow_id: &str,
+        state: &WorkflowState,
+    ) -> Result<Vec<WorkflowNode>, String> {
         let workflow = self
             .get(workflow_id)
             .await
@@ -103,7 +107,8 @@ impl WorkflowEngine {
                 continue;
             }
             if node.depends_on.iter().all(|dependency| {
-                state.nodes
+                state
+                    .nodes
                     .get(dependency)
                     .is_some_and(|status| *status == WorkflowNodeState::Succeeded)
             }) {
@@ -193,14 +198,25 @@ mod tests {
     #[tokio::test]
     async fn workflow_dag_is_validated() {
         let engine = WorkflowEngine::new();
-        engine.register(WorkflowDefinition {
-            workflow_id: "wf".into(),
-            name: "demo".into(),
-            nodes: vec![
-                WorkflowNode { id: "a".into(), task: "A".into(), depends_on: vec![] },
-                WorkflowNode { id: "b".into(), task: "B".into(), depends_on: vec!["a".into()] },
-            ],
-        }).await.unwrap();
+        engine
+            .register(WorkflowDefinition {
+                workflow_id: "wf".into(),
+                name: "demo".into(),
+                nodes: vec![
+                    WorkflowNode {
+                        id: "a".into(),
+                        task: "A".into(),
+                        depends_on: vec![],
+                    },
+                    WorkflowNode {
+                        id: "b".into(),
+                        task: "B".into(),
+                        depends_on: vec!["a".into()],
+                    },
+                ],
+            })
+            .await
+            .unwrap();
         let state = engine.initial_state("wf").await.unwrap();
         assert_eq!(engine.ready_nodes("wf", &state).await.unwrap()[0].id, "a");
     }
@@ -208,14 +224,24 @@ mod tests {
     #[tokio::test]
     async fn workflow_cycles_are_rejected() {
         let engine = WorkflowEngine::new();
-        let result = engine.register(WorkflowDefinition {
-            workflow_id: "bad".into(),
-            name: "bad".into(),
-            nodes: vec![
-                WorkflowNode { id: "a".into(), task: "A".into(), depends_on: vec!["b".into()] },
-                WorkflowNode { id: "b".into(), task: "B".into(), depends_on: vec!["a".into()] },
-            ],
-        }).await;
+        let result = engine
+            .register(WorkflowDefinition {
+                workflow_id: "bad".into(),
+                name: "bad".into(),
+                nodes: vec![
+                    WorkflowNode {
+                        id: "a".into(),
+                        task: "A".into(),
+                        depends_on: vec!["b".into()],
+                    },
+                    WorkflowNode {
+                        id: "b".into(),
+                        task: "B".into(),
+                        depends_on: vec!["a".into()],
+                    },
+                ],
+            })
+            .await;
         assert!(result.is_err());
     }
 }

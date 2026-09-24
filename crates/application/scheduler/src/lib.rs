@@ -199,22 +199,28 @@ mod tests {
     #[tokio::test]
     async fn dependency_aware_scheduler() {
         let scheduler = JobScheduler::new();
-        scheduler.enqueue(JobSpec {
-            job_id: "a".into(),
-            run_id: "r".into(),
-            task: "first".into(),
-            dependencies: vec![],
-            priority: 1,
-            max_attempts: 2,
-        }).await.unwrap();
-        scheduler.enqueue(JobSpec {
-            job_id: "b".into(),
-            run_id: "r".into(),
-            task: "second".into(),
-            dependencies: vec!["a".into()],
-            priority: 1,
-            max_attempts: 2,
-        }).await.unwrap();
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "a".into(),
+                run_id: "r".into(),
+                task: "first".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 2,
+            })
+            .await
+            .unwrap();
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "b".into(),
+                run_id: "r".into(),
+                task: "second".into(),
+                dependencies: vec!["a".into()],
+                priority: 1,
+                max_attempts: 2,
+            })
+            .await
+            .unwrap();
         assert_eq!(scheduler.next_ready(10).await.len(), 1);
         scheduler.start("a").await.unwrap();
         scheduler.complete("a", true, None).await.unwrap();

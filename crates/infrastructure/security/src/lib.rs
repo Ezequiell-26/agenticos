@@ -266,7 +266,10 @@ mod tests {
             .request_approval("run-1", "delete", "workspace/tmp", 0)
             .await;
         assert_eq!(manager.pending_approvals().await.len(), 1);
-        manager.resolve_approval(&request.approval_id, true).await.unwrap();
+        manager
+            .resolve_approval(&request.approval_id, true)
+            .await
+            .unwrap();
         assert!(manager.is_approved(&request.approval_id).await);
     }
 }

@@ -638,6 +638,5 @@ mod tests {
     }
 }
 
-
 mod platform;
 pub use platform::{ProviderPlatform, ProviderStatus};

@@ -10,9 +10,18 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
-use agenticos_brain::{reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy}, CapabilityRegistry};
-use agenticos_contracts::{CapabilityGrant, CapabilityType, ContractError, ModelProvider, ModelRequest, RunId, RunState, Sandbox, SandboxStatus};
-use agenticos_kernel::{InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory, SqliteSnapshotStore};
+use agenticos_brain::{
+    reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
+    CapabilityRegistry,
+};
+use agenticos_contracts::{
+    CapabilityGrant, CapabilityType, ContractError, ModelProvider, ModelRequest, RunId, RunState,
+    Sandbox, SandboxStatus,
+};
+use agenticos_kernel::{
+    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
+    SqliteSnapshotStore,
+};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec};
@@ -65,9 +74,10 @@ impl RuntimeState {
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
             ContractError::ParseError(format!("failed to initialize event store: {e}"))
         })?);
-        let snapshot_store = Arc::new(SqliteSnapshotStore::new(&database_url).await.map_err(|e| {
-            ContractError::ParseError(format!("failed to initialize snapshot store: {e}"))
-        })?);
+        let snapshot_store =
+            Arc::new(SqliteSnapshotStore::new(&database_url).await.map_err(|e| {
+                ContractError::ParseError(format!("failed to initialize snapshot store: {e}"))
+            })?);
         let logger = Arc::new(InMemoryLogger::new(agenticos_contracts::LogLevel::Info));
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
         let capabilities = Arc::new(CapabilityManager::new());
@@ -81,13 +91,16 @@ impl RuntimeState {
         ));
 
         let provider = Arc::new(ProviderPlatform::from_env().await?);
-        let model = std::env::var("AGENTICOS_MODEL")
-            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+        let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
             agent_id: "default".to_string(),
             role: "general".to_string(),
-            capabilities: vec!["reasoning".to_string(), "code".to_string(), "research".to_string()],
+            capabilities: vec![
+                "reasoning".to_string(),
+                "code".to_string(),
+                "research".to_string(),
+            ],
             providers: Vec::new(),
             skills: Vec::new(),
             sandbox_profile: "default".to_string(),
@@ -224,7 +237,12 @@ struct CreateWorkflowRequest {
 
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
     let configured = state.configured().await;
-    let sandbox_status = state.sandbox.get_status().await.ok().map(|status| format!("{status:?}"));
+    let sandbox_status = state
+        .sandbox
+        .get_status()
+        .await
+        .ok()
+        .map(|status| format!("{status:?}"));
     HttpResponse::Ok().json(serde_json::json!({
         "status": "healthy",
         "service": "AgentiCOS API Server",
@@ -367,10 +385,12 @@ async fn create_run(
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let run_id = match RunId::new(run_id_text.clone()) {
         Ok(id) => id,
-        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
-            code: "INVALID_RUN_ID",
-        }),
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_RUN_ID",
+            })
+        }
     };
 
     match state.kernel.create_run(run_id.clone()).await {
@@ -385,20 +405,26 @@ async fn create_run(
                     code: "RUN_ADMISSION_FAILED",
                 });
             }
-            let _ = state.memory.store_message(
-                &format!("{}-objective", run_id.as_str()),
-                run_id.as_str(),
-                "objective",
-                objective,
-            ).await;
-            let _ = state.scheduler.enqueue(JobSpec {
-                job_id: format!("job-{}", run_id.as_str()),
-                run_id: run_id.as_str().to_string(),
-                task: objective.to_string(),
-                dependencies: vec![],
-                priority: 100,
-                max_attempts: 3,
-            }).await;
+            let _ = state
+                .memory
+                .store_message(
+                    &format!("{}-objective", run_id.as_str()),
+                    run_id.as_str(),
+                    "objective",
+                    objective,
+                )
+                .await;
+            let _ = state
+                .scheduler
+                .enqueue(JobSpec {
+                    job_id: format!("job-{}", run_id.as_str()),
+                    run_id: run_id.as_str().to_string(),
+                    task: objective.to_string(),
+                    dependencies: vec![],
+                    priority: 100,
+                    max_attempts: 3,
+                })
+                .await;
 
             HttpResponse::Created().json(RunResponse {
                 run_id: run_id_text,
@@ -413,16 +439,15 @@ async fn create_run(
     }
 }
 
-async fn get_run(
-    run_id: web::Path<String>,
-    state: web::Data<RuntimeState>,
-) -> impl Responder {
+async fn get_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
     let id = match RunId::new(run_id.into_inner()) {
         Ok(id) => id,
-        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
-            code: "INVALID_RUN_ID",
-        }),
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_RUN_ID",
+            })
+        }
     };
     let runs = state.kernel.runs.read().await;
     match runs.get(&id) {
@@ -438,19 +463,19 @@ async fn get_run(
     }
 }
 
-async fn cancel_run(
-    run_id: web::Path<String>,
-    state: web::Data<RuntimeState>,
-) -> impl Responder {
+async fn cancel_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
     let id = match RunId::new(run_id.into_inner()) {
         Ok(id) => id,
-        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
-            code: "INVALID_RUN_ID",
-        }),
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_RUN_ID",
+            })
+        }
     };
     match state.kernel.cancel_run(&id).await {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"})),
+        Ok(()) => HttpResponse::Ok()
+            .json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"})),
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
             error: error.to_string(),
             code: "RUN_CANCEL_FAILED",
@@ -458,16 +483,15 @@ async fn cancel_run(
     }
 }
 
-async fn snapshot_run(
-    run_id: web::Path<String>,
-    state: web::Data<RuntimeState>,
-) -> impl Responder {
+async fn snapshot_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -> impl Responder {
     let id = match RunId::new(run_id.into_inner()) {
         Ok(id) => id,
-        Err(error) => return HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
-            code: "INVALID_RUN_ID",
-        }),
+        Err(error) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_RUN_ID",
+            })
+        }
     };
     match state.kernel.create_snapshot(&id).await {
         Ok(snapshot) => HttpResponse::Ok().json(snapshot),
@@ -503,7 +527,11 @@ async fn spawn_agent(
 ) -> impl Responder {
     match state
         .subagents
-        .spawn_child(&path.into_inner(), &request.agent_id, request.parent_depth.unwrap_or(0))
+        .spawn_child(
+            &path.into_inner(),
+            &request.agent_id,
+            request.parent_depth.unwrap_or(0),
+        )
         .await
     {
         Ok(child) => HttpResponse::Created().json(child),
@@ -602,12 +630,15 @@ async fn create_approval(
     request: web::Json<CreateApprovalRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    let approval = state.capabilities.request_approval(
-        request.run_id.clone(),
-        request.action.clone(),
-        request.resource.clone(),
-        request.expires_at.unwrap_or(0),
-    ).await;
+    let approval = state
+        .capabilities
+        .request_approval(
+            request.run_id.clone(),
+            request.action.clone(),
+            request.resource.clone(),
+            request.expires_at.unwrap_or(0),
+        )
+        .await;
     HttpResponse::Created().json(approval)
 }
 
@@ -616,7 +647,11 @@ async fn resolve_approval(
     decision: web::Json<ApprovalDecision>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    match state.capabilities.resolve_approval(&approval_id, decision.approved).await {
+    match state
+        .capabilities
+        .resolve_approval(&approval_id, decision.approved)
+        .await
+    {
         Ok(approval) => HttpResponse::Ok().json(approval),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {
             error: error.to_string(),
@@ -627,7 +662,11 @@ async fn resolve_approval(
 
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     let available = state.sandbox.is_available().await.unwrap_or(false);
-    let status: SandboxStatus = state.sandbox.get_status().await.unwrap_or(SandboxStatus::Unavailable);
+    let status: SandboxStatus = state
+        .sandbox
+        .get_status()
+        .await
+        .unwrap_or(SandboxStatus::Unavailable);
     HttpResponse::Ok().json(serde_json::json!({
         "available": available,
         "status": format!("{status:?}"),
@@ -652,8 +691,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
-            .route("/api/conversations/{session_id}/history", web::get().to(conversation_history))
-            .route("/api/conversations/search", web::get().to(conversation_search))
+            .route(
+                "/api/conversations/{session_id}/history",
+                web::get().to(conversation_history),
+            )
+            .route(
+                "/api/conversations/search",
+                web::get().to(conversation_search),
+            )
             .route("/api/providers", web::get().to(list_providers))
             .route("/api/models", web::get().to(list_models))
             .route("/api/runs", web::post().to(create_run))
@@ -662,17 +707,29 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/runs/{run_id}/snapshot", web::post().to(snapshot_run))
             .route("/api/subagents", web::get().to(list_agents))
             .route("/api/subagents", web::post().to(create_agent))
-            .route("/api/subagents/{parent_run_id}/children", web::post().to(spawn_agent))
-            .route("/api/subagents/{parent_run_id}/children", web::get().to(list_children))
+            .route(
+                "/api/subagents/{parent_run_id}/children",
+                web::post().to(spawn_agent),
+            )
+            .route(
+                "/api/subagents/{parent_run_id}/children",
+                web::get().to(list_children),
+            )
             .route("/api/jobs", web::get().to(list_jobs))
             .route("/api/jobs", web::post().to(create_job))
             .route("/api/workflows", web::get().to(list_workflows))
             .route("/api/workflows", web::post().to(create_workflow))
-            .route("/api/workflows/{workflow_id}/state", web::get().to(workflow_state))
+            .route(
+                "/api/workflows/{workflow_id}/state",
+                web::get().to(workflow_state),
+            )
             .route("/api/reasoning/plan", web::post().to(create_plan))
             .route("/api/approvals", web::get().to(list_approvals))
             .route("/api/approvals", web::post().to(create_approval))
-            .route("/api/approvals/{approval_id}", web::post().to(resolve_approval))
+            .route(
+                "/api/approvals/{approval_id}",
+                web::post().to(resolve_approval),
+            )
             .route("/api/sandbox/status", web::get().to(sandbox_status))
     })
     .bind((host, port))?

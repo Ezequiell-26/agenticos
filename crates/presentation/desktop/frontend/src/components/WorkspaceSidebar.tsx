@@ -34,9 +34,8 @@ export default function WorkspaceSidebar({
   const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const menuRef = useRef<HTMLDivElement>(null)
   const activeMenuButton = menuOpen ? menuButtonRefs.current[menuOpen] : null
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useMemo(() => ({ current: activeMenuButton }), [activeMenuButton])
   const closeConversationMenu = useCallback(() => setMenuOpen(null), [])
-  if (menuOpen && activeMenuButton) triggerRef.current = activeMenuButton
   useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: closeConversationMenu })
 
   const filtered = useMemo(() => {

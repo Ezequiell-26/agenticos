@@ -1,6 +1,6 @@
 use crate::{
-    CredentialPool, FallbackManager, HealthChecker, ModelCatalog, ProviderRegistry, QuotaTracker,
-    RetryManager,
+    shared_http_client, CredentialPool, FallbackManager, HealthChecker, ModelCatalog, ProviderRegistry,
+    QuotaTracker, RetryManager,
 };
 use agenticos_contracts::{
     ContractError, Credential, HealthCheck, HealthStatus, ModelEntry, ModelProvider, ModelRequest,
@@ -11,6 +11,7 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
+use tokio::sync::Semaphore;
 
 #[derive(Debug, Clone, Serialize)]
 /// Public provider status without secrets.
@@ -102,6 +103,7 @@ pub struct ProviderPlatform {
     db: Option<Arc<SqlitePool>>,
     cost_ledger: Option<Arc<agenticos_observability::cost::CostLedger>>,
     secret_key: Option<ProviderSecretKey>,
+    network_concurrency: Arc<Semaphore>,
 }
 
 impl ProviderPlatform {
@@ -118,6 +120,7 @@ impl ProviderPlatform {
             db: None,
             cost_ledger: None,
             secret_key: provider_secret_key(),
+            network_concurrency: Arc::new(Semaphore::new(provider_concurrency_limit())),
         }
     }
 
@@ -220,6 +223,7 @@ impl ProviderPlatform {
             db: Some(Arc::new(db)),
             cost_ledger,
             secret_key: provider_secret_key(),
+            network_concurrency: Arc::new(Semaphore::new(provider_concurrency_limit())),
         };
 
         for (provider_id, name, base_url, models_json, capabilities_json) in provider_rows {
@@ -976,20 +980,22 @@ impl ProviderPlatform {
                     break;
                 }
 
-                let client = AuthenticatedOpenAiProvider::new(
-                    provider.provider_id.clone(),
-                    provider.base_url.clone(),
-                    credential.as_ref().map(|value| value.value.clone()),
-                )?;
+                        let _network_permit = self
+                    .network_concurrency
+                    .acquire()
+                    .await
+                    .map_err(|_| ContractError::ParseError("provider concurrency limiter closed".to_string()))?;
 
-                match execute_protocol(
+                let protocol_result = execute_protocol(
                     detect_protocol(&provider),
                     &provider,
                     credential.as_ref(),
                     routed_request.clone(),
                 )
-                .await
-                {
+                .await;
+                drop(_network_permit);
+
+                match protocol_result {
                     Ok(response) => {
                         if let Some(tokens) = response.tokens_used {
                             if let Err(error) = self
@@ -1800,7 +1806,7 @@ async fn execute_protocol(
             .await
         }
         ProviderProtocol::OpenAiResponses => {
-            let client = reqwest::Client::new();
+            let client = shared_http_client();
             let url = normalize_endpoint(&provider.base_url, "/v1/responses", "/responses");
             let mut payload = serde_json::json!({
                 "model": request.model,
@@ -1856,7 +1862,7 @@ async fn execute_protocol(
             .await
         }
         ProviderProtocol::AnthropicMessages => {
-            let client = reqwest::Client::new();
+            let client = shared_http_client();
             let url = normalize_endpoint(&provider.base_url, "/v1/messages", "/messages");
             let mut payload = serde_json::json!({
                 "model": request.model,
@@ -2588,4 +2594,17 @@ mod tests {
         assert!(super::allows_anonymous_provider("http://127.0.0.1:11434"));
         assert!(!super::allows_anonymous_provider("https://api.example.com"));
     }
+}
+
+
+fn provider_concurrency_limit() -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let default_limit = cores.saturating_mul(2).clamp(4, 32);
+    std::env::var("AGENTICOS_PROVIDER_MAX_CONCURRENCY")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default_limit)
+        .clamp(2, 64)
 }

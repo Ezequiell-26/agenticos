@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Icon from './Icon'
+import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
 import type { RailMode } from '../navigation'
 
 interface QuickActionsMenuProps {
@@ -24,9 +25,13 @@ const actions: QuickAction[] = [
 
 export default function QuickActionsMenu({ onCreateConversation, onSelectMode }: QuickActionsMenuProps) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const closeMenu = useCallback(() => setOpen(false), [])
+  useMenuKeyboard({ open, menuRef, triggerRef, onClose: closeMenu })
 
   function run(action: QuickAction) {
-    setOpen(false)
+    closeMenu()
     if (action.id === 'conversation') onCreateConversation()
     else if (action.id === 'task') onSelectMode('tasks')
     else if (action.id === 'agent') onSelectMode('agents')
@@ -36,11 +41,11 @@ export default function QuickActionsMenu({ onCreateConversation, onSelectMode }:
 
   return (
     <div className="quick-actions-wrap">
-      <button className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu">
+      <button ref={triggerRef} id="quick-actions-trigger" className={open ? 'soft-button soft-button--active' : 'soft-button'} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="quick-actions-menu" aria-haspopup="menu">
         <Icon name="plus" size={14} /> Create
       </button>
       {open && (
-        <div className="quick-actions-menu" role="menu">
+        <div ref={menuRef} id="quick-actions-menu" className="quick-actions-menu" role="menu" aria-labelledby="quick-actions-trigger">
           <div className="quick-actions-menu__head"><span className="eyebrow">Quick actions</span><strong>Workspace</strong></div>
           {actions.map((action) => (
             <button key={action.id} type="button" role="menuitem" onClick={() => run(action)}>
@@ -49,7 +54,7 @@ export default function QuickActionsMenu({ onCreateConversation, onSelectMode }:
               <Icon name="chevron-right" size={12} />
             </button>
           ))}
-          <button type="button" role="menuitem" onClick={() => { setOpen(false); onSelectMode('settings') }}>
+          <button type="button" role="menuitem" onClick={() => { closeMenu(); onSelectMode('settings') }}>
             <span className="quick-actions-menu__icon"><Icon name="settings" size={14} /></span>
             <span><strong>Open settings</strong><small>Configure the workspace</small></span>
             <Icon name="chevron-right" size={12} />

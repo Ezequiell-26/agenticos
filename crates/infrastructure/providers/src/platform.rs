@@ -55,9 +55,65 @@ impl ProviderPlatform {
         entry: ProviderEntry,
         api_key: Option<String>,
     ) -> Result<(), ContractError> {
-        let provider_id = entry.provider_id.clone();
-        self.registry.register(entry.clone()).await?;
-        for model in &entry.models {
+        let provider_id = entry.provider_id.trim().to_string();
+        let name = entry.name.trim().to_string();
+        let base_url = entry.base_url.trim().to_string();
+        if provider_id.is_empty() || name.is_empty() || base_url.is_empty() {
+            return Err(ContractError::ParseError(
+                "provider_id, name and base_url are required".to_string(),
+            ));
+        }
+        if provider_id.len() > 128 || name.len() > 256 || base_url.len() > 2048 {
+            return Err(ContractError::ParseError(
+                "provider metadata exceeds supported limits".to_string(),
+            ));
+        }
+        let url = reqwest::Url::parse(&base_url).map_err(|error| {
+            ContractError::ParseError(format!("invalid provider URL: {error}"))
+        })?;
+        if !matches!(url.scheme(), "http" | "https") {
+            return Err(ContractError::ParseError(
+                "provider URL must use http or https".to_string(),
+            ));
+        }
+        if entry.models.len() > 256 || entry.capabilities.len() > 128 {
+            return Err(ContractError::ParseError(
+                "provider catalog exceeds supported limits".to_string(),
+            ));
+        }
+        if entry
+            .models
+            .iter()
+            .any(|model| model.trim().is_empty() || model.len() > 256)
+        {
+            return Err(ContractError::ParseError(
+                "provider contains an invalid model identifier".to_string(),
+            ));
+        }
+        if entry.capabilities.iter().any(|capability| {
+            capability.trim().is_empty() || capability.len() > 128
+        }) {
+            return Err(ContractError::ParseError(
+                "provider contains an invalid capability".to_string(),
+            ));
+        }
+        let normalized_entry = ProviderEntry {
+            provider_id: provider_id.clone(),
+            name,
+            base_url,
+            models: entry.models.iter().map(|model| model.trim().to_string()).collect(),
+            capabilities: entry
+                .capabilities
+                .iter()
+                .map(|capability| capability.trim().to_string())
+                .collect(),
+        };
+
+        // Registration is replace semantics: stale models/credentials must not survive updates.
+        self.catalog.remove_by_provider(&provider_id).await;
+        self.credentials.remove_for_provider(&provider_id).await;
+        self.registry.register(normalized_entry.clone()).await?;
+        for model in &normalized_entry.models {
             self.catalog
                 .register(agenticos_contracts::ModelEntry {
                     model_id: model.clone(),
@@ -265,6 +321,27 @@ impl ProviderPlatform {
     pub async fn list_models(&self) -> Vec<agenticos_contracts::ModelEntry> {
         self.catalog.list().await
     }
+
+    /// List models registered for a provider.
+    pub async fn list_models_for_provider(
+        &self,
+        provider_id: &str,
+    ) -> Vec<agenticos_contracts::ModelEntry> {
+        self.catalog.list_by_provider(provider_id).await
+    }
+
+    /// Remove a provider and all runtime state associated with it.
+    pub async fn unregister(&self, provider_id: &str) -> Result<bool, ContractError> {
+        let removed = self.registry.remove(provider_id).await;
+        if removed {
+            self.catalog.remove_by_provider(provider_id).await;
+            self.credentials.remove_for_provider(provider_id).await;
+            self.health.remove(provider_id).await;
+            self.retries.remove(provider_id).await;
+        }
+        Ok(removed)
+    }
+
 }
 
 impl Default for ProviderPlatform {

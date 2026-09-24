@@ -274,6 +274,16 @@ struct CreateCapabilityRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RegisterProviderRequest {
+    provider_id: String,
+    name: String,
+    base_url: String,
+    models: Vec<String>,
+    capabilities: Vec<String>,
+    api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolExecutionRequest {
     session_id: String,
     user_id: Option<String>,
@@ -404,6 +414,85 @@ async fn list_providers(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "providers": providers,
         "count": providers.len()
+    }))
+}
+
+async fn register_provider(
+    request: web::Json<RegisterProviderRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = request.provider_id.trim();
+    if provider_id.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "provider_id must not be empty".to_string(),
+            code: "INVALID_PROVIDER_ID",
+        });
+    }
+    if request.api_key.as_ref().is_some_and(|key| key.len() > 4_096) {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "api_key exceeds supported limits".to_string(),
+            code: "PROVIDER_KEY_TOO_LARGE",
+        });
+    }
+    let entry = agenticos_contracts::ProviderEntry {
+        provider_id: provider_id.to_string(),
+        name: request.name.trim().to_string(),
+        base_url: request.base_url.trim().to_string(),
+        models: request.models.clone(),
+        capabilities: request.capabilities.clone(),
+    };
+
+    match state.provider.register(entry, request.api_key.clone()).await {
+        Ok(()) => {
+            let provider = state
+                .provider
+                .list_status()
+                .await
+                .into_iter()
+                .find(|item| item.provider_id == provider_id);
+            HttpResponse::Created().json(provider)
+        }
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_REGISTRATION_FAILED",
+        }),
+    }
+}
+
+async fn delete_provider(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    match state.provider.unregister(&provider_id).await {
+        Ok(true) => HttpResponse::NoContent().finish(),
+        Ok(false) => HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_DELETE_FAILED",
+        }),
+    }
+}
+
+async fn list_provider_models(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    if state.provider.list_status().await.iter().all(|p| p.provider_id != provider_id) {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+    let models = state.provider.list_models_for_provider(&provider_id).await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "provider_id": provider_id,
+        "models": models,
+        "count": models.len(),
     }))
 }
 
@@ -1081,6 +1170,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/providers", web::get().to(list_providers))
+            .route("/api/providers", web::post().to(register_provider))
+            .route(
+                "/api/providers/{provider_id}",
+                web::delete().to(delete_provider),
+            )
+            .route(
+                "/api/providers/{provider_id}/models",
+                web::get().to(list_provider_models),
+            )
             .route("/api/models", web::get().to(list_models))
             .route("/api/runs", web::post().to(create_run))
             .route("/api/runs/{run_id}", web::get().to(get_run))

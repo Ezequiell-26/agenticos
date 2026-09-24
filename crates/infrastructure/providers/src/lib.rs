@@ -41,6 +41,15 @@ impl ProviderRegistry {
         providers.get(provider_id).cloned()
     }
 
+    /// Remove a provider and return whether it existed.
+    pub async fn remove(&self, provider_id: &str) -> bool {
+        self.providers
+            .write()
+            .await
+            .remove(provider_id)
+            .is_some()
+    }
+
     /// List all providers.
     pub async fn list(&self) -> Vec<ProviderEntry> {
         let mut providers: Vec<_> = self.providers.read().await.values().cloned().collect();
@@ -87,6 +96,14 @@ impl ModelCatalog {
         let mut models: Vec<_> = self.models.read().await.values().cloned().collect();
         models.sort_by(|left, right| left.model_id.cmp(&right.model_id));
         models
+    }
+
+    /// Remove all models owned by a provider.
+    pub async fn remove_by_provider(&self, provider_id: &str) -> usize {
+        let mut models = self.models.write().await;
+        let before = models.len();
+        models.retain(|_, model| model.provider_id != provider_id);
+        before - models.len()
     }
 
     /// List models by provider.
@@ -145,6 +162,14 @@ impl CredentialPool {
             .collect();
         credentials.sort_by(|left, right| left.credential_id.cmp(&right.credential_id));
         credentials
+    }
+
+    /// Remove all credentials owned by a provider.
+    pub async fn remove_for_provider(&self, provider_id: &str) -> usize {
+        let mut credentials = self.credentials.write().await;
+        let before = credentials.len();
+        credentials.retain(|_, credential| credential.provider_id != provider_id);
+        before - credentials.len()
     }
 
     /// Remove expired credentials.
@@ -234,6 +259,11 @@ impl HealthChecker {
         health_checks.get(provider_id).cloned()
     }
 
+    /// Remove health state for a provider.
+    pub async fn remove(&self, provider_id: &str) {
+        self.health_checks.write().await.remove(provider_id);
+    }
+
     /// Check if a provider is healthy.
     pub async fn is_healthy(&self, provider_id: &str) -> bool {
         let health_checks = self.health_checks.read().await;
@@ -273,6 +303,11 @@ impl RetryManager {
         let mut policies = self.policies.write().await;
         policies.insert(provider_id, policy);
         Ok(())
+    }
+
+    /// Remove retry policy for a provider.
+    pub async fn remove(&self, provider_id: &str) {
+        self.policies.write().await.remove(provider_id);
     }
 
     /// Get retry policy for a provider.

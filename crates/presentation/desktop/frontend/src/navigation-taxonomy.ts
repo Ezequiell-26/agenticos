@@ -1,6 +1,4 @@
-import type { NavigationGroup, RailMode } from './navigation'
-
-export type NavigationSection =
+import type { NavigationGroup, RailMode } from './navigation'\n\nexport type NavigationSection =
   | 'workspace'
   | 'build'
   | 'run'
@@ -67,4 +65,9 @@ export function getNavigationSection(mode: RailMode): NavigationSection {
   if (systemIds.has(mode)) return 'system'
   if (runIds.has(mode)) return 'run'
   return 'run'
+}
+
+export function navigationSectionLabel(mode: RailMode): string {
+  const section = getNavigationSection(mode)
+  return navigationSections.find((item) => item.id === section)?.label ?? 'Run'
 }

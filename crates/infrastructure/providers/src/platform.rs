@@ -398,10 +398,10 @@ impl ProviderPlatform {
             .get(provider_id)
             .await
             .map(|value| PersistedHealth {
-            status: health_status_name(&value.status).to_string(),
-            last_check: value.last_check,
-            message: value.message,
-        });
+                status: health_status_name(&value.status).to_string(),
+                last_check: value.last_check,
+                message: value.message,
+            });
 
         let payload = serde_json::to_string(&PersistedProviderState {
             quota,

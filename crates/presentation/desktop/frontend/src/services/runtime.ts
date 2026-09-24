@@ -262,17 +262,19 @@ export class AgenticosRuntime implements RuntimeServices {
         ...(options?.maxTokens || options?.temperature || options?.responseFormat
           ? {
               parameters: {
-                ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
-                ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-                ...(options.responseFormat
-                  ? {
-                      response_format: {
-                        type: options.responseFormat === 'Structured'
-                          ? 'json_object'
-                          : 'text',
-                      },
-                    }
-                  : {}),
+                agenticos: {
+                  ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
+                  ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+                  ...(options.responseFormat
+                    ? {
+                        response_format: {
+                          type: options.responseFormat === 'Structured'
+                            ? 'json_object'
+                            : 'text',
+                        },
+                      }
+                    : {}),
+                },
               },
             }
           : {}),

@@ -5,8 +5,8 @@
 
 use agenticos_contracts::{
     AgentEngine, Command, CommandHandler, CommandResult, ContextManager, ContractError,
-    ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler, QueryResult, RunId,
-    RunState,
+    ModelProvider, ModelRequest, ModelResponse, Projection, Query, QueryHandler, QueryResult,
+    RunId, RunState,
 };
 use agenticos_kernel::KernelRuntime;
 use agenticos_memory::InMemoryContextManager;

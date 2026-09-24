@@ -608,10 +608,7 @@ impl KernelRuntime {
     }
 
     /// Return a loaded run or recover it from durable snapshot/event state.
-    pub async fn get_or_recover_run(
-        &self,
-        run_id: &RunId,
-    ) -> Result<DurableRun, ContractError> {
+    pub async fn get_or_recover_run(&self, run_id: &RunId) -> Result<DurableRun, ContractError> {
         if let Some(run) = self.runs.read().await.get(run_id).cloned() {
             return Ok(run);
         }
@@ -1917,8 +1914,8 @@ impl ReactAgent {
     /// Pin this agent session to a specific registered model identifier.
     pub fn set_model(&self, model: String) {
         let normalized = model.trim();
-        self.inner.lock().unwrap().preferred_model = (!normalized.is_empty())
-            .then(|| normalized.to_string());
+        self.inner.lock().unwrap().preferred_model =
+            (!normalized.is_empty()).then(|| normalized.to_string());
     }
 
     /// Set SQLite tier 2 memory for conversation history.
@@ -2207,7 +2204,8 @@ impl ReactAgent {
             return self.think_with_router(&router, turn, input).await;
         }
 
-        self.think_inner(provider.as_ref(), turn, input, preferred_model.as_deref()).await
+        self.think_inner(provider.as_ref(), turn, input, preferred_model.as_deref())
+            .await
     }
 
     /// Execute thought using LLM router for provider selection.

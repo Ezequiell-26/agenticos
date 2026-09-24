@@ -1432,20 +1432,30 @@ async fn scheduler_worker(state: RuntimeState) {
                         }
                     }
                     RunState::Created | RunState::Waiting => {
-                        let _ = state.scheduler.complete(
-                            &started_job.spec.job_id,
-                            false,
-                            Some(format!("run {} is not executable in state {:?}", run_id.as_str(), run.state)),
-                        ).await;
+                        let _ = state
+                            .scheduler
+                            .complete(
+                                &started_job.spec.job_id,
+                                false,
+                                Some(format!(
+                                    "run {} is not executable in state {:?}",
+                                    run_id.as_str(),
+                                    run.state
+                                )),
+                            )
+                            .await;
                         continue;
                     }
                     RunState::Running => {}
                     RunState::Completed | RunState::Failed => {
-                        let _ = state.scheduler.complete(
-                            &started_job.spec.job_id,
-                            true,
-                            Some("run already reached terminal state".to_string()),
-                        ).await;
+                        let _ = state
+                            .scheduler
+                            .complete(
+                                &started_job.spec.job_id,
+                                true,
+                                Some("run already reached terminal state".to_string()),
+                            )
+                            .await;
                         continue;
                     }
                 }

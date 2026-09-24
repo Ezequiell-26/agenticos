@@ -75,7 +75,9 @@ impl ContextEngine {
             };
         }
 
-        let recent_floor = messages.len().saturating_sub(budget.min_recent_messages.max(1));
+        let recent_floor = messages
+            .len()
+            .saturating_sub(budget.min_recent_messages.max(1));
         let mut selected = Vec::with_capacity(messages.len());
         let mut used = 0_u32;
         let mut dropped_tokens = 0_u32;

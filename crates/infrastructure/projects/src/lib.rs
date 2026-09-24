@@ -88,7 +88,10 @@ impl ProjectRegistry {
                 return Err(format!("{field} exceeds supported limits"));
             }
         }
-        if project.path.starts_with('/') || project.path.starts_with('\') || project.path.contains("..") {
+        if project.path.starts_with('/')
+            || project.path.starts_with('\\')
+            || project.path.contains("..")
+        {
             return Err("project path must stay relative to the configured workspace".to_string());
         }
         Ok(())
@@ -168,7 +171,10 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_workspace_escape() {
-        let project = ProjectDefinition { path: "../outside".to_string(), ..project() };
+        let project = ProjectDefinition {
+            path: "../outside".to_string(),
+            ..project()
+        };
         assert!(ProjectRegistry::validate(&project).is_err());
     }
 }

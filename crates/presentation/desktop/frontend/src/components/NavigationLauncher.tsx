@@ -104,7 +104,10 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            if (event.key.toLowerCase() === 'p' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+              event.preventDefault()
+              toggleFavorite()
+            } else if (event.key === 'Escape') {
               event.preventDefault()
               onClose()
             } else if (event.key === 'ArrowDown' && filtered.length > 0) {

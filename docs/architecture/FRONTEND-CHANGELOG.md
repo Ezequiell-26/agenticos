@@ -1326,3 +1326,10 @@ Verification status:
 - Added an architecture regression guard for persistence and keyboard/pointer resize behavior.
 - Preserved the existing layout preference boundaries and runtime ownership.
 - Verification status: source-level checks applied; production build, browser interaction and Tauri rendering remain pending.
+
+
+## 2026-09-24 — Resize performance and breakpoint correction
+
+- Made panel drag updates apply live through CSS/UI state while persisting only the final width, avoiding LocalStorage writes on every pointer movement.
+- Reasserted compact shell grid breakpoints after the desktop variable-based grid definition so narrow-window layout remains authoritative.
+- Verification status: source correction applied; production build, browser interaction and Tauri rendering remain pending.

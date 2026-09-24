@@ -38,8 +38,8 @@ use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
-use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_source_forge::GitHubSourceClient;
+use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -1194,7 +1194,6 @@ async fn agent_chat(
     }
 }
 
-
 async fn conversation_history(
     session_id: web::Path<String>,
     state: web::Data<RuntimeState>,
@@ -1301,7 +1300,13 @@ async fn get_provider_quota(
         });
     }
 
-    match state.provider.list_status().await.into_iter().find(|p| p.provider_id == provider_id) {
+    match state
+        .provider
+        .list_status()
+        .await
+        .into_iter()
+        .find(|p| p.provider_id == provider_id)
+    {
         Some(status) => HttpResponse::Ok().json(serde_json::json!({
             "provider_id": status.provider_id,
             "requests_per_minute": status.requests_per_minute,
@@ -1658,8 +1663,8 @@ async fn create_run(
             code: "INVALID_OBJECTIVE",
         });
     }
-    let run_id_text = request
-        .run_id
+    let requested_run_id = request.run_id.clone();
+    let run_id_text = requested_run_id
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
@@ -1673,10 +1678,13 @@ async fn create_run(
     let idempotency_storage_key = idempotency_key
         .as_ref()
         .map(|key| format!("run.create:{key}"));
-    let idempotency_fingerprint = format!("{run_id_text}\0{objective}");
+    let idempotency_fingerprint = format!(
+        "{}\0{objective}",
+        requested_run_id.as_deref().unwrap_or("auto")
+    );
 
     if let Some(storage_key) = &idempotency_storage_key {
-        if storage_key.len() > 320 {
+        if storage_key.len() > 240 {
             return HttpResponse::BadRequest().json(ErrorResponse {
                 error: "Idempotency-Key exceeds supported limits".to_string(),
                 code: "IDEMPOTENCY_KEY_TOO_LARGE",
@@ -2114,7 +2122,6 @@ async fn spawn_agent(
         "state": "Admitted",
     }))
 }
-
 
 async fn list_children(
     run_id: web::Path<String>,
@@ -2853,11 +2860,12 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                     None,
                 )
                 .await;
-            state.metrics.record_scheduler_completion(completion.is_ok());
+            state
+                .metrics
+                .record_scheduler_completion(completion.is_ok());
         }
         Err(error) => {
-            let final_attempt =
-                started_job.attempts >= started_job.spec.max_attempts.max(1);
+            let final_attempt = started_job.attempts >= started_job.spec.max_attempts.max(1);
             if let Some(run_id) = run_id {
                 if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
                     if final_attempt && run.state == RunState::Running {
@@ -2898,7 +2906,9 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                     Some(error.to_string()),
                 )
                 .await;
-            state.metrics.record_scheduler_completion(completion.is_ok() && final_attempt);
+            state
+                .metrics
+                .record_scheduler_completion(completion.is_ok() && final_attempt);
         }
     }
 }
@@ -3031,10 +3041,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
-            .app_data(
-                web::JsonConfig::default()
-                    .limit(8 * 1024 * 1024),
-            )
+            .app_data(web::JsonConfig::default().limit(8 * 1024 * 1024))
             .app_data(data.clone())
             .app_data(web::Data::new(auth_config))
             .wrap(from_fn(api_auth_middleware))

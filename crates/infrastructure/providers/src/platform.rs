@@ -288,6 +288,26 @@ impl ProviderPlatform {
             }
         }
 
+        if platform.secret_key.is_none() {
+            let db = platform.db.as_ref().expect("provider db");
+            let credential_count: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM provider_credentials"
+            )
+            .fetch_one(db.as_ref())
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider credential inspection failed: {error}"
+                ))
+            })?;
+            if credential_count > 0 {
+                return Err(ContractError::ParseError(
+                    "AGENTICOS_SECRET_KEY is required to recover persisted provider credentials"
+                        .to_string(),
+                ));
+            }
+        }
+
         if let Some(db) = platform.db.as_ref() {
             let rows = sqlx::query_as::<_, (String, String, i64)>(
                 "SELECT primary_provider, fallback_providers, auto_failover FROM provider_fallback_configs",

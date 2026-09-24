@@ -116,6 +116,11 @@ export interface SettingsState {
   daytonaImage: string
   singularityImage: string
   dockerForwardEnv: string[]
+  dockerVolumes: string[]
+  dockerRunAsHostUser: boolean
+  dockerExtraArgs: string
+  dockerPersistAcrossProcesses: boolean
+  dockerOrphanReaper: boolean
   sshHost: string
   sshUser: string
   sshPort: number
@@ -374,6 +379,11 @@ const defaults: SettingsState = {
   daytonaImage: 'nikolaik/python-nodejs:python3.11-nodejs20',
   singularityImage: 'docker://nikolaik/python-nodejs:python3.11-nodejs20',
   dockerForwardEnv: [],
+  dockerVolumes: ['/workspace/projects:/workspace/projects'],
+  dockerRunAsHostUser: false,
+  dockerExtraArgs: '',
+  dockerPersistAcrossProcesses: false,
+  dockerOrphanReaper: true,
   sshHost: '',
   sshUser: '',
   sshPort: 22,
@@ -1424,6 +1434,11 @@ function fromPortableConfig(payload: PortableRecord, current: SettingsState): Pa
     next.daytonaImage = readString(terminal, 'daytona_image', current.daytonaImage)
     next.singularityImage = readString(terminal, 'singularity_image', current.singularityImage)
     next.dockerForwardEnv = readArray(terminal, 'docker_forward_env', current.dockerForwardEnv)
+    next.dockerVolumes = readArray(terminal, 'docker_volumes', current.dockerVolumes)
+    next.dockerRunAsHostUser = readBoolean(terminal, 'docker_run_as_host_user', current.dockerRunAsHostUser)
+    next.dockerExtraArgs = readString(terminal, 'docker_extra_args', current.dockerExtraArgs)
+    next.dockerPersistAcrossProcesses = readBoolean(terminal, 'docker_persist_across_processes', current.dockerPersistAcrossProcesses)
+    next.dockerOrphanReaper = readBoolean(terminal, 'docker_orphan_reaper', current.dockerOrphanReaper)
     next.sshHost = readString(terminal, 'ssh_host', current.sshHost)
     next.sshUser = readString(terminal, 'ssh_user', current.sshUser)
     next.sshPort = readNumber(terminal, 'ssh_port', current.sshPort)
@@ -1742,6 +1757,11 @@ function toPortableConfig(settings: SettingsState, profiles: Profile[], activePr
       daytona_image: settings.daytonaImage,
       singularity_image: settings.singularityImage,
       docker_forward_env: settings.dockerForwardEnv,
+      docker_volumes: settings.dockerVolumes,
+      docker_run_as_host_user: settings.dockerRunAsHostUser,
+      docker_extra_args: settings.dockerExtraArgs,
+      docker_persist_across_processes: settings.dockerPersistAcrossProcesses,
+      docker_orphan_reaper: settings.dockerOrphanReaper,
       ssh_host: settings.sshHost || null,
       ssh_user: settings.sshUser || null,
       ssh_port: settings.sshPort,

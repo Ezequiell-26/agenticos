@@ -386,42 +386,56 @@ impl ModelProvider for HttpModelProvider {
 
         match response {
             Ok(resp) => {
-                if resp.status().is_success() {
-                    let json: serde_json::Value =
-                        resp.json().await.map_err(|_e| ContractError::Persistence)?;
+                let status = resp.status();
+                let body = resp.text().await.map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "Provider response read failed: {}",
+                        error
+                    ))
+                })?;
 
-                    let output = json["choices"][0]["message"]["content"]
-                        .as_str()
-                        .unwrap_or("No content");
-
-                    let tokens_used = json["usage"]["total_tokens"]
-                        .as_u64()
-                        .unwrap_or(request.input.len() as u64);
-
-                    Ok(ModelResponse {
-                        request_id: request.request_id,
-                        output: output.to_string(),
-                        metadata: Some(format!(
-                            "provider: {}, model: {}",
-                            self.provider_id, request.model
-                        )),
-                        tokens_used: Some(tokens_used),
-                    })
-                } else {
-                    Ok(ModelResponse {
-                        request_id: request.request_id,
-                        output: format!("HTTP error: {}", resp.status()),
-                        metadata: Some(format!("provider: {}", self.provider_id)),
-                        tokens_used: Some(0),
-                    })
+                if !status.is_success() {
+                    return Err(ContractError::ParseError(format!(
+                        "Provider returned HTTP {}: {}",
+                        status, body
+                    )));
                 }
+
+                let json: serde_json::Value = serde_json::from_str(&body).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "Invalid provider response for {}: {}",
+                        self.provider_id, error
+                    ))
+                })?;
+
+                let output = json["choices"][0]["message"]["content"]
+                    .as_str()
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| {
+                        ContractError::ParseError(format!(
+                            "Provider {} returned no message content",
+                            self.provider_id
+                        ))
+                    })?;
+
+                let tokens_used = json["usage"]["total_tokens"]
+                    .as_u64()
+                    .unwrap_or(request.input.len() as u64);
+
+                Ok(ModelResponse {
+                    request_id: request.request_id,
+                    output: output.to_string(),
+                    metadata: Some(format!(
+                        "provider: {}, model: {}",
+                        self.provider_id, request.model
+                    )),
+                    tokens_used: Some(tokens_used),
+                })
             }
-            Err(e) => Ok(ModelResponse {
-                request_id: request.request_id,
-                output: format!("HTTP request failed: {}", e),
-                metadata: Some(format!("provider: {}", self.provider_id)),
-                tokens_used: Some(0),
-            }),
+            Err(error) => Err(ContractError::ParseError(format!(
+                "Provider request failed for {}: {}",
+                self.provider_id, error
+            ))),
         }
     }
 }

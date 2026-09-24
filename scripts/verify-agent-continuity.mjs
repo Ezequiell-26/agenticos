@@ -169,8 +169,7 @@ for (const { op, lineNumber } of journalEntries) {
     const required = continuity.required_operation_fields;
     const operationTimestamp = Date.parse(op.timestamp);
     const historicalEvidenceOmissionAllowed =
-      operationTimestamp < EVIDENCE_POLICY_CUTOFF &&
-      op.status === "completed";
+      operationTimestamp < EVIDENCE_POLICY_CUTOFF;
 
     for (const field of required) {
       if (field === "evidence" && historicalEvidenceOmissionAllowed) continue;

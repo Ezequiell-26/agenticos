@@ -2108,16 +2108,25 @@ async fn spawn_agent(
         });
     }
 
-    match state.kernel.get_or_recover_run(&match RunId::new(parent_run_id.clone()) {
-        Ok(run_id) => run_id,
-        Err(error) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
-                code: "INVALID_PARENT_RUN_ID",
-            })
-        }
-    }).await {
-        Ok(run) if matches!(run.state, RunState::Completed | RunState::Failed | RunState::Cancelled) => {
+    match state
+        .kernel
+        .get_or_recover_run(&match RunId::new(parent_run_id.clone()) {
+            Ok(run_id) => run_id,
+            Err(error) => {
+                return HttpResponse::BadRequest().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "INVALID_PARENT_RUN_ID",
+                })
+            }
+        })
+        .await
+    {
+        Ok(run)
+            if matches!(
+                run.state,
+                RunState::Completed | RunState::Failed | RunState::Cancelled
+            ) =>
+        {
             return HttpResponse::Conflict().json(ErrorResponse {
                 error: format!("parent run is already terminal: {:?}", run.state),
                 code: "SUBAGENT_PARENT_TERMINAL",
@@ -2747,7 +2756,7 @@ async fn execute_tool(
         Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
             error: error.to_string(),
             code: "TOOL_EXECUTION_DENIED",
-        })
+        }),
     }
 }
 

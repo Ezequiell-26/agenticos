@@ -293,12 +293,12 @@ impl ProviderPlatform {
             let credential_count: i64 =
                 sqlx::query_scalar("SELECT COUNT(*) FROM provider_credentials")
                     .fetch_one(db.as_ref())
-            .await
-            .map_err(|error| {
-                ContractError::ParseError(format!(
-                    "provider credential inspection failed: {error}"
-                ))
-            })?;
+                    .await
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "provider credential inspection failed: {error}"
+                        ))
+                    })?;
             if credential_count > 0 {
                 return Err(ContractError::ParseError(
                     "AGENTICOS_SECRET_KEY is required to recover persisted provider credentials"

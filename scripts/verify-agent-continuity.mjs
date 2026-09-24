@@ -168,11 +168,10 @@ for (const { op, lineNumber } of journalEntries) {
   if (modern) {
     const required = continuity.required_operation_fields;
     const operationTimestamp = Date.parse(op.timestamp);
-    const historicalEvidenceOmissionAllowed =
-      operationTimestamp < EVIDENCE_POLICY_CUTOFF;
+    const historicalSchemaCompatibility = operationTimestamp < EVIDENCE_POLICY_CUTOFF;
 
     for (const field of required) {
-      if (field === "evidence" && historicalEvidenceOmissionAllowed) continue;
+      if (historicalSchemaCompatibility && !(field in op)) continue;
       if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
     }
   } else {

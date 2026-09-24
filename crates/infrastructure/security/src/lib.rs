@@ -390,11 +390,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sqlite_security_state_recovers_grants_and_approvals() {
+        let path = std::env::temp_dir().join(format!("agenticos-security-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let manager = CapabilityManager::open(&url).await.unwrap();
+        manager
+            .issue(CapabilityGrant {
+                capability_type: CapabilityType::Execute,
+                resource: "workspace/*".to_string(),
+                permission: "execute".to_string(),
+                expires_at: 0,
+                grant_id: "durable-grant".to_string(),
+            })
+            .await
+            .unwrap();
+
+        let approval = manager
+            .request_approval("run-durable", "execute", "workspace/bin", 0)
+            .await
+            .unwrap();
+        drop(manager);
+
+        let recovered = CapabilityManager::open(&url).await.unwrap();
+        assert!(recovered
+            .authorize(
+                "durable-grant",
+                CapabilityType::Execute,
+                "workspace/bin",
+                "execute",
+            )
+            .await
+            .unwrap());
+        assert_eq!(recovered.pending_approvals().await.len(), 1);
+        recovered
+            .resolve_approval(&approval.approval_id, true)
+            .await
+            .unwrap();
+        assert!(recovered.is_approved(&approval.approval_id).await);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn approval_lifecycle_is_durable_in_memory() {
         let manager = CapabilityManager::new();
         let request = manager
             .request_approval("run-1", "delete", "workspace/tmp", 0)
-            .await;
+            .await
+            .unwrap();
         assert_eq!(manager.pending_approvals().await.len(), 1);
         manager
             .resolve_approval(&request.approval_id, true)

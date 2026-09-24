@@ -77,6 +77,37 @@ fn spawn_http_response_server_with_status(
 fn spawn_http_response_server(response_body: &'static str) -> (String, thread::JoinHandle<()>) {
     spawn_http_response_server_with_status("200 OK", response_body)
 }
+\nfn spawn_http_response_sequence_server(
+    responses: Vec<(&'static str, &'static str)>,
+) -> (String, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind sequence test HTTP server");
+    let address = listener.local_addr().expect("read sequence test address");
+
+    let handle = thread::spawn(move || {
+        for (status_line, response_body) in responses {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request);
+
+            let response = format!(
+                "HTTP/1.1 {status_line}\\r\\nContent-Type: application/json\\r\\nContent-Length: {}\\r\\nConnection: close\\r\\n\\r\\n{}",
+                response_body.len(),
+                response_body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write sequence test HTTP response");
+            stream
+                .flush()
+                .expect("flush sequence test HTTP response");
+        }
+    });
+
+    (format!("http://{}", address), handle)
+}
+
 
 async fn select_healthy_provider(
     primary: &str,
@@ -295,6 +326,54 @@ async fn multi_provider_orchestration_selects_healthy_provider_and_executes_tran
         .metadata
         .as_deref()
         .is_some_and(|value| value.contains("fallback")));
+}
+
+#[tokio::test]
+async fn provider_platform_retries_transient_transport_failure_before_succeeding() {
+    let (base_url, server) = spawn_http_response_sequence_server(vec![
+        (
+            "503 Service Unavailable",
+            r#"{"error":{"message":"temporary failure"}}"#,
+        ),
+        (
+            "200 OK",
+            r#"{"choices":[{"message":{"content":"retry-success"}}],"usage":{"total_tokens":17}}"#,
+        ),
+    ]);
+
+    let platform = ProviderPlatform::new();
+    platform
+        .register(
+            provider_with_base_url("retry-provider", base_url, &["retry-model"]),
+            None,
+        )
+        .await
+        .expect("register retry provider");
+
+    let response = platform
+        .execute(
+            ModelRequest {
+                request_id: "provider-retry-1".to_string(),
+                model: "retry-model".to_string(),
+                input: "hello".to_string(),
+                parameters: None,
+            },
+        )
+        .await
+        .expect("transient failure should be retried");
+
+    server.join().expect("join retry test server");
+
+    assert_eq!(response.output, "retry-success");
+    assert_eq!(response.tokens_used, Some(17));
+
+    let status = platform
+        .list_status()
+        .await
+        .into_iter()
+        .find(|status| status.provider_id == "retry-provider")
+        .expect("retry provider status should be present");
+    assert_eq!(status.health, "Healthy");
 }
 
 #[tokio::test]

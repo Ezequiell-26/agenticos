@@ -1241,3 +1241,9 @@ Verification status:
 - Added presentation preflight that blocks underspecified missions and promotes ready/queued/running states without implying real runtime execution.
 - Kept model routing, isolation, permissions, launch and schedule controls within the existing typed presentation boundary.
 - Verification status: source-level wiring only; CI, production frontend build, browser/Tauri execution and runtime acceptance remain evidence gates.
+
+## 2026-09-24 — API serialization gate repair
+
+- Repaired a concrete Rust compilation blocker discovered by CI: `ConversationMessage` is now serializable for the API server conversation-search JSON response.
+- No frontend architecture, runtime boundaries or authorization semantics were changed; this is a compatibility repair required to keep the repository buildable while frontend work continues.
+- Verification status: fix submitted to CI; full workflow evidence pending.

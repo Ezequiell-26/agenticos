@@ -428,7 +428,11 @@ async fn register_provider(
             code: "INVALID_PROVIDER_ID",
         });
     }
-    if request.api_key.as_ref().is_some_and(|key| key.len() > 4_096) {
+    if request
+        .api_key
+        .as_ref()
+        .is_some_and(|key| key.len() > 4_096)
+    {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "api_key exceeds supported limits".to_string(),
             code: "PROVIDER_KEY_TOO_LARGE",
@@ -442,7 +446,11 @@ async fn register_provider(
         capabilities: request.capabilities.clone(),
     };
 
-    match state.provider.register(entry, request.api_key.clone()).await {
+    match state
+        .provider
+        .register(entry, request.api_key.clone())
+        .await
+    {
         Ok(()) => {
             let provider = state
                 .provider
@@ -482,7 +490,13 @@ async fn list_provider_models(
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let provider_id = provider_id.into_inner();
-    if state.provider.list_status().await.iter().all(|p| p.provider_id != provider_id) {
+    if state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .all(|p| p.provider_id != provider_id)
+    {
         return HttpResponse::NotFound().json(ErrorResponse {
             error: "provider not found".to_string(),
             code: "PROVIDER_NOT_FOUND",
@@ -1395,9 +1409,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 }
 
                 let future = srv.call(req);
-                Box::pin(async move {
-                    future.await.map(|response| response.map_into_boxed_body())
-                })
+                Box::pin(async move { future.await.map(|response| response.map_into_boxed_body()) })
             })
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))

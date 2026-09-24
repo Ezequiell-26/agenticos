@@ -5,7 +5,7 @@ use agenticos_contracts::{
     ContractError, Credential, HealthCheck, HealthStatus, ModelProvider, ModelRequest,
     ModelResponse, ProviderEntry,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -23,6 +23,16 @@ pub struct ProviderStatus {
     pub models: Vec<String>,
     /// Health status.
     pub health: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct EnvProvider {
+    provider_id: String,
+    name: String,
+    base_url: String,
+    models: Vec<String>,
+    capabilities: Vec<String>,
+    api_key: Option<String>,
 }
 
 /// Multi-provider runtime platform.
@@ -296,12 +306,42 @@ impl ProviderPlatform {
     /// Seed a default provider from environment variables.
     pub async fn from_env() -> Result<Self, ContractError> {
         let platform = Self::new();
+
+        if let Ok(raw) = std::env::var("AGENTICOS_PROVIDERS_JSON") {
+            let configured = serde_json::from_str::<Vec<EnvProvider>>(&raw).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "AGENTICOS_PROVIDERS_JSON must be a JSON array: {error}"
+                ))
+            })?;
+            if configured.is_empty() {
+                return Err(ContractError::ParseError(
+                    "AGENTICOS_PROVIDERS_JSON must contain at least one provider".to_string(),
+                ));
+            }
+            for provider in configured {
+                platform
+                    .register(
+                        ProviderEntry {
+                            provider_id: provider.provider_id,
+                            name: provider.name,
+                            base_url: provider.base_url,
+                            models: provider.models,
+                            capabilities: provider.capabilities,
+                        },
+                        provider.api_key,
+                    )
+                    .await?;
+            }
+            return Ok(platform);
+        }
+
         let provider_id = std::env::var("AGENTICOS_PROVIDER_NAME")
             .unwrap_or_else(|_| "openai-compatible".to_string());
         let base_url = std::env::var("AGENTICOS_PROVIDER_URL")
             .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
         let key = std::env::var("AGENTICOS_API_KEY").ok();
+
         platform
             .register(
                 ProviderEntry {
@@ -515,4 +555,14 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
         || normalized.starts_with("https://localhost")
         || normalized.starts_with("http://[::1]:")
         || normalized.starts_with("https://[::1]:")
+}
+
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn anonymous_provider_detection_is_local_only_by_default() {
+        assert!(super::allows_anonymous_provider("http://127.0.0.1:11434"));
+        assert!(!super::allows_anonymous_provider("https://api.example.com"));
+    }
 }

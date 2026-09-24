@@ -86,7 +86,57 @@ impl WorkflowEngine {
 
     /// List workflows.
     pub async fn list(&self) -> Vec<WorkflowDefinition> {
-        self.workflows.read().await.values().cloned().collect()
+        let mut workflows: Vec<_> = self.workflows.read().await.values().cloned().collect();
+        workflows.sort_by(|left, right| left.workflow_id.cmp(&right.workflow_id));
+        workflows
+    }
+
+    /// Transition one workflow node after validating its state and dependencies.
+    pub async fn transition_node(
+        &self,
+        workflow_id: &str,
+        state: &mut WorkflowState,
+        node_id: &str,
+        next: WorkflowNodeState,
+    ) -> Result<(), String> {
+        if state.workflow_id != workflow_id {
+            return Err("workflow state belongs to a different workflow".to_string());
+        }
+        let workflow = self
+            .get(workflow_id)
+            .await
+            .ok_or_else(|| "workflow not found".to_string())?;
+        let node = workflow
+            .nodes
+            .iter()
+            .find(|candidate| candidate.id == node_id)
+            .ok_or_else(|| "workflow node not found".to_string())?;
+
+        let current = state
+            .nodes
+            .get(node_id)
+            .ok_or_else(|| "workflow state is missing node".to_string())?
+            .clone();
+
+        let valid = match (&current, &next) {
+            (WorkflowNodeState::Pending, WorkflowNodeState::Ready) => node.depends_on.iter().all(|dependency| {
+                state.nodes.get(dependency) == Some(&WorkflowNodeState::Succeeded)
+            }),
+            (WorkflowNodeState::Ready, WorkflowNodeState::Running) => true,
+            (WorkflowNodeState::Running, WorkflowNodeState::Succeeded)
+            | (WorkflowNodeState::Running, WorkflowNodeState::Failed) => true,
+            _ => false,
+        };
+
+        if !valid {
+            return Err(format!(
+                "invalid workflow node transition {:?} -> {:?}",
+                current, next
+            ));
+        }
+
+        state.nodes.insert(node_id.to_string(), next);
+        Ok(())
     }
 
     /// Calculate the next runnable nodes.
@@ -219,6 +269,52 @@ mod tests {
             .unwrap();
         let state = engine.initial_state("wf").await.unwrap();
         assert_eq!(engine.ready_nodes("wf", &state).await.unwrap()[0].id, "a");
+    }
+
+    #[tokio::test]
+    async fn workflow_node_transitions_are_guarded() {
+        let engine = WorkflowEngine::new();
+        engine
+            .register(WorkflowDefinition {
+                workflow_id: "wf".into(),
+                name: "transition test".into(),
+                nodes: vec![
+                    WorkflowNode {
+                        id: "a".into(),
+                        task: "A".into(),
+                        depends_on: vec![],
+                    },
+                    WorkflowNode {
+                        id: "b".into(),
+                        task: "B".into(),
+                        depends_on: vec!["a".into()],
+                    },
+                ],
+            })
+            .await
+            .unwrap();
+
+        let mut state = engine.initial_state("wf").await.unwrap();
+        assert!(engine
+            .transition_node("wf", &mut state, "b", WorkflowNodeState::Ready)
+            .await
+            .is_err());
+        engine
+            .transition_node("wf", &mut state, "a", WorkflowNodeState::Ready)
+            .await
+            .unwrap();
+        engine
+            .transition_node("wf", &mut state, "a", WorkflowNodeState::Running)
+            .await
+            .unwrap();
+        engine
+            .transition_node("wf", &mut state, "a", WorkflowNodeState::Succeeded)
+            .await
+            .unwrap();
+        engine
+            .transition_node("wf", &mut state, "b", WorkflowNodeState::Ready)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

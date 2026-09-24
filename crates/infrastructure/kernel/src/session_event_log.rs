@@ -187,15 +187,21 @@ impl SessionEventLog {
         }
     }
 
+    fn lock_events(&self) -> std::sync::MutexGuard<'_, Vec<SessionEvent>> {
+        self.events
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     /// Append an event to the log (append-only, no deletions).
     pub fn append(&self, event: SessionEvent) {
-        let mut events = self.events.lock().unwrap();
+        let mut events = self.lock_events();
         events.push(event);
     }
 
     /// Get all events for this session.
     pub fn get_events(&self) -> Vec<SessionEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.lock_events();
         events.clone()
     }
 

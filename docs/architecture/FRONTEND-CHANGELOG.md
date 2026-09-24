@@ -1366,3 +1366,14 @@ Verification status:
 - Hardened the frontend verifier to require the shared menu controller, live status state, skeleton loading and launcher discovery persistence.
 - Stabilized the sidebar menu dismissal callback to avoid unnecessary effect churn while menus remain open.
 - Verification status: 98/98 navigation modes resolve to a visual route in the source audit; runtime build/browser/Tauri verification remains pending in this environment.
+
+## 2026-09-24 — Cross-surface quality and attention layer
+
+- Audited the frontend tree at the file level: 110 TSX components, 35 CSS files and 34 feature domains are present; no dedicated frontend test files existed before this pass.
+- Added generic FeatureWorkbench tab/tabpanel semantics with keyboard navigation so the shared workbench pattern remains accessible across its many routed surfaces.
+- Added a global Notification Drawer with unread/action filters, per-item read state, Mark All Read, center navigation, focus management and presentation-local persistence.
+- Synchronized the shell notification badge with the notification inbox instead of keeping a fixed unread count.
+- Completed Global Search combobox semantics and Home/End navigation, plus additional All Features launcher search/tab keyboard boundaries.
+- Added `test:contracts` and `check` package scripts and made the frontend verification workflow execute architecture contracts before the Vite production build.
+- Preserved runtime ownership: notification state, recent/pinned discovery and feature state are UI-only persistence; no provider credentials, network operations or runtime authorities were introduced.
+- Verification status: remote source audit confirms navigation coverage and newly added contracts; local clone/build execution was attempted but the environment cannot resolve GitHub, so runtime/browser/Tauri verification remains pending.

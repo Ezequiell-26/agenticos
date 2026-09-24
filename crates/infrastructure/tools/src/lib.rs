@@ -94,19 +94,6 @@ impl BasicPolicyEngine {
     }
 }
 
-fn capability_type_for_permission(permission: &str) -> CapabilityType {
-    let normalized = permission.to_ascii_lowercase();
-    if normalized.starts_with("admin.") {
-        CapabilityType::Admin
-    } else if normalized.starts_with("write.") {
-        CapabilityType::Write
-    } else if normalized.starts_with("read.") {
-        CapabilityType::Read
-    } else {
-        CapabilityType::Execute
-    }
-}
-
 #[async_trait::async_trait]
 impl PolicyEngine for BasicPolicyEngine {
     async fn evaluate(&self, request: &ToolRequest) -> Result<PolicyDecision, ContractError> {
@@ -148,6 +135,41 @@ impl PolicyEngine for BasicPolicyEngine {
 
         Ok(PolicyDecision::Approved)
     }
+
+    async fn check_capability(
+        &self,
+        grant_id: &str,
+        capability: &str,
+    ) -> Result<bool, ContractError> {
+        if grant_id.trim().is_empty() || capability.trim().is_empty() {
+            return Ok(false);
+        }
+        let Some(capabilities) = &self.capabilities else {
+            return Ok(false);
+        };
+        capabilities
+            .authorize(
+                grant_id,
+                capability_type_for_permission(capability),
+                &format!("tool/{capability}"),
+                capability,
+            )
+            .await
+    }
+}
+
+fn capability_type_for_permission(permission: &str) -> CapabilityType {
+    let normalized = permission.to_ascii_lowercase();
+    if normalized.starts_with("admin.") {
+        CapabilityType::Admin
+    } else if normalized.starts_with("write.") {
+        CapabilityType::Write
+    } else if normalized.starts_with("read.") {
+        CapabilityType::Read
+    } else {
+        CapabilityType::Execute
+    }
+}
 
     async fn check_capability(
         &self,

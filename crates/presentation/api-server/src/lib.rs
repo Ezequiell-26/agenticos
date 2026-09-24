@@ -300,6 +300,11 @@ struct CreateJobRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct PlanRequest {
+    objective: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolInvokeRequest {
     session_id: String,
     agent_id: Option<String>,

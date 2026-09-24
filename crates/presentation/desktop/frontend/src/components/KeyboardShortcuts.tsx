@@ -32,7 +32,6 @@ const groups = [
     items: [
       ['↑ / ↓', 'Move through lists and command results'],
       ['Enter', 'Open selected item'],
-      ['Shift + Enter', 'Preserve focus while acting'],
     ],
   },
 ] as const

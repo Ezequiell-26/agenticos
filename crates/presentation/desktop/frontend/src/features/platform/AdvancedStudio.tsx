@@ -34,11 +34,11 @@ const audit = [
 ] as const
 
 export function AdvancedStudio({ mode, onAction }: ActionProps & { mode: 'playground' | 'routing' | 'token-observatory' | 'versions' | 'audit' }) {
-  const [modelA, setModelA] = useState(models[0][0])
-  const [modelB, setModelB] = useState(models[1][0])
-  const [selectedRoute, setSelectedRoute] = useState(routes[0][0])
+  const [modelA, setModelA] = useState<string>(models[0][0])
+  const [modelB, setModelB] = useState<string>(models[1][0])
+  const [selectedRoute, setSelectedRoute] = useState<string>(routes[0][0])
   const [budget, setBudget] = useState(70)
-  const [activeVersion, setActiveVersion] = useState(versions[0][0])
+  const [activeVersion, setActiveVersion] = useState<string>(versions[0][0])
   const [filter, setFilter] = useState('')
 
   const filteredAudit = useMemo(() => {

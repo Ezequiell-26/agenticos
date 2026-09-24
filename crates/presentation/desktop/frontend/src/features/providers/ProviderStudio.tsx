@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 
-type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Quotas' | 'Accounts'
+type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Quotas' | 'Accounts'
 
 const providers = [
   { name: 'Primary Route', type: 'Gateway', health: 'Healthy', models: 12, latency: '142 ms', load: 68, quota: '68%' },
@@ -32,6 +32,14 @@ const routingRules = [
   ['Default', 'Auto route', 'Primary → Fallback → Local', 'Balanced'],
 ]
 
+const resilienceScenarios = [
+  { id: 'R-01', name: 'Primary timeout', trigger: 'No response within latency budget', policy: 'Retry → alternate healthy route', state: 'Ready' },
+  { id: 'R-02', name: 'Rate limit', trigger: 'Provider quota response', policy: 'Cooldown → fallback route', state: 'Ready' },
+  { id: 'R-03', name: 'Context overflow', trigger: 'Requested context exceeds model limit', policy: 'Compact → compatible route', state: 'Guarded' },
+  { id: 'R-04', name: 'Tool incompatibility', trigger: 'Selected model rejects required tool', policy: 'Capability match → alternate', state: 'Ready' },
+  { id: 'R-05', name: 'Provider outage', trigger: 'Health check fails repeatedly', policy: 'Circuit open → preserve evidence', state: 'Guarded' },
+] as const
+
 export default function ProviderStudio({ onAction }: { onAction: (message: string) => void }) {
   const [tab, setTab] = useState<ProviderTab>('Overview')
   const [selected, setSelected] = useState<string>(providers[0].name)
@@ -39,6 +47,8 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [compare, setCompare] = useState<string[]>([])
   const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])
   const [maskMetadata, setMaskMetadata] = useState(true)
+  const [selectedScenario, setSelectedScenario] = useState<string>(resilienceScenarios[0].id)
+  const [scenarioResults, setScenarioResults] = useState<Record<string, 'Passed' | 'Pending' | 'Blocked'>>({})
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
@@ -62,7 +72,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
         </div>
 
         <div className="provider-studio__tabs" role="tablist" aria-label="Provider details">
-          {(['Overview', 'Models', 'Routing', 'Health', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
+          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
         </div>
 
         <div className="provider-studio__content">
@@ -72,6 +82,53 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
 
           {tab === 'Routing' && <div className="provider-routing-list">{routingRules.map(([task, model, order, policy]) => <div className="provider-routing-row" key={task}><div><strong>{task}</strong><small>{policy}</small></div><span className="mono-text">{model}</span><span>{order}</span><button className="icon-button" type="button" title="Edit route" onClick={() => onAction(task + ' routing opened in preview')}><Icon name="chevron-right" size={13} /></button></div>)}</div>}
 
+          {tab === 'Resilience' && <div className="provider-resilience">
+            <div className="provider-resilience__summary">
+              <div><span className="eyebrow">Failure simulation</span><strong>Resilience matrix</strong><small>Exercise failover, health-check and recovery policies without executing provider traffic.</small></div>
+              <div className="provider-resilience__summary-actions">
+                <button className="studio-button" type="button" onClick={() => onAction('Resilience suite queued in preview')}><Icon name="play" size={13} /> Run suite</button>
+                <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Resilience policy opened in preview')}><Icon name="shield" size={13} /> Policy</button>
+              </div>
+            </div>
+            <div className="provider-resilience__metrics">
+              <MetricCard label="Scenarios" value={String(resilienceScenarios.length)} sub="Declared failure modes" />
+              <MetricCard label="Passed" value={String(Object.values(scenarioResults).filter((value) => value === 'Passed').length)} sub="Local preview results" />
+              <MetricCard label="Pending" value={String(resilienceScenarios.filter((scenario) => !scenarioResults[scenario.id]).length)} sub="Awaiting simulation" />
+              <MetricCard label="Guarded" value="2" sub="Require explicit runtime evidence" />
+            </div>
+            <div className="provider-resilience__grid">
+              <div className="provider-resilience__scenarios">
+                {resilienceScenarios.map((scenario) => {
+                  const result = scenarioResults[scenario.id] ?? 'Pending'
+                  return <button key={scenario.id} type="button" className={selectedScenario === scenario.id ? 'provider-resilience__row provider-resilience__row--active' : 'provider-resilience__row'} onClick={() => setSelectedScenario(scenario.id)}>
+                    <span className="provider-resilience__id">{scenario.id}</span>
+                    <span><strong>{scenario.name}</strong><small>{scenario.trigger}</small></span>
+                    <Tag label={result} />
+                  </button>
+                })}
+              </div>
+              <div className="provider-resilience__detail">
+                {(() => {
+                  const scenario = resilienceScenarios.find((item) => item.id === selectedScenario) ?? resilienceScenarios[0]
+                  const result = scenarioResults[scenario.id] ?? 'Pending'
+                  return <>
+                    <div className="provider-resilience__detail-head"><div><span className="eyebrow">{scenario.id}</span><h3>{scenario.name}</h3></div><Tag label={scenario.state} /></div>
+                    <div className="provider-resilience__trigger"><span>Failure trigger</span><strong>{scenario.trigger}</strong></div>
+                    <div className="provider-resilience__policy"><span>Recovery policy</span><strong>{scenario.policy}</strong></div>
+                    <div className="provider-resilience__timeline">
+                      {['Detect', 'Classify', 'Select fallback', 'Preserve evidence', 'Resume'].map((step, index) => <div key={step} className="provider-resilience__step"><span>{index + 1}</span><div><strong>{step}</strong><small>{result === 'Passed' || index < 2 ? 'Ready' : 'Pending'}</small></div>{result === 'Passed' || index < 2 ? <Icon name="check" size={12} /> : <span className="status-dot status-dot--offline" />}</div>)}
+                    </div>
+                    <div className="platform-actions">
+                      <button className="studio-button" type="button" onClick={() => onAction(scenario.id + ' details opened in preview')}>Inspect evidence</button>
+                      <button className="studio-button" type="button" onClick={() => setScenarioResults((current) => ({ ...current, [scenario.id]: 'Blocked' }))}>Mark guarded</button>
+                      <button className="studio-button studio-button--active" type="button" onClick={() => setScenarioResults((current) => ({ ...current, [scenario.id]: 'Passed' }))}><Icon name="play" size={13} /> Simulate pass</button>
+                    </div>
+                    <div className="callout"><Icon name="shield" size={14} /><span>Simulation updates presentation state only. Runtime failover, circuit breaking and provider health remain backend responsibilities.</span></div>
+                  </>
+                })()}
+              </div>
+            </div>
+          </div>}
           {tab === 'Health' && <div className="provider-health-grid"><MetricCard label="Success rate" value="99.2%" sub="312 requests preview" /><MetricCard label="P95 latency" value="428 ms" sub="rolling window" /><MetricCard label="Retries" value="7" sub="bounded retry policy" /><MetricCard label="Circuit" value="Closed" sub="healthy state" /><div className="provider-health-chart">{[34,49,42,65,51,77,60,83,67,91,72,80].map((height, index) => <i key={index} style={{ height: height + '%' }} />)}</div></div>}
 
           {tab === 'Quotas' && <div className="provider-quota-grid"><MetricCard label="Daily budget" value="68%" sub="regenerating preview quota" /><MetricCard label="Monthly budget" value="41%" sub="shared account preview" /><MetricCard label="Requests" value="2,184" sub="rolling period" /><MetricCard label="Tokens" value="3.2M" sub="input + output preview" /><div className="provider-quota-bars">{[['Primary',68],['Fallback',41],['Local',22]].map(([name, value]) => <div key={name}><span>{name}</span><div className="progress"><span style={{ width: value + '%' }} /></div><small>{value}%</small></div>)}</div></div>}

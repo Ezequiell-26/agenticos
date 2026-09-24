@@ -467,7 +467,9 @@ impl AgentTool for TerminalTool {
             "terminal.write" => {
                 let args =
                     serde_json::from_str::<InputArgs>(&request.parameters).map_err(|error| {
-                        ContractError::ParseError(format!("invalid terminal.write arguments: {error}"))
+                        ContractError::ParseError(format!(
+                            "invalid terminal.write arguments: {error}"
+                        ))
                     })?;
                 self.terminal
                     .write_input(&args.terminal_id, &args.input)
@@ -481,7 +483,9 @@ impl AgentTool for TerminalTool {
             "terminal.read" => {
                 let args =
                     serde_json::from_str::<ReadArgs>(&request.parameters).map_err(|error| {
-                        ContractError::ParseError(format!("invalid terminal.read arguments: {error}"))
+                        ContractError::ParseError(format!(
+                            "invalid terminal.read arguments: {error}"
+                        ))
                     })?;
                 serde_json::json!({
                     "terminal_id": args.terminal_id,
@@ -495,7 +499,9 @@ impl AgentTool for TerminalTool {
             "terminal.close" => {
                 let args =
                     serde_json::from_str::<CloseArgs>(&request.parameters).map_err(|error| {
-                        ContractError::ParseError(format!("invalid terminal.close arguments: {error}"))
+                        ContractError::ParseError(format!(
+                            "invalid terminal.close arguments: {error}"
+                        ))
                     })?;
                 serde_json::json!({
                     "terminal_id": args.terminal_id,

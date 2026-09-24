@@ -183,10 +183,17 @@ impl Default for CredentialPool {
     }
 }
 
+/// Runtime quota state tracked in a rolling one-minute request window.
+#[derive(Clone, Debug)]
+struct QuotaState {
+    quota: QuotaInfo,
+    window_started_at: u64,
+}
+
 /// Basic quota tracker.
 #[derive(Debug)]
 pub struct QuotaTracker {
-    quotas: Arc<RwLock<HashMap<String, QuotaInfo>>>,
+    quotas: Arc<RwLock<HashMap<String, QuotaState>>>,
 }
 
 impl QuotaTracker {
@@ -197,30 +204,95 @@ impl QuotaTracker {
         }
     }
 
-    /// Set quota for a provider.
+    fn refresh_window(state: &mut QuotaState, now: u64) {
+        if state.window_started_at == 0
+            || now.saturating_sub(state.window_started_at) >= 60
+        {
+            state.window_started_at = now;
+            state.quota.current_usage = 0;
+        }
+    }
+
+    /// Set quota for a provider and start a new rolling request window.
     pub async fn set_quota(&self, quota: QuotaInfo) -> Result<(), ContractError> {
         let mut quotas = self.quotas.write().await;
-        quotas.insert(quota.provider_id.clone(), quota);
+        quotas.insert(
+            quota.provider_id.clone(),
+            QuotaState {
+                quota,
+                window_started_at: super::unix_time(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Restore quota state from durable storage.
+    pub async fn restore_quota(
+        &self,
+        quota: QuotaInfo,
+        window_started_at: u64,
+    ) -> Result<(), ContractError> {
+        let mut quotas = self.quotas.write().await;
+        quotas.insert(
+            quota.provider_id.clone(),
+            QuotaState {
+                quota,
+                window_started_at,
+            },
+        );
         Ok(())
     }
 
     /// Get quota for a provider.
     pub async fn get(&self, provider_id: &str) -> Option<QuotaInfo> {
-        let quotas = self.quotas.read().await;
-        quotas.get(provider_id).cloned()
+        let mut quotas = self.quotas.write().await;
+        let state = quotas.get_mut(provider_id)?;
+        Self::refresh_window(state, super::unix_time());
+        Some(state.quota.clone())
+    }
+
+    /// Consume one provider request when a quota is configured.
+    ///
+    /// Providers without an explicit quota are not throttled here.
+    pub async fn consume_request(&self, provider_id: &str) -> Result<(), ContractError> {
+        let mut quotas = self.quotas.write().await;
+        let Some(state) = quotas.get_mut(provider_id) else {
+            return Ok(());
+        };
+
+        let now = super::unix_time();
+        Self::refresh_window(state, now);
+        if let Some(limit) = state.quota.requests_per_minute {
+            if state.quota.current_usage >= u64::from(limit) {
+                return Err(ContractError::ParseError(format!(
+                    "provider request quota exceeded for {provider_id}: {limit} requests/minute"
+                )));
+            }
+        }
+        state.quota.current_usage = state.quota.current_usage.saturating_add(1);
+        Ok(())
     }
 
     /// Increment usage for a provider.
+    ///
+    /// This preserves the historical API while enforcing the configured
+    /// requests-per-minute limit when one exists.
     pub async fn increment_usage(&self, provider_id: &str) -> Result<(), ContractError> {
         let mut quotas = self.quotas.write().await;
-        if let Some(quota) = quotas.get_mut(provider_id) {
-            quota.current_usage += 1;
-            Ok(())
-        } else {
-            Err(ContractError::MissingCapability)
+        let state = quotas
+            .get_mut(provider_id)
+            .ok_or(ContractError::MissingCapability)?;
+        Self::refresh_window(state, super::unix_time());
+        if let Some(limit) = state.quota.requests_per_minute {
+            if state.quota.current_usage >= u64::from(limit) {
+                return Err(ContractError::ParseError(format!(
+                    "provider request quota exceeded for {provider_id}: {limit} requests/minute"
+                )));
+            }
         }
+        state.quota.current_usage = state.quota.current_usage.saturating_add(1);
+        Ok(())
     }
-}
 
 impl Default for QuotaTracker {
     fn default() -> Self {

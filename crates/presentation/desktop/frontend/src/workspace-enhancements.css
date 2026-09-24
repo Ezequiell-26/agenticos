@@ -1857,3 +1857,15 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
     display: none;
   }
 }
+
+
+/* Keep compact breakpoints authoritative after the desktop variable-based grid definition. */
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: 56px 224px minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: 56px minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .app-shell { grid-template-columns: 52px minmax(0, 1fr); }
+}

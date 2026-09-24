@@ -22,13 +22,11 @@ const OperationsCenter = lazy(() => import('../operations/OperationsCenter'))
 const MarketplaceStudio = lazy(() => import('../marketplace/MarketplaceStudio'))
 const KanbanBoard = lazy(() => import('../kanban/KanbanBoard'))
 const IntegrationCatalogSurface = lazy(() => import('../integrations/IntegrationCatalogSurface'))
-const AdvancedStudio = lazy(() => import('./AdvancedStudio').then((module) => ({ default: module.AdvancedStudio })))
 const WorkspaceOverview = lazy(() => import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })))
 const ApprovalCenter = lazy(() => import('./ApprovalCenter').then((module) => ({ default: module.ApprovalCenter })))
 const PermissionsMatrix = lazy(() => import('./PermissionsMatrix').then((module) => ({ default: module.PermissionsMatrix })))
 const PromptLab = lazy(() => import('./PromptLab').then((module) => ({ default: module.PromptLab })))
 const AgentControlPlane = lazy(() => import('./AgentControlPlane').then((module) => ({ default: module.AgentControlPlane })))
-const RunControlCenter = lazy(() => import('./RunControlCenter'))
 const MemoryStudio = lazy(() => import('./MemoryStudio'))
 const ToolPolicyStudio = lazy(() => import('./ToolPolicyStudio'))
 const WorkflowStudio = lazy(() => import('./WorkflowStudio'))
@@ -65,8 +63,6 @@ const GENERIC_FEATURE_MODES: ReadonlySet<PlatformMode> = new Set<PlatformMode>([
 
 const ProviderStudio = lazy(() => import('../providers/ProviderStudio'))
 const SkillsStudio = lazy(() => import('../skills/SkillsStudio'))
-const ToolsStudio = lazy(() => import('../tools/ToolsStudio'))
-const WorkflowBuilder = lazy(() => import('../workflows/WorkflowBuilder'))
 import './FinalControlSuite.css'
 import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
@@ -91,7 +87,7 @@ import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
-import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, integrations, evaluationRuns } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, integrations } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {

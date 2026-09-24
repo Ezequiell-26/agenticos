@@ -92,24 +92,40 @@ impl ProviderPlatform {
                 base_url TEXT NOT NULL,
                 models TEXT NOT NULL,
                 capabilities TEXT NOT NULL
-            );
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("provider schema initialization failed: {error}")))?;
+
+        sqlx::query(
+            r#"
             CREATE TABLE IF NOT EXISTS provider_credentials (
                 provider_id TEXT PRIMARY KEY,
                 credential_type TEXT NOT NULL,
                 encrypted_value TEXT NOT NULL,
                 expires_at INTEGER NOT NULL,
                 scope TEXT
-            );
-            CREATE TABLE IF NOT EXISTS provider_fallback_configs (
-                primary_provider TEXT PRIMARY KEY,
-                fallback_providers TEXT NOT NULL,
-                auto_failover INTEGER NOT NULL
-            );
+            )
             "#,
         )
         .execute(&db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("provider schema initialization failed: {error}")))?;
+        .map_err(|error| ContractError::ParseError(format!("provider credential schema initialization failed: {error}")))?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS provider_fallback_configs (
+                primary_provider TEXT PRIMARY KEY,
+                fallback_providers TEXT NOT NULL,
+                auto_failover INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("provider fallback schema initialization failed: {error}")))?;
 
         let provider_rows = sqlx::query_as::<_, (String, String, String, String, String)>(
             "SELECT provider_id, name, base_url, models, capabilities FROM providers ORDER BY provider_id",
@@ -387,15 +403,23 @@ impl ProviderPlatform {
             .await
             .map_err(|error| ContractError::ParseError(format!("provider persistence failed: {error}")))?;
 
-            sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
-                .bind(&provider_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|error| ContractError::ParseError(format!("provider credential cleanup failed: {error}")))?;
+            let provided_key = api_key
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
 
-            if let Some(key) = api_key.as_deref().filter(|value| !value.trim().is_empty()) {
+            if provided_key.is_some() {
+                sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
+                    .bind(&provider_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|error| ContractError::ParseError(format!("provider credential cleanup failed: {error}")))?;
+
                 if let Some(secret_key) = self.secret_key.as_ref() {
-                    let encrypted = encrypt_provider_secret(secret_key, key)?;
+                    let encrypted = encrypt_provider_secret(
+                        secret_key,
+                        provided_key.expect("provider key was checked"),
+                    )?;
                     sqlx::query(
                         "INSERT INTO provider_credentials (provider_id, credential_type, encrypted_value, expires_at, scope) VALUES (?, 'api_key', ?, 0, NULL)",
                     )

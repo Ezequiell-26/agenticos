@@ -275,4 +275,4 @@ if (continuity.policies.no_untracked_changes === true && untracked.length > 0) {
   fail("untracked files are present: " + untracked.map((line) => line.slice(3)).join(", "));
 }
 
-console.log(`AGENT CONTINUITY: PASS — ${journalEntries.length} journal operations, ${ordered.length} implementation steps checked.`);
+console.log(`AGENT CONTINUITY: PASS — ${journalEntries.length} journal operations, ${state.workstreams.length} workstreams and ${state.capabilities.length} capabilities checked.`);

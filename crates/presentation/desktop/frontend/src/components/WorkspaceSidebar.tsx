@@ -4,6 +4,7 @@ import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import PanelResizeHandle from './PanelResizeHandle'
 import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 
 type SidebarFilter = 'All' | 'Pinned' | 'Recent'
 
@@ -37,6 +38,7 @@ export default function WorkspaceSidebar({
   const triggerRef = useMemo(() => ({ current: activeMenuButton }), [activeMenuButton])
   const closeConversationMenu = useCallback(() => setMenuOpen(null), [])
   useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: closeConversationMenu })
+  useExclusiveOverlay('conversation-menu', menuOpen !== null, closeConversationMenu)
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()

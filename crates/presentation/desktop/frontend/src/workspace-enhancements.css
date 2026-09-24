@@ -2347,3 +2347,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .sw-select, .sw-input { min-width: 160px; }
   .sw-input--area { width: 100%; }
 }
+
+/* ─── Unified overlay stacking: menus < dock < launcher < drawers < modals < toasts.
+   Combined with useExclusiveOverlay only one transient overlay is open at a time;
+   this layering is defense-in-depth for transitions. ─────────────────────────── */
+.quick-actions-menu,
+.conversation-menu,
+.session-menu,
+.chat-enhancement-popover,
+.slash-command-menu,
+.customize-popover { z-index: 240; }
+
+.workspace-dock { z-index: 235; }
+.navigation-launcher { z-index: 250; }
+.agent-run-drawer,
+.change-review-panel { z-index: 260; }
+
+.notification-drawer-backdrop { z-index: 280; }
+.palette-backdrop { z-index: 320; }
+.shortcuts-backdrop { z-index: 330; }
+.studio-toast,
+.platform-toast { z-index: 400; }

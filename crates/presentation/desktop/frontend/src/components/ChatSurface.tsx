@@ -3,6 +3,7 @@ import type { ChatMessage } from '../types/runtime'
 import Icon from './Icon'
 import ChatEnhancementDock from './ChatEnhancementDock'
 import AgentRunDrawer from '../features/chat/AgentRunDrawer'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 import AgentModeStrip, { type AgentMode } from '../features/chat/AgentModeStrip'
 
 interface ChatSurfaceProps {
@@ -83,6 +84,9 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionMenuRef = useRef<HTMLDivElement>(null)
+  useExclusiveOverlay('agent-run', runDrawerOpen, () => setRunDrawerOpen(false))
+  useExclusiveOverlay('session-menu', sessionMenuOpen, () => setSessionMenuOpen(false))
+  useExclusiveOverlay('slash-commands', slashOpen, () => setSlashOpen(false))
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
   const slashMatches = useMemo(() => { const normalized = draft.trim().toLowerCase(); if (!normalized.startsWith('/')) return slashCommands; return slashCommands.filter(([command, description]) => (command + ' ' + description).toLowerCase().includes(normalized)) }, [draft])

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Icon from './Icon'
 import { navigationItems, primaryRailIds, simpleRailIds, type RailMode } from '../navigation'
 import NavigationLauncher from './NavigationLauncher'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 import type { ExperienceLevel } from '../services/ui-preferences'
 
 export type { RailMode } from '../navigation'
@@ -14,6 +15,7 @@ interface ActivityRailProps {
 
 export default function ActivityRail({ active, onChange, experience = 'Pro' }: ActivityRailProps) {
   const [launcherOpen, setLauncherOpen] = useState(false)
+  useExclusiveOverlay('launcher', launcherOpen, () => setLauncherOpen(false))
   const simpleMode = experience === 'Simple'
   const primaryItems = navigationItems.filter((item) => simpleMode
     ? simpleRailIds.has(item.id)

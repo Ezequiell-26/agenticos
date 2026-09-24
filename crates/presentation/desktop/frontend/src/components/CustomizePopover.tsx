@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 import {
   readUiPreferences,
   updateUiPreferences,
@@ -39,6 +40,7 @@ export default function CustomizePopover({ experience, onExperienceChange, onSel
   const popoverRef = useRef<HTMLDivElement>(null)
   const closePopover = useCallback(() => setOpen(false), [])
   useMenuKeyboard({ open, menuRef: popoverRef, triggerRef, onClose: closePopover, initialFocus: false })
+  useExclusiveOverlay('customize', open, closePopover)
 
   function update(patch: Partial<UiPreferences>) {
     const next = updateUiPreferences(patch)

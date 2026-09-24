@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Icon from './Icon'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 
 interface ChatEnhancementDockProps {
   onInsert: (text: string) => void
@@ -45,6 +46,7 @@ const commands = [
 
 export default function ChatEnhancementDock({ onInsert, onAction }: ChatEnhancementDockProps) {
   const [open, setOpen] = useState<'context' | 'commands' | 'more' | null>(null)
+  useExclusiveOverlay('chat-enhancements', open !== null, () => setOpen(null))
 
   function insert(value: string) {
     onInsert(value + ' ')

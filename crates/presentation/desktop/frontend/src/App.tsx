@@ -17,6 +17,7 @@ import WorkspaceCommandStrip from './components/WorkspaceCommandStrip'
 import { navigationItems, primaryRailIds } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, type ExperienceLevel } from './services/ui-preferences'
+import { useExclusiveOverlay } from './hooks/useExclusiveOverlay'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
 
 const now = Date.now()
@@ -90,6 +91,10 @@ function App() {
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const runtimeSyncSequence = useRef(0)
+  useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
+  useExclusiveOverlay('global-search', globalSearchOpen, () => setGlobalSearchOpen(false))
+  useExclusiveOverlay('notifications', notificationsOpen, () => setNotificationsOpen(false))
+  useExclusiveOverlay('shortcuts', shortcutsOpen, () => setShortcutsOpen(false))
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)

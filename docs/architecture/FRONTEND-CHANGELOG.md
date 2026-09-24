@@ -1413,3 +1413,11 @@ Verification status:
 - Unverified checks: Tauri desktop shell execution and real backend runtime connections remain outside this frontend slice.
 - Rollback point: revert the frontend shell files and `scripts/verify-frontend-architecture.mjs` to commit `6f6f01eb`.
 - Next step: commit this frontend slice and record it in the implementation-state manifest.
+
+## 2026-09-25 — Exclusive overlays and unified stacking order
+
+- Added the shared `useExclusiveOverlay` hook: a module-level registry that guarantees at most one transient overlay (menu, popover, dialog or floating drawer) is open app-wide; opening one closes the previous one.
+- Wired the registry into quick actions, the Customize popover, the navigation launcher, conversation actions, session actions, slash commands, the chat enhancement popover, the agent run drawer, notifications, the command palette, global search and the shortcuts dialog.
+- Unified the stacking order as defense-in-depth for transitions: menus and popovers sit above the dock, the launcher above menus, floating drawers above the launcher, modal backdrops above drawers, and toasts on top.
+- Raised the command palette and global search backdrop above every menu (previously z-index 30, which let open menus float on top of the palette).
+- Verification status: tsc, Vite build and the frontend architecture contract pass; exclusivity verified in the browser preview (Create → Customize closes Create; launcher closes Customize; Ctrl+K closes launcher; Escape closes the palette).

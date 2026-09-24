@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
+import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 import type { RailMode } from '../navigation'
 
 interface QuickActionsMenuProps {
@@ -29,6 +30,7 @@ export default function QuickActionsMenu({ onCreateConversation, onSelectMode }:
   const menuRef = useRef<HTMLDivElement>(null)
   const closeMenu = useCallback(() => setOpen(false), [])
   useMenuKeyboard({ open, menuRef, triggerRef, onClose: closeMenu })
+  useExclusiveOverlay('quick-actions', open, closeMenu)
 
   function run(action: QuickAction) {
     closeMenu()

@@ -1247,3 +1247,11 @@ Verification status:
 - Repaired a concrete Rust compilation blocker discovered by CI: `ConversationMessage` is now serializable for the API server conversation-search JSON response.
 - No frontend architecture, runtime boundaries or authorization semantics were changed; this is a compatibility repair required to keep the repository buildable while frontend work continues.
 - Verification status: fix submitted to CI; full workflow evidence pending.
+
+## 2026-09-24 — Task Execution queue depth
+
+- Expanded Task Execution Center with queue filters for all/running/queued/blocked/complete states and live task counts.
+- Added presentation-only task lifecycle transitions for start, retry, stop and complete, plus a dependency-gate summary for the selected task.
+- Made the selected-task status pill and execution steps reflect the current simulated state instead of remaining static.
+- Added queue pause/resume presentation state while preserving the runtime execution boundary.
+- Verification status: source-level wiring only; latest CI/build/browser/Tauri evidence remains pending.

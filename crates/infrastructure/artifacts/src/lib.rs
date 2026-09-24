@@ -8,7 +8,7 @@
 
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -76,7 +76,7 @@ impl ArtifactStore {
         tokio::fs::create_dir_all(&root)
             .await
             .map_err(|error| format!("artifact root initialization failed: {error}"))?;
-        let pool = SqlitePool::connect(database_url)
+        let pool = SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url)
             .await
             .map_err(|error| format!("artifact database connection failed: {error}"))?;
         sqlx::query(

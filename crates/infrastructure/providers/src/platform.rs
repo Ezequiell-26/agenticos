@@ -118,9 +118,18 @@ impl ProviderPlatform {
         let providers = self.registry.list().await;
         let mut last_error = None;
         for provider in providers {
-            if !provider.models.is_empty() && !provider.models.iter().any(|model| model == &request.model) {
+            let effective_model = if request.model == "default" || request.model == "default-model" {
+                provider.models.first().cloned().unwrap_or_else(|| request.model.clone())
+            } else {
+                request.model.clone()
+            };
+            if !provider.models.is_empty() && !provider.models.iter().any(|model| model == &effective_model) {
                 continue;
             }
+            let routed_request = ModelRequest {
+                model: effective_model,
+                ..request.clone()
+            };
             if !self
                 .credentials
                 .get_for_provider(&provider.provider_id)
@@ -155,7 +164,7 @@ impl ProviderPlatform {
                     provider.base_url.clone(),
                     credential.value.clone(),
                 );
-                match client.execute(request.clone()).await {
+                match client.execute(routed_request.clone()).await {
                     Ok(response) => {
                         if let Some(tokens) = response.tokens_used {
                             let _ = self.quotas.increment_usage(&provider.provider_id).await;
@@ -309,4 +318,16 @@ fn normalize_chat_url(base_url: &str) -> String {
 fn unix_time() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+}
+
+
+#[async_trait::async_trait]
+impl ModelProvider for ProviderPlatform {
+    fn provider_id(&self) -> &str {
+        "agenticos-provider-platform"
+    }
+
+    async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
+        self.execute_routed(request).await
+    }
 }

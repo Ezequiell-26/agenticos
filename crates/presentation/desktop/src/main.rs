@@ -37,7 +37,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             configure_runtime_storage(app)
-                .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+                .map_err(std::io::Error::other)?;
 
             let runtime =
                 tauri::async_runtime::block_on(agenticos_api_server::RuntimeState::from_env())

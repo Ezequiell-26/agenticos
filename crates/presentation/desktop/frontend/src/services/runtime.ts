@@ -1,6 +1,7 @@
 import type {
   AgentStatusSnapshot,
   ChatMessage,
+  ChatSendOptions,
   RuntimeApiRecord,
   RuntimeFallbackConfig,
   RuntimeHealth,
@@ -253,7 +254,7 @@ export class AgenticosRuntime implements RuntimeServices {
   }
 
   readonly chat = {
-    sendMessage: async (sessionId: string, message: string, options?: { model?: string }): Promise<ChatMessage> => {
+    sendMessage: async (sessionId: string, message: string, options?: ChatSendOptions): Promise<ChatMessage> => {
       const model = options?.model && options.model !== 'Auto route' ? options.model : undefined
       const data = await this.transport.post<RuntimeApiRecord>('/api/agent/chat', {
         message,

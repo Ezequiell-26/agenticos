@@ -867,7 +867,6 @@ mod tests {
     }
 }
 
-
 /// Capability-gated tool execution service.
 #[derive(Debug, Clone)]
 pub struct SecureToolService {
@@ -883,8 +882,7 @@ impl SecureToolService {
         sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
     ) -> Self {
         let pipeline = agenticos_kernel::ToolExecutionPipeline::new().add_pre_hook(Arc::new(
-            agenticos_kernel::PermissionPolicyHook::new()
-                .allow_tool("process.execute".to_string()),
+            agenticos_kernel::PermissionPolicyHook::new().allow_tool("process.execute".to_string()),
         ));
         Self {
             capabilities,

@@ -1,19 +1,21 @@
+import type { ReactNode } from 'react'
 import type { AgentStatusSnapshot } from '../types/runtime'
 import Icon from './Icon'
 
 interface StatusBarProps {
   status: AgentStatusSnapshot
   messageCount: number
+  leading?: ReactNode
 }
 
-export default function StatusBar({ status, messageCount }: StatusBarProps) {
+export default function StatusBar({ status, messageCount, leading }: StatusBarProps) {
   const connected = status.provider !== 'Runtime offline'
 
   return (
     <footer className="status-bar status-bar--hermes">
       <div className="status-bar__left">
+        {leading}
         <span className="status-item status-item--brand"><Icon name="spark" size={11} /> AGENTICOS</span>
-        <span className="status-item status-item--action">Add a task →</span>
         <span className="status-item"><span className={`status-dot ${connected ? 'status-dot--live' : 'status-dot--offline'}`} />{connected ? 'Runtime ready' : 'Runtime offline'}</span>
       </div>
       <div className="status-bar__right">

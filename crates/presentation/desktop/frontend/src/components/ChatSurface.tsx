@@ -210,28 +210,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
   return (
     <section className="chat-surface">
-      <header className="chat-header">
-        <div className="chat-header__title">
-          <div className="chat-title-icon"><Icon name="spark" size={17} /></div>
-          <div><strong>Agent session</strong><span>Private runtime workspace · {agent} · {agentMode}</span></div>
-        </div>
-        <div className="chat-header__actions">
-          <button className={`icon-button ${advancedOpen ? 'icon-button--active' : ''}`} type="button" onClick={() => setAdvancedOpen((value) => !value)} title="Agent controls" aria-label="Agent controls"><Icon name="settings" size={16} /></button>
-          <button className={`icon-button ${runDrawerOpen ? 'icon-button--active' : ''}`} type="button" title="Open run trace" aria-label="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={16} /></button>
-          <button className="icon-button" type="button" title="Search session history" aria-label="Search session history" onClick={onOpenPalette}><Icon name="history" size={16} /></button>
-          <div className="session-menu-wrap" ref={sessionMenuRef}>
-            <button className={`icon-button ${sessionMenuOpen ? 'icon-button--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={17} /></button>
-            {sessionMenuOpen && <div className="session-menu" role="menu">
-              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
-              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
-              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
-              <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
-            </div>}
-          </div>
-          <button className="icon-button" aria-label="Open command palette" title="Open command palette" onClick={onOpenPalette} type="button"><Icon name="command" size={17} /></button>
-        </div>
-      </header>
-
       {advancedOpen && (
         <div className="chat-control-stack">
           <AgentModeStrip mode={agentMode} onAction={setNotice} onChange={setAgentMode} />
@@ -299,7 +277,19 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
               <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
               <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
               <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
-              <button className="composer-icon" type="button" title="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
+              <button className={`composer-icon ${advancedOpen ? 'composer-icon--active' : ''}`} type="button" title="Agent controls" aria-label="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
+              <button className={`composer-icon ${runDrawerOpen ? 'composer-icon--active' : ''}`} type="button" title="Open run trace" aria-label="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} /></button>
+              <button className="composer-icon" type="button" title="Search session history" aria-label="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} /></button>
+              <div className="session-menu-wrap composer-session-menu" ref={sessionMenuRef}>
+                <button className={`composer-icon ${sessionMenuOpen ? 'composer-icon--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={15} /></button>
+                {sessionMenuOpen && <div className="session-menu" role="menu">
+                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
+                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
+                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
+                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
+                </div>}
+              </div>
+              <button className="composer-icon" type="button" title="Open command palette" aria-label="Open command palette" onClick={onOpenPalette}><Icon name="command" size={15} /></button>
             </div>
             <div className="composer-right">
               <span className="context-chip" title="Context scope"><Icon name="folder" size={12} /> {contextScope}</span>

@@ -1,5 +1,5 @@
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import PanelResizeHandle from './PanelResizeHandle'
@@ -18,6 +18,9 @@ interface WorkspaceSidebarProps {
   onOpenSearch: () => void
   onConversationAction?: (id: string, action: 'pin' | 'rename' | 'archive', value?: string) => void
   onNavigate?: (mode: RailMode) => void
+  onOpenNotifications?: () => void
+  notificationUnread?: number
+  footerExtra?: ReactNode
   runtimeConnected: boolean
 }
 
@@ -57,6 +60,9 @@ export default function WorkspaceSidebar({
   onOpenSearch,
   onConversationAction,
   onNavigate,
+  onOpenNotifications,
+  notificationUnread = 0,
+  footerExtra,
   runtimeConnected,
 }: WorkspaceSidebarProps) {
   const [query, setQuery] = useState('')
@@ -270,6 +276,13 @@ export default function WorkspaceSidebar({
         <span className="mini-status mini-status--inline" title={runtimeConnected ? 'Runtime online' : 'Runtime offline'}>
           <span className={runtimeConnected ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} />
         </span>
+        {onOpenNotifications && (
+          <button className="sidebar-footer__action sidebar-footer__action--badge" aria-label={'Notifications · ' + notificationUnread + ' unread'} title="Notifications" type="button" onClick={onOpenNotifications}>
+            <Icon name="bell" size={15} />
+            {notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
+          </button>
+        )}
+        {footerExtra}
         <button className="sidebar-footer__action" title="Command palette" aria-label="Command palette" type="button" onClick={onOpenSearch}>
           <Icon name="command" size={15} />
         </button>

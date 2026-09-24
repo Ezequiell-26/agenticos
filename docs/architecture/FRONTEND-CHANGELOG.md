@@ -1430,3 +1430,11 @@ Verification status:
 - Restyled the status bar into the dense Hermes strip (brand, quick action, runtime, Agents, Cron, Webhooks, session, guardrails, language and version chips).
 - Switched the default accent to Blue to match the reference visual identity (existing persisted preferences keep their accent).
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; sidebar tabs, composer and status bar verified in the browser preview.
+
+## 2026-09-25 — Minimal shell: rail, topbar, strip, chat header and inspector removed
+
+- Removed the activity rail, agent inspector panel, top bar, workspace command strip and the chat header from the rendered shell, leaving the Hermes-aligned composition: sidebar, workspace content, composer and status bar.
+- Relocated the orphaned controls instead of dropping them: the Customize popover trigger and the notifications bell (with unread badge) moved into the sidebar footer, and the Create quick-actions menu moved into the status bar, opening upward.
+- Simplified the shell grids to two columns (sidebar + content) and two workspace rows (content + status bar), with responsive variants updated to match.
+- Dropped the agent-inspector preference toggle from the Customize popover since the panel is no longer part of the layout.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; removals and relocated controls verified in the browser preview.

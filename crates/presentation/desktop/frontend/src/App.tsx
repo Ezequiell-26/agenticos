@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ActivityRail, { type RailMode } from './components/ActivityRail'
-import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
 import CustomizePopover from './components/CustomizePopover'
@@ -13,8 +11,7 @@ import StatusBar from './components/StatusBar'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
-import WorkspaceCommandStrip from './components/WorkspaceCommandStrip'
-import { navigationItems, primaryRailIds } from './navigation'
+import { navigationItems, primaryRailIds, type RailMode } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, type ExperienceLevel } from './services/ui-preferences'
 import { useExclusiveOverlay } from './hooks/useExclusiveOverlay'
@@ -81,7 +78,6 @@ function App() {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const initialUiPreferences = useMemo(() => readUiLayoutPreferences(), [])
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
-  const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
   const [experience, setExperience] = useState<ExperienceLevel>(() => readUiPreferences().experience)
   const [focusMode, setFocusMode] = useState(false)
@@ -107,7 +103,6 @@ function App() {
       const next = readUiPreferences()
       applyUiLayoutPreferences(next)
       setLeftPanelOpen(next.leftSidebarVisible)
-      setAgentPanelOpen(next.agentInspectorVisible)
       setDockOpen(next.bottomDockVisible)
       setExperience(next.experience)
     })
@@ -173,11 +168,6 @@ function App() {
         setDockOpen((open) => !open)
         return
       }
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
-        event.preventDefault()
-        setAgentPanelOpen((open) => !open)
-        return
-      }
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && /^[1-9]$/.test(event.key)) {
         const primaryItems = navigationItems.filter((item) => primaryRailIds.has(item.id))
         const target = primaryItems[Number(event.key) - 1]
@@ -200,11 +190,6 @@ function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
-
-  const visibleTitle = useMemo(() => {
-    if (mode === 'chat') return conversations.find((conversation) => conversation.id === sessionId)?.title ?? 'Command Center'
-    return navigationItems.find((item) => item.id === mode)?.label ?? 'Command Center'
-  }, [mode, conversations, sessionId])
 
   async function handleSend(message: string) {
     const userMessage: ChatMessage = {
@@ -273,19 +258,13 @@ function App() {
     }
   }
 
-  function handleRun() {
-    setMode('runs')
-    setRunning(false)
-  }
-
   function handleStop() {
     setRunning(false)
     setStatus((current) => ({ ...current, state: 'cancelled' }))
   }
 
   return (
-    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
-      <ActivityRail active={mode} onChange={setMode} experience={experience} />
+    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <WorkspaceSidebar
         activeConversation={sessionId}
         conversations={conversations}
@@ -294,6 +273,9 @@ function App() {
         onSelectConversation={handleSelectConversation}
         onConversationAction={handleConversationAction}
         onNavigate={setMode}
+        onOpenNotifications={() => setNotificationsOpen((open) => !open)}
+        notificationUnread={notificationUnread}
+        footerExtra={<CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} iconOnly />}
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
 
@@ -302,34 +284,6 @@ function App() {
         {running ? 'Agent run in progress.' : `Runtime ${status.provider === 'Runtime offline' ? 'offline' : 'connected'}; agent state ${status.state}.`}
       </div>
       <main id="workspace-content" className="workspace-main" aria-label="AgentiCOS workspace">
-        <header className="topbar topbar--hermes">
-          <div className="topbar__center">
-            <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} aria-hidden="true" />
-            <h1>{visibleTitle}</h1>
-            <QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} compact />
-          </div>
-          <div className="topbar__right">
-            <CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} />
-            <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" aria-label="Toggle bottom dock" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} /></button>
-            <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" aria-label="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} /></button>
-            <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" aria-label="Universal search" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} /></button>
-            <button className={notificationsOpen ? 'notification-button notification-button--active' : 'notification-button'} type="button" title="Notifications" aria-label={'Notifications · ' + notificationUnread + ' unread'} aria-expanded={notificationsOpen} aria-controls="agenticos-notification-drawer" onClick={() => setNotificationsOpen((open) => !open)}>
-              <Icon name="bell" size={15} />{notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
-            </button>
-            <button className="icon-button" aria-label="Command palette" title="Command palette" onClick={() => setPaletteOpen(true)} type="button">
-              <Icon name="command" size={17} />
-            </button>
-          </div>
-        </header>
-
-        <WorkspaceCommandStrip
-          mode={mode}
-          status={status}
-          focusMode={focusMode}
-          onToggleFocus={() => setFocusMode((open) => !open)}
-          onNavigate={setMode}
-          onAction={(message) => console.info('[AgentiCOS UI]', message)}
-        />
         {runtimeError && (
           <section className="runtime-recovery-banner" role="alert" aria-live="assertive">
             <span className="runtime-recovery-banner__icon"><Icon name="cloud" size={14} /></span>
@@ -368,10 +322,12 @@ function App() {
           onNavigate={(nextMode) => setMode(nextMode)}
           onUnreadChange={setNotificationUnread}
         />
-        <StatusBar messageCount={messages.length} status={status} />
+        <StatusBar
+          messageCount={messages.length}
+          status={status}
+          leading={<QuickActionsMenu onCreateConversation={handleCreateConversation} onSelectMode={(nextMode) => setMode(nextMode)} compact />}
+        />
       </main>
-
-      {agentPanelOpen && <AgentPanel onRun={handleRun} onStop={handleStop} running={running} status={status} />}
 
       <GlobalSearch
         conversations={conversations}

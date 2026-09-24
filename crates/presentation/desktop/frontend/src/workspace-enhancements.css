@@ -2470,3 +2470,36 @@ body { background: var(--shell-black); }
 @media (max-width: 1180px) {
   .topbar--hermes .topbar__center { max-width: 40%; }
 }
+
+/* ─── Minimal shell: sidebar + content + status bar (rail, topbar, strip and
+   agent inspector removed from the layout) ─────────────────────────────────── */
+.app-shell { grid-template-columns: var(--agenticos-sidebar-width, 270px) minmax(0, 1fr) !important; }
+:root[data-agenticos-sidebar="hidden"] .app-shell { grid-template-columns: minmax(0, 1fr) !important; }
+.workspace-main { grid-template-rows: minmax(0, 1fr) 30px !important; }
+:root[data-agenticos-statusbar="hidden"] .workspace-main { grid-template-rows: minmax(0, 1fr) 0 !important; }
+.chat-surface { grid-template-rows: minmax(0, 1fr) auto !important; }
+.app-shell--focus { grid-template-columns: minmax(0, 1fr) !important; }
+
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: var(--agenticos-sidebar-width, 270px) minmax(0, 1fr) !important; }
+}
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Customize popover anchored in the sidebar footer opens upward */
+.sidebar-footer--icons .customize-trigger { position: relative; }
+.sidebar-footer--icons .customize-popover {
+  top: auto;
+  bottom: calc(100% + 12px);
+  right: -4px;
+  max-height: min(560px, calc(100vh - 90px));
+}
+
+/* Quick actions menu opens upward from the status bar */
+.status-bar--hermes .quick-actions-wrap { position: relative; display: inline-flex; }
+.status-bar--hermes .quick-actions-menu { top: auto; bottom: calc(100% + 8px); }
+.status-bar--hermes .quick-actions-menu::after { content: ''; }
+
+.sidebar-footer__action { position: relative; }
+.sidebar-footer__action--badge .notification-badge { position: absolute; top: -3px; right: -3px; }

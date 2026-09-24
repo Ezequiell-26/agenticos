@@ -31,9 +31,10 @@ interface CustomizePopoverProps {
   experience: ExperienceLevel
   onExperienceChange: (experience: ExperienceLevel) => void
   onSelectMode: (mode: RailMode) => void
+  iconOnly?: boolean
 }
 
-export default function CustomizePopover({ experience, onExperienceChange, onSelectMode }: CustomizePopoverProps) {
+export default function CustomizePopover({ experience, onExperienceChange, onSelectMode, iconOnly = false }: CustomizePopoverProps) {
   const [open, setOpen] = useState(false)
   const [preferences, setPreferences] = useState<UiPreferences>(() => readUiPreferences())
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -50,7 +51,6 @@ export default function CustomizePopover({ experience, onExperienceChange, onSel
 
   const toggles: Array<{ id: keyof UiPreferences; label: string }> = [
     { id: 'leftSidebarVisible', label: 'Workspace sidebar' },
-    { id: 'agentInspectorVisible', label: 'Agent inspector' },
     { id: 'bottomDockVisible', label: 'Bottom dock' },
     { id: 'statusBarVisible', label: 'Status bar' },
   ]
@@ -67,8 +67,9 @@ export default function CustomizePopover({ experience, onExperienceChange, onSel
         aria-controls="customize-popover"
         aria-haspopup="dialog"
         title="Customize the workspace"
+        aria-label="Customize the workspace"
       >
-        <Icon name="sliders" size={14} />Customize
+        <Icon name="sliders" size={14} />{!iconOnly && 'Customize'}
       </button>
       {open && (
         <div ref={popoverRef} id="customize-popover" className="customize-popover" role="dialog" aria-label="Customize workspace">

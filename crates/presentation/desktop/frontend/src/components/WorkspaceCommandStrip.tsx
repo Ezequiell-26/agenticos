@@ -12,6 +12,7 @@ interface WorkspaceCommandStripProps {
   onAction: (message: string) => void
 }
 
+/* Keep shell orientation separate from runtime authority. */
 export default function WorkspaceCommandStrip({ mode, status, focusMode, onToggleFocus, onNavigate, onAction }: WorkspaceCommandStripProps) {
   const surface = navigationItems.find((item) => item.id === mode)
   const connected = status.provider !== 'Runtime offline'

@@ -12,6 +12,7 @@ interface CommandPaletteProps {
   onSelectConversation: (id: string) => void
   onCreateConversation: () => void
   onSelectMode: (mode: RailMode) => void
+  onOpenShortcuts?: () => void
 }
 
 interface Command {
@@ -30,6 +31,7 @@ export default function CommandPalette({
   onSelectConversation,
   onCreateConversation,
   onSelectMode,
+  onOpenShortcuts,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -38,6 +40,7 @@ export default function CommandPalette({
 
   const commands = useMemo<Command[]>(() => [
     { id: 'new-chat', label: 'New conversation', detail: 'Start a clean agent session', icon: 'plus', shortcut: 'N', action: onCreateConversation },
+    ...(onOpenShortcuts ? [{ id: 'shortcuts', label: 'Keyboard shortcuts', detail: 'Open the global workspace shortcut center', icon: 'command' as IconName, shortcut: '?', action: onOpenShortcuts }] : []),
     ...navigationItems.map((item) => ({
       id: item.id,
       label: item.label,
@@ -52,7 +55,7 @@ export default function CommandPalette({
       icon: conversation.pinned ? 'archive' as IconName : 'history' as IconName,
       action: () => onSelectConversation(conversation.id),
     })),
-  ], [conversations, onCreateConversation, onSelectConversation, onSelectMode])
+  ], [conversations, onCreateConversation, onOpenShortcuts, onSelectConversation, onSelectMode])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()

@@ -133,7 +133,7 @@ impl RuntimeState {
             }
         }
 
-        let subagents = Arc::new(SubagentManager::default());
+        let subagents = Arc::new(SubagentManager::open(&database_url, 16).await.map_err(ContractError::ParseError)?);
         subagents
             .register(default_agent)
             .await
@@ -152,7 +152,7 @@ impl RuntimeState {
                     .await
                     .map_err(ContractError::ParseError)?,
             ),
-            workflows: Arc::new(WorkflowEngine::default()),
+            workflows: Arc::new(WorkflowEngine::open(&database_url).await.map_err(ContractError::ParseError)?),
             capabilities,
             sandbox,
             secure_tools,

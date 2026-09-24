@@ -4,6 +4,7 @@
 //! Workflow DAG validation and execution-state tracking.
 
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -61,6 +62,8 @@ pub struct WorkflowState {
 #[derive(Clone, Debug, Default)]
 pub struct WorkflowEngine {
     workflows: Arc<RwLock<HashMap<String, WorkflowDefinition>>>,
+    states: Arc<RwLock<HashMap<String, WorkflowState>>>,
+    db: Option<Arc<SqlitePool>>,
 }
 
 impl WorkflowEngine {
@@ -69,13 +72,114 @@ impl WorkflowEngine {
         Self::default()
     }
 
+    /// Open a SQLite-backed workflow engine and recover definitions/state.
+    pub async fn open(database_url: &str) -> Result<Self, String> {
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| format!("workflow database connection failed: {error}"))?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS workflow_definitions (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| format!("workflow definition schema failed: {error}"))?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS workflow_states (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| format!("workflow state schema failed: {error}"))?;
+
+        let definitions = sqlx::query_as::<_, (String, String)>(
+            "SELECT workflow_id, payload FROM workflow_definitions",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("workflow recovery query failed: {error}"))?;
+        let states = sqlx::query_as::<_, (String, String)>(
+            "SELECT workflow_id, payload FROM workflow_states",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("workflow state recovery query failed: {error}"))?;
+
+        let mut workflow_map = HashMap::with_capacity(definitions.len());
+        for (workflow_id, payload) in definitions {
+            let workflow: WorkflowDefinition = serde_json::from_str(&payload)
+                .map_err(|error| format!("invalid persisted workflow {workflow_id}: {error}"))?;
+            validate_workflow(&workflow)?;
+            workflow_map.insert(workflow_id, workflow);
+        }
+
+        let mut state_map = HashMap::with_capacity(states.len());
+        for (workflow_id, payload) in states {
+            let state: WorkflowState = serde_json::from_str(&payload)
+                .map_err(|error| format!("invalid persisted workflow state {workflow_id}: {error}"))?;
+            state_map.insert(workflow_id, state);
+        }
+
+        Ok(Self {
+            workflows: Arc::new(RwLock::new(workflow_map)),
+            states: Arc::new(RwLock::new(state_map)),
+            db: Some(Arc::new(db)),
+        })
+    }
+
+    async fn persist_definition(&self, workflow: &WorkflowDefinition) -> Result<(), String> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let payload = serde_json::to_string(workflow)
+            .map_err(|error| format!("workflow serialization failed: {error}"))?;
+        sqlx::query(
+            "INSERT INTO workflow_definitions (workflow_id, payload) VALUES (?, ?) ON CONFLICT(workflow_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&workflow.workflow_id)
+        .bind(payload)
+        .execute(db.as_ref())
+        .await
+        .map_err(|error| format!("workflow definition persistence failed: {error}"))?;
+        Ok(())
+    }
+
+    async fn persist_state(&self, state: &WorkflowState) -> Result<(), String> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let payload = serde_json::to_string(state)
+            .map_err(|error| format!("workflow state serialization failed: {error}"))?;
+        sqlx::query(
+            "INSERT INTO workflow_states (workflow_id, payload) VALUES (?, ?) ON CONFLICT(workflow_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&state.workflow_id)
+        .bind(payload)
+        .execute(db.as_ref())
+        .await
+        .map_err(|error| format!("workflow state persistence failed: {error}"))?;
+        Ok(())
+    }
+
     /// Register and validate a workflow.
     pub async fn register(&self, workflow: WorkflowDefinition) -> Result<(), String> {
         validate_workflow(&workflow)?;
-        self.workflows
+        let workflow_id = workflow.workflow_id.clone();
+        let previous = self
+            .workflows
             .write()
             .await
-            .insert(workflow.workflow_id.clone(), workflow);
+            .insert(workflow_id.clone(), workflow.clone());
+        if let Err(error) = self.persist_definition(&workflow).await {
+            let mut workflows = self.workflows.write().await;
+            match previous {
+                Some(previous) => {
+                    workflows.insert(workflow_id, previous);
+                }
+                None => {
+                    workflows.remove(&workflow_id);
+                }
+            }
+            return Err(error);
+        }
         Ok(())
     }
 
@@ -89,6 +193,11 @@ impl WorkflowEngine {
         let mut workflows: Vec<_> = self.workflows.read().await.values().cloned().collect();
         workflows.sort_by(|left, right| left.workflow_id.cmp(&right.workflow_id));
         workflows
+    }
+
+    /// Return the durable current state for a workflow, if one exists.
+    pub async fn state(&self, workflow_id: &str) -> Option<WorkflowState> {
+        self.states.read().await.get(workflow_id).cloned()
     }
 
     /// Transition one workflow node after validating its state and dependencies.
@@ -137,7 +246,16 @@ impl WorkflowEngine {
             ));
         }
 
+        let previous_state = state.clone();
         state.nodes.insert(node_id.to_string(), next);
+        if let Err(error) = self.persist_state(state).await {
+            *state = previous_state;
+            return Err(error);
+        }
+        self.states
+            .write()
+            .await
+            .insert(workflow_id.to_string(), state.clone());
         Ok(())
     }
 
@@ -176,14 +294,23 @@ impl WorkflowEngine {
             .get(workflow_id)
             .await
             .ok_or_else(|| "workflow not found".to_string())?;
-        Ok(WorkflowState {
+        if let Some(existing) = self.state(workflow_id).await {
+            return Ok(existing);
+        }
+        let state = WorkflowState {
             workflow_id: workflow.workflow_id,
             nodes: workflow
                 .nodes
                 .into_iter()
                 .map(|node| (node.id, WorkflowNodeState::Pending))
                 .collect(),
-        })
+        };
+        self.persist_state(&state).await?;
+        self.states
+            .write()
+            .await
+            .insert(state.workflow_id.clone(), state.clone());
+        Ok(state)
     }
 }
 

@@ -1714,9 +1714,10 @@ async fn api_auth_middleware(
     next: Next<impl actix_web::body::MessageBody + 'static>,
 ) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
     let authorized = req.path() == "/health"
-        || config.token.as_deref().is_none_or(|token| {
-            bearer_token(req.request()).is_some_and(|value| value == token)
-        });
+        || config
+            .token
+            .as_deref()
+            .is_none_or(|token| bearer_token(req.request()).is_some_and(|value| value == token));
 
     if !authorized {
         return Ok(req.into_response(

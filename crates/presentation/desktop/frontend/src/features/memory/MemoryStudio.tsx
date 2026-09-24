@@ -66,9 +66,25 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
 
   const active = items.find((item) => item.id === selected) ?? visible[0] ?? items[0]
 
-  function togglePinned(id: string) {
-    setItems((current) => current.map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item))
-    onAction('Memory pin state updated in preview')
+  async function togglePinned(id: string) {
+    const item = items.find((entry) => entry.id === id)
+    if (!item) return
+    const nextPinned = !item.pinned
+    const [namespace, key] = item.id.split(':', 2)
+    const tags = Array.from(new Set([...(item.scope ? [item.scope] : []), ...(nextPinned ? ['pinned'] : [])]))
+    try {
+      await runtime.memory.upsert({
+        namespace: namespace || 'agenticos',
+        key: key || item.title,
+        value: item.detail,
+        tags,
+        importance: item.priority === 'High' ? 0.9 : item.priority === 'Medium' ? 0.6 : 0.25,
+      })
+      setItems((current) => current.map((entry) => entry.id === id ? { ...entry, pinned: nextPinned } : entry))
+      onAction('Memory pin state persisted in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Memory update failed')
+    }
   }
 
   async function forget(id: string) {
@@ -104,7 +120,7 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
       <section className="memory-studio__detail">
         <div className="memory-detail-head"><div><span className="eyebrow">{active.scope} memory</span><h2>{active.title}</h2><p>{active.detail}</p></div><span className={active.pinned ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{active.pinned ? 'Pinned' : 'Optional'}</span></div>
         <div className="memory-detail-grid"><div><span>Priority</span><strong>{active.priority}</strong></div><div><span>Estimated tokens</span><strong>{active.tokens}</strong></div><div><span>Updated</span><strong>{active.updated}</strong></div><div><span>Scope</span><strong>{active.scope}</strong></div></div>
-        <div className="memory-content-card"><div className="surface-block__heading"><span>Content</span><span className="mono-text">preview</span></div><p>{active.detail}</p><div className="memory-content-actions"><button className="studio-button" type="button" onClick={() => togglePinned(active.id)}><Icon name="archive" size={13} /> {active.pinned ? 'Unpin' : 'Pin'}</button><button className="studio-button" type="button" onClick={() => onAction('Memory added to active context in preview')}>Add to context</button><button className="studio-button" type="button" onClick={() => onAction('Memory edit opened in preview')}>Edit</button><button className="studio-button" type="button" onClick={() => forget(active.id)}>Forget</button></div></div>
+        <div className="memory-content-card"><div className="surface-block__heading"><span>Content</span><span className="mono-text">preview</span></div><p>{active.detail}</p><div className="memory-content-actions"><button className="studio-button" type="button" onClick={() => togglePinned(active.id)}><Icon name="archive" size={13} /> {active.pinned ? 'Unpin' : 'Pin'}</button><button className="studio-button" type="button" onClick={() => onAction('Context promotion is not a separate runtime endpoint; memory remains available through runtime retrieval')}>Add to context</button><button className="studio-button" type="button" onClick={() => onAction('Memory editing uses the runtime upsert contract; change the memory by re-saving it through the backend')}>Edit</button><button className="studio-button" type="button" onClick={() => forget(active.id)}>Forget</button></div></div>
         <div className="memory-boundary"><Icon name="shield" size={14} /><span>Memory suggestions never silently modify agent behavior. Promotion into persistent context remains explicit.</span></div>
       </section>
     </div>

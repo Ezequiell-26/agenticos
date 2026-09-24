@@ -92,7 +92,11 @@ impl RuntimeState {
             })?);
         let logger = Arc::new(InMemoryLogger::new(agenticos_contracts::LogLevel::Info));
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
-        let capabilities = Arc::new(CapabilityManager::new());
+        let capabilities = Arc::new(
+            CapabilityManager::open(&database_url)
+                .await
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
         let kernel = Arc::new(KernelRuntime::new(
             event_store,
             snapshot_store,

@@ -16,6 +16,7 @@ agenticos-mcp = { path = "../../infrastructure/mcp" }
 agenticos-observability = { path = "../../infrastructure/observability" }
 agenticos-providers = { path = "../../infrastructure/providers" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
+agenticos-tools = { path = "../../infrastructure/tools" }
 agenticos-scheduler = { path = "../../application/scheduler" }
 agenticos-security = { path = "../../infrastructure/security" }
 agenticos-workflows = { path = "../../application/workflows" }

@@ -32,6 +32,7 @@ use agenticos_memory::PersistentMemoryStore;
 use agenticos_observability::audit::{AuditEvent, AuditStore};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
+use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_scheduler::{JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine};
@@ -61,6 +62,7 @@ pub struct RuntimeState {
     capabilities: Arc<CapabilityManager>,
     sandbox: Arc<ProcessSandbox>,
     secure_tools: Arc<SecureToolService>,
+    tool_runtime: Arc<ToolRuntime>,
     reasoning: Arc<ReasoningEngine>,
     model: String,
 }
@@ -123,6 +125,13 @@ impl RuntimeState {
             capabilities.clone(),
             sandbox.clone(),
         ));
+
+        let tool_registry = Arc::new(ToolRegistry::new());
+        let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
+            tool_registry.clone(),
+            capabilities.clone(),
+        ));
+        let tool_runtime = Arc::new(ToolRuntime::new(tool_registry, tool_policy));
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
@@ -176,6 +185,7 @@ impl RuntimeState {
             capabilities,
             sandbox,
             secure_tools,
+            tool_runtime,
             reasoning: Arc::new(ReasoningEngine::new(EngineConfig {
                 max_steps: 12,
                 enable_learning: true,
@@ -364,6 +374,89 @@ struct ToolExecutionRequest {
     grant_id: String,
     command: String,
     timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ToolCallRequest {
+    tool_id: String,
+    agent_id: String,
+    grant_id: String,
+    parameters: Option<serde_json::Value>,
+}
+
+async fn list_tools(state: web::Data<RuntimeState>) -> impl Responder {
+    let tools = state.tool_runtime.list().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "tools": tools,
+        "count": tools.len(),
+    }))
+}
+
+async fn sync_mcp_tools(
+    server_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let server_id = server_id.into_inner();
+    match state.tool_runtime.sync_mcp_server(&state.mcp, &server_id).await {
+        Ok(tools) => HttpResponse::Ok().json(serde_json::json!({
+            "server_id": server_id,
+            "tools": tools,
+            "count": tools.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MCP_TOOL_SYNC_FAILED",
+        }),
+    }
+}
+
+async fn execute_registered_tool(
+    request: web::Json<ToolCallRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if request.tool_id.trim().is_empty() || request.agent_id.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "tool_id and agent_id are required".to_string(),
+            code: "INVALID_TOOL_REQUEST",
+        });
+    }
+    if request.grant_id.trim().is_empty() {
+        return HttpResponse::Forbidden().json(ErrorResponse {
+            error: "grant_id is required".to_string(),
+            code: "TOOL_CAPABILITY_REQUIRED",
+        });
+    }
+
+    let parameters = match &request.parameters {
+        Some(value) => match serde_json::to_string(value) {
+            Ok(value) => value,
+            Err(error) => {
+                return HttpResponse::BadRequest().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "INVALID_TOOL_PARAMETERS",
+                })
+            }
+        },
+        None => "{}".to_string(),
+    };
+
+    match state
+        .tool_runtime
+        .execute(agenticos_contracts::ToolRequest {
+            request_id: format!("tool-{}", uuid::Uuid::new_v4()),
+            tool_id: request.tool_id.clone(),
+            parameters,
+            agent_id: request.agent_id.clone(),
+            grant_id: request.grant_id.clone(),
+        })
+        .await
+    {
+        Ok(response) => HttpResponse::Ok().json(response),
+        Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
+            error: error.to_string(),
+            code: "TOOL_EXECUTION_DENIED",
+        }),
+    }
 }
 
 async fn list_audit(
@@ -2028,6 +2121,12 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/audit", web::get().to(list_audit))
+            .route("/api/tools", web::get().to(list_tools))
+            .route("/api/tools/call", web::post().to(execute_registered_tool))
+            .route(
+                "/api/tools/mcp/{server_id}/sync",
+                web::post().to(sync_mcp_tools),
+            )
             .route("/api/mcp", web::get().to(list_mcp_servers))
             .route("/api/mcp", web::post().to(register_mcp_server))
             .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))

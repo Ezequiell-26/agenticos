@@ -87,8 +87,11 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
           <div className="provider-studio__actions"><button className="studio-button" type="button" onClick={() => onAction('Provider test started in preview')}><Icon name="play" size={13} /> Test</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Provider configuration opened in preview')}><Icon name="settings" size={13} /> Configure</button></div>
         </div>
 
-        <div className="provider-studio__tabs" role="tablist" aria-label="Provider details">
-          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Verification', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" id={'provider-tab-' + item.toLowerCase()} aria-controls="provider-tabpanel" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
+        <div className="provider-studio__tabs" role="tablist" aria-label="Provider details" aria-orientation="horizontal">
+          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Verification', 'Quotas', 'Accounts'] as ProviderTab[]).map((item, index, tabs) => <button type="button" key={item} role="tab" id={'provider-tab-' + item.toLowerCase()} aria-controls="provider-tabpanel" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+            const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('provider-tab-' + next.toLowerCase())?.focus()) }
+          }}>{item}</button>)}
         </div>
 
         <div className="provider-studio__content" id="provider-tabpanel" role="tabpanel" aria-labelledby={`provider-tab-${tab.toLowerCase()}`} tabIndex={0}>

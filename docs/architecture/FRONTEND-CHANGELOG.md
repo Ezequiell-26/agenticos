@@ -1272,3 +1272,11 @@ Verification status:
 - Added a real empty-result state for filtered evidence and responsive metadata layout for narrow screens.
 - Preserved provenance and secret-isolation semantics; comparison/export remain presentation-only intents.
 - Verification status: source-level wiring only; full CI/browser/Tauri evidence remains pending.
+
+## 2026-09-24 — Subagent Fleet control plane
+
+- Replaced the thin SubagentFleet alias with a real fleet-level control surface around the existing Specialist Builder.
+- Added dispatch policy presets, parallel-lane capacity, live lane inventory, automatic/manual handoff state and explicit runtime-boundary messaging.
+- Preserved the existing detailed Subagent Builder for task, context, delegation, safety and run configuration instead of duplicating those controls.
+- Added responsive fleet presentation styling.
+- Verification status: source-level wiring only; latest CI/build/browser/Tauri evidence remains pending.

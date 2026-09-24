@@ -137,7 +137,7 @@ pub struct ModelRequest {
 }
 
 /// Model response from execution.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ModelResponse {
     /// Request identifier (echoed).
     pub request_id: String,
@@ -205,7 +205,7 @@ pub trait SnapshotStore: Send + Sync {
 }
 
 /// Serialized event for persistence.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SerializedEvent {
     /// Event type identifier.
     pub event_type: String,
@@ -216,7 +216,7 @@ pub struct SerializedEvent {
 }
 
 /// Serialized snapshot for recovery.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SerializedSnapshot {
     /// Stream identifier.
     pub stream_id: String,
@@ -315,6 +315,7 @@ impl From<ConfigError> for ContractError {
 
 /// Capability grant type.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum CapabilityType {
     /// Read-only capability.
     Read,
@@ -327,7 +328,7 @@ pub enum CapabilityType {
 }
 
 /// Capability grant with scope.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CapabilityGrant {
     /// Capability type.
     pub capability_type: CapabilityType,
@@ -606,7 +607,7 @@ pub struct ProviderEntry {
 }
 
 /// Model catalog entry.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ModelEntry {
     /// Model identifier.
     pub model_id: String,

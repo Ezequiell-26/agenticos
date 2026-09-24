@@ -214,6 +214,77 @@ struct RunResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct CreateApprovalRequest {
+    run_id: String,
+    action: String,
+    resource: String,
+    expires_at: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApprovalDecision {
+    approved: bool,
+}
+
+
+#[derive(Debug, Deserialize)]
+struct CreateProviderRequest {
+    provider_id: String,
+    name: String,
+    base_url: String,
+    models: Vec<String>,
+    capabilities: Option<Vec<String>>,
+    api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderTestRequest {
+    model: String,
+    input: String,
+    request_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateMemoryRequest {
+    namespace: String,
+    key: String,
+    value: String,
+    tags: Option<Vec<String>>,
+    importance: Option<f64>,
+    expires_at: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemorySearchQuery {
+    namespace: String,
+    q: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExecuteRunRequest {
+    objective: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateCapabilityRequest {
+    grant_id: String,
+    capability_type: String,
+    resource: String,
+    permission: String,
+    expires_at: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ToolExecutionRequest {
+    session_id: String,
+    user_id: Option<String>,
+    grant_id: String,
+    command: String,
+    timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CreateAgentRequest {
     agent: AgentDefinition,
 }
@@ -230,21 +301,13 @@ struct CreateJobRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct PlanRequest {
-    objective: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApprovalDecision {
-    approved: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateApprovalRequest {
-    run_id: String,
-    action: String,
-    resource: String,
-    expires_at: Option<u64>,
+struct ToolInvokeRequest {
+    session_id: String,
+    agent_id: Option<String>,
+    user_id: Option<String>,
+    grant_id: String,
+    tool_id: String,
+    parameters: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1424,11 +1487,9 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
     let data = web::Data::new(state);
-    let cors = Cors::permissive();
-
     HttpServer::new(move || {
         App::new()
-            .wrap(cors.clone())
+            .wrap(Cors::permissive())
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))

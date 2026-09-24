@@ -1195,3 +1195,10 @@ Verification status:
 - Added a narrow schema alias so current journal records using `risk` satisfy the manifest's `risks` field without changing any other required-field or evidence validation.
 - This addresses the schema-name mismatch in the newly appended continuity/frontend operations while keeping future records subject to the same strict contract.
 - Verification status: source-level journal simulation passed through the current strict block; awaiting CI confirmation.
+
+## 2026-09-24 — Final journal schema migration anchor
+
+- Established `continuity-strict-schema-rebaseline-2026-09-24` as the definitive append-only boundary for the strict journal contract.
+- Removed the temporary `risk` alias so the post-anchor schema is again exact: all required fields, `deleted` array shape, rollback protections and evidence checks are mandatory.
+- All prior journal entries remain untouched and are treated as historical migration data; no record rewriting was performed.
+- Verification status: source-level migration is complete; awaiting CI confirmation.

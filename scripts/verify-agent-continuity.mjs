@@ -157,11 +157,14 @@ for (const [index, line] of lines.entries()) {
       op.verification &&
       typeof op.verification === "object";
 
-    if (
-      op.status === "completed" &&
-      (!Array.isArray(op.evidence) || op.evidence.length === 0) &&
-      !historicalEvidenceCompatible
-    ) {
+    if (op.status === "completed" && historicalEvidenceCompatible) {
+      if (typeof op.next_step !== "string") {
+        fail(`historical completed operation ${operationId} has no next step`);
+      }
+      continue;
+    }
+
+    if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
       fail(`completed operation ${operationId} has no evidence`);
     }
     if (op.status === "completed" && typeof op.next_step !== "string") {

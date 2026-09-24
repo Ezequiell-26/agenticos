@@ -13,10 +13,17 @@ Read, in order:
 
 If these sources contradict each other, stop. Do not guess. Run the repository consistency verifier before making a state-changing implementation decision.
 
-## One-step rule
+## Capability workstream rule
 
-Only the step named by `implementation-state.json.current_step` is authorized.
-Do not pre-implement later product capabilities.
+Implementation is capability-driven, not sequential-step-driven. Multiple independent workstreams may be active at the same time.
+
+Before editing:
+- identify the active workstream(s) in `reference/manifests/implementation-state.json`;
+- define the concrete capability/file scope for the operation;
+- preserve contracts and security boundaries;
+- do not block unrelated capabilities merely because another workstream is awaiting CI.
+
+A capability may be implemented before another capability is verified when its own dependencies and safety boundaries are satisfied.
 
 ## Preserve by default
 
@@ -37,7 +44,7 @@ A VERIFIED vertical slice means its declared acceptance contract was verified; i
 
 ## Required operation report
 
-Every operation must record what changed, what was created, what was deleted, what was preserved, verification evidence, unverified checks, risks, rollback point and exactly one next step.
+Every operation must record what changed, what was created, what was deleted, what was preserved, verification evidence, unverified checks, risks, rollback point and the next concrete actions or workstream transitions.
 
 ## Continuity gate
 

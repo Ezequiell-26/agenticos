@@ -262,7 +262,8 @@ function App() {
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
 
-      <main className="workspace-main">
+      <a className="skip-link" href="#workspace-content">Skip to workspace</a>
+      <main id="workspace-content" className="workspace-main" aria-label="AgentiCOS workspace">
         <header className="topbar">
           <div className="topbar__title">
             <span className="eyebrow">AgentiCOS</span>
@@ -300,7 +301,7 @@ function App() {
           {mode === 'chat' ? (
             <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
           ) : (
-            <WorkspaceOverview mode={mode} />
+            <WorkspaceOverview mode={mode} onNavigate={setMode} />
           )}
         </div>
 

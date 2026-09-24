@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "purpose": "Durable AI project memory and anti-regression control plane.",
+  "schema_version": 2,
+  "purpose": "Durable AI project memory and anti-regression control plane for capability-driven continuous development.",
   "canonical_state_file": "reference/PROJECT-STATE.md",
   "append_only_journal": "reference/journal/agent-operations.jsonl",
   "report_template": "reference/journal/AGENT-OPERATION-TEMPLATE.md",
@@ -22,11 +22,15 @@
     "overwrite_requires_preservation_or_snapshot": true,
     "regression_is_blocking": true,
     "fail_closed_on_missing_state": true,
-    "never_mark_unverified_work_as_verified": true,
     "never_claim_tests_passed_without_recorded_evidence": true,
     "never_reset_or_rewrite_history": true,
     "duplicate_json_keys_are_blocking": true,
-    "verified_slice_does_not_equal_production_completeness": true
+    "verified_slice_does_not_equal_production_completeness": true,
+    "parallel_workstreams_allowed": true,
+    "sequential_implementation_disabled": true,
+    "capability_level_verification": true,
+    "current_state_must_not_block_unrelated_workstreams": true,
+    "never_mark_unverified_work_as_verified": true
   },
   "required_operation_fields": [
     "operation_id",
@@ -66,5 +70,5 @@
     "Cargo.lock",
     "reference/manifests/runtime-integration-gaps.json"
   ],
-  "escalation_rule": "When evidence is insufficient, stop and mark BLOCKED rather than infer or fabricate."
+  "escalation_rule": "When evidence is insufficient, mark the affected capability UNVERIFIED or BLOCKED. Do not freeze unrelated workstreams unless their dependency or security boundary is affected."
 }

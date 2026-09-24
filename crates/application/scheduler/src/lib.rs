@@ -122,16 +122,19 @@ impl JobScheduler {
     /// Claim a job for execution.
     pub async fn start(&self, job_id: &str) -> Result<JobRecord, String> {
         let mut jobs = self.jobs.write().await;
+        let dependencies_satisfied = {
+            let record = jobs
+                .get(job_id)
+                .ok_or_else(|| "job not found".to_string())?;
+            record.spec.dependencies.iter().all(|dependency| {
+                jobs.get(dependency)
+                    .is_some_and(|job| job.state == JobState::Succeeded)
+            })
+        };
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
-        if record.state == JobState::Pending
-            && !record
-                .spec
-                .dependencies
-                .iter()
-                .all(|dependency| jobs.get(dependency).is_some_and(|job| job.state == JobState::Succeeded))
-        {
+        if record.state == JobState::Pending && !dependencies_satisfied {
             return Err("job dependencies are not satisfied".to_string());
         }
         if record.attempts >= record.spec.max_attempts.max(1) {

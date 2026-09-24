@@ -420,15 +420,23 @@ async fn sync_mcp_tools(
         .sync_mcp_server(&state.mcp, &server_id)
         .await
     {
-        Ok(tools) => HttpResponse::Ok().json(serde_json::json!({
-            "server_id": server_id,
-            "tools": tools,
-            "count": tools.len(),
-        })),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
-            code: "MCP_TOOL_SYNC_FAILED",
-        }),
+        Ok(tools) => {
+            state.metrics.record_tool(false);
+            state.metrics.record_http(false);
+            HttpResponse::Ok().json(serde_json::json!({
+                "server_id": server_id,
+                "tools": tools,
+                "count": tools.len(),
+            }))
+        }
+        Err(error) => {
+            state.metrics.record_tool(true);
+            state.metrics.record_http(true);
+            HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MCP_TOOL_SYNC_FAILED",
+            })
+        },
     }
 }
 
@@ -473,11 +481,19 @@ async fn execute_registered_tool(
         })
         .await
     {
-        Ok(response) => HttpResponse::Ok().json(response),
-        Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
-            error: error.to_string(),
-            code: "TOOL_EXECUTION_DENIED",
-        }),
+        Ok(response) => {
+            state.metrics.record_tool(false);
+            state.metrics.record_http(false);
+            HttpResponse::Ok().json(response)
+        }
+        Err(error) => {
+            state.metrics.record_tool(true);
+            state.metrics.record_http(true);
+            HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TOOL_EXECUTION_DENIED",
+            })
+        },
     }
 }
 

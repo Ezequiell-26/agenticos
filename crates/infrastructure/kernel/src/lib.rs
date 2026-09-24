@@ -2185,7 +2185,7 @@ impl ReactAgent {
                             timestamp: msg.timestamp.max(0) as u64,
                             token_count: ((msg.content.chars().count() as u32).saturating_add(3)
                                 / 4)
-                                .max(1),
+                            .max(1),
                             run_id: run_id.clone(),
                         })
                         .collect::<Vec<_>>();

@@ -97,14 +97,20 @@ impl ContextEngine {
             }
             selected_indices.push(index);
             used = used.saturating_add(message.token_count);
-            if selected_indices.len() >= budget.min_recent_messages.max(1) + messages.iter().filter(|m| m.role == "system").count() {
+            if selected_indices.len()
+                >= budget.min_recent_messages.max(1)
+                    + messages.iter().filter(|m| m.role == "system").count()
+            {
                 break;
             }
         }
 
         selected_indices.sort_unstable();
 
-        let selected_set = selected_indices.iter().copied().collect::<std::collections::HashSet<_>>();
+        let selected_set = selected_indices
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
         let selected = selected_indices
             .into_iter()
             .map(|index| messages[index].clone())

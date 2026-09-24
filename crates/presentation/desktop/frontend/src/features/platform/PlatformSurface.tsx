@@ -58,7 +58,7 @@ const KnowledgeStudio = lazy(() => import('./KnowledgeStudio').then((module) => 
 const FrontendQAHarness = lazy(() => import('./FrontendQAHarness').then((module) => ({ default: module.FrontendQAHarness })))
 const FeatureWorkbench = lazy(() => import('./FeatureWorkbench'))
 const GENERIC_FEATURE_MODES: ReadonlySet<PlatformMode> = new Set<PlatformMode>([
-  'terminal', 'evaluations', 'versions', 'audit', 'notifications', 'sessions', 'logs', 'analytics',
+  'evaluations', 'versions', 'audit', 'notifications', 'sessions', 'logs', 'analytics',
   'batch', 'learning', 'playground', 'routing', 'token-observatory', 'toolsets', 'execution',
   'webhooks', 'imports', 'media', 'wake',
 ])

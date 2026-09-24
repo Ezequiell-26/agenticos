@@ -72,6 +72,8 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
               type="button"
               role="tab"
               aria-selected={tab === item}
+              aria-controls={'workspace-dock-panel-' + item.toLowerCase()}
+              id={'workspace-dock-tab-' + item.toLowerCase()}
               onClick={() => setTab(item)}
             >
               <Icon name={item === 'Terminal' ? 'terminal' : item === 'Problems' ? 'shield' : item === 'Timeline' ? 'activity' : 'archive'} size={13} />
@@ -95,7 +97,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
 
       <div className="workspace-dock__body">
         {tab === 'Terminal' && (
-          <div className="dock-terminal">
+          <div id="workspace-dock-panel-terminal" className="dock-terminal" role="tabpanel" aria-labelledby="workspace-dock-tab-terminal" tabIndex={0}>
             <div className="dock-terminal__output">
               {terminalLines.map((line, index) => <div className={line.startsWith('$') ? 'dock-terminal__command' : ''} key={index}>{line || ' '}</div>)}
             </div>
@@ -108,7 +110,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         )}
 
         {tab === 'Problems' && (
-          <div className="dock-problems">
+          <div id="workspace-dock-panel-problems" className="dock-problems" role="tabpanel" aria-labelledby="workspace-dock-tab-problems" tabIndex={0}>
             <div className="dock-section-heading"><span>Problems</span><span className="mono-text">frontend evidence</span></div>
             {problems.map(([id, title, area, level]) => (
               <button className="dock-problem-row" type="button" key={id}>
@@ -121,7 +123,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         )}
 
         {tab === 'Timeline' && (
-          <div className="dock-timeline">
+          <div id="workspace-dock-panel-timeline" className="dock-timeline" role="tabpanel" aria-labelledby="workspace-dock-tab-timeline" tabIndex={0}>
             <div className="dock-section-heading"><span>Agent lifecycle</span><span className="mono-text">preview trace</span></div>
             <div className="dock-timeline-grid">
               {timeline.map(([title, detail, state], index) => (
@@ -135,7 +137,7 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
         )}
 
         {tab === 'Output' && (
-          <div className="dock-output">
+          <div id="workspace-dock-panel-output" className="dock-output" role="tabpanel" aria-labelledby="workspace-dock-tab-output" tabIndex={0}>
             <div className="dock-section-heading"><span>Session output</span><span className="mono-text">{messageCount} messages</span></div>
             <div className="dock-output__grid">
               <div><span>Current session</span><strong>Connected UI surface</strong><small>{messageCount} visible messages</small></div>

@@ -745,24 +745,24 @@ impl ProviderPlatform {
                 .execute(&mut *tx)
                 .await
                 .map_err(|error| {
-                ContractError::ParseError(format!("provider deletion failed: {error}"))
-            })?;
+                    ContractError::ParseError(format!("provider deletion failed: {error}"))
+                })?;
             sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
                 .bind(provider_id)
                 .execute(&mut *tx)
                 .await
                 .map_err(|error| {
-                ContractError::ParseError(format!(
-                    "provider credential deletion failed: {error}"
-                ))
-            })?;
+                    ContractError::ParseError(format!(
+                        "provider credential deletion failed: {error}"
+                    ))
+                })?;
             sqlx::query("DELETE FROM provider_fallback_configs WHERE primary_provider = ?")
                 .bind(provider_id)
                 .execute(&mut *tx)
                 .await
                 .map_err(|error| {
-                ContractError::ParseError(format!("fallback deletion failed: {error}"))
-            })?;
+                    ContractError::ParseError(format!("fallback deletion failed: {error}"))
+                })?;
             tx.commit().await.map_err(|error| {
                 ContractError::ParseError(format!("provider delete commit failed: {error}"))
             })?;

@@ -754,15 +754,26 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
 
   function applyRawConfig() {
     try {
-      const parsed = JSON.parse(advancedJson) as Partial<{ settings: SettingsState; profiles: Profile[]; activeProfileId: string }>
-      if (!parsed.settings || typeof parsed.settings !== 'object') throw new Error('Missing settings object')
-      setSettings({ ...defaults, ...parsed.settings })
-      setProfiles(parsed.profiles?.length ? parsed.profiles : defaultProfiles)
-      setActiveProfileId(parsed.activeProfileId ?? 'default')
+      const parsed = JSON.parse(advancedJson) as Record<string, unknown>
+      const profilesValue = Array.isArray(parsed.profiles) ? parsed.profiles as Profile[] : defaultProfiles
+      const activeProfileId = typeof parsed.active_profile === 'string'
+        ? parsed.active_profile
+        : typeof parsed.activeProfileId === 'string'
+          ? parsed.activeProfileId
+          : 'default'
+
+      if (isRecord(parsed.settings)) {
+        setSettings({ ...defaults, ...(parsed.settings as Partial<SettingsState>) })
+      } else {
+        setSettings((current) => ({ ...current, ...fromPortableConfig(parsed, current) }))
+      }
+
+      setProfiles(profilesValue.length ? profilesValue : defaultProfiles)
+      setActiveProfileId(activeProfileId)
       setDirty(true)
-      notify('Raw configuration applied to preview')
+      notify('Configuration snapshot applied to preview')
     } catch {
-      notify('Raw configuration must be valid JSON')
+      notify('Configuration must be valid JSON with a supported snapshot shape')
     }
   }
 
@@ -1294,6 +1305,385 @@ export default function SettingsStudio({ notify }: SettingsSurfaceProps) {
       </div>
     </section>
   )
+}
+
+type PortableRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is PortableRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function readString(record: PortableRecord | undefined, key: string, fallback: string) {
+  return record && typeof record[key] === 'string' ? record[key] as string : fallback
+}
+
+function readNumber(record: PortableRecord | undefined, key: string, fallback: number) {
+  return record && typeof record[key] === 'number' && Number.isFinite(record[key]) ? record[key] as number : fallback
+}
+
+function readBoolean(record: PortableRecord | undefined, key: string, fallback: boolean) {
+  return record && typeof record[key] === 'boolean' ? record[key] as boolean : fallback
+}
+
+function readArray(record: PortableRecord | undefined, key: string, fallback: string[]) {
+  return record && Array.isArray(record[key]) && record[key].every((item) => typeof item === 'string')
+    ? record[key] as string[]
+    : fallback
+}
+
+function fromPortableConfig(payload: PortableRecord, current: SettingsState): Partial<SettingsState> {
+  const model = isRecord(payload.model) ? payload.model : undefined
+  const agent = isRecord(payload.agent) ? payload.agent : undefined
+  const delegation = isRecord(payload.delegation) ? payload.delegation : undefined
+  const clarify = isRecord(payload.clarify) ? payload.clarify : undefined
+  const tools = isRecord(payload.tools) ? payload.tools : undefined
+  const terminal = isRecord(payload.terminal) ? payload.terminal : undefined
+  const memory = isRecord(payload.memory) ? payload.memory : undefined
+  const compression = isRecord(payload.compression) ? payload.compression : undefined
+  const display = isRecord(payload.display) ? payload.display : undefined
+  const voice = isRecord(payload.voice) ? payload.voice : undefined
+  const web = isRecord(payload.web) ? payload.web : undefined
+  const browser = isRecord(payload.browser) ? payload.browser : undefined
+  const gateway = isRecord(payload.gateway) ? payload.gateway : undefined
+  const apiServer = gateway && isRecord(gateway.api_server) ? gateway.api_server : undefined
+  const gatewayStreaming = gateway && isRecord(gateway.streaming) ? gateway.streaming : undefined
+  const channels = gateway && isRecord(gateway.channels) ? gateway.channels : undefined
+  const mcp = isRecord(payload.mcp) ? payload.mcp : undefined
+  const toolsets = isRecord(payload.toolsets) ? payload.toolsets : undefined
+  const runtime = isRecord(payload.runtime) ? payload.runtime : undefined
+  const codeExecution = runtime && isRecord(runtime.code_execution) ? runtime.code_execution : undefined
+  const loopGuardrails = runtime && isRecord(runtime.tool_loop_guardrails) ? runtime.tool_loop_guardrails : undefined
+  const warnAfter = loopGuardrails && isRecord(loopGuardrails.warn_after) ? loopGuardrails.warn_after : undefined
+  const hardStopAfter = loopGuardrails && isRecord(loopGuardrails.hard_stop_after) ? loopGuardrails.hard_stop_after : undefined
+  const loopCaps = loopGuardrails && isRecord(loopGuardrails.loop_caps) ? loopGuardrails.loop_caps : undefined
+  const toolBudget = runtime && isRecord(runtime.tool_budget) ? runtime.tool_budget : undefined
+  const liveness = runtime && isRecord(runtime.turn_liveness) ? runtime.turn_liveness : undefined
+  const automation = isRecord(payload.automation) ? payload.automation : undefined
+  const humanDelay = automation && isRecord(automation.human_delay) ? automation.human_delay : undefined
+  const security = isRecord(payload.security) ? payload.security : undefined
+  const hermes = isRecord(payload.hermes_parity) ? payload.hermes_parity : undefined
+  const hermesContext = hermes && isRecord(hermes.context) ? hermes.context : undefined
+  const credentialPool = hermes && isRecord(hermes.credential_pool) ? hermes.credential_pool : undefined
+  const fallbackModel = hermes && isRecord(hermes.fallback_model) ? hermes.fallback_model : undefined
+  const auxiliary = hermes && isRecord(hermes.auxiliary) ? hermes.auxiliary : undefined
+  const aux = (key: string) => auxiliary && isRecord(auxiliary[key]) ? auxiliary[key] : undefined
+  const hermesTts = hermes && isRecord(hermes.tts) ? hermes.tts : undefined
+  const hermesVoice = hermes && isRecord(hermes.voice) ? hermes.voice : undefined
+  const hermesDisplay = hermes && isRecord(hermes.display) ? hermes.display : undefined
+  const hermesWeb = hermes && isRecord(hermes.web) ? hermes.web : undefined
+  const hermesStreaming = hermes && isRecord(hermes.streaming) ? hermes.streaming : undefined
+  const hermesGateway = hermes && isRecord(hermes.gateway) ? hermes.gateway : undefined
+  const hermesUi = hermes && isRecord(hermes.ui) ? hermes.ui : undefined
+
+  const next: Partial<SettingsState> = {}
+  if (model) {
+    next.defaultProvider = readString(model, 'provider', current.defaultProvider)
+    next.defaultModel = readString(model, 'default', current.defaultModel)
+    next.modelAlias = readString(model, 'alias', current.modelAlias)
+    next.fallbackChain = readString(model, 'fallback_chain', current.fallbackChain)
+    next.customEndpoint = readString(model, 'custom_endpoint', current.customEndpoint)
+    next.persistModel = readBoolean(model, 'persist_switch', current.persistModel)
+  }
+  if (agent) {
+    next.reasoningEffort = readString(agent, 'reasoning_effort', current.reasoningEffort)
+    next.toolUseEnforcement = readString(agent, 'tool_use_enforcement', current.toolUseEnforcement)
+    next.maxTurns = readNumber(agent, 'max_turns', current.maxTurns)
+    next.autonomy = readNumber(agent, 'autonomy', current.autonomy)
+    next.toolBudget = readNumber(agent, 'tool_budget', current.toolBudget)
+    next.maxParallelAgents = readNumber(agent, 'max_parallel_agents', current.maxParallelAgents)
+    next.soulFile = readString(agent, 'soul_file', current.soulFile)
+    next.contextFilePriority = readString(agent, 'context_file_priority', current.contextFilePriority)
+  }
+  if (delegation) {
+    next.delegationModel = readString(delegation, 'model', current.delegationModel)
+    next.delegationProvider = readString(delegation, 'provider', current.delegationProvider)
+    next.delegationEndpoint = readString(delegation, 'base_url', current.delegationEndpoint)
+  }
+  if (clarify) next.clarifyTimeout = readNumber(clarify, 'timeout', current.clarifyTimeout)
+  if (tools) {
+    next.toolProgress = readString(tools, 'progress', current.toolProgress) as ToolProgress
+    next.showToolCalls = readBoolean(tools, 'show_calls', current.showToolCalls)
+    next.cliToolsetPreset = readString(tools, 'cli_preset', current.cliToolsetPreset)
+    next.messagingToolsetPreset = readString(tools, 'messaging_preset', current.messagingToolsetPreset)
+  }
+  if (terminal) {
+    next.terminalBackend = readString(terminal, 'backend', current.terminalBackend) as TerminalBackend
+    next.terminalCwd = readString(terminal, 'cwd', current.terminalCwd)
+    next.terminalTempDir = readString(terminal, 'temp_dir', current.terminalTempDir)
+    next.terminalFontFamily = readString(terminal, 'font_family', current.terminalFontFamily)
+    next.terminalHomeMode = readString(terminal, 'home_mode', current.terminalHomeMode)
+    next.terminalTimeout = readNumber(terminal, 'timeout', current.terminalTimeout)
+    next.terminalPersistent = readBoolean(terminal, 'persistent', current.terminalPersistent)
+    next.terminalSyncBackMaxBytes = readNumber(terminal, 'sync_back_max_bytes', current.terminalSyncBackMaxBytes)
+    next.terminalCpu = readNumber(terminal, 'cpu', current.terminalCpu)
+    next.terminalMemory = readNumber(terminal, 'memory', current.terminalMemory)
+    next.terminalDisk = readNumber(terminal, 'disk', current.terminalDisk)
+    next.dockerImage = readString(terminal, 'docker_image', current.dockerImage)
+    next.vercelSandboxImage = readString(terminal, 'vercel_sandbox_image', current.vercelSandboxImage)
+    next.modalImage = readString(terminal, 'modal_image', current.modalImage)
+    next.daytonaImage = readString(terminal, 'daytona_image', current.daytonaImage)
+    next.singularityImage = readString(terminal, 'singularity_image', current.singularityImage)
+    next.dockerForwardEnv = readArray(terminal, 'docker_forward_env', current.dockerForwardEnv)
+    next.sshHost = readString(terminal, 'ssh_host', current.sshHost)
+    next.sshUser = readString(terminal, 'ssh_user', current.sshUser)
+    next.sshPort = readNumber(terminal, 'ssh_port', current.sshPort)
+  }
+  if (memory) {
+    next.memoryEnabled = readBoolean(memory, 'memory_enabled', current.memoryEnabled)
+    next.userProfileEnabled = readBoolean(memory, 'user_profile_enabled', current.userProfileEnabled)
+    next.memoryCharLimit = readNumber(memory, 'memory_char_limit', current.memoryCharLimit)
+    next.userCharLimit = readNumber(memory, 'user_char_limit', current.userCharLimit)
+    next.sessionRecall = readBoolean(memory, 'session_recall', current.sessionRecall)
+  }
+  if (compression) {
+    next.compressionEnabled = readBoolean(compression, 'enabled', current.compressionEnabled)
+    next.compressionThreshold = Math.round(readNumber(compression, 'threshold', current.compressionThreshold / 100) * 100)
+    next.compressionTargetRatio = Math.round(readNumber(compression, 'target_ratio', current.compressionTargetRatio / 100) * 100)
+    next.protectLastN = readNumber(compression, 'protect_last_n', current.protectLastN)
+    next.summaryProvider = readString(compression, 'summary_provider', current.summaryProvider)
+    next.summaryModel = readString(compression, 'summary_model', current.summaryModel)
+    next.summaryBaseUrl = readString(compression, 'summary_base_url', current.summaryBaseUrl)
+  }
+  if (display) {
+    next.toolProgress = readString(display, 'tool_progress', current.toolProgress) as ToolProgress
+    next.toolProgressCommand = readBoolean(display, 'tool_progress_command', current.toolProgressCommand)
+    next.showReasoning = readBoolean(display, 'show_reasoning', current.showReasoning)
+    next.streaming = readBoolean(display, 'streaming', current.streaming)
+    next.showCost = readBoolean(display, 'show_cost', current.showCost)
+    next.compactOutput = readBoolean(display, 'compact', current.compactOutput)
+    next.resumeDisplay = readString(display, 'resume_display', current.resumeDisplay)
+    next.bellOnComplete = readBoolean(display, 'bell_on_complete', current.bellOnComplete)
+    next.toolPreviewLength = readNumber(display, 'tool_preview_length', current.toolPreviewLength)
+    next.runtimeFooter = readBoolean(display, 'runtime_footer', current.runtimeFooter)
+    next.focusView = readBoolean(display, 'focus_view', current.focusView)
+    next.interimAssistantMessages = readBoolean(display, 'interim_assistant_messages', current.interimAssistantMessages)
+    next.suppressWarningNotifications = readBoolean(display, 'suppress_warning_notifications', current.suppressWarningNotifications)
+    next.showCommentary = readBoolean(display, 'show_commentary', current.showCommentary)
+    next.vimMode = readBoolean(display, 'vim_mode', current.vimMode)
+    next.timestamps = readBoolean(display, 'timestamps', current.timestamps)
+    next.timestampFormat = readString(display, 'timestamp_format', current.timestampFormat)
+    next.turnSummary = readBoolean(display, 'turn_summary', current.turnSummary)
+    next.spinnerTokenFlow = readBoolean(display, 'spinner_token_flow', current.spinnerTokenFlow)
+    next.bellOnPrompt = readBoolean(display, 'bell_on_prompt', current.bellOnPrompt)
+    next.fileMutationVerifier = readBoolean(display, 'file_mutation_verifier', current.fileMutationVerifier)
+    next.creditsNotices = readBoolean(display, 'credits_notices', current.creditsNotices)
+    next.cliMultilineShortcuts = readBoolean(display, 'cli_multiline_shortcuts', current.cliMultilineShortcuts)
+    next.theme = readString(display, 'skin', current.theme) as Theme
+  }
+  if (voice) {
+    const tts = isRecord(voice.tts) ? voice.tts : undefined
+    const stt = isRecord(voice.stt) ? voice.stt : undefined
+    const vision = isRecord(voice.vision) ? voice.vision : undefined
+    if (tts) {
+      next.ttsProvider = readString(tts, 'provider', current.ttsProvider)
+      next.ttsVoice = readString(tts, 'voice', current.ttsVoice)
+      next.ttsModel = readString(tts, 'model', current.ttsModel)
+    }
+    if (stt) {
+      next.sttProvider = readString(stt, 'provider', current.sttProvider)
+      next.sttLocalModel = readString(stt, 'local_model', current.sttLocalModel)
+    }
+    if (vision) {
+      next.visionProvider = readString(vision, 'provider', current.visionProvider)
+      next.visionModel = readString(vision, 'model', current.visionModel)
+      next.visionTimeout = readNumber(vision, 'timeout', current.visionTimeout)
+    }
+  }
+  if (web) {
+    next.webBackend = readString(web, 'backend', current.webBackend)
+    next.webExtractBackend = readString(web, 'extract_backend', current.webExtractBackend)
+    next.webKeylessFallback = readBoolean(web, 'keyless_fallback', current.webKeylessFallback)
+    next.webKeylessRescue = readBoolean(web, 'keyless_rescue', current.webKeylessRescue)
+    const tiers = isRecord(web.provider_tier) ? web.provider_tier : undefined
+    next.parallelTier = readString(tiers, 'parallel', current.parallelTier)
+    next.exaTier = readString(tiers, 'exa', current.exaTier)
+    next.browserCloudProvider = readString(web, 'browser_cloud_provider', current.browserCloudProvider)
+    next.imageProvider = readString(web, 'image_provider', current.imageProvider)
+  }
+  if (browser) {
+    next.browserInactivityTimeout = readNumber(browser, 'inactivity_timeout', current.browserInactivityTimeout)
+    next.browserCommandTimeout = readNumber(browser, 'command_timeout', current.browserCommandTimeout)
+    next.browserRecordSessions = readBoolean(browser, 'record_sessions', current.browserRecordSessions)
+    next.browserCdpUrl = readString(browser, 'cdp_url', current.browserCdpUrl)
+    next.browserDialogPolicy = readString(browser, 'dialog_policy', current.browserDialogPolicy)
+    next.browserDialogTimeout = readNumber(browser, 'dialog_timeout', current.browserDialogTimeout)
+    next.browserPersistence = readBoolean(browser, 'managed_persistence', current.browserPersistence)
+  }
+  if (apiServer) {
+    next.apiServerEnabled = readBoolean(apiServer, 'enabled', current.apiServerEnabled)
+    next.apiServerHost = readString(apiServer, 'host', current.apiServerHost)
+    next.apiServerPort = readNumber(apiServer, 'port', current.apiServerPort)
+    next.apiServerMaxRuns = readNumber(apiServer, 'max_concurrent_runs', current.apiServerMaxRuns)
+  }
+  if (gatewayStreaming) {
+    next.gatewayStreaming = readBoolean(gatewayStreaming, 'enabled', current.gatewayStreaming)
+    next.gatewayEditInterval = readNumber(gatewayStreaming, 'edit_interval', current.gatewayEditInterval)
+  }
+  if (channels) {
+    next.telegramEnabled = readBoolean(channels, 'telegram', current.telegramEnabled)
+    next.discordEnabled = readBoolean(channels, 'discord', current.discordEnabled)
+    next.slackEnabled = readBoolean(channels, 'slack', current.slackEnabled)
+    next.whatsappEnabled = readBoolean(channels, 'whatsapp', current.whatsappEnabled)
+    next.signalEnabled = readBoolean(channels, 'signal', current.signalEnabled)
+    next.homeAssistantEnabled = readBoolean(channels, 'homeassistant', current.homeAssistantEnabled)
+  }
+  if (gateway) {
+    next.multiplexProfiles = readBoolean(gateway, 'multiplex_profiles', current.multiplexProfiles)
+    next.profileRouting = readString(gateway, 'profile_routing', current.profileRouting)
+  }
+  if (mcp) {
+    next.mcpAutoDiscover = readBoolean(mcp, 'auto_discover', current.mcpAutoDiscover)
+    next.mcpTimeout = readNumber(mcp, 'timeout', current.mcpTimeout)
+    next.mcpServers = readArray(mcp, 'servers', current.mcpServers)
+  }
+  if (toolsets) {
+    next.disabledToolsets = readArray(toolsets, 'disabled', current.disabledToolsets)
+    next.cliToolsetPreset = readString(toolsets, 'cli_preset', current.cliToolsetPreset)
+    next.messagingToolsetPreset = readString(toolsets, 'messaging_preset', current.messagingToolsetPreset)
+  }
+  if (codeExecution) {
+    next.codeExecutionMode = readString(codeExecution, 'mode', current.codeExecutionMode)
+    next.codeExecutionTimeout = readNumber(codeExecution, 'timeout', current.codeExecutionTimeout)
+    next.codeExecutionMaxToolCalls = readNumber(codeExecution, 'max_tool_calls', current.codeExecutionMaxToolCalls)
+  }
+  if (loopGuardrails) {
+    next.loopWarningsEnabled = readBoolean(loopGuardrails, 'warnings_enabled', current.loopWarningsEnabled)
+    next.loopHardStopEnabled = readBoolean(loopGuardrails, 'hard_stop_enabled', current.loopHardStopEnabled)
+    next.nonInteractiveHardStopEnabled = readBoolean(loopGuardrails, 'non_interactive_hard_stop_enabled', current.nonInteractiveHardStopEnabled)
+  }
+  if (warnAfter) {
+    next.exactFailureWarnAfter = readNumber(warnAfter, 'exact_failure', current.exactFailureWarnAfter)
+    next.sameToolFailureWarnAfter = readNumber(warnAfter, 'same_tool_failure', current.sameToolFailureWarnAfter)
+    next.idempotentWarnAfter = readNumber(warnAfter, 'idempotent_no_progress', current.idempotentWarnAfter)
+  }
+  if (hardStopAfter) {
+    next.exactFailureHardStopAfter = readNumber(hardStopAfter, 'exact_failure', current.exactFailureHardStopAfter)
+    next.sameToolFailureHardStopAfter = readNumber(hardStopAfter, 'same_tool_failure', current.sameToolFailureHardStopAfter)
+    next.idempotentHardStopAfter = readNumber(hardStopAfter, 'idempotent_no_progress', current.idempotentHardStopAfter)
+  }
+  if (loopCaps) {
+    next.maxWebSearchesPerTurn = readNumber(loopCaps, 'max_web_searches', current.maxWebSearchesPerTurn)
+    next.maxSubagentsPerTurn = readNumber(loopCaps, 'max_subagents', current.maxSubagentsPerTurn)
+  }
+  if (toolBudget) {
+    next.genericResultSizeChars = readNumber(toolBudget, 'generic_result_size_chars', current.genericResultSizeChars)
+    next.mcpResultSizeChars = readNumber(toolBudget, 'mcp_result_size_chars', current.mcpResultSizeChars)
+  }
+  if (runtime) {
+    next.runtimeNofileSoftLimit = readNumber(runtime, 'nofile_soft_limit', current.runtimeNofileSoftLimit)
+    next.executionGuidance = readString(runtime, 'execution_guidance', current.executionGuidance)
+    next.stallGuards = readBoolean(runtime, 'stall_guards', current.stallGuards)
+  }
+  if (liveness) {
+    next.turnLivenessTimeout = readNumber(liveness, 'timeout_s', current.turnLivenessTimeout)
+    next.turnLivenessPoll = readNumber(liveness, 'poll_s', current.turnLivenessPoll)
+  }
+  if (automation) {
+    next.cronEnabled = readBoolean(automation, 'cron_enabled', current.cronEnabled)
+    next.wakeEnabled = readBoolean(automation, 'wake_enabled', current.wakeEnabled)
+    next.backgroundAgents = readBoolean(automation, 'background_agents', current.backgroundAgents)
+    next.schedulePolicy = readString(automation, 'schedule_policy', current.schedulePolicy)
+    next.scheduleConcurrency = readNumber(automation, 'schedule_concurrency', current.scheduleConcurrency)
+    next.completionNotifications = readBoolean(automation, 'completion_notifications', current.completionNotifications)
+  }
+  if (humanDelay) {
+    next.humanDelayMode = readString(humanDelay, 'mode', current.humanDelayMode)
+    next.humanDelayMinMs = readNumber(humanDelay, 'min_ms', current.humanDelayMinMs)
+    next.humanDelayMaxMs = readNumber(humanDelay, 'max_ms', current.humanDelayMaxMs)
+  }
+  if (security) {
+    next.safeMode = readBoolean(security, 'safe_mode', current.safeMode)
+    next.approvalMode = readString(security, 'approval_mode', current.approvalMode)
+    next.redactPii = readBoolean(security, 'redact_pii', current.redactPii)
+    next.networkGuard = readBoolean(security, 'network_guard', current.networkGuard)
+    next.shellConfirmation = readBoolean(security, 'shell_confirmation', current.shellConfirmation)
+    next.gitForceGuard = readBoolean(security, 'git_force_guard', current.gitForceGuard)
+    next.checkpointsEnabled = readBoolean(security, 'checkpoints_enabled', current.checkpointsEnabled)
+    next.maxSnapshots = readNumber(security, 'max_snapshots', current.maxSnapshots)
+    next.clearOnExit = readBoolean(security, 'clear_on_exit', current.clearOnExit)
+  }
+
+  if (hermesContext) {
+    next.contextEngine = readString(hermesContext, 'engine', current.contextEngine)
+    next.memoryProvider = readString(hermesContext, 'memory_provider', current.memoryProvider)
+    next.auxiliaryReasoningEffort = readString(hermesContext, 'auxiliary_reasoning_effort', current.auxiliaryReasoningEffort)
+  }
+  if (credentialPool) next.credentialPoolStrategy = readString(credentialPool, 'strategy', current.credentialPoolStrategy)
+  if (fallbackModel) {
+    next.fallbackModelProvider = readString(fallbackModel, 'provider', current.fallbackModelProvider)
+    next.fallbackModel = readString(fallbackModel, 'model', current.fallbackModel)
+    next.fallbackModelBaseUrl = readString(fallbackModel, 'base_url', current.fallbackModelBaseUrl)
+  }
+
+  const mapAux = (prefix: 'WebExtract' | 'Approval' | 'SessionSearch' | 'SkillsHub' | 'Mcp' | 'Flush', key: string) => {
+    const record = aux(key)
+    if (!record) return
+    next[`aux${prefix}Provider` as keyof SettingsState] = readString(record, 'provider', current[`aux${prefix}Provider` as keyof SettingsState] as string) as never
+    next[`aux${prefix}Model` as keyof SettingsState] = readString(record, 'model', current[`aux${prefix}Model` as keyof SettingsState] as string) as never
+    next[`aux${prefix}BaseUrl` as keyof SettingsState] = readString(record, 'base_url', current[`aux${prefix}BaseUrl` as keyof SettingsState] as string) as never
+    next[`aux${prefix}Timeout` as keyof SettingsState] = readNumber(record, 'timeout', current[`aux${prefix}Timeout` as keyof SettingsState] as number) as never
+  }
+  mapAux('WebExtract', 'web_extract')
+  mapAux('Approval', 'approval')
+  mapAux('SessionSearch', 'session_search')
+  mapAux('SkillsHub', 'skills_hub')
+  mapAux('Mcp', 'mcp')
+  mapAux('Flush', 'flush_memories')
+
+  const vision = aux('vision')
+  if (vision) next.visionDownloadTimeout = readNumber(vision, 'download_timeout', current.visionDownloadTimeout)
+  if (hermesTts) {
+    next.ttsBaseUrl = readString(hermesTts, 'base_url', current.ttsBaseUrl)
+    next.ttsVoiceId = readString(hermesTts, 'voice_id', current.ttsVoiceId)
+    next.ttsModelId = readString(hermesTts, 'model_id', current.ttsModelId)
+    next.ttsRefAudio = readString(hermesTts, 'ref_audio', current.ttsRefAudio)
+    next.ttsRefText = readString(hermesTts, 'ref_text', current.ttsRefText)
+    next.ttsDevice = readString(hermesTts, 'device', current.ttsDevice)
+  }
+  if (hermesVoice) {
+    next.voiceRecordKey = readString(hermesVoice, 'record_key', current.voiceRecordKey)
+    next.voiceMaxRecordingSeconds = readNumber(hermesVoice, 'max_recording_seconds', current.voiceMaxRecordingSeconds)
+    next.voiceAutoTts = readBoolean(hermesVoice, 'auto_tts', current.voiceAutoTts)
+    next.voiceSilenceThreshold = readNumber(hermesVoice, 'silence_threshold', current.voiceSilenceThreshold)
+    next.voiceSilenceDuration = readNumber(hermesVoice, 'silence_duration', current.voiceSilenceDuration)
+  }
+  if (hermesDisplay) {
+    next.cliSkin = readString(hermesDisplay, 'skin', current.cliSkin)
+    next.personalityPreset = readString(hermesDisplay, 'personality', current.personalityPreset)
+    next.toolProgressOverrides = readString(hermesDisplay, 'tool_progress_overrides', current.toolProgressOverrides)
+  }
+  if (hermesWeb) {
+    next.webCrawlBackend = readString(hermesWeb, 'crawl_backend', current.webCrawlBackend)
+    next.parallelSearchMode = readString(hermesWeb, 'parallel_search_mode', current.parallelSearchMode)
+    next.firecrawlApiUrl = readString(hermesWeb, 'firecrawl_api_url', current.firecrawlApiUrl)
+  }
+  if (hermesStreaming) {
+    next.streamReadTimeout = readNumber(hermesStreaming, 'read_timeout', current.streamReadTimeout)
+    next.streamStaleTimeout = readNumber(hermesStreaming, 'stale_timeout', current.streamStaleTimeout)
+    next.apiTimeout = readNumber(hermesStreaming, 'api_timeout', current.apiTimeout)
+    next.gatewayBufferThreshold = readNumber(hermesStreaming, 'gateway_buffer_threshold', current.gatewayBufferThreshold)
+    next.gatewayCursor = readString(hermesStreaming, 'gateway_cursor', current.gatewayCursor)
+  }
+  if (hermesGateway) {
+    next.groupSessionsPerUser = readBoolean(hermesGateway, 'group_sessions_per_user', current.groupSessionsPerUser)
+    next.unauthorizedDmBehavior = readString(hermesGateway, 'unauthorized_dm_behavior', current.unauthorizedDmBehavior)
+    next.unauthorizedDmOverrides = readString(hermesGateway, 'unauthorized_dm_overrides', current.unauthorizedDmOverrides)
+  }
+  if (hermes) next.quickCommands = readString(hermes, 'quick_commands', current.quickCommands)
+
+  if (typeof payload.timezone === 'string') next.timezone = payload.timezone
+  if (hermesUi) {
+    next.theme = readString(hermesUi, 'theme', current.theme) as Theme
+    next.accent = readString(hermesUi, 'accent', current.accent) as Accent
+    next.density = readString(hermesUi, 'density', current.density) as Density
+    next.uiScale = readNumber(hermesUi, 'ui_scale', current.uiScale)
+    next.fontSize = readNumber(hermesUi, 'font_size', current.fontSize)
+    next.language = readString(hermesUi, 'language', current.language)
+    next.workspaceName = readString(hermesUi, 'workspace_name', current.workspaceName)
+    next.startupView = readString(hermesUi, 'startup_view', current.startupView)
+  }
+
+  return next
 }
 
 function toPortableConfig(settings: SettingsState, profiles: Profile[], activeProfileId: string) {

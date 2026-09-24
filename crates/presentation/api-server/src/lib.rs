@@ -3840,15 +3840,47 @@ async fn worker_complete(
     };
 
     if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
-        let target = if request.success {
+        let related_jobs = state
+            .scheduler
+            .list()
+            .await
+            .into_iter()
+            .filter(|candidate| candidate.spec.run_id == job.spec.run_id)
+            .collect::<Vec<_>>();
+
+        let any_failed = related_jobs
+            .iter()
+            .any(|candidate| candidate.state == JobState::Failed);
+        let any_active = related_jobs.iter().any(|candidate| {
+            matches!(
+                candidate.state,
+                JobState::Pending | JobState::Ready | JobState::Running
+            )
+        });
+        let all_succeeded = !related_jobs.is_empty()
+            && related_jobs
+                .iter()
+                .all(|candidate| candidate.state == JobState::Succeeded);
+
+        let target = if any_failed {
+            RunState::Failed
+        } else if all_succeeded {
             RunState::Completed
-        } else if job.attempts >= job.spec.max_attempts.max(1) {
+        } else if any_active {
+            RunState::Waiting
+        } else if !request.success && job.attempts >= job.spec.max_attempts.max(1) {
             RunState::Failed
         } else {
             RunState::Waiting
         };
-        if matches!(run.state, RunState::Running | RunState::Waiting | RunState::Admitted) {
-            let _ = state.kernel.transition_run(&run_id, target, run.version).await;
+
+        if matches!(run.state, RunState::Running | RunState::Waiting | RunState::Admitted)
+            && target != run.state
+        {
+            let _ = state
+                .kernel
+                .transition_run(&run_id, target, run.version)
+                .await;
         }
     }
 

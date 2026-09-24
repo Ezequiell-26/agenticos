@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { navigationItems, type RailMode } from '../../navigation'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
+import RuntimeProbePanel from './RuntimeProbePanel'
 import './FeatureWorkbench.css'
 
 type FeatureWorkbenchProps = {
@@ -252,6 +253,8 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
       <section className="feature-workbench__metrics" aria-label="Feature metrics">
         {config.metrics.map(([label, value, sub]) => <MetricCard key={label} label={label} value={value} sub={sub} />)}
       </section>
+
+      <RuntimeProbePanel mode={mode} onAction={onAction} />
 
       <div className="feature-state-preview" aria-label="Preview surface state">
         <span className="feature-state-preview__label">State preview</span>

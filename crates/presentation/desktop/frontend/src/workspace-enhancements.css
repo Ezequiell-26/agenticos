@@ -2514,7 +2514,7 @@ body { background: var(--shell-black); }
 .session-tab__dot--active { background: var(--agenticos-accent); border-color: var(--agenticos-accent); }
 .session-tab--new { padding-inline: 9px; }
 
-.composer-row { display: flex; align-items: flex-end; gap: 4px; padding: 6px 8px 2px; }
+.composer-row { display: flex; align-items: center; gap: 4px; padding: 6px 8px 2px; }
 .composer-plus-wrap { position: relative; display: inline-flex; }
 .composer-icon--plus { width: 30px; height: 30px; align-self: center; }
 .composer-plus-menu { position: absolute; bottom: calc(100% + 10px); left: 0; z-index: 240; width: 240px; max-height: min(430px, calc(100vh - 220px)); overflow-y: auto; padding: 6px; border: 1px solid #26262c; border-radius: 12px; background: #0b0b0e; box-shadow: 0 24px 60px rgba(0,0,0,.5); }

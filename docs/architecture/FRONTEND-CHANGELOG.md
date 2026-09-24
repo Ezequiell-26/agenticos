@@ -1533,3 +1533,10 @@ Verification status:
 - Added a 30s background re-sync so the shell reconnects automatically once the runtime becomes available, without manual reloads.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; reload with the API server up-but-partial shows no banner and the offline state verified in the browser preview.
+
+## 2026-09-25 — Composer alignment and plain-text assistant answers
+
+- Aligned the composer row so the "+" button, the "Add more context" input and the model/effort/voice/send controls sit on the same visual line (center alignment instead of bottom alignment).
+- Re-applied plain-text assistant answers: bot responses render only the response text without the dark bubble, avatar, header or action row; user and system messages keep their bubbles.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; alignment and plain-text rendering verified in the browser preview.

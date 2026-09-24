@@ -72,12 +72,44 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
     return q ? servers.filter((server) => [server.name, server.detail, server.transport, server.auth].join(' ').toLowerCase().includes(q)) : servers
   }, [servers, search])
 
-  function addServer() {
-    const next: Server = { name: 'new-server', detail: 'Custom MCP endpoint', tools: 0, state: 'Draft', transport: 'stdio', auth: 'Not configured', resources: 0, risk: 'Review' }
-    setServers((items) => [next, ...items])
-    setSelected(next.name)
-    setTab('Overview')
-    onAction('New MCP server created in preview')
+  async function addServer() {
+    const serverId = window.prompt('MCP server_id', 'my-mcp-server')?.trim()
+    if (!serverId) return
+    const name = window.prompt('Display name', serverId)?.trim() || serverId
+    const command = window.prompt('stdio command', 'npx')?.trim()
+    if (!command) return
+    const argsRaw = window.prompt('Arguments (space separated)', '') ?? ''
+    const args = argsRaw.split(/\\s+/).map((value) => value.trim()).filter(Boolean)
+    try {
+      await runtime.mcp.register({
+        server: {
+          server_id: serverId,
+          name,
+          enabled: true,
+          timeout_ms: 30000,
+          transport: { Stdio: { command, args } },
+        },
+      })
+      const remoteServers = await runtime.mcp.list()
+      const mapped = remoteServers.map((server, index) => {
+        const id = typeof server.server_id === 'string' ? server.server_id : typeof server.name === 'string' ? server.name : `server-${index + 1}`
+        return {
+          name: id,
+          detail: typeof server.description === 'string' ? server.description : 'Runtime MCP server',
+          tools: typeof server.tool_count === 'number' ? server.tool_count : 0,
+          state: server.enabled === false ? 'Disabled' : 'Connected',
+          transport: typeof server.transport === 'string' ? server.transport : 'stdio',
+          auth: typeof server.auth === 'string' ? server.auth : 'Runtime',
+          resources: typeof server.resource_count === 'number' ? server.resource_count : 0,
+          risk: 'Review',
+        }
+      })
+      setServers(mapped)
+      setSelected(serverId)
+      onAction(serverId + ' registered in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'MCP registration failed')
+    }
   }
 
   return (
@@ -97,9 +129,9 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
 
           {tab === 'Tools' && <Section title="Tool registry" description={toolsSyncing ? 'Discovering tools from the connected MCP server.' : 'Live tool catalog returned by the MCP runtime.'}><div className="mcp-manager__table">{(serverTools.length > 0 ? serverTools : []).map((tool,index) => { const name=typeof tool.name==='string'?tool.name:`tool-${index+1}`; const description=typeof tool.description==='string'?tool.description:'Runtime MCP tool'; return <div key={name}><span>{String(index+1).padStart(2,'0')}</span><strong>{name}</strong><small>{description}</small><button type="button" className="mini-chip">{'Runtime'}</button></div>})}{!toolsSyncing && serverTools.length===0 && <div className="review-empty">No tools were returned by this MCP server.</div>}</div></Section>}
 
-          {tab === 'Resources' && <Section title="Resources & prompts" description="Model resources, templates and prompt assets exposed by the server."><div className="mcp-manager__resource-grid">{[['workspace://README.md','Document'],['project://config','Structured'],['prompt://review','Prompt'],['resource://schema','Schema']].slice(0,current.resources || 2).map(([name,type])=><div key={name}><Icon name={type === 'Prompt' ? 'spark' : 'archive'} size={14} /><span><strong>{name}</strong><small>{type} · read-only preview</small></span></div>)}</div><button className="studio-button" type="button" onClick={() => onAction('MCP resource catalog refreshed in preview')}><Icon name="refresh" size={13} /> Refresh catalog</button></Section>}
+          {tab === 'Resources' && <Section title="Resources & prompts" description="Model resources, templates and prompt assets exposed by the server."><div className="mcp-manager__resource-grid">{[['workspace://README.md','Document'],['project://config','Structured'],['prompt://review','Prompt'],['resource://schema','Schema']].slice(0,current.resources || 2).map(([name,type])=><div key={name}><Icon name={type === 'Prompt' ? 'spark' : 'archive'} size={14} /><span><strong>{name}</strong><small>{type} · read-only preview</small></span></div>)}</div><button className="studio-button" type="button" onClick={() => void runtime.mcp.sync(current.name).then(() => onAction(current.name + ' resource/tool catalog synced in runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'MCP catalog sync failed'))}><Icon name="refresh" size={13} /> Refresh catalog</button></Section>}
 
-          {tab === 'Auth' && <Section title="Authentication" description="Represent connection readiness without exposing a secret value."><div className="mcp-manager__auth-card"><div><span className="eyebrow">Current method</span><strong>{current.auth}</strong><small>{current.auth === 'OAuth' ? 'External consent flow' : current.auth === 'Local' ? 'No secret required' : 'Secret stored outside UI'}</small></div><div className="mcp-manager__masked-secret"><Icon name="lock" size={14} /><span>••••••••••••</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' authentication flow opened in preview')}>{current.auth === 'OAuth' ? 'Authorize' : 'Configure'}</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(current.name + ' credential status checked in preview')}>Check status</button></div></div></Section>}
+          {tab === 'Auth' && <Section title="Authentication" description="Represent connection readiness without exposing a secret value."><div className="mcp-manager__auth-card"><div><span className="eyebrow">Current method</span><strong>{current.auth}</strong><small>{current.auth === 'OAuth' ? 'External consent flow' : current.auth === 'Local' ? 'No secret required' : 'Secret stored outside UI'}</small></div><div className="mcp-manager__masked-secret"><Icon name="lock" size={14} /><span>••••••••••••</span></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction(current.name + ' authentication is runtime-owned; configure the server transport/credentials outside this UI')}>{current.auth === 'OAuth' ? 'Authorize' : 'Configure'}</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.mcp.tools(current.name).then(() => onAction(current.name + ' runtime connection responded')).catch((error) => onAction(error instanceof Error ? error.message : 'MCP connection check failed'))}>Check status</button></div></div></Section>}
 
           {tab === 'Policy' && <Section title="Server policy" description="Preview which classes of MCP operation are allowed, gated or denied."><div className="mcp-manager__policy-list">{[['Read tools','Allow'],['Write tools','Ask'],['Network resources','Ask'],['Credentials access','Deny'],['Destructive operations','Deny']].map(([name,value])=><div key={name}><span><strong>{name}</strong><small>Runtime authorization remains authoritative.</small></span><Select value={value} onChange={(next) => onAction(name + ' set to ' + next + ' in preview')} /></div>)}</div></Section>}
         </div>

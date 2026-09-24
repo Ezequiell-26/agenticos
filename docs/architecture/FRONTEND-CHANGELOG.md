@@ -1299,3 +1299,12 @@ Verification status:
 - Added a frontend architecture regression guard so the workspace navigation callback cannot silently be removed.
 - Preserved the monochrome design language and reduced-motion behavior.
 - Verification status: source updates applied; production build, browser execution, accessibility execution and Tauri rendering remain pending.
+
+
+## 2026-09-24 — Interaction semantics hardening
+
+- Upgraded the feature launcher and global search results with explicit combobox/listbox/option semantics and selection state for assistive technologies.
+- Added menu button state semantics and `menuitem` roles to session actions.
+- Exposed ChatSurface execution state through `aria-busy` without coupling accessibility state to runtime implementation details.
+- Added architecture-gate checks so these interaction contracts cannot silently regress.
+- Verification status: source-level checks passed for the new structural guards; production build, browser accessibility execution and Tauri rendering remain pending.

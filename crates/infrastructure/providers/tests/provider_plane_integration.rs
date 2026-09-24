@@ -832,111 +832,110 @@ async fn http_model_provider_executes_against_a_deterministic_local_provider() {
 
 #[tokio::test]
 async fn provider_platform_enforces_requests_per_minute_before_network_dispatch() {
-let body =
-    r#"{"choices":[{"message":{"content":"quota-success"}}],"usage":{"total_tokens":5}}"#;
-let (base_url, server) = spawn_http_response_server(body);
+    let body =
+        r#"{"choices":[{"message":{"content":"quota-success"}}],"usage":{"total_tokens":5}}"#;
+    let (base_url, server) = spawn_http_response_server(body);
 
-let platform = ProviderPlatform::new();
-platform
-    .register(
-        provider_with_base_url("quota-provider", base_url, &["quota-model"]),
-        None,
-    )
-    .await
-    .expect("register quota provider");
-
-platform
-    .set_quota(QuotaInfo {
-        provider_id: "quota-provider".to_string(),
-        requests_per_minute: Some(1),
-        tokens_per_minute: None,
-        current_usage: 0,
-    })
-    .await
-    .expect("configure request quota");
-
-let first = platform
-    .execute(ModelRequest {
-        request_id: "quota-request-1".to_string(),
-        model: "quota-model".to_string(),
-        input: "first".to_string(),
-        parameters: None,
-    })
-    .await
-    .expect("first request should reach provider");
-
-assert_eq!(first.output, "quota-success");
-
-let second = platform
-    .execute(ModelRequest {
-        request_id: "quota-request-2".to_string(),
-        model: "quota-model".to_string(),
-        input: "second".to_string(),
-        parameters: None,
-    })
-    .await
-    .expect_err("second request should be rejected by the local quota");
-
-assert!(second.to_string().contains("quota exceeded"));
-
-server.join().expect("join quota test server");
-
-assert_eq!(
+    let platform = ProviderPlatform::new();
     platform
-        .get_quota("quota-provider")
+        .register(
+            provider_with_base_url("quota-provider", base_url, &["quota-model"]),
+            None,
+        )
         .await
-        .expect("quota state should exist")
-        .current_usage,
-    1
-);
-}
+        .expect("register quota provider");
 
+    platform
+        .set_quota(QuotaInfo {
+            provider_id: "quota-provider".to_string(),
+            requests_per_minute: Some(1),
+            tokens_per_minute: None,
+            current_usage: 0,
+        })
+        .await
+        .expect("configure request quota");
+
+    let first = platform
+        .execute(ModelRequest {
+            request_id: "quota-request-1".to_string(),
+            model: "quota-model".to_string(),
+            input: "first".to_string(),
+            parameters: None,
+        })
+        .await
+        .expect("first request should reach provider");
+
+    assert_eq!(first.output, "quota-success");
+
+    let second = platform
+        .execute(ModelRequest {
+            request_id: "quota-request-2".to_string(),
+            model: "quota-model".to_string(),
+            input: "second".to_string(),
+            parameters: None,
+        })
+        .await
+        .expect_err("second request should be rejected by the local quota");
+
+    assert!(second.to_string().contains("quota exceeded"));
+
+    server.join().expect("join quota test server");
+
+    assert_eq!(
+        platform
+            .get_quota("quota-provider")
+            .await
+            .expect("quota state should exist")
+            .current_usage,
+        1
+    );
+}
 
 #[tokio::test]
 async fn provider_platform_persists_active_quota_window_across_restart() {
-let path =
-    std::env::temp_dir().join(format!("agenticos-provider-quota-{}.db", uuid::Uuid::new_v4()));
-let url = format!("sqlite://{}?mode=rwc", path.display());
+    let path = std::env::temp_dir().join(format!(
+        "agenticos-provider-quota-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let url = format!("sqlite://{}?mode=rwc", path.display());
 
-let first = ProviderPlatform::open(&url)
-    .await
-    .expect("open provider platform");
-first
-    .register(
-        provider_with_base_url(
-            "durable-quota",
-            "http://127.0.0.1:45555",
-            &["quota-model"],
-        ),
-        None,
-    )
-    .await
-    .expect("register provider");
-first
-    .set_quota(QuotaInfo {
-        provider_id: "durable-quota".to_string(),
-        requests_per_minute: Some(10),
-        tokens_per_minute: Some(10_000),
-        current_usage: 4,
-    })
-    .await
-    .expect("persist quota");
+    let first = ProviderPlatform::open(&url)
+        .await
+        .expect("open provider platform");
+    first
+        .register(
+            provider_with_base_url(
+                "durable-quota",
+                "http://127.0.0.1:45555",
+                &["quota-model"],
+            ),
+            None,
+        )
+        .await
+        .expect("register provider");
+    first
+        .set_quota(QuotaInfo {
+            provider_id: "durable-quota".to_string(),
+            requests_per_minute: Some(10),
+            tokens_per_minute: Some(10_000),
+            current_usage: 4,
+        })
+        .await
+        .expect("persist quota");
 
-drop(first);
+    drop(first);
 
-let second = ProviderPlatform::open(&url)
-    .await
-    .expect("reopen provider platform");
-let recovered = second
-    .get_quota("durable-quota")
-    .await
-    .expect("recover quota");
+    let second = ProviderPlatform::open(&url)
+        .await
+        .expect("reopen provider platform");
+    let recovered = second
+        .get_quota("durable-quota")
+        .await
+        .expect("recover quota");
 
-assert_eq!(recovered.current_usage, 4);
-assert_eq!(recovered.requests_per_minute, Some(10));
-assert_eq!(recovered.tokens_per_minute, Some(10_000));
+    assert_eq!(recovered.current_usage, 4);
+    assert_eq!(recovered.requests_per_minute, Some(10));
+    assert_eq!(recovered.tokens_per_minute, Some(10_000));
 
-let _ = std::fs::remove_file(path);
-}
-
+    let _ = std::fs::remove_file(path);
 }

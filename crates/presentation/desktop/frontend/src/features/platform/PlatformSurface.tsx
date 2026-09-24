@@ -63,14 +63,10 @@ const GENERIC_FEATURE_MODES: ReadonlySet<PlatformMode> = new Set<PlatformMode>([
   'webhooks', 'imports', 'media', 'wake',
 ])
 
-const AgentStudio = lazy(() => import('../agents/AgentStudio'))
-const ArtifactViewer = lazy(() => import('../artifacts/ArtifactViewer'))
 const ProviderStudio = lazy(() => import('../providers/ProviderStudio'))
-const RunTimeline = lazy(() => import('../runs/RunTimeline'))
 const SkillsStudio = lazy(() => import('../skills/SkillsStudio'))
 const ToolsStudio = lazy(() => import('../tools/ToolsStudio'))
 const WorkflowBuilder = lazy(() => import('../workflows/WorkflowBuilder'))
-const SettingsControlCenter = lazy(() => import('../settings/SettingsControlCenter'))
 import './FinalControlSuite.css'
 import './KnowledgeStudio.css'
 import './DeveloperWorkspace.css'
@@ -106,7 +102,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
   const [voiceMode, setVoiceMode] = useState(true)
   const [integration, setIntegration] = useState(integrations[0][0])
-  const [artifactSelected, setArtifactSelected] = useState('agenticos-command-center.png')
   const [notice, setNotice] = useState('')
 
   function notify(message: string) {
@@ -148,30 +143,9 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
     </Shell>
   )
 
-  if (mode === 'runs') return (
-    <Shell>
-      <RunTimeline onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
   if (mode === 'tasks') return (
     <Shell>
       <TaskExecutionCenter onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'agents') return (
-    <Shell>
-      <AgentStudio onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'artifacts') return (
-    <Shell>
-      <ArtifactViewer selected={artifactSelected} onSelect={setArtifactSelected} onAction={notify} />
       <Toast message={notice} />
     </Shell>
   )
@@ -186,13 +160,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   if (mode === 'skills') return (
     <Shell>
       <SkillsStudio onAction={notify} />
-      <Toast message={notice} />
-    </Shell>
-  )
-
-  if (mode === 'settings') return (
-    <Shell>
-      <SettingsControlCenter notify={notify} />
       <Toast message={notice} />
     </Shell>
   )

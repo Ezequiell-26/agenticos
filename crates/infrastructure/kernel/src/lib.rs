@@ -1129,7 +1129,11 @@ pub struct SqliteSnapshotStore {
 impl SqliteSnapshotStore {
     /// Create a new SQLite snapshot store with the given connection string.
     pub async fn new(connection_string: &str) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(connection_string)
+            .await?;
 
         // Initialize schema
         sqlx::query(
@@ -2455,7 +2459,7 @@ impl ReactAgent {
                             timestamp: msg.timestamp.max(0) as u64,
                             token_count: ((msg.content.chars().count() as u32).saturating_add(3)
                                 / 4)
-                                .max(1),
+                            .max(1),
                             run_id: run_id.clone(),
                         })
                         .collect::<Vec<_>>();

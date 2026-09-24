@@ -76,7 +76,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
     <div className="provider-studio">
       <aside className="provider-studio__sidebar">
         <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{providers.length}</span></div>
-        {providers.map((item) => <button type="button" key={item.name} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className="status-dot status-dot--live" /></button>)}
+        {providers.map((item) => <button type="button" key={item.name} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
         <button className="studio-button" type="button" onClick={() => onAction('Provider route creation opened in preview')}><Icon name="plus" size={13} /> Add route</button>
       </aside>
 
@@ -87,10 +87,10 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
         </div>
 
         <div className="provider-studio__tabs" role="tablist" aria-label="Provider details">
-          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Verification', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
+          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Verification', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" id={'provider-tab-' + item.toLowerCase()} aria-controls="provider-tabpanel" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
         </div>
 
-        <div className="provider-studio__content">
+        <div className="provider-studio__content" id="provider-tabpanel" role="tabpanel" aria-labelledby={`provider-tab-${tab.toLowerCase()}`} tabIndex={0}>
           {tab === 'Overview' && <div className="provider-overview"><div className="provider-overview__hero"><div><span>Current health</span><strong>{provider.health}</strong><small>Runtime-owned when connected; preview state shown here.</small></div><div className="provider-health-ring"><span>{provider.load}%</span></div></div><div className="provider-stat-grid"><Metric label="Models" value={String(provider.models)} /><Metric label="Latency" value={provider.latency} /><Metric label="Load" value={String(provider.load) + '%'} /><Metric label="Quota" value={provider.quota} /></div><div className="provider-cap-grid"><Tag label="failover" /><Tag label="health check" /><Tag label="model catalog" /><Tag label="quota aware" /><Tag label="streaming" /><Tag label="vision capable" /></div></div>}
 
           {tab === 'Models' && <div className="provider-models"><div className="provider-model-toolbar"><input className="mini-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search models…" /><span className="mono-text">{compare.length}/3 compare slots</span></div>{visibleModels.map(([name, category, context, speed, route]) => <div className="provider-model-row" key={name}><div><strong>{name}</strong><span>{category} · {route}</span></div><span className="mono-text">{context}</span><span>{speed}</span><button className={compare.includes(name) ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => toggleCompare(name)}>Compare</button></div>)}{compare.length > 0 && <div className="provider-compare-strip">{compare.map((name) => <span key={name}>{name}<button type="button" onClick={() => toggleCompare(name)} aria-label={'Remove ' + name}>×</button></span>)}</div>}</div>}
@@ -155,7 +155,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
               </div>
             </div>
             <div className="provider-verification__summary">
-              <MetricCard label="Contracts" value="12" sub="Provider integration checks" />
+              <MetricCard label="Contracts" value="8" sub="Provider integration checks" />
               <MetricCard label="Passed" value={String(Object.values(verificationResults).filter((value) => value === 'Passed').length)} sub="Local preview results" />
               <MetricCard label="Needs review" value={String(Object.values(verificationResults).filter((value) => value === 'Needs review').length)} sub="Evidence required" />
               <MetricCard label="Runtime" value="Required" sub="CI / adapter evidence" />

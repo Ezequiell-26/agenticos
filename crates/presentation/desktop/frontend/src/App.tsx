@@ -17,7 +17,7 @@ import WorkspaceDock from './components/WorkspaceDock'
 import BrowserPanel from './components/BrowserPanel'
 import { navigationItems, primaryRailIds, type RailMode } from './navigation'
 import { runtime } from './services/runtime'
-import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, type ExperienceLevel } from './services/ui-preferences'
+import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, updateUiPreferences, type ExperienceLevel } from './services/ui-preferences'
 import { useExclusiveOverlay } from './hooks/useExclusiveOverlay'
 import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
 
@@ -342,7 +342,7 @@ function App() {
         <div className="workspace-main__content">
           {mode === 'chat' ? (
             <div className={'workspace-split' + (browserPanelVisible ? ' workspace-split--browser' : '')}>
-              <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} />
+              <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} browserPanelVisible={browserPanelVisible} onToggleBrowserPanel={() => updateUiPreferences({ browserPanelVisible: !browserPanelVisible })} />
               {browserPanelVisible && <BrowserPanel onAction={setToast} />}
             </div>
           ) : (

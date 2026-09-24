@@ -16,6 +16,8 @@ interface ChatSurfaceProps {
   sessions?: ConversationSummary[]
   onSelectSession?: (id: string) => void
   onCreateSession?: () => void
+  browserPanelVisible?: boolean
+  onToggleBrowserPanel?: () => void
 }
 
 const models = ['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']
@@ -57,7 +59,7 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   )
 }
 
-export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession }: ChatSurfaceProps) {
+export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession, browserPanelVisible = false, onToggleBrowserPanel }: ChatSurfaceProps) {
   const [draft, setDraft] = useState('')
   const [model, setModel] = useState(models[0])
   const [agent, setAgent] = useState(agents[0])
@@ -241,6 +243,18 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
           <button type="button" className="session-tab session-tab--new" aria-label="New session" title="New session · Ctrl+N" onClick={onCreateSession}>
             <Icon name="plus" size={14} />
           </button>
+          {onToggleBrowserPanel && (
+            <button
+              type="button"
+              className={browserPanelVisible ? 'session-tab session-tab--new session-tab--toggle-active' : 'session-tab session-tab--new'}
+              aria-label="Browser panel"
+              aria-pressed={browserPanelVisible}
+              title={browserPanelVisible ? 'Hide browser panel' : 'Open browser panel'}
+              onClick={onToggleBrowserPanel}
+            >
+              <Icon name="globe" size={14} />
+            </button>
+          )}
         </div>
       )}
       {advancedOpen && (

@@ -1481,6 +1481,13 @@ Verification status:
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; split layout, empty state and real navigation verified in the browser preview.
 
+## 2026-09-25 — Browser panel closed by default with a toggle in the tab strip
+
+- The browser panel now starts hidden; the layout stays chat-only until the panel is requested.
+- Added a globe toggle at the end of the session tab strip that opens and closes the browser panel, highlighted in the accent color while the panel is visible; the preference stays persisted and the right-click menu and Customize popover toggles keep working.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; default-closed behavior, globe toggle and reopen verified in the browser preview.
+
 ## 2026-09-25 — Frontend technical cleanup: unused Tailwind integration removed
 
 - Technical audit of the frontend stack: 115 TSX components, 12 TS modules and 35 CSS files — zero `.js`/`.jsx` sources, zero `any` typings, zero debug `console.log` calls (only two `console.error` in error boundaries), strict TypeScript (`strict`, `noUnusedLocals`, `noUnusedParameters`) and no duplicated helpers.

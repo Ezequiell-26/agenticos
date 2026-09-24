@@ -42,7 +42,7 @@ export const defaultUiPreferences: UiPreferences = {
   activityRailCompact: true,
   statusBarVisible: true,
   sessionTabsVisible: true,
-  browserPanelVisible: true,
+  browserPanelVisible: false,
   sidebarSide: 'left',
   showTooltips: true,
   hoverPreview: true,

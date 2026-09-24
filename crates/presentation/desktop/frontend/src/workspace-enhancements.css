@@ -2631,3 +2631,4 @@ body { background: var(--shell-black); }
 }
 .browser-tab__close { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 4px; color: #6d6d78; }
 .browser-tab__close:hover { background: #26262e; color: #f0f0f4; }
+.session-tab--toggle-active { color: var(--agenticos-accent); }

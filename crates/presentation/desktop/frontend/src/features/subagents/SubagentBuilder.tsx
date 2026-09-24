@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { runtime } from '../../services/runtime'
 import Icon from '../../components/Icon'
 
 type Tab = 'Task' | 'Context' | 'Delegation' | 'Safety' | 'Run'
@@ -104,8 +105,39 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   const [selectedId, setSelectedId] = useState(initialSubagents[0].id)
   const [tab, setTab] = useState<Tab>('Task')
   const [query, setQuery] = useState('')
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
 
   const current = items.find((item) => item.id === selectedId) ?? items[0]
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.subagents.list().then((agents) => {
+      if (cancelled || agents.length === 0) return
+      const mapped = agents.map((agent, index) => ({
+        id: typeof agent.agent_id === 'string' ? agent.agent_id : typeof agent.id === 'string' ? agent.id : `remote-${index + 1}`,
+        name: typeof agent.name === 'string' ? agent.name : `Runtime specialist ${index + 1}`,
+        role: typeof agent.role === 'string' ? agent.role : 'Runtime agent',
+        model: typeof agent.model === 'string' ? agent.model : 'Auto route',
+        status: 'Ready' as const,
+        task: typeof agent.task === 'string' ? agent.task : 'Runtime-managed specialist',
+        instructions: typeof agent.instructions === 'string' ? agent.instructions : '',
+        contextBudget: typeof agent.context_budget === 'number' ? agent.context_budget : 24000,
+        maxTurns: typeof agent.max_turns === 'number' ? agent.max_turns : 12,
+        toolset: typeof agent.toolset === 'string' ? agent.toolset : 'Runtime',
+        memory: 'Session' as const,
+        handoff: 'Summary' as const,
+        canDelegate: agent.can_delegate === true,
+        canWrite: agent.can_write === true,
+        canNetwork: agent.can_network === true,
+        requiresApproval: agent.requires_approval !== false,
+      }))
+      setItems(mapped)
+      setSelectedId((currentId) => mapped.some((item) => item.id === currentId) ? currentId : mapped[0].id)
+    }).catch(() => {
+      // Keep the local specialist catalog while runtime is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
   const visibleItems = useMemo(() => {
     const q = query.trim().toLowerCase()
     return q ? items.filter((item) => [item.name, item.role, item.model, item.task].join(' ').toLowerCase().includes(q)) : items
@@ -128,7 +160,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     setItems((list) => [next, ...list])
     setSelectedId(id)
     setTab('Task')
-    onAction('New subagent created in preview')
+    void runtime.subagents.create(next as unknown as Record<string, unknown>).then(() => onAction('New subagent created in runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime subagent creation failed'))
   }
 
   function run() {
@@ -146,7 +178,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     <div className="subagent-builder">
       <aside className="subagent-builder__rail">
         <div className="subagent-builder__rail-head">
-          <div><span className="eyebrow">Delegation control</span><strong>Specialists</strong></div>
+          <div><span className="eyebrow">Delegation control · {runtimeSyncing ? 'syncing' : 'runtime'}</span><strong>Specialists</strong></div>
           <button className="icon-button" type="button" aria-label="Create subagent" title="Create subagent" onClick={create}><Icon name="plus" size={15} /></button>
         </div>
         <div className="subagent-builder__search"><Icon name="search" size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search specialists…" /></div>

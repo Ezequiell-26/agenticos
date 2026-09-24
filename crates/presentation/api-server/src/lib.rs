@@ -8,7 +8,7 @@
 //! plane operations to the desktop frontend.
 
 use actix_cors::Cors;
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{dev::Service, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
@@ -1108,6 +1108,16 @@ async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+fn bearer_token(request: &HttpRequest) -> Option<&str> {
+    request
+        .headers()
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
@@ -1123,6 +1133,21 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     if !is_loopback {
         tracing::warn!(host = %host, "AgentiCOS API server is running on a non-loopback interface");
     }
+
+    let api_token = if is_loopback {
+        None
+    } else {
+        let token = std::env::var("AGENTICOS_API_TOKEN")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
+        if token.is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "remote bind requires AGENTICOS_API_TOKEN",
+            ));
+        }
+        token
+    };
 
     let port = std::env::var("AGENTICOS_BIND_PORT")
         .ok()
@@ -1155,8 +1180,33 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             cors
         };
 
+        let expected_token = api_token.clone();
         App::new()
             .wrap(cors)
+            .wrap_fn(move |req, srv| {
+                let path = req.path().to_string();
+                let authorized = path == "/health"
+                    || expected_token.as_deref().is_none_or(|token| {
+                        bearer_token(req.request()).is_some_and(|value| value == token)
+                    });
+
+                if !authorized {
+                    let response = req.into_response(
+                        HttpResponse::Unauthorized()
+                            .json(serde_json::json!({
+                                "error": "authentication required",
+                                "code": "AUTHENTICATION_REQUIRED"
+                            }))
+                            .map_into_boxed_body(),
+                    );
+                    return Box::pin(async move { Ok(response) });
+                }
+
+                let future = srv.call(req);
+                Box::pin(async move {
+                    future.await.map(|response| response.map_into_boxed_body())
+                })
+            })
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))

@@ -606,37 +606,6 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
-        if projects.list().await.is_empty() {
-            let default_project = ProjectDefinition {
-                project_id: std::env::var("AGENTICOS_PROJECT_ID").unwrap_or_else(|_| "agenticos".to_string()),
-                name: std::env::var("AGENTICOS_PROJECT_NAME").unwrap_or_else(|_| "AgentiCOS".to_string()),
-                path: std::env::var("AGENTICOS_PROJECT_PATH").unwrap_or_else(|_| ".".to_string()),
-                default_branch: std::env::var("AGENTICOS_PROJECT_BRANCH").unwrap_or_else(|_| "main".to_string()),
-                description: "Configured AgentiCOS workspace".to_string(),
-                status: "Active".to_string(),
-            };
-            if let Err(error) = workspace.list(&default_project.path).await {
-                return Err(ContractError::ParseError(format!("default project path is invalid: {error}")));
-            }
-            projects
-                .register(default_project)
-                .await
-                .map_err(ContractError::ParseError)?;
-        }
-        let audit = Arc::new(
-            AuditStore::open(&database_url)
-                .await
-                .map_err(ContractError::ParseError)?,
-        );
-
-        let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
-            ContractError::ParseError(format!("failed to initialize event store: {e}"))
-        })?);
-        let snapshot_store =
-            Arc::new(SqliteSnapshotStore::new(&database_url).await.map_err(|e| {
-                ContractError::ParseError(format!("failed to initialize snapshot store: {e}"))
-            })?);
-        let logger = Arc::new(InMemoryLogger::new(agenticos_contracts::LogLevel::Info));
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
         let capabilities = Arc::new(
             CapabilityManager::open(&database_url)
@@ -676,6 +645,29 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        if projects.list().await.is_empty() {
+            let default_project = ProjectDefinition {
+                project_id: std::env::var("AGENTICOS_PROJECT_ID")
+                    .unwrap_or_else(|_| "agenticos".to_string()),
+                name: std::env::var("AGENTICOS_PROJECT_NAME")
+                    .unwrap_or_else(|_| "AgentiCOS".to_string()),
+                path: std::env::var("AGENTICOS_PROJECT_PATH")
+                    .unwrap_or_else(|_| ".".to_string()),
+                default_branch: std::env::var("AGENTICOS_PROJECT_BRANCH")
+                    .unwrap_or_else(|_| "main".to_string()),
+                description: "Configured AgentiCOS workspace".to_string(),
+                status: "Active".to_string(),
+            };
+            if let Err(error) = workspace.list(&default_project.path).await {
+                return Err(ContractError::ParseError(format!(
+                    "default project path is invalid: {error}"
+                )));
+            }
+            projects
+                .register(default_project)
+                .await
+                .map_err(ContractError::ParseError)?;
+        }
         let terminal = Arc::new(
             TerminalManager::from_env(&database_url, workspace.root())
                 .await

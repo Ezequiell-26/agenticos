@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import { runtime } from '../../services/runtime'
 
 type SkillTab = 'Discover' | 'Installed' | 'Updates'
 
@@ -36,14 +37,37 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(skillCatalog[0].name)
   const [enabled, setEnabled] = useState(() => new Set(skillCatalog.filter((skill) => skill.installed).map((skill) => skill.name)))
+  const [liveSkills, setLiveSkills] = useState(skillCatalog)
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
 
-  const visible = useMemo(() => skillCatalog.filter((skill) => {
+  useEffect(() => {
+    let cancelled = false
+    void runtime.skills.list().then((skills) => {
+      if (cancelled || skills.length === 0) return
+      const mapped = skills.map((skill, index) => ({
+        name: typeof skill.name === 'string' ? skill.name : typeof skill.skill_id === 'string' ? skill.skill_id : `runtime-skill-${index + 1}`,
+        detail: typeof skill.description === 'string' ? skill.description : 'Runtime-managed skill',
+        category: typeof skill.category === 'string' ? skill.category : 'Runtime',
+        version: typeof skill.version === 'string' ? skill.version : 'runtime',
+        installed: skill.enabled !== false,
+        updated: typeof skill.updated_at === 'string' ? skill.updated_at : 'Runtime',
+      }))
+      setLiveSkills(mapped)
+      setEnabled(new Set(mapped.filter((skill) => skill.installed).map((skill) => skill.name)))
+      setSelected((current) => mapped.some((skill) => skill.name === current) ? current : mapped[0].name)
+    }).catch(() => {
+      // Local catalog remains usable while the backend is unavailable.
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const visible = useMemo(() => liveSkills.filter((skill) => {
     if (tab === 'Installed' && !enabled.has(skill.name)) return false
     if (tab === 'Updates' && !skill.updated.includes('Today')) return false
     return !query || (skill.name + ' ' + skill.detail + ' ' + skill.category).toLowerCase().includes(query.toLowerCase())
-  }), [enabled, query, tab])
+  }), [enabled, liveSkills, query, tab])
 
-  const current = skillCatalog.find((skill) => skill.name === selected) ?? skillCatalog[0]
+  const current = liveSkills.find((skill) => skill.name === selected) ?? liveSkills[0]
 
   function toggle(name: string) {
     setEnabled((state) => {
@@ -51,7 +75,7 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
       next.has(name) ? next.delete(name) : next.add(name)
       return next
     })
-    onAction(name + ' skill toggled in preview')
+    onAction(runtimeSyncing ? name + ' skill toggled locally' : name + ' skill selection updated locally; runtime has no skill mutation endpoint yet')
   }
 
   return (
@@ -70,7 +94,7 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
         </div>
       </aside>
       <section className="skills-studio__detail">
-        <div className="skills-detail-head"><div><span className="eyebrow">{current.category}</span><h2>{current.name}</h2><p>{current.detail}</p></div><span className={enabled.has(current.name) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled.has(current.name) ? 'Enabled' : 'Available'}</span></div>
+        <div className="skills-detail-head"><div><span className="eyebrow">{current.category} · {runtimeSyncing ? 'syncing' : 'runtime catalog'}</span><h2>{current.name}</h2><p>{current.detail}</p></div><span className={enabled.has(current.name) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled.has(current.name) ? 'Enabled' : 'Available'}</span></div>
         <div className="skills-detail-grid"><div><span>Version</span><strong>{current.version}</strong></div><div><span>Category</span><strong>{current.category}</strong></div><div><span>Last update</span><strong>{current.updated}</strong></div><div><span>Tools</span><strong>8 tools</strong></div></div>
         <div className="skills-capabilities"><div className="surface-block__heading"><span>Capabilities</span><span className="mono-text">preview</span></div><div className="capability-grid"><span className="platform-tag">Repository search</span><span className="platform-tag">Context assembly</span><span className="platform-tag">Diff analysis</span><span className="platform-tag">Evidence output</span><span className="platform-tag">Verification</span></div></div>
         <div className="skills-permissions"><div className="surface-block__heading"><span>Permissions</span><span className="mono-text">policy</span></div><div><span>Read workspace</span><strong>Allowed</strong></div><div><span>Write files</span><strong>Policy based</strong></div><div><span>Network</span><strong>Confirm</strong></div><div><span>Destructive</span><strong>Blocked</strong></div></div>

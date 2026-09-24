@@ -2,24 +2,48 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { AgentiCOSError } from "./errors.js";
 
-interface ImplementationStep {
-  readonly id: string;
-  readonly number: number;
-  readonly status: "pending" | "locked" | "in_progress" | "verifying" | "correcting" | "verified";
-}
+type WorkstreamStatus = "planned" | "in_progress" | "verifying" | "completed";
+
+type CapabilityStatus = "planned" | "in_progress" | "implemented-unverified" | "verified" | "blocked";
 
 interface ImplementationState {
   readonly schema_version: number;
-  readonly current_step: string;
-  readonly steps: readonly ImplementationStep[];
+  readonly project: string;
+  readonly mode: "capability-driven-continuous";
+  readonly baseline_commit: string;
   readonly policy: {
-    readonly one_step_at_a_time: boolean;
-    readonly next_step_requires_verified_previous: boolean;
-    readonly fail_closed: boolean;
-    readonly future_scope_preimplementation_forbidden: boolean;
-    readonly reference_lookup_required_for_nontrivial_features: boolean;
-    readonly mit_only_canonical_third_party_source: boolean;
-    readonly verification_evidence_required_for_verified_status: boolean;
+    readonly sequential_implementation: false;
+    readonly parallel_workstreams_allowed: true;
+    readonly capability_level_verification: true;
+    readonly evidence_required_for_verified_status: true;
+    readonly production_completeness_requires_integration: true;
+    readonly regression_is_blocking: true;
+    readonly destructive_operations_require_explicit_authorization: true;
+    readonly preserve_git_history: true;
+  };
+  readonly current_operation: {
+    readonly id: string;
+    readonly status: WorkstreamStatus;
+    readonly focus: string;
+    readonly objective: string;
+    readonly next_actions: readonly string[];
+  };
+  readonly workstreams: readonly {
+    readonly id: string;
+    readonly priority: "P0" | "P1" | "P2";
+    readonly status: WorkstreamStatus;
+    readonly owner: string;
+    readonly objective: string;
+  }[];
+  readonly capabilities: readonly {
+    readonly id: string;
+    readonly owner: string;
+    readonly status: CapabilityStatus;
+  }[];
+  readonly verification: {
+    readonly required_checks: readonly string[];
+    readonly last_known_green: string;
+    readonly ci_pending: boolean;
   };
 }
 
@@ -69,6 +93,7 @@ const REQUIRED_CRATE_PATHS = [
   "crates/infrastructure/providers",
   "crates/infrastructure/tools",
   "crates/infrastructure/memory",
+  "crates/infrastructure/context",
   "crates/infrastructure/protocols",
   "crates/infrastructure/sandbox",
   "crates/infrastructure/source-forge",
@@ -98,6 +123,7 @@ export async function assertArchitectureReadiness(root = process.cwd()): Promise
     policy: {
       architecture_only: boolean;
       implementation_requires_step_unlock: boolean;
+      capability_level_verification: boolean;
       canonical_agent_loop_modification_requires_adr: boolean;
       future_scope_preimplementation_forbidden: boolean;
       reference_first: boolean;
@@ -268,16 +294,22 @@ function assertCompletenessContractsRegistered(
 }
 
 function assertProjectStateConsistency(state: ImplementationState, projectState: string): void {
-  const stepLine = projectState.match(/Current implementation step:\s*`([^\`]+)`/);
-  const statusLine = projectState.match(/Current step status:\s*`([^\`]+)`/);
-  if (!stepLine || !statusLine) {
-    throw new AgentiCOSError("PROJECT-STATE.md is missing canonical step state.", {
-      code: "PROJECT_STATE_MISSING_CANONICAL_STEP",
+  const modeLine = projectState.match(/Architecture mode:\s*\*\*([^*]+)\*\*/);
+  const focusLine = projectState.match(/Current focus:\s*([^\n]+)/);
+  const statusLine = projectState.match(/Current operation status:\s*([^\n]+)/);
+
+  if (!modeLine || !focusLine || !statusLine) {
+    throw new AgentiCOSError("PROJECT-STATE.md is missing canonical capability state.", {
+      code: "PROJECT_STATE_MISSING_CANONICAL_CAPABILITY_STATE",
       category: "VALIDATION",
       severity: "critical",
     });
   }
-  if (stepLine[1] !== state.current_step || statusLine[1] !== state.steps.find((step) => step.id === state.current_step)?.status) {
+
+  const mode = modeLine[1]?.trim();
+  const focus = focusLine[1]?.replaceAll("`", "").trim();
+  const status = statusLine[1]?.replaceAll("`", "").trim();
+  if (mode !== state.mode || focus !== state.current_operation.focus || status !== state.current_operation.status) {
     throw new AgentiCOSError("PROJECT-STATE.md and implementation-state.json disagree.", {
       code: "PROJECT_STATE_MISMATCH",
       category: "VALIDATION",
@@ -287,7 +319,7 @@ function assertProjectStateConsistency(state: ImplementationState, projectState:
 }
 
 function assertImplementationState(state: ImplementationState): void {
-  if (state.schema_version !== 1) {
+  if (state.schema_version !== 2 || state.mode !== "capability-driven-continuous") {
     throw new AgentiCOSError("Implementation state schema is unsupported.", {
       code: "IMPLEMENTATION_STATE_SCHEMA_UNSUPPORTED",
       category: "PROTOCOL",
@@ -296,89 +328,81 @@ function assertImplementationState(state: ImplementationState): void {
   }
 
   if (
-    !state.policy.one_step_at_a_time ||
-    !state.policy.next_step_requires_verified_previous ||
-    !state.policy.fail_closed ||
-    !state.policy.future_scope_preimplementation_forbidden ||
-    !state.policy.reference_lookup_required_for_nontrivial_features ||
-    !state.policy.mit_only_canonical_third_party_source ||
-    !state.policy.verification_evidence_required_for_verified_status
+    state.policy.sequential_implementation ||
+    !state.policy.parallel_workstreams_allowed ||
+    !state.policy.capability_level_verification ||
+    !state.policy.evidence_required_for_verified_status ||
+    !state.policy.production_completeness_requires_integration ||
+    !state.policy.regression_is_blocking ||
+    !state.policy.destructive_operations_require_explicit_authorization ||
+    !state.policy.preserve_git_history
   ) {
-    throw new AgentiCOSError("Sequential implementation policy is not fail-closed.", {
+    throw new AgentiCOSError("Capability-driven implementation policy is not fail-closed.", {
       code: "IMPLEMENTATION_POLICY_WEAKENED",
       category: "SECURITY",
       severity: "critical",
     });
   }
 
-  const ordered = [...state.steps].sort((a, b) => a.number - b.number);
-  if (ordered.length === 0) {
-    throw new AgentiCOSError("Implementation state has no steps.", {
-      code: "IMPLEMENTATION_STATE_EMPTY",
+  if (!state.current_operation.id || !state.current_operation.focus || !state.current_operation.objective) {
+    throw new AgentiCOSError("Current capability operation is incomplete.", {
+      code: "CURRENT_OPERATION_INVALID",
       category: "VALIDATION",
       severity: "critical",
     });
   }
 
-  const active = ordered.filter((step) =>
-    step.status === "in_progress" || step.status === "verifying" || step.status === "correcting",
-  );
-  if (active.length > 1) {
-    throw new AgentiCOSError("More than one implementation step is active.", {
-      code: "MULTIPLE_ACTIVE_STEPS",
+  if (state.workstreams.length === 0) {
+    throw new AgentiCOSError("Implementation state has no workstreams.", {
+      code: "WORKSTREAM_STATE_EMPTY",
       category: "VALIDATION",
       severity: "critical",
     });
   }
-
-  const current = ordered.find((step) => step.id === state.current_step);
-  if (!current) {
-    throw new AgentiCOSError("Current implementation step does not exist.", {
-      code: "CURRENT_STEP_UNKNOWN",
-      category: "VALIDATION",
-      severity: "critical",
-    });
-  }
-
-  const activeStep = active.length === 1 ? active[0] : undefined;
-
-  if (
-    activeStep &&
-    activeStep.id !== current.id
-  ) {
-    throw new AgentiCOSError("Current step does not match the active step.", {
-      code: "CURRENT_STEP_MISMATCH",
-      category: "VALIDATION",
-      severity: "critical",
-    });
-  }
-
-  for (let index = 0; index < ordered.length; index += 1) {
-    const step = ordered[index];
-    const previous = index > 0 ? ordered[index - 1] : undefined;
-    if (!step) continue;
-
-    if (step.status === "verified" && previous && previous.status !== "verified") {
-      throw new AgentiCOSError(
-        `Step ${step.id} is verified before its predecessor ${previous.id}.`,
-        {
-          code: "STEP_ORDER_VIOLATION",
-          category: "VALIDATION",
-          severity: "critical",
-        },
-      );
+  const workstreamIds = new Set<string>();
+  for (const workstream of state.workstreams) {
+    if (workstreamIds.has(workstream.id)) {
+      throw new AgentiCOSError("Implementation state contains duplicate workstream ids.", {
+        code: "WORKSTREAM_ID_DUPLICATE",
+        category: "VALIDATION",
+        severity: "critical",
+      });
     }
+    workstreamIds.add(workstream.id);
+  }
+  if (!workstreamIds.has(state.current_operation.focus)) {
+    throw new AgentiCOSError("Current operation focus is not a registered workstream.", {
+      code: "CURRENT_WORKSTREAM_UNKNOWN",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
 
-    if (previous && step.status === "in_progress" && previous.status !== "verified") {
-      throw new AgentiCOSError(
-        `Step ${step.id} started before predecessor ${previous.id} was verified.`,
-        {
-          code: "STEP_UNLOCK_VIOLATION",
-          category: "SECURITY",
-          severity: "critical",
-        },
-      );
+  if (state.capabilities.length === 0) {
+    throw new AgentiCOSError("Implementation state has no capabilities.", {
+      code: "CAPABILITY_STATE_EMPTY",
+      category: "VALIDATION",
+      severity: "critical",
+    });
+  }
+  const capabilityIds = new Set<string>();
+  for (const capability of state.capabilities) {
+    if (capabilityIds.has(capability.id)) {
+      throw new AgentiCOSError("Implementation state contains duplicate capability ids.", {
+        code: "CAPABILITY_ID_DUPLICATE",
+        category: "VALIDATION",
+        severity: "critical",
+      });
     }
+    capabilityIds.add(capability.id);
+  }
+
+  if (state.verification.required_checks.length === 0) {
+    throw new AgentiCOSError("Implementation state declares no verification checks.", {
+      code: "VERIFICATION_CHECKS_EMPTY",
+      category: "VALIDATION",
+      severity: "critical",
+    });
   }
 }
 

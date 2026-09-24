@@ -1161,3 +1161,9 @@ Verification status:
 - Source-level simulation against the current journal now parses all 126 journal entries without malformed-record errors and finds zero current/future completed entries missing required evidence.
 - The historical Agent Builder record remains unchanged and is correctly treated as pre-cutoff; strict evidence enforcement remains active after the cutoff.
 - Verification status: source simulation passed; awaiting GitHub Actions confirmation.
+
+## 2026-09-24 — Continuity status-agnostic historical cutoff
+
+- Corrected the historical evidence compatibility rule to use the fixed policy timestamp only, because legacy schema_version=1 records may use statuses other than `completed` (for example `implemented`).
+- Records before `2026-09-24T01:00:00Z` can remain immutable without an `evidence` field; current/future records remain strict.
+- Verification status: awaiting the new CI run.

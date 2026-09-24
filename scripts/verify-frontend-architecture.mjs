@@ -89,6 +89,17 @@ const studioSource = readFileSync(
   "crates/presentation/desktop/frontend/src/components/StudioSurface.tsx",
   "utf8",
 );
+const platformBoundarySource = readFileSync(
+  "crates/presentation/desktop/frontend/src/features/platform/PlatformSurface.tsx",
+  "utf8",
+);
+if (!platformBoundarySource.includes("<SurfaceErrorBoundary key={mode}>")) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — platform surface recovery must reset when navigation mode changes.",
+  );
+  process.exit(1);
+}
+
 const navigationItems = [...navigationSource.matchAll(/id:\s*'([^']+)'/g)].map((match) => match[1]);
 const genericFeatureModesSource =
   platformSource.match(/const GENERIC_FEATURE_MODES[\s\S]*?\[([\s\S]*?)\]/)?.[1] ?? "";

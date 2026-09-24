@@ -96,9 +96,33 @@ impl CostLedger {
             recorded_at,
         };
         sqlx::query("INSERT INTO model_usage (request_id, provider_id, model_id, tokens_used, cost_usd, recorded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(request_id) DO NOTHING")
-            .bind(&record.request_id).bind(&record.provider_id).bind(&record.model_id).bind(record.tokens_used as i64).bind(record.cost_usd).bind(record.recorded_at as i64)
-            .execute(self.pool.as_ref()).await.map_err(|e| format!("usage persistence failed: {e}"))?;
-        Ok(record)
+            .bind(&record.request_id)
+            .bind(&record.provider_id)
+            .bind(&record.model_id)
+            .bind(record.tokens_used as i64)
+            .bind(record.cost_usd)
+            .bind(record.recorded_at as i64)
+            .execute(self.pool.as_ref())
+            .await
+            .map_err(|e| format!("usage persistence failed: {e}"))?;
+
+        let stored = sqlx::query_as::<_, (String, String, String, i64, f64, i64)>(
+            "SELECT request_id, provider_id, model_id, tokens_used, cost_usd, recorded_at
+             FROM model_usage WHERE request_id = ?",
+        )
+        .bind(&record.request_id)
+        .fetch_one(self.pool.as_ref())
+        .await
+        .map_err(|e| format!("usage reread failed: {e}"))?;
+
+        Ok(UsageRecord {
+            request_id: stored.0,
+            provider_id: stored.1,
+            model_id: stored.2,
+            tokens_used: stored.3.max(0) as u64,
+            cost_usd: stored.4,
+            recorded_at: stored.5.max(0) as u64,
+        })
     }
 
     /// Return aggregate usage since a unix timestamp.

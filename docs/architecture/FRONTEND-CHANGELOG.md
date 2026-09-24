@@ -1234,3 +1234,10 @@ Verification status:
 - Corrected portable configuration placement so file-read and context-file limits are serialized at the root configuration scope rather than under terminal.
 - These controls follow the current Hermes configuration model for memory write approval, bounded memory stores, context-file truncation and environment-variable substitution. citeturn839871search1turn839871search2turn543563search0
 - Verification status: source integration complete; awaiting the newest GitHub Actions frontend/Rust gates.
+## 2026-09-24 — Mission Control orchestration depth
+
+- Deepened Agent Mission Control with explicit mission naming, approval profiles, verification depth, tool-turn/time/cost budgets and a visible mission lifecycle state.
+- Added selectable context-source inclusion with include-all/clear controls so context assembly is represented as an intentional policy rather than fixed text.
+- Added presentation preflight that blocks underspecified missions and promotes ready/queued/running states without implying real runtime execution.
+- Kept model routing, isolation, permissions, launch and schedule controls within the existing typed presentation boundary.
+- Verification status: source-level wiring only; CI, production frontend build, browser/Tauri execution and runtime acceptance remain evidence gates.

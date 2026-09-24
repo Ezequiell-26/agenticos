@@ -9,7 +9,7 @@ use agenticos_contracts::{
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tokio::sync::Semaphore;
 
@@ -104,6 +104,8 @@ pub struct ProviderPlatform {
     cost_ledger: Option<Arc<agenticos_observability::cost::CostLedger>>,
     secret_key: Option<ProviderSecretKey>,
     network_concurrency: Arc<Semaphore>,
+    health_cache: Arc<RwLock<HashMap<String, (Instant, HealthCheck)>>>,
+    health_cache_ttl: Duration,
 }
 
 impl ProviderPlatform {
@@ -121,6 +123,8 @@ impl ProviderPlatform {
             cost_ledger: None,
             secret_key: provider_secret_key(),
             network_concurrency: Arc::new(Semaphore::new(provider_concurrency_limit())),
+            health_cache: Arc::new(RwLock::new(HashMap::new())),
+            health_cache_ttl: provider_health_cache_ttl(),
         }
     }
 
@@ -224,6 +228,8 @@ impl ProviderPlatform {
             cost_ledger,
             secret_key: provider_secret_key(),
             network_concurrency: Arc::new(Semaphore::new(provider_concurrency_limit())),
+            health_cache: Arc::new(RwLock::new(HashMap::new())),
+            health_cache_ttl: provider_health_cache_ttl(),
         };
 
         for (provider_id, name, base_url, models_json, capabilities_json) in provider_rows {
@@ -1099,7 +1105,14 @@ impl ProviderPlatform {
             return Err(ContractError::MissingCapability);
         }
 
-        let models = list_provider_models(&provider, credential.as_ref()).await?;
+        let _network_permit = self
+            .network_concurrency
+            .acquire()
+            .await
+            .map_err(|_| ContractError::ParseError("provider concurrency limiter closed".to_string()))?;
+        let models_result = list_provider_models(&provider, credential.as_ref()).await;
+        drop(_network_permit);
+        let models = models_result?;
 
         let normalized_models = models
             .into_iter()
@@ -1167,6 +1180,12 @@ impl ProviderPlatform {
 
     /// Probe an OpenAI-compatible provider and update its health state.
     pub async fn check_health(&self, provider_id: &str) -> Result<HealthCheck, ContractError> {
+        if let Some((checked_at, check)) = self.health_cache.read().await.get(provider_id).cloned() {
+            if checked_at.elapsed() <= self.health_cache_ttl {
+                return Ok(check);
+            }
+        }
+
         match self.refresh_models(provider_id).await {
             Ok(models) => {
                 let check = HealthCheck {
@@ -1180,6 +1199,10 @@ impl ProviderPlatform {
                 };
                 self.health.update(check.clone()).await?;
                 self.persist_runtime_state(provider_id).await?;
+                self.health_cache
+                    .write()
+                    .await
+                    .insert(provider_id.to_string(), (Instant::now(), check.clone()));
                 Ok(check)
             }
             Err(error) => {
@@ -1191,6 +1214,7 @@ impl ProviderPlatform {
                 };
                 self.health.update(check.clone()).await?;
                 self.persist_runtime_state(provider_id).await?;
+                self.health_cache.write().await.remove(provider_id);
                 Err(error)
             }
         }
@@ -2597,4 +2621,14 @@ fn provider_concurrency_limit() -> usize {
         .and_then(|value| value.parse::<usize>().ok())
         .unwrap_or(default_limit)
         .clamp(2, 64)
+}
+
+
+fn provider_health_cache_ttl() -> Duration {
+    let ttl_ms = std::env::var("AGENTICOS_PROVIDER_HEALTH_CACHE_TTL_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(30_000)
+        .clamp(1_000, 300_000);
+    Duration::from_millis(ttl_ms)
 }

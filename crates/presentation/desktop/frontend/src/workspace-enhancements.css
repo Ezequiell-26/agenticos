@@ -2641,3 +2641,7 @@ body { background: var(--shell-black); }
 .conversation-submenu { margin: 3px 6px 4px 26px; padding: 4px; border: 1px solid #222228; border-radius: 8px; background: #101014; }
 .conversation-submenu [role="menuitem"] { min-height: 28px; font-size: 11px; color: #b9b9c2; }
 .conversation-dot--unread { background: var(--agenticos-accent) !important; }
+
+/* ─── Assistant answers render as plain text, no bubble ────────────────────── */
+.message-row--assistant { display: block; }
+.message-row--assistant .assistant-text { margin: 0; padding: 2px 4px; color: #e9e9ee; font-size: 13.5px; line-height: 1.68; white-space: pre-wrap; overflow-wrap: break-word; }

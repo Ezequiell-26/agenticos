@@ -48,6 +48,14 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
+  if (!isUser && !isSystem) {
+    return (
+      <article className="message-row message-row--assistant">
+        <p className="assistant-text">{message.content}</p>
+      </article>
+    )
+  }
+
   return (
     <article className={`message-row ${isUser ? 'message-row--user' : ''}`}>
       {!isUser && <div className={`message-avatar ${isSystem ? 'message-avatar--system' : ''}`}><Icon name={isSystem ? 'shield' : 'bot'} size={15} /></div>}

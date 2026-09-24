@@ -1488,6 +1488,13 @@ Verification status:
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; default-closed behavior, globe toggle and reopen verified in the browser preview.
 
+## 2026-09-25 — Assistant answers render as plain text
+
+- Assistant messages no longer render inside a bubble: no avatar, no name/time header, no action row and no dark box — only the response text as a plain full-width paragraph, matching the reference.
+- User and system messages keep their existing bubbles.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; plain-text assistant rendering verified in the browser preview.
+
 ## 2026-09-25 — Icon clarity pass on the sidebar feature list
 
 - Reassigned the quick navigation icons so each feature reads at a glance: Capabilities uses the capability spark, Artifacts the artifact box and Scheduled jobs the clock (previously wrench, code file and calendar).

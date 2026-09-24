@@ -1278,17 +1278,7 @@ impl AuthenticatedOpenAiProvider {
         base_url: String,
         api_key: Option<String>,
     ) -> Result<Self, ContractError> {
-        let timeout_ms = std::env::var("AGENTICOS_PROVIDER_TIMEOUT_MS")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(120_000)
-            .clamp(1_000, 600_000);
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_millis(timeout_ms))
-            .build()
-            .map_err(|error| {
-                ContractError::ParseError(format!("provider client initialization failed: {error}"))
-            })?;
+        let client = shared_http_client();
         Ok(Self {
             provider_id,
             base_url: normalize_chat_url(&base_url),
@@ -1919,7 +1909,7 @@ async fn execute_protocol(
             .await
         }
         ProviderProtocol::Gemini => {
-            let client = reqwest::Client::new();
+            let client = shared_http_client();
             let url = normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
             let mut payload = serde_json::json!({
                 "contents": [{
@@ -1985,7 +1975,7 @@ async fn list_provider_models(
             Ok(provider.models.clone())
         }
         ProviderProtocol::Gemini => {
-            let client = reqwest::Client::new();
+            let client = shared_http_client();
             let base = provider.base_url.trim_end_matches('/');
             let raw = if base.ends_with("/models") {
                 base.to_string()

@@ -3647,12 +3647,12 @@ impl SqliteMemory {
         session_id: &str,
         limit: usize,
     ) -> Result<Vec<ConversationMessage>, ContractError> {
-        let rows = sqlx::query_as::<_, ConversationMessage>(
+        let mut rows = sqlx::query_as::<_, ConversationMessage>(
             r#"
             SELECT id, session_id, role, content, timestamp
             FROM conversations
             WHERE session_id = ?
-            ORDER BY timestamp ASC
+            ORDER BY timestamp DESC, id DESC
             LIMIT ?
             "#,
         )
@@ -3662,6 +3662,7 @@ impl SqliteMemory {
         .await
         .map_err(|e| ContractError::ParseError(format!("Failed to get session history: {}", e)))?;
 
+        rows.reverse();
         Ok(rows)
     }
 

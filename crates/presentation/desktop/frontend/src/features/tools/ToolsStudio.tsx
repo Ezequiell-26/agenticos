@@ -150,14 +150,15 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
     return () => { cancelled = true }
   }, [])
   const [enabled, setEnabled] = useState(() => new Set(toolCatalog.filter((tool) => tool.enabled).map((tool) => tool.name)))
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
 
-  const visible = useMemo(() => toolCatalog.filter((tool) => {
+  const visible = useMemo(() => liveTools.filter((tool) => {
     if (tab === 'Enabled' && !enabled.has(tool.name)) return false
     if (tab === 'Risk' && tool.risk === 'Medium') return false
     return !query || (tool.name + ' ' + tool.description + ' ' + tool.category).toLowerCase().includes(query.toLowerCase())
-  }), [enabled, query, tab])
+  }), [enabled, liveTools, query, tab])
 
-  const current = toolCatalog.find((tool) => tool.name === selected) ?? toolCatalog[0]
+  const current = liveTools.find((tool) => tool.name === selected) ?? liveTools[0]
 
   function toggle(name: string) {
     setEnabled((state) => {

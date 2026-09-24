@@ -7,13 +7,13 @@ license.workspace = true
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
 async-trait = { workspace = true }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }
 
 [lints]
 workspace = true

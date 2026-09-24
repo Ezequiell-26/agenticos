@@ -6,6 +6,9 @@ license.workspace = true
 
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "process", "time"] }
+uuid = { workspace = true, features = ["v4"] }
 
 [lints]
 workspace = true

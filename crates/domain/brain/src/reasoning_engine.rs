@@ -1,146 +1,226 @@
-//! Reasoning & Planning Engine - Multi-step reasoning, planning, capability selection
+//! Deterministic reasoning and planning primitives.
 
 #![allow(missing_docs)]
 
 use super::{BrainError, CapabilityId};
-use std::sync::Arc;
+use std::collections::HashSet;
 
-/// Reasoning & Planning Engine
+/// Reasoning & Planning Engine.
 #[derive(Debug)]
 pub struct ReasoningEngine {
-    #[allow(dead_code)]
-    planner: Arc<Planner>,
-    #[allow(dead_code)]
-    evaluator: Arc<Evaluator>,
-    #[allow(dead_code)]
-    selector: Arc<CapabilitySelector>,
+    planner: Planner,
+    evaluator: Evaluator,
+    selector: CapabilitySelector,
 }
 
-/// Planner for multi-step reasoning
+/// Planner for bounded multi-step reasoning.
 #[derive(Debug)]
 pub struct Planner {
-    #[allow(dead_code)]
     max_steps: usize,
 }
 
-/// Evaluator for evaluating plans
+/// Evaluator for deterministic plan risk/cost checks.
 #[derive(Debug)]
 pub struct Evaluator {
-    #[allow(dead_code)]
     enable_learning: bool,
 }
 
-/// Capability selector
+/// Capability selector.
 #[derive(Debug)]
 pub struct CapabilitySelector {
-    #[allow(dead_code)]
     strategy: SelectionStrategy,
 }
 
-/// Selection strategy
+/// Selection strategy.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub enum SelectionStrategy {
     Greedy,
     Balanced,
     Exploration,
 }
 
-/// Reasoning plan
+/// Reasoning plan.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct ReasoningPlan {
-    #[allow(missing_docs)]
     pub steps: Vec<PlanStep>,
-    #[allow(missing_docs)]
     pub estimated_cost: PlanCost,
-    #[allow(missing_docs)]
     pub confidence: f64,
 }
 
-/// Plan step
+/// Plan step.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct PlanStep {
-    #[allow(missing_docs)]
     pub id: String,
-    #[allow(missing_docs)]
     pub action: String,
-    #[allow(missing_docs)]
     pub required_capabilities: Vec<CapabilityId>,
-    #[allow(missing_docs)]
     pub estimated_tokens: u64,
 }
 
-/// Plan cost
+/// Plan cost.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct PlanCost {
-    #[allow(missing_docs)]
     pub tokens: u64,
-    #[allow(missing_docs)]
     pub monetary: f64,
-    #[allow(missing_docs)]
     pub time_seconds: u64,
 }
 
 impl ReasoningEngine {
-    /// Create a new reasoning engine
+    /// Create a reasoning engine.
     pub fn new(config: EngineConfig) -> Self {
         Self {
-            planner: Arc::new(Planner::new(config.max_steps)),
-            evaluator: Arc::new(Evaluator::new(config.enable_learning)),
-            selector: Arc::new(CapabilitySelector::new(config.selection_strategy)),
+            planner: Planner { max_steps: config.max_steps.max(1) },
+            evaluator: Evaluator { enable_learning: config.enable_learning },
+            selector: CapabilitySelector { strategy: config.selection_strategy },
         }
     }
 
-    /// Generate a plan for a given objective
-    pub async fn generate_plan(&self, _objective: &str) -> Result<ReasoningPlan, BrainError> {
-        // Placeholder implementation
-        Err(BrainError::ReasoningEngineError(
-            "Not implemented".to_string(),
-        ))
+    /// Generate a bounded plan from an objective.
+    pub async fn generate_plan(&self, objective: &str) -> Result<ReasoningPlan, BrainError> {
+        let objective = objective.trim();
+        if objective.is_empty() {
+            return Err(BrainError::ReasoningEngineError(
+                "objective must not be empty".to_string(),
+            ));
+        }
+
+        let clauses: Vec<&str> = objective
+            .split(|ch| matches!(ch, '.' | ';' | '\n'))
+            .map(str::trim)
+            .filter(|clause| !clause.is_empty())
+            .take(self.planner.max_steps)
+            .collect();
+
+        let mut steps = Vec::new();
+        for (index, clause) in clauses.iter().enumerate() {
+            let capabilities = infer_capabilities(clause);
+            steps.push(PlanStep {
+                id: format!("step-{}", index + 1),
+                action: clause.to_string(),
+                required_capabilities: capabilities,
+                estimated_tokens: (clause.split_whitespace().count() as u64 * 8).clamp(32, 2048),
+            });
+        }
+
+        if steps.is_empty() {
+            steps.push(PlanStep {
+                id: "step-1".to_string(),
+                action: objective.to_string(),
+                required_capabilities: infer_capabilities(objective),
+                estimated_tokens: (objective.split_whitespace().count() as u64 * 8).clamp(32, 2048),
+            });
+        }
+
+        let tokens = steps.iter().map(|step| step.estimated_tokens).sum();
+        Ok(ReasoningPlan {
+            confidence: if steps.len() == 1 { 0.85 } else { 0.75 },
+            steps,
+            estimated_cost: PlanCost {
+                tokens,
+                monetary: 0.0,
+                time_seconds: tokens.div_ceil(512).max(1),
+            },
+        })
     }
 
-    /// Re-plan based on new information
+    /// Re-plan using textual feedback.
     pub async fn re_plan(
         &self,
-        _plan: ReasoningPlan,
-        _feedback: &str,
+        plan: ReasoningPlan,
+        feedback: &str,
     ) -> Result<ReasoningPlan, BrainError> {
-        // Placeholder implementation
-        Err(BrainError::ReasoningEngineError(
-            "Not implemented".to_string(),
-        ))
+        let feedback = feedback.trim();
+        if feedback.is_empty() {
+            return Ok(plan);
+        }
+        let mut revised = plan;
+        revised.steps.push(PlanStep {
+            id: format!("step-{}", revised.steps.len() + 1),
+            action: format!("Incorporate feedback: {feedback}"),
+            required_capabilities: infer_capabilities(feedback),
+            estimated_tokens: (feedback.split_whitespace().count() as u64 * 8).clamp(32, 1024),
+        });
+        revised.steps.truncate(self.planner.max_steps);
+        revised.estimated_cost.tokens = revised.steps.iter().map(|step| step.estimated_tokens).sum();
+        revised.estimated_cost.time_seconds = revised.estimated_cost.tokens.div_ceil(512).max(1);
+        revised.confidence = (revised.confidence * 0.9).clamp(0.0, 1.0);
+        Ok(revised)
     }
 
-    /// Select capabilities for a plan
+    /// Select unique capabilities required by a plan.
     pub async fn select_capabilities(
         &self,
-        _steps: &[PlanStep],
+        steps: &[PlanStep],
     ) -> Result<Vec<CapabilityId>, BrainError> {
-        // Placeholder implementation
-        Ok(vec![])
+        let mut selected = Vec::new();
+        let mut seen = HashSet::new();
+        for step in steps {
+            for capability in &step.required_capabilities {
+                if seen.insert(capability.clone()) {
+                    selected.push(capability.clone());
+                }
+            }
+        }
+        if matches!(self.selector.strategy, SelectionStrategy::Exploration) {
+            selected.sort();
+        }
+        Ok(selected)
     }
 
-    /// Evaluate a plan
-    pub async fn evaluate(&self, _plan: &ReasoningPlan) -> Result<EvaluationResult, BrainError> {
-        // Placeholder implementation
-        Err(BrainError::ReasoningEngineError(
-            "Not implemented".to_string(),
-        ))
+    /// Evaluate a plan for risk and operational fit.
+    pub async fn evaluate(&self, plan: &ReasoningPlan) -> Result<EvaluationResult, BrainError> {
+        if plan.steps.is_empty() {
+            return Err(BrainError::ReasoningEngineError("plan has no steps".to_string()));
+        }
+        let mut details = Vec::new();
+        let mut high_risk = false;
+        let mut medium_risk = false;
+        for step in &plan.steps {
+            let lower = step.action.to_ascii_lowercase();
+            if ["delete", "remove", "publish", "deploy", "send money", "credential"]
+                .iter()
+                .any(|keyword| lower.contains(keyword))
+            {
+                high_risk = true;
+                details.push(format!("high-impact action detected in {}", step.id));
+            } else if ["write", "execute", "shell", "network", "external"]
+                .iter()
+                .any(|keyword| lower.contains(keyword))
+            {
+                medium_risk = true;
+                details.push(format!("external side effect detected in {}", step.id));
+            }
+        }
+        if self.evaluator.enable_learning {
+            details.push("evaluation uses adaptive-runtime hooks when enabled".to_string());
+        }
+        let score = if high_risk { 0.45 } else if medium_risk { 0.7 } else { 0.9 };
+        Ok(EvaluationResult {
+            score,
+            risk_assessment: RiskAssessment {
+                low_risk: !medium_risk && !high_risk,
+                medium_risk,
+                high_risk,
+                details,
+            },
+            recommendations: if high_risk {
+                vec!["require explicit approval before side effects".to_string()]
+            } else if medium_risk {
+                vec!["execute through the policy and sandbox boundaries".to_string()]
+            } else {
+                vec!["continue with normal verification gates".to_string()]
+            },
+        })
     }
 }
 
-/// Engine configuration
+/// Engine configuration.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct EngineConfig {
-    #[allow(missing_docs)]
+    /// Maximum planning steps.
     pub max_steps: usize,
-    #[allow(missing_docs)]
+    /// Whether evaluation learning hooks are enabled.
     pub enable_learning: bool,
-    #[allow(missing_docs)]
+    /// Capability selection strategy.
     pub selection_strategy: SelectionStrategy,
 }
 
@@ -154,57 +234,58 @@ impl Default for EngineConfig {
     }
 }
 
-/// Evaluation result
+/// Plan evaluation.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct EvaluationResult {
-    #[allow(missing_docs)]
     pub score: f64,
-    #[allow(missing_docs)]
     pub risk_assessment: RiskAssessment,
-    #[allow(missing_docs)]
     pub recommendations: Vec<String>,
 }
 
-/// Risk assessment
+/// Risk assessment.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct RiskAssessment {
-    #[allow(missing_docs)]
     pub low_risk: bool,
-    #[allow(missing_docs)]
     pub medium_risk: bool,
-    #[allow(missing_docs)]
     pub high_risk: bool,
-    #[allow(missing_docs)]
     pub details: Vec<String>,
 }
 
-impl Planner {
-    fn new(max_steps: usize) -> Self {
-        Self { max_steps }
+fn infer_capabilities(text: &str) -> Vec<CapabilityId> {
+    let lower = text.to_ascii_lowercase();
+    let mut capabilities = Vec::new();
+    if ["code", "rust", "typescript", "python", "bug", "test", "repo"]
+        .iter()
+        .any(|keyword| lower.contains(keyword))
+    {
+        capabilities.push("code".to_string());
     }
-}
-
-impl Evaluator {
-    fn new(enable_learning: bool) -> Self {
-        Self { enable_learning }
+    if ["search", "research", "docs", "web"].iter().any(|keyword| lower.contains(keyword)) {
+        capabilities.push("research".to_string());
     }
-}
-
-impl CapabilitySelector {
-    fn new(strategy: SelectionStrategy) -> Self {
-        Self { strategy }
+    if ["file", "write", "edit", "create"].iter().any(|keyword| lower.contains(keyword)) {
+        capabilities.push("filesystem".to_string());
     }
+    if ["run", "command", "shell", "terminal", "execute"].iter().any(|keyword| lower.contains(keyword)) {
+        capabilities.push("process.execute".to_string());
+    }
+    if capabilities.is_empty() {
+        capabilities.push("reasoning".to_string());
+    }
+    capabilities
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_engine_config_default() {
-        let config = EngineConfig::default();
-        assert_eq!(config.max_steps, 10);
+    #[tokio::test]
+    async fn generates_and_evaluates_plan() {
+        let engine = ReasoningEngine::new(EngineConfig::default());
+        let plan = engine.generate_plan("inspect the rust repo and run tests").await.unwrap();
+        assert!(!plan.steps.is_empty());
+        assert!(plan.estimated_cost.tokens > 0);
+        let evaluation = engine.evaluate(&plan).await.unwrap();
+        assert!(evaluation.score > 0.0);
     }
 }

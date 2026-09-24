@@ -1480,7 +1480,11 @@ async fn write_workspace_file(
         }
     }
 
-    match state.workspace.write_text(&request.path, &request.content).await {
+    match state
+        .workspace
+        .write_text(&request.path, &request.content)
+        .await
+    {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({
             "path": request.path.trim(),
             "bytes": request.content.len(),

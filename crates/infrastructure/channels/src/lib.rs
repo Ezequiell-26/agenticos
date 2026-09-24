@@ -142,7 +142,10 @@ impl ChannelRegistry {
     }
 
     /// Register or replace a channel configuration.
-    pub async fn register(&self, channel: ChannelDefinition) -> Result<ChannelDefinition, String> {
+    pub async fn register(
+        &self,
+        channel: ChannelDefinition,
+    ) -> Result<ChannelDefinition, String> {
         Self::validate_channel(&channel)?;
         let payload = serde_json::to_string(&channel)
             .map_err(|error| format!("channel serialization failed: {error}"))?;
@@ -254,7 +257,11 @@ impl ChannelRegistry {
     }
 
     /// Return the newest events for a channel.
-    pub async fn events(&self, channel_id: &str, limit: usize) -> Result<Vec<ChannelEvent>, String> {
+    pub async fn events(
+        &self,
+        channel_id: &str,
+        limit: usize,
+    ) -> Result<Vec<ChannelEvent>, String> {
         if !self.channels.read().await.contains_key(channel_id.trim()) {
             return Err("channel not found".to_string());
         }
@@ -282,7 +289,10 @@ mod tests {
     use super::*;
 
     async fn registry() -> ChannelRegistry {
-        let database_url = format!("sqlite:file:agenticos_channels_{}?mode=memory&cache=shared", uuid::Uuid::new_v4());
+        let database_url = format!(
+            "sqlite:file:agenticos_channels_{}?mode=memory&cache=shared",
+            uuid::Uuid::new_v4()
+        );
         ChannelRegistry::open(&database_url).await.unwrap()
     }
 

@@ -573,7 +573,6 @@ mod tests {
     }
 }
 
-
 fn tool_concurrency_limit() -> usize {
     let cores = std::thread::available_parallelism()
         .map(|value| value.get())

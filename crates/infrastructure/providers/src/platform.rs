@@ -1821,9 +1821,7 @@ fn normalize_agenticos_chat_parameters(
         ));
     };
 
-    let max_tokens = agenticos
-        .get("max_tokens")
-        .and_then(|value| value.as_u64());
+    let max_tokens = agenticos.get("max_tokens").and_then(|value| value.as_u64());
     let temperature = agenticos
         .get("temperature")
         .and_then(|value| value.as_f64());

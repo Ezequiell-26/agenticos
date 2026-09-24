@@ -255,3 +255,6 @@ export interface RuntimeServices {
     status(): Promise<RuntimeApiRecord>
   }
 }
+
+
+export type ChatSendOptions = { model?: string }

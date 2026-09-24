@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { Panel, Metric, MetricCard, Tag } from './PlatformPrimitives'
+import { runtime } from '../../services/runtime'
 
 type Suite = { id:string; title:string; summary:string; metrics:[string,string][]; items:string[] }
 const suites: Record<string, Suite> = {
@@ -18,10 +19,60 @@ export type FinalControlMode=keyof typeof suites
 
 export function FinalControlSuite({mode,onAction}:{mode:FinalControlMode;onAction:(message:string)=>void}){
   const [active,setActive]=useState(mode),[filter,setFilter]=useState(''),[armed,setArmed]=useState(false)
+  const [liveMetrics,setLiveMetrics]=useState<Record<string, unknown>>({})
+  const [liveUsage,setLiveUsage]=useState<Record<string, unknown>>({})
+  const [liveAuditCount,setLiveAuditCount]=useState<number | null>(null)
+  const [syncing,setSyncing]=useState(true)
   const suite=suites[active]??suites.teams
   const filtered=useMemo(()=>suite.items.filter(item=>item.toLowerCase().includes(filter.toLowerCase())),[suite.items,filter])
+
+  async function refreshRuntime() {
+    setSyncing(true)
+    try {
+      if (active === 'observability') {
+        setLiveMetrics(await runtime.metrics.get())
+      } else if (active === 'usage') {
+        setLiveUsage(await runtime.usage.summary())
+      } else if (active === 'teams') {
+        const agents = await runtime.subagents.list()
+        setLiveMetrics({ agents: agents.length })
+      } else if (active === 'recovery') {
+        setLiveMetrics(await runtime.health.get())
+      } else {
+        setLiveMetrics({})
+        setLiveUsage({})
+      }
+      const audit = await runtime.audit.list(100)
+      setLiveAuditCount(audit.length)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Runtime telemetry refresh failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  useEffect(() => { void refreshRuntime() }, [active])
+
+  function liveMetric(label:string, fallback:string) {
+    const source = active === 'usage' ? liveUsage : liveMetrics
+    const aliases: Record<string,string[]> = {
+      'Tokens today': ['tokens_today','total_tokens','tokens'],
+      'Estimated spend': ['estimated_spend','cost','total_cost'],
+      'Requests': ['requests','request_count','total_requests'],
+      'Active runs': ['active_runs','running_runs'],
+      'Events/min': ['events_per_minute','events_minute'],
+      'p95 latency': ['p95_latency_ms','p95_latency'],
+      'Agents': ['agents','count'],
+    }
+    const keys = aliases[label] ?? [label.toLowerCase().replace(/[^a-z0-9]+/g,'_')]
+    for (const key of keys) {
+      if (source[key] !== undefined) return typeof source[key] === 'number' ? String(source[key]) : String(source[key])
+    }
+    return fallback
+  }
+
   return <div className="final-suite">
-    <div className="final-suite__hero"><div><span className="eyebrow">Frontend control plane</span><h1>{suite.title}</h1><p>{suite.summary}</p></div><div className="final-suite__actions"><Tag label="Presentation-only"/><button className={armed?'studio-button studio-button--active':'studio-button'} type="button" onClick={()=>{setArmed(v=>!v);onAction(armed?'Preview controls disarmed':'Preview controls armed')}}><Icon name={armed?'lock':'shield'} size={14}/> {armed?'Disarm':'Arm preview'}</button></div></div>
+    <div className="final-suite__hero"><div><span className="eyebrow">Runtime control plane · {syncing ? 'syncing' : 'synced'}</span><h1>{suite.title}</h1><p>{suite.summary}</p></div><div className="final-suite__actions"><Tag label="Runtime-backed"/><button className="studio-button" type="button" onClick={() => void refreshRuntime()}><Icon name="refresh" size={13} /> Refresh</button><button className={armed?'studio-button studio-button--active':'studio-button'} type="button" onClick={()=>{setArmed(v=>!v);onAction(armed?'Local UI controls disarmed':'Local UI controls armed')}}><Icon name={armed?'lock':'shield'} size={14}/> {armed?'Disarm':'Arm preview'}</button></div></div>
     <div className="final-suite__tabs" role="tablist" aria-label="Frontend control surfaces" aria-orientation="horizontal">{tabs.map((id,index)=> <button key={id} id={'final-suite-tab-' + id.toLowerCase()} role="tab" tabIndex={active===id?0:-1} aria-selected={active===id} aria-controls="final-suite-tabpanel" className={active===id?'final-suite__tab final-suite__tab--active':'final-suite__tab'} onClick={()=>{setActive(id);setFilter('')}} onKeyDown={(event)=>{const nextIndex=event.key==='ArrowRight'?(index+1)%tabs.length:event.key==='ArrowLeft'?(index-1+tabs.length)%tabs.length:event.key==='Home'?0:event.key==='End'?tabs.length-1:-1;if(nextIndex>=0){event.preventDefault();const next=tabs[nextIndex];setActive(next);window.requestAnimationFrame(()=>document.getElementById('final-suite-tab-'+next.toLowerCase())?.focus())}}} type="button">{suites[id].title}</button>)}</div>
     <div id="final-suite-tabpanel" className="final-suite__metrics" role="tabpanel" aria-labelledby={'final-suite-tab-' + active.toLowerCase()} tabIndex={0}>{suite.metrics.map(([label,value])=><MetricCard key={label} label={label} value={value} sub="UI preview"/>)}</div>
     <div className="final-suite__grid"><Panel title="Surface checklist"><div className="final-suite__search"><Icon name="search" size={14}/><input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Filter controls…" aria-label="Filter controls"/></div><div className="final-suite__checklist">{filtered.map(item=><button key={item} type="button" onClick={()=>onAction(`Preview: ${item}`)} className="final-suite__check"><span className="final-suite__checkmark"><Icon name="check" size={12}/></span><span><strong>{item}</strong><small>Ready for backend contract</small></span><Icon name="chevron-right" size={13}/></button>)}{!filtered.length&&<div className="final-suite__empty">No controls match the current filter.</div>}</div></Panel>

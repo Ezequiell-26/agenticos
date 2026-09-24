@@ -43,7 +43,7 @@ export function readSettingsStore<T extends object>(storageKey: string, defaults
     if (!raw) return initial
 
     const parsed = JSON.parse(raw) as Partial<SettingsStore<T>>
-    const scopes = parsed.scopes ?? {}
+    const scopes = (parsed.scopes ?? {}) as Partial<Record<SettingsScope, T>>
     const normalize = (scope: SettingsScope): T => ({ ...defaults, ...(scopes[scope] ?? {}) })
 
     return {

@@ -5,6 +5,7 @@
 
 use agenticos_contracts::Message;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-context";
@@ -53,6 +54,133 @@ pub struct ContextPlan {
     pub trimmed: bool,
 }
 
+/// Statistics produced while compacting a tool payload.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolOutputOptimization {
+    /// Original UTF-8 byte length.
+    pub original_bytes: usize,
+    /// Optimized UTF-8 byte length.
+    pub optimized_bytes: usize,
+    /// Number of bytes removed by deterministic normalization.
+    pub bytes_saved: usize,
+    /// Number of repeated lines folded.
+    pub repeated_lines_folded: usize,
+}
+
+impl ToolOutputOptimization {
+    /// Ratio of bytes removed from the original payload.
+    pub fn savings_ratio(self) -> f64 {
+        if self.original_bytes == 0 { 0.0 } else { 1.0 - (self.optimized_bytes as f64 / self.original_bytes as f64) }
+    }
+}
+
+/// Deterministically normalize tool output before it becomes model-visible.
+///
+/// This representation is for logs and tool payloads. Source artifacts must
+/// remain recoverable separately from the optimized model-facing payload.
+pub fn optimize_tool_output(input: &str) -> (String, ToolOutputOptimization) {
+    let original_bytes = input.len();
+    let normalized = strip_ansi(input);
+    let source = compact_json_if_possible(&normalized).unwrap_or(normalized);
+    let (folded, repeated_lines_folded) = fold_repeated_lines(&source);
+    let optimized = folded.trim_end().to_string();
+    let optimized_bytes = optimized.len();
+
+    (
+        optimized,
+        ToolOutputOptimization {
+            original_bytes,
+            optimized_bytes,
+            bytes_saved: original_bytes.saturating_sub(optimized_bytes),
+            repeated_lines_folded,
+        },
+    )
+}
+
+fn strip_ansi(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut chars = input.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch != '' {
+            output.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('[') => {
+                for control in chars.by_ref() {
+                    if ('@'..='~').contains(&control) { break; }
+                }
+            }
+            Some(_) | None => {}
+        }
+    }
+
+    output
+}
+
+fn compact_json_if_possible(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if !(trimmed.starts_with('{') || trimmed.starts_with('[')) { return None; }
+    let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
+    serde_json::to_string(&value).ok()
+}
+
+fn fold_repeated_lines(input: &str) -> (String, usize) {
+    let mut output = String::with_capacity(input.len());
+    let mut previous = None::<&str>;
+    let mut repeat_count = 0usize;
+    let mut folded = 0usize;
+
+    let flush = |output: &mut String, previous: &mut Option<&str>, repeat_count: &mut usize, folded: &mut usize| {
+        if let Some(line) = *previous {
+            if *repeat_count > 1 {
+                output.push_str(line);
+                output.push_str(" (repeated ");
+                output.push_str(&repeat_count.to_string());
+                output.push_str(" times)");
+                *folded += *repeat_count - 1;
+            } else {
+                output.push_str(line);
+            }
+            output.push('
+');
+        }
+        *previous = None;
+        *repeat_count = 0;
+    };
+
+    for line in input.lines() {
+        let line = line.trim_end();
+        if line.is_empty() {
+            if repeat_count > 0 { flush(&mut output, &mut previous, &mut repeat_count, &mut folded); }
+            if !output.is_empty() && !output.ends_with("
+
+") { output.push('
+'); }
+            continue;
+        }
+
+        match previous {
+            Some(current) if current == line => repeat_count += 1,
+            Some(_) => {
+                flush(&mut output, &mut previous, &mut repeat_count, &mut folded);
+                previous = Some(line);
+                repeat_count = 1;
+            }
+            None => {
+                previous = Some(line);
+                repeat_count = 1;
+            }
+        }
+    }
+
+    if repeat_count > 0 { flush(&mut output, &mut previous, &mut repeat_count, &mut folded); }
+    (output.trim_end_matches('
+').to_string(), folded)
+}
+
 /// Stateless context engine.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ContextEngine;
@@ -76,19 +204,21 @@ impl ContextEngine {
         }
 
         let mut selected_indices = Vec::with_capacity(messages.len());
+        let mut selected_set = HashSet::with_capacity(messages.len());
         let mut used = 0_u32;
 
         // Preserve system messages first because they define the runtime contract.
         for (index, message) in messages.iter().enumerate() {
             if message.role == "system" && used.saturating_add(message.token_count) <= limit {
                 selected_indices.push(index);
+                selected_set.insert(index);
                 used = used.saturating_add(message.token_count);
             }
         }
 
         // Fill the remaining budget with the newest messages.
         for index in (0..messages.len()).rev() {
-            if selected_indices.contains(&index) {
+            if selected_set.contains(&index) {
                 continue;
             }
             let message = &messages[index];
@@ -96,15 +226,12 @@ impl ContextEngine {
                 continue;
             }
             selected_indices.push(index);
+            selected_set.insert(index);
             used = used.saturating_add(message.token_count);
         }
 
         selected_indices.sort_unstable();
 
-        let selected_set = selected_indices
-            .iter()
-            .copied()
-            .collect::<std::collections::HashSet<_>>();
         let selected = selected_indices
             .into_iter()
             .map(|index| messages[index].clone())
@@ -138,6 +265,24 @@ mod tests {
             token_count: tokens,
             run_id: RunId::new("context-test").unwrap(),
         }
+    }
+
+    #[test]
+    fn optimize_tool_output_removes_noise() {
+        let input = "écho\n\u{1b}[32mOK\u{1b}[0m\nline\nline\n\n\n";
+        let (optimized, stats) = optimize_tool_output(input);
+        assert!(optimized.contains("écho"));
+        assert!(optimized.contains("line (repeated 2 times)"));
+        assert!(!optimized.contains('\u{1b}'));
+        assert_eq!(stats.repeated_lines_folded, 1);
+        assert!(stats.bytes_saved > 0);
+    }
+
+    #[test]
+    fn optimize_tool_output_compacts_json() {
+        let input = "{\n  \"status\": \"ok\",\n  \"items\": [1, 2]\n}";
+        let (optimized, _) = optimize_tool_output(input);
+        assert_eq!(optimized, "{\"status\":\"ok\",\"items\":[1,2]}");
     }
 
     #[test]

@@ -2168,8 +2168,8 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
         );
     }
 
-    #[test]
-    fn anthropic_discovery_uses_configured_models() {
+    #[tokio::test]
+    async fn anthropic_discovery_uses_configured_models() {
         let provider = ProviderEntry {
             provider_id: "anthropic".to_string(),
             name: "Anthropic".to_string(),
@@ -2178,7 +2178,7 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
             capabilities: vec!["anthropic".to_string()],
         };
         assert_eq!(
-            futures::executor::block_on(list_provider_models(&provider, None)).unwrap(),
+            list_provider_models(&provider, None).await.unwrap(),
             vec!["claude-sonnet-5".to_string()]
         );
     }

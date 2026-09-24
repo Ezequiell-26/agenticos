@@ -1026,7 +1026,7 @@ async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(state.metrics.snapshot())
 }
 
-fn a2a_agent_card() -> AgentCard {
+fn build_a2a_agent_card() -> AgentCard {
     let base_url = std::env::var("AGENTICOS_PUBLIC_BASE_URL")
         .ok()
         .filter(|value| !value.trim().is_empty())
@@ -1072,7 +1072,7 @@ fn a2a_agent_card() -> AgentCard {
 }
 
 async fn a2a_agent_card() -> impl Responder {
-    HttpResponse::Ok().json(a2a_agent_card())
+    HttpResponse::Ok().json(build_a2a_agent_card())
 }
 
 fn a2a_error(id: serde_json::Value, code: i32, message: impl Into<String>) -> HttpResponse {

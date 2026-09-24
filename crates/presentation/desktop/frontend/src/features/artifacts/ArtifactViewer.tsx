@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { runtime } from '../../services/runtime'
-import type { RuntimeApiRecord } from '../../types/runtime'
 
 type ArtifactTab = 'Preview' | 'Metadata' | 'Versions' | 'Lineage'
 
@@ -82,7 +81,7 @@ export default function ArtifactViewer({ selected, onSelect, onAction }: { selec
       <aside className="artifact-viewer__list">
         <div className="artifact-viewer__list-head"><span>Generated outputs · {runtimeSyncing ? 'syncing' : 'runtime'}</span><span className="count-pill">{liveArtifacts.length}</span></div>
         <div className="artifact-viewer__list-body">
-          {artifactData.map((artifact) => (
+          {liveArtifacts.map((artifact) => (
             <button key={artifact.name} type="button" className={current.name === artifact.name ? 'artifact-viewer__item artifact-viewer__item--active' : 'artifact-viewer__item'} onClick={() => onSelect(artifact.name)}>
               <span className="artifact-viewer__item-icon"><Icon name={artifact.type === 'Log' ? 'terminal' : artifact.type === 'Image' ? 'layout' : artifact.type === 'Structured' ? 'code' : 'archive'} size={14} /></span>
               <span><strong>{artifact.name}</strong><small>{artifact.type} · {artifact.size}</small></span>
@@ -98,7 +97,7 @@ export default function ArtifactViewer({ selected, onSelect, onAction }: { selec
           <div className="studio-header__actions">
             <button className="icon-button" type="button" title="Copy artifact path" onClick={() => onAction('Artifact path copied')}><Icon name="copy" size={14} /></button>
             <button className="studio-button" type="button" onClick={() => void runtime.artifacts.content(current.name).then((blob) => { const url=URL.createObjectURL(blob); const anchor=document.createElement('a'); anchor.href=url; anchor.download=current.name; anchor.click(); URL.revokeObjectURL(url); onAction('Artifact downloaded from runtime') }).catch((error) => onAction(error instanceof Error ? error.message : 'Artifact download failed'))}><Icon name="arrow-down" size={13} /> Download</button>
-            <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Artifact handoff staged in preview')}><Icon name="send" size={13} /> Handoff</button>
+            <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Artifact handoff requires a runtime delivery target; no handoff endpoint is exposed yet') }><Icon name="send" size={13} /> Handoff</button>
           </div>
         </div>
         <div className="artifact-viewer__tabs" role="tablist" aria-label="Artifact views">

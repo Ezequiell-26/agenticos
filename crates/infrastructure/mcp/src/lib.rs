@@ -345,13 +345,9 @@ impl McpManager {
             return Ok(tools);
         }
 
-        let _permit = self
-            .concurrency
-            .acquire()
-            .await
-            .map_err(|_| {
-                McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string())
-            })?;
+        let _permit = self.concurrency.acquire().await.map_err(|_| {
+            McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string())
+        })?;
 
         let server = self.get_enabled(server_id).await?;
         let session = self.get_or_spawn_session(&server).await?;
@@ -387,11 +383,9 @@ impl McpManager {
             ));
         }
 
-        let _permit = self
-            .concurrency
-            .acquire()
-            .await
-            .map_err(|_| McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string()))?;
+        let _permit = self.concurrency.acquire().await.map_err(|_| {
+            McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string())
+        })?;
 
         let server = self.get_enabled(server_id).await?;
         let session = self.get_or_spawn_session(&server).await?;
@@ -811,7 +805,6 @@ mod tests {
     }
 }
 
-
 fn mcp_concurrency_limit() -> usize {
     std::env::var("AGENTICOS_MCP_MAX_CONCURRENCY")
         .ok()
@@ -829,7 +822,6 @@ fn mcp_tool_cache_ttl() -> Duration {
     Duration::from_millis(ttl_ms)
 }
 
-
 fn mcp_max_active_sessions() -> usize {
     std::env::var("AGENTICOS_MCP_MAX_ACTIVE_SESSIONS")
         .ok()
@@ -846,7 +838,6 @@ fn mcp_max_tool_cache_entries() -> usize {
         .clamp(8, 2048)
 }
 
-
 fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
@@ -857,9 +848,14 @@ fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
             values
                 .into_iter()
                 .map(|(key, value)| {
-                    let value = if matches!(key.as_str(), "text" | "stdout" | "stderr" | "output" | "message") {
+                    let value = if matches!(
+                        key.as_str(),
+                        "text" | "stdout" | "stderr" | "output" | "message"
+                    ) {
                         match value {
-                            serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
+                            serde_json::Value::String(text) => {
+                                serde_json::Value::String(optimize_tool_output(&text).0)
+                            },
                             other => optimize_mcp_value(other),
                         }
                     } else {

@@ -455,7 +455,7 @@ impl PersistentMemoryStore {
         query: &str,
         limit: usize,
     ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
-        let escaped = query.trim().replace('%', "");
+        let escaped = escape_like_pattern(query.trim());
         let pattern = format!("%{escaped}%");
         sqlx::query_as::<_, PersistentMemoryRecord>(
             r#"
@@ -463,7 +463,11 @@ impl PersistentMemoryStore {
             FROM memory_records
             WHERE namespace = ?
               AND (expires_at = 0 OR expires_at > ?)
-              AND (key LIKE ? OR value LIKE ? OR tags LIKE ?)
+              AND (
+                    key LIKE ? ESCAPE '\\'
+                    OR value LIKE ? ESCAPE '\\'
+                    OR tags LIKE ? ESCAPE '\\'
+              )
             ORDER BY importance DESC, created_at DESC
             LIMIT ?
             "#,
@@ -502,6 +506,10 @@ impl PersistentMemoryStore {
                 })?;
         Ok(result.rows_affected())
     }
+}
+
+fn escape_like_pattern(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
 
 fn unix_time() -> u64 {

@@ -828,6 +828,8 @@ async fn http_model_provider_executes_against_a_deterministic_local_provider() {
         .as_deref()
         .is_some_and(|value| value.contains("local-test")));
 
+}
+
 #[tokio::test]
 async fn provider_platform_enforces_requests_per_minute_before_network_dispatch() {
 let body =

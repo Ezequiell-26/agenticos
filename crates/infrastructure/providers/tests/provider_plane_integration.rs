@@ -100,15 +100,12 @@ fn spawn_http_response_sequence_server(
             stream
                 .write_all(response.as_bytes())
                 .expect("write sequence test HTTP response");
-            stream
-                .flush()
-                .expect("flush sequence test HTTP response");
+            stream.flush().expect("flush sequence test HTTP response");
         }
     });
 
     (format!("http://{}", address), handle)
 }
-
 
 async fn select_healthy_provider(
     primary: &str,
@@ -352,14 +349,12 @@ async fn provider_platform_retries_transient_transport_failure_before_succeeding
         .expect("register retry provider");
 
     let response = platform
-        .execute(
-            ModelRequest {
-                request_id: "provider-retry-1".to_string(),
-                model: "retry-model".to_string(),
-                input: "hello".to_string(),
-                parameters: None,
-            },
-        )
+        .execute(ModelRequest {
+            request_id: "provider-retry-1".to_string(),
+            model: "retry-model".to_string(),
+            input: "hello".to_string(),
+            parameters: None,
+        })
         .await
         .expect("transient failure should be retried");
 
@@ -422,14 +417,12 @@ async fn provider_platform_executes_through_fallback_after_primary_transport_fai
         .expect("configure explicit fallback policy");
 
     let response = platform
-        .execute(
-            ModelRequest {
-                request_id: "platform-fallback-1".to_string(),
-                model: "default".to_string(),
-                input: "hello".to_string(),
-                parameters: None,
-            },
-        )
+        .execute(ModelRequest {
+            request_id: "platform-fallback-1".to_string(),
+            model: "default".to_string(),
+            input: "hello".to_string(),
+            parameters: None,
+        })
         .await
         .expect("platform should recover through fallback provider");
 

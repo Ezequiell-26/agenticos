@@ -1846,7 +1846,9 @@ impl ReactAgent {
             soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
-                model_provider: None,\n                preferred_model: None,\n                memory: None,
+                model_provider: None,
+                preferred_model: None,
+                memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
                 checkpoint_store: None,
@@ -1882,7 +1884,9 @@ impl ReactAgent {
             soul: Arc::new(RwLock::new(Soul::new())),
             inner: Mutex::new(ReactAgentInner {
                 current_turn: 0,
-                model_provider: None,\n                preferred_model: None,\n                memory: None,
+                model_provider: None,
+                preferred_model: None,
+                memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
                 checkpoint_store: None,

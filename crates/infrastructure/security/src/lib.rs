@@ -68,9 +68,9 @@ impl CapabilityManager {
 
     /// Open a SQLite-backed capability manager and recover grants/approvals.
     pub async fn open(database_url: &str) -> Result<Self, ContractError> {
-        let db = SqlitePool::connect(database_url)
-            .await
-            .map_err(|error| ContractError::ParseError(format!("security database connection failed: {error}")))?;
+        let db = SqlitePool::connect(database_url).await.map_err(|error| {
+            ContractError::ParseError(format!("security database connection failed: {error}"))
+        })?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS capability_grants (grant_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
@@ -101,15 +101,19 @@ impl CapabilityManager {
 
         let mut grants = HashMap::with_capacity(grant_rows.len());
         for (grant_id, payload) in grant_rows {
-            let grant: CapabilityGrant = serde_json::from_str(&payload)
-                .map_err(|error| ContractError::ParseError(format!("invalid persisted grant {grant_id}: {error}")))?;
+            let grant: CapabilityGrant = serde_json::from_str(&payload).map_err(|error| {
+                ContractError::ParseError(format!("invalid persisted grant {grant_id}: {error}"))
+            })?;
             grants.insert(grant_id, grant);
         }
 
         let mut approvals = HashMap::with_capacity(approval_rows.len());
         for (approval_id, payload) in approval_rows {
-            let request: ApprovalRequest = serde_json::from_str(&payload)
-                .map_err(|error| ContractError::ParseError(format!("invalid persisted approval {approval_id}: {error}")))?;
+            let request: ApprovalRequest = serde_json::from_str(&payload).map_err(|error| {
+                ContractError::ParseError(format!(
+                    "invalid persisted approval {approval_id}: {error}"
+                ))
+            })?;
             approvals.insert(approval_id, request);
         }
 
@@ -124,8 +128,9 @@ impl CapabilityManager {
         let Some(db) = &self.db else {
             return Ok(());
         };
-        let payload = serde_json::to_string(grant)
-            .map_err(|error| ContractError::ParseError(format!("grant serialization failed: {error}")))?;
+        let payload = serde_json::to_string(grant).map_err(|error| {
+            ContractError::ParseError(format!("grant serialization failed: {error}"))
+        })?;
         sqlx::query(
             "INSERT INTO capability_grants (grant_id, payload) VALUES (?, ?) ON CONFLICT(grant_id) DO UPDATE SET payload = excluded.payload",
         )
@@ -145,7 +150,9 @@ impl CapabilityManager {
             .bind(grant_id)
             .execute(db)
             .await
-            .map_err(|error| ContractError::ParseError(format!("grant deletion failed: {error}")))?;
+            .map_err(|error| {
+                ContractError::ParseError(format!("grant deletion failed: {error}"))
+            })?;
         Ok(())
     }
 
@@ -153,8 +160,9 @@ impl CapabilityManager {
         let Some(db) = &self.db else {
             return Ok(());
         };
-        let payload = serde_json::to_string(request)
-            .map_err(|error| ContractError::ParseError(format!("approval serialization failed: {error}")))?;
+        let payload = serde_json::to_string(request).map_err(|error| {
+            ContractError::ParseError(format!("approval serialization failed: {error}"))
+        })?;
         sqlx::query(
             "INSERT INTO approval_requests (approval_id, payload) VALUES (?, ?) ON CONFLICT(approval_id) DO UPDATE SET payload = excluded.payload",
         )
@@ -394,7 +402,8 @@ mod tests {
 
     #[tokio::test]
     async fn sqlite_security_state_recovers_grants_and_approvals() {
-        let path = std::env::temp_dir().join(format!("agenticos-security-{}.db", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-security-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let manager = CapabilityManager::open(&url).await.unwrap();

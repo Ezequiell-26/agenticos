@@ -119,9 +119,11 @@ impl WorkflowEngine {
             .clone();
 
         let valid = match (&current, &next) {
-            (WorkflowNodeState::Pending, WorkflowNodeState::Ready) => node.depends_on.iter().all(|dependency| {
-                state.nodes.get(dependency) == Some(&WorkflowNodeState::Succeeded)
-            }),
+            (WorkflowNodeState::Pending, WorkflowNodeState::Ready) => {
+                node.depends_on.iter().all(|dependency| {
+                    state.nodes.get(dependency) == Some(&WorkflowNodeState::Succeeded)
+                })
+            }
             (WorkflowNodeState::Ready, WorkflowNodeState::Running) => true,
             (WorkflowNodeState::Running, WorkflowNodeState::Succeeded)
             | (WorkflowNodeState::Running, WorkflowNodeState::Failed) => true,

@@ -23,8 +23,8 @@ use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
     SqliteSnapshotStore,
 };
-use agenticos_memory::PersistentMemoryStore;
 use agenticos_mcp::{McpManager, McpServerDefinition};
+use agenticos_memory::PersistentMemoryStore;
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec};
@@ -378,9 +378,8 @@ async fn set_mcp_enabled(
     };
 
     match result {
-        Ok(()) => HttpResponse::Ok().json(
-            serde_json::json!({"server_id": server_id, "enabled": action == "enable"}),
-        ),
+        Ok(()) => HttpResponse::Ok()
+            .json(serde_json::json!({"server_id": server_id, "enabled": action == "enable"})),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_SERVER_NOT_FOUND",
@@ -422,12 +421,7 @@ async fn call_mcp_tool(
     let resource = format!("mcp/{server_id}/{tool_name}");
     match state
         .capabilities
-        .authorize(
-            grant_id,
-            CapabilityType::Execute,
-            &resource,
-            "mcp.call",
-        )
+        .authorize(grant_id, CapabilityType::Execute, &resource, "mcp.call")
         .await
     {
         Ok(true) => {}
@@ -450,7 +444,10 @@ async fn call_mcp_tool(
         .call_tool(
             &server_id,
             &tool_name,
-            request.arguments.clone().unwrap_or_else(|| serde_json::json!({})),
+            request
+                .arguments
+                .clone()
+                .unwrap_or_else(|| serde_json::json!({})),
         )
         .await
     {
@@ -1397,7 +1394,9 @@ async fn scheduler_worker(state: RuntimeState) {
             if let Some(run_id) = run_id.clone() {
                 let run = state.kernel.runs.read().await.get(&run_id).cloned();
                 match run {
-                    Some(run) if matches!(run.state, RunState::Cancelling | RunState::Cancelled) => {
+                    Some(run)
+                        if matches!(run.state, RunState::Cancelling | RunState::Cancelled) =>
+                    {
                         let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
                         if run.state == RunState::Cancelling {
                             let _ = state
@@ -1443,14 +1442,18 @@ async fn scheduler_worker(state: RuntimeState) {
                         let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
                         if let Some(run) = current_run {
                             let transition = match run.state {
-                                RunState::Cancelling => state
-                                    .kernel
-                                    .transition_run(&run_id, RunState::Cancelled, run.version)
-                                    .await,
-                                RunState::Running => state
-                                    .kernel
-                                    .transition_run(&run_id, RunState::Completed, run.version)
-                                    .await,
+                                RunState::Cancelling => {
+                                    state
+                                        .kernel
+                                        .transition_run(&run_id, RunState::Cancelled, run.version)
+                                        .await
+                                }
+                                RunState::Running => {
+                                    state
+                                        .kernel
+                                        .transition_run(&run_id, RunState::Completed, run.version)
+                                        .await
+                                }
                                 _ => Ok(()),
                             };
                             if let Err(error) = transition {
@@ -1476,7 +1479,8 @@ async fn scheduler_worker(state: RuntimeState) {
                         .await;
                 }
                 Err(error) => {
-                    let final_attempt = started_job.attempts >= started_job.spec.max_attempts.max(1);
+                    let final_attempt =
+                        started_job.attempts >= started_job.spec.max_attempts.max(1);
                     if final_attempt {
                         if let Some(run_id) = run_id {
                             let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
@@ -1636,9 +1640,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/mcp", web::get().to(list_mcp_servers))
             .route("/api/mcp", web::post().to(register_mcp_server))
             .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))
-            .route("/api/mcp/{server_id}/{action}", web::post().to(set_mcp_enabled))
+            .route(
+                "/api/mcp/{server_id}/{action}",
+                web::post().to(set_mcp_enabled),
+            )
             .route("/api/mcp/{server_id}/tools", web::get().to(list_mcp_tools))
-            .route("/api/mcp/{server_id}/tools/{tool_name}/call", web::post().to(call_mcp_tool))
+            .route(
+                "/api/mcp/{server_id}/tools/{tool_name}/call",
+                web::post().to(call_mcp_tool),
+            )
             .route("/api/providers", web::get().to(list_providers))
             .route("/api/providers", web::post().to(register_provider))
             .route(

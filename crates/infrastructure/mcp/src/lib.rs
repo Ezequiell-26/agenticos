@@ -148,7 +148,9 @@ impl McpManager {
     pub async fn open(database_url: &str, default_timeout_ms: u64) -> Result<Self, McpError> {
         let db = sqlx::SqlitePool::connect(database_url)
             .await
-            .map_err(|error| McpError::InvalidConfiguration(format!("MCP database connection failed: {error}")))?;
+            .map_err(|error| {
+                McpError::InvalidConfiguration(format!("MCP database connection failed: {error}"))
+            })?;
 
         sqlx::query(
             r#"
@@ -163,14 +165,18 @@ impl McpManager {
         )
         .execute(&db)
         .await
-        .map_err(|error| McpError::InvalidConfiguration(format!("MCP schema initialization failed: {error}")))?;
+        .map_err(|error| {
+            McpError::InvalidConfiguration(format!("MCP schema initialization failed: {error}"))
+        })?;
 
         let rows = sqlx::query_as::<_, (String, String, String, i64, Option<i64>)>(
             "SELECT server_id, name, transport, enabled, timeout_ms FROM mcp_servers",
         )
         .fetch_all(&db)
         .await
-        .map_err(|error| McpError::InvalidConfiguration(format!("MCP recovery query failed: {error}")))?;
+        .map_err(|error| {
+            McpError::InvalidConfiguration(format!("MCP recovery query failed: {error}"))
+        })?;
 
         let mut servers = HashMap::with_capacity(rows.len());
         for (server_id, name, transport_json, enabled, timeout_ms) in rows {
@@ -216,7 +222,9 @@ impl McpManager {
         .bind(server.timeout_ms.map(|value| value as i64))
         .execute(db)
         .await
-        .map_err(|error| McpError::InvalidConfiguration(format!("MCP persistence failed: {error}")))?;
+        .map_err(|error| {
+            McpError::InvalidConfiguration(format!("MCP persistence failed: {error}"))
+        })?;
         Ok(())
     }
 
@@ -228,7 +236,9 @@ impl McpManager {
             .bind(server_id)
             .execute(db)
             .await
-            .map_err(|error| McpError::InvalidConfiguration(format!("MCP persistence delete failed: {error}")))?;
+            .map_err(|error| {
+                McpError::InvalidConfiguration(format!("MCP persistence delete failed: {error}"))
+            })?;
         Ok(())
     }
 
@@ -298,7 +308,9 @@ impl McpManager {
         arguments: serde_json::Value,
     ) -> Result<serde_json::Value, McpError> {
         if tool_name.trim().is_empty() {
-            return Err(McpError::InvalidConfiguration("tool_name is required".to_string()));
+            return Err(McpError::InvalidConfiguration(
+                "tool_name is required".to_string(),
+            ));
         }
         let server = self.get_enabled(server_id).await?;
         let mut client = StdioClient::spawn(&server, self.timeout_for(&server)).await?;
@@ -395,7 +407,10 @@ struct StdioClient {
 }
 
 impl StdioClient {
-    async fn spawn(server: &McpServerDefinition, timeout_duration: Duration) -> Result<Self, McpError> {
+    async fn spawn(
+        server: &McpServerDefinition,
+        timeout_duration: Duration,
+    ) -> Result<Self, McpError> {
         let McpTransport::Stdio { command, args } = &server.transport;
         let mut child = Command::new(command)
             .args(args)
@@ -405,10 +420,9 @@ impl StdioClient {
             .kill_on_drop(true)
             .spawn()?;
 
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| McpError::InvalidConfiguration("MCP stdout pipe unavailable".to_string()))?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            McpError::InvalidConfiguration("MCP stdout pipe unavailable".to_string())
+        })?;
 
         Ok(Self {
             child,
@@ -445,18 +459,22 @@ impl StdioClient {
         self.notify("notifications/initialized", None).await
     }
 
-    async fn notify(&mut self, method: &str, params: Option<serde_json::Value>) -> Result<(), McpError> {
+    async fn notify(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<(), McpError> {
         let payload = serde_json::json!({
             "jsonrpc": "2.0",
             "method": method,
             "params": params,
         });
-        let stdin = self
-            .child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| McpError::InvalidConfiguration("MCP stdin pipe unavailable".to_string()))?;
-        stdin.write_all(serde_json::to_string(&payload)?.as_bytes()).await?;
+        let stdin = self.child.stdin.as_mut().ok_or_else(|| {
+            McpError::InvalidConfiguration("MCP stdin pipe unavailable".to_string())
+        })?;
+        stdin
+            .write_all(serde_json::to_string(&payload)?.as_bytes())
+            .await?;
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
         Ok(())
@@ -474,12 +492,12 @@ impl StdioClient {
             params,
         };
 
-        let stdin = self
-            .child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| McpError::InvalidConfiguration("MCP stdin pipe unavailable".to_string()))?;
-        stdin.write_all(serde_json::to_string(&request)?.as_bytes()).await?;
+        let stdin = self.child.stdin.as_mut().ok_or_else(|| {
+            McpError::InvalidConfiguration("MCP stdin pipe unavailable".to_string())
+        })?;
+        stdin
+            .write_all(serde_json::to_string(&request)?.as_bytes())
+            .await?;
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
 
@@ -505,11 +523,16 @@ fn parse_tools(response: JsonRpcResponse) -> Result<Vec<McpTool>, McpError> {
             message: error.message,
         });
     }
-    let result = response
-        .result
-        .ok_or_else(|| McpError::InvalidConfiguration("MCP tools/list returned no result".to_string()))?;
-    serde_json::from_value(result.get("tools").cloned().unwrap_or_else(|| serde_json::json!([])))
-        .map_err(McpError::Serialization)
+    let result = response.result.ok_or_else(|| {
+        McpError::InvalidConfiguration("MCP tools/list returned no result".to_string())
+    })?;
+    serde_json::from_value(
+        result
+            .get("tools")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([])),
+    )
+    .map_err(McpError::Serialization)
 }
 
 #[cfg(test)]

@@ -218,7 +218,11 @@ impl ProviderPlatform {
         let primary_provider = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .or_else(|| providers.first().map(|provider| provider.provider_id.clone()));
+            .or_else(|| {
+                providers
+                    .first()
+                    .map(|provider| provider.provider_id.clone())
+            });
 
         let mut ordered_ids = Vec::new();
         if let Some(primary) = primary_provider.as_deref() {
@@ -455,7 +459,6 @@ impl ProviderPlatform {
         }
         Ok(removed)
     }
-
 }
 
 impl Default for ProviderPlatform {
@@ -630,7 +633,6 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
         || normalized.starts_with("http://[::1]:")
         || normalized.starts_with("https://[::1]:")
 }
-
 
 #[cfg(test)]
 mod tests {

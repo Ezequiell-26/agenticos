@@ -114,9 +114,22 @@ impl JobScheduler {
         .map_err(|error| format!("scheduler recovery query failed: {error}"))?;
 
         let mut jobs = HashMap::with_capacity(rows.len());
-        for (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error) in rows {
-            let dependencies: Vec<String> = serde_json::from_str(&dependencies)
-                .map_err(|error| format!("scheduler dependencies are invalid for {job_id}: {error}"))?;
+        for (
+            job_id,
+            run_id,
+            task,
+            dependencies,
+            priority,
+            max_attempts,
+            state,
+            attempts,
+            last_error,
+        ) in rows
+        {
+            let dependencies: Vec<String> =
+                serde_json::from_str(&dependencies).map_err(|error| {
+                    format!("scheduler dependencies are invalid for {job_id}: {error}")
+                })?;
             let state = match state.as_str() {
                 "Pending" => JobState::Pending,
                 "Ready" => JobState::Ready,
@@ -293,7 +306,10 @@ impl JobScheduler {
         let result = record.clone();
         drop(jobs);
         if let Err(error) = self.persist(&result).await {
-            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            self.jobs
+                .write()
+                .await
+                .insert(result.spec.job_id.clone(), previous);
             return Err(error);
         }
         Ok(result)
@@ -328,7 +344,10 @@ impl JobScheduler {
         let result = record.clone();
         drop(jobs);
         if let Err(error) = self.persist(&result).await {
-            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            self.jobs
+                .write()
+                .await
+                .insert(result.spec.job_id.clone(), previous);
             return Err(error);
         }
         Ok(())
@@ -357,7 +376,10 @@ impl JobScheduler {
         let result = record.clone();
         drop(jobs);
         if let Err(error) = self.persist(&result).await {
-            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            self.jobs
+                .write()
+                .await
+                .insert(result.spec.job_id.clone(), previous);
             return Err(error);
         }
         Ok(())
@@ -388,7 +410,8 @@ mod tests {
 
     #[tokio::test]
     async fn sqlite_scheduler_recovers_jobs_after_restart() {
-        let path = std::env::temp_dir().join(format!("agenticos-scheduler-{}.db", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-scheduler-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = JobScheduler::open(&url).await.expect("open scheduler");

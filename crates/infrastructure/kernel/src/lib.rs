@@ -2374,7 +2374,7 @@ impl ReactAgent {
             } else if action.starts_with("delete_line:") {
                 // Format: "delete_line:path:line_number"
                 let parts: Vec<&str> = action.splitn(3, ':').collect();
-                if parts.len() >= 2 {
+                if parts.len() >= 3 {
                     let path = parts[1];
                     let line_number: usize = parts[2].parse().unwrap_or(0);
                     let result = executor.delete_line(path, line_number);
@@ -2649,16 +2649,9 @@ impl ReactAgent {
         };
 
         // Step 1: Thought/Reasoning
-        let thought = match self
+        let thought = self
             .think_inner(model_provider.as_ref(), current_turn, input)
-            .await
-        {
-            Ok(t) => t,
-            Err(_) => {
-                // Fallback thought when no model provider configured
-                format!("Thought: Processing request '{}'", input)
-            }
-        };
+            .await?;
 
         // Store assistant thought in SQLite memory if available
         if let Some(memory) = &memory {
@@ -2880,8 +2873,9 @@ impl ReactAgent {
                 return Err(ContractError::ParseError(error_msg));
             }
         } else {
-            // Execute without pipeline (original behavior)
-            self.act_inner(tool_executor.as_ref(), &action).await?
+            // Without a configured tool pipeline, the model output is the final assistant response.
+            // Do not reinterpret arbitrary natural-language output as a shell/file action.
+            action.clone()
         };
 
         // Log turn end event with latency and step count
@@ -2928,8 +2922,13 @@ impl ReactAgent {
             }
         }
 
-        // Step 4: Process observation
-        let result = self.observe(&observation);
+        // Step 4: Process observation. A tool-backed turn is wrapped as an observation;
+        // a plain model turn returns the model output directly.
+        let result = if tool_pipeline.is_some() {
+            self.observe(&observation)
+        } else {
+            observation.clone()
+        };
 
         // Create checkpoint if checkpoint store is available
         if let Some(store) = &checkpoint_store {
@@ -2980,18 +2979,21 @@ impl ReactAgent {
 
     /// Load conversation context from SQLite memory.
     pub async fn load_context(&self) -> Result<String, ContractError> {
-        let inner = self.inner.lock().unwrap();
-        if let Some(memory) = &inner.memory {
-            let history = memory.get_session_history(&inner.session_id, 20).await?;
+        let (memory, session_id) = {
+            let inner = self.inner.lock().unwrap();
+            (inner.memory.clone(), inner.session_id.clone())
+        };
+
+        if let Some(memory) = memory {
+            let history = memory.get_session_history(&session_id, 20).await?;
             if history.is_empty() {
                 Ok(String::new())
             } else {
-                let context = history
+                Ok(history
                     .iter()
                     .map(|msg| format!("{}: {}", msg.role, msg.content))
                     .collect::<Vec<_>>()
-                    .join("\n");
-                Ok(context)
+                    .join("\n"))
             }
         } else {
             Ok(String::new())

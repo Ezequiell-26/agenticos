@@ -385,10 +385,7 @@ async fn create_provider(
     let name = request.name.trim();
     let base_url = request.base_url.trim();
 
-    if provider_id.is_empty()
-        || name.is_empty()
-        || base_url.is_empty()
-        || request.models.is_empty()
+    if provider_id.is_empty() || name.is_empty() || base_url.is_empty() || request.models.is_empty()
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "provider_id, name, base_url and at least one model are required".to_string(),
@@ -500,7 +497,14 @@ async fn invoke_tool(
     let resource = match tool_id {
         "process.execute" => "process/command".to_string(),
         "memory.search" | "memory.write" | "memory.delete" => {
-            format!("memory/{}", request.parameters.get("namespace").and_then(|v| v.as_str()).unwrap_or("*"))
+            format!(
+                "memory/{}",
+                request
+                    .parameters
+                    .get("namespace")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("*")
+            )
         }
         "provider.chat" => format!(
             "provider/{}",
@@ -531,12 +535,7 @@ async fn invoke_tool(
 
     let authorized = match state
         .capabilities
-        .authorize(
-            &request.grant_id,
-            capability_type,
-            &resource,
-            &permission,
-        )
+        .authorize(&request.grant_id, capability_type, &resource, &permission)
         .await
     {
         Ok(value) => value,

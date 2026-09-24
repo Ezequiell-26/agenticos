@@ -51,7 +51,7 @@ export default function RuntimeProbePanel({ mode, onAction }: RuntimeProbePanelP
       } else if (mode === 'batch' || mode === 'background' || mode === 'tasks') {
         const records = await runtime.jobs.list(); next.records = records; next.summary = `${records.length} scheduler jobs`
       } else if (mode === 'playground') {
-        const models = await runtime.models.list(); next.records = models as unknown as RuntimeApiRecord[]; next.summary = `${records.length} live models`
+        const models = await runtime.models.list(); next.records = models as unknown as RuntimeApiRecord[]; next.summary = `${models.length} live models`
       } else if (mode === 'routing') {
         const records = await runtime.providers.list(); next.records = records as unknown as RuntimeApiRecord[]; next.summary = `${records.length} runtime providers`
       } else if (mode === 'execution' || mode === 'environment-lab') {

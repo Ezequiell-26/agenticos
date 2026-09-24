@@ -1255,3 +1255,11 @@ Verification status:
 - Made the selected-task status pill and execution steps reflect the current simulated state instead of remaining static.
 - Added queue pause/resume presentation state while preserving the runtime execution boundary.
 - Verification status: source-level wiring only; latest CI/build/browser/Tauri evidence remains pending.
+
+## 2026-09-24 — Session Replay recovery depth
+
+- Expanded Session Replay Studio with a replay scrubber, step navigation, playback-speed control and explicit replay position.
+- Added comparison mode plus named fork and checkpoint-restore controls to make recovery workflows discoverable from the frontend.
+- Preserved immutable-original semantics and kept replay/fork/restore actions as typed presentation intents until session-runtime contracts are connected.
+- Added responsive styling for the new recovery controls.
+- Verification status: source-level wiring only; production build, browser/Tauri execution and runtime acceptance remain unverified.

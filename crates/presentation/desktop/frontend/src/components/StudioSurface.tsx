@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { runtime } from '../services/runtime'
 import type { RailMode } from './ActivityRail'
 import Icon from './Icon'
 import ArtifactViewer from '../features/artifacts/ArtifactViewer'
@@ -110,6 +111,9 @@ export default function StudioSurface({ mode, onNavigate }: { mode: Exclude<Rail
   const [toasts, setToasts] = useState<Toast[]>([])
   const [terminalLines, setTerminalLines] = useState(terminalWelcome)
   const [terminalInput, setTerminalInput] = useState('')
+  const [terminalId, setTerminalId] = useState<string | null>(null)
+  const [terminalGrantId, setTerminalGrantId] = useState<string | null>(null)
+  const [terminalBusy, setTerminalBusy] = useState(false)
   const [artifactSelected, setArtifactSelected] = useState(artifacts[0][0])
 
   function notify(message: string) {
@@ -140,23 +144,61 @@ export default function StudioSurface({ mode, onNavigate }: { mode: Exclude<Rail
     }
   }
 
-  function runTerminalCommand() {
+  async function runTerminalCommand() {
     const command = terminalInput.trim()
-    if (!command) return
-    const response = command === 'help'
-      ? ['status   show runtime preview', 'clear    clear terminal', 'ls       list workspace', 'run      simulate an agent run']
-      : command === 'clear'
-        ? []
-        : command === 'ls'
-          ? files.map((file) => file.path)
-          : command === 'status'
-            ? ['runtime: offline preview', 'guardrails: enabled', 'active tools: 4', 'workspace state: local']
-            : command === 'run'
-              ? ['run queued: RUN-LOCAL-001', 'planning...', 'execution simulated', 'verification pending']
-              : [`command not implemented in preview: ${command}`]
-    setTerminalLines((current) => command === 'clear' ? [] : [...current, `$ ${command}`, ...response])
-    setTerminalInput('')
-    notify(`Terminal: ${command}`)
+    if (!command || terminalBusy) return
+    if (command === 'clear') {
+      setTerminalLines([])
+      setTerminalInput('')
+      return
+    }
+
+    let grantId = terminalGrantId
+    if (!grantId) {
+      grantId = window.prompt('Capability grant_id for terminal execution', '')?.trim() || null
+      if (!grantId) {
+        notify('Terminal execution requires a capability grant')
+        return
+      }
+      setTerminalGrantId(grantId)
+    }
+
+    setTerminalBusy(true)
+    try {
+      let activeTerminalId = terminalId
+      if (!activeTerminalId) {
+        const created = await runtime.terminal.create({ command, grant_id: grantId })
+        activeTerminalId = typeof created.terminal_id === 'string' ? created.terminal_id : null
+        if (!activeTerminalId) throw new Error('Runtime did not return a terminal_id')
+        setTerminalId(activeTerminalId)
+        setTerminalLines((current) => [...current, `$ ${command}`, 'terminal process started'])
+      } else {
+        await runtime.terminal.input(activeTerminalId, command + '\\n', grantId)
+        setTerminalLines((current) => [...current, `$ ${command}`])
+      }
+
+      const output = await runtime.terminal.output(activeTerminalId, grantId, undefined, 200)
+      const lines = typeof output.output === 'string' ? output.output.split('\\n') : Array.isArray(output.lines) ? output.lines.map(String) : []
+      if (lines.length > 0) setTerminalLines((current) => [...current, ...lines])
+      notify(`Terminal command sent to runtime`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Terminal operation failed')
+    } finally {
+      setTerminalBusy(false)
+      setTerminalInput('')
+    }
+  }
+
+  async function closeRuntimeTerminal() {
+    if (!terminalId || !terminalGrantId) return
+    try {
+      await runtime.terminal.close(terminalId, terminalGrantId)
+      setTerminalLines((current) => [...current, '[terminal closed]'])
+      setTerminalId(null)
+      notify('Runtime terminal closed')
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Terminal close failed')
+    }
   }
 
   const filteredFiles = useMemo(() => {
@@ -273,8 +315,8 @@ export default function StudioSurface({ mode, onNavigate }: { mode: Exclude<Rail
 
   if (mode === 'terminal') return (
     <section className="studio-surface">
-      <StudioHeader eyebrow="Developer tools" title="Integrated Terminal" subtitle="Interactive local shell preview with command history and task output." actions={<button className="studio-button" type="button" onClick={() => setTerminalLines(terminalWelcome)}><Icon name="history" size={14} /> Reset</button>} />
-      <div className="terminal-shell"><div className="terminal-top"><span><span className="terminal-dot" /><span className="terminal-dot" /><span className="terminal-dot" /></span><span>agentiCOS / workspace</span><span className="mono-text">shell preview</span></div><div className="terminal-output">{terminalLines.map((line, index) => <div className={line.startsWith('$') ? 'terminal-command' : ''} key={`${index}-${line}`}>{line || ' '}</div>)}</div><form className="terminal-input-row" onSubmit={(event) => { event.preventDefault(); runTerminalCommand() }}><span>$</span><input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} placeholder="Type a command…" /><kbd>Enter</kbd></form></div>
+      <StudioHeader eyebrow="Developer tools" title="Integrated Terminal" subtitle="Interactive runtime shell with bounded output and explicit capability authorization." actions={<><button className="studio-button" type="button" onClick={() => setTerminalLines(terminalWelcome)}><Icon name="history" size={14} /> Reset view</button>{terminalId && <button className="studio-button" type="button" onClick={() => void closeRuntimeTerminal()}><Icon name="stop" size={14} /> Close runtime</button>}</>} />
+      <div className="terminal-shell"><div className="terminal-top"><span><span className="terminal-dot" /><span className="terminal-dot" /><span className="terminal-dot" /></span><span>agentiCOS / workspace</span><span className="mono-text">{terminalBusy ? 'executing' : terminalId ? `runtime ${terminalId.slice(0, 12)}` : 'runtime idle'}</span></div><div className="terminal-output">{terminalLines.map((line, index) => <div className={line.startsWith('$') ? 'terminal-command' : ''} key={`${index}-${line}`}>{line || ' '}</div>)}</div><form className="terminal-input-row" onSubmit={(event) => { event.preventDefault(); runTerminalCommand() }}><span>$</span><input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} placeholder="Type a command…" disabled={terminalBusy} /><kbd>{terminalBusy ? '…' : 'Enter'}</kbd></form></div>
       {toasts.map((toast) => <Toast key={toast.id} message={toast.message} />)}
     </section>
   )

@@ -31,5 +31,7 @@ jobs:
         run: npm ci --no-audit --no-fund --prefix crates/presentation/desktop/frontend
       - name: Validate frontend source formatting
         run: git diff --check
+      - name: Frontend architecture contract checks
+        run: npm run test:contracts --prefix crates/presentation/desktop/frontend
       - name: TypeScript and Vite production build
         run: npm run build --prefix crates/presentation/desktop/frontend

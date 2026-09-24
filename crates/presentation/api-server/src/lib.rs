@@ -156,6 +156,99 @@ impl AgentTool for SecureCommandTool {
     }
 }
 
+/// Capability-gated Git inspection tool.
+#[derive(Clone, Debug)]
+struct GitWorkspaceTool {
+    service: Arc<SecureToolService>,
+    workspace: Arc<WorkspaceFs>,
+    artifacts: Arc<ArtifactStore>,
+    operation: &'static str,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for GitWorkspaceTool {
+    fn tool_id(&self) -> &str {
+        self.operation
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        let command = match self.operation {
+            "git.status" => "git status --short --branch".to_string(),
+            "git.diff" => "git diff --no-ext-diff --unified=3".to_string(),
+            "git.log" => "git log -n 20 --oneline --decorate".to_string(),
+            "git.branches" => "git branch --list".to_string(),
+            "git.show" => "git show --stat --oneline HEAD".to_string(),
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        let result = self
+            .service
+            .execute_scoped(
+                &request.session_id,
+                Some(&request.agent_id),
+                &request.grant_id,
+                &command,
+                Some(30_000),
+                "git/workspace",
+                "git.read",
+                Some(self.workspace.root()),
+            )
+            .await?;
+
+        let output = result.output.unwrap_or_default();
+        if self.artifacts.should_spill(output.len()) {
+            let artifact = self
+                .artifacts
+                .put_bytes(
+                    None,
+                    "git-output",
+                    "text/plain; charset=utf-8",
+                    output.as_bytes(),
+                    None,
+                    false,
+                    serde_json::json!({
+                        "tool": self.operation,
+                        "workspace": self.workspace.root().display().to_string(),
+                    }),
+                )
+                .await
+                .map_err(ContractError::ParseError)?;
+
+            return Ok(ToolResponse {
+                request_id: request.request_id,
+                result: serde_json::json!({
+                    "artifact_id": artifact.artifact_id,
+                    "size_bytes": artifact.size_bytes,
+                    "checksum": artifact.checksum,
+                    "content_url": format!(
+                        "/api/artifacts/{}/content",
+                        artifact.artifact_id
+                    ),
+                })
+                .to_string(),
+                success: result.success,
+                error: result.error,
+                metadata: Some(format!(
+                    "{} executed in confined workspace; output spilled to artifact",
+                    self.operation
+                )),
+            });
+        }
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: serde_json::json!({
+                "operation": self.operation,
+                "output": output,
+            })
+            .to_string(),
+            success: result.success,
+            error: result.error,
+            metadata: Some("read-only Git workspace operation".to_string()),
+        })
+    }
+}
+
 /// Capability-gated workspace filesystem tool.
 #[derive(Clone, Debug)]
 struct WorkspaceTool {
@@ -381,6 +474,38 @@ impl RuntimeState {
                 .await
                 .map_err(|error| {
                     ContractError::ParseError(format!("workspace tool registration failed: {error}"))
+                })?;
+        }
+
+        for (tool_id, name) in [
+            ("git.status", "Inspect Git status"),
+            ("git.diff", "Inspect working tree diff"),
+            ("git.log", "Inspect recent Git history"),
+            ("git.branches", "List local Git branches"),
+            ("git.show", "Inspect HEAD summary"),
+        ] {
+            tool_runtime
+                .register(
+                    ToolEntry {
+                        tool_id: tool_id.to_string(),
+                        name: name.to_string(),
+                        description: name.to_string(),
+                        capabilities: vec!["git".to_string()],
+                        required_permissions: vec![],
+                        context_requirements: vec!["capability:git.read".to_string()],
+                    },
+                    Arc::new(GitWorkspaceTool {
+                        service: secure_tools.clone(),
+                        workspace: workspace.clone(),
+                        artifacts: artifacts.clone(),
+                        operation: tool_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "Git tool registration failed: {error}"
+                    ))
                 })?;
         }
 

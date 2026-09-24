@@ -1532,3 +1532,261 @@ svg { display:block; flex:0 0 auto; vector-effect:non-scaling-stroke; }
   flex: 1;
 }
 .surface-error small { color: var(--text-muted, #8d8d8d); line-height: 1.45; }
+
+
+/* Responsive shell + accessibility hardening. Keeps dense desktop surfaces usable when the Tauri window is resized. */
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  z-index: 100;
+  padding: 8px 10px;
+  border: 1px solid #454545;
+  border-radius: 8px;
+  background: #f1f1f1;
+  color: #080808;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 120ms ease;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 0;
+}
+
+@media (max-width: 1180px) {
+  html, body, #root { min-width: 0; }
+
+  .app-shell {
+    grid-template-columns: 56px 224px minmax(0, 1fr);
+  }
+
+  .agent-panel {
+    display: none;
+  }
+
+  .workspace-main {
+    min-width: 0;
+  }
+
+  .topbar__right {
+    gap: 5px;
+  }
+
+  .topbar__right > .soft-button {
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 0;
+  }
+
+  .topbar__right > .soft-button svg {
+    margin: 0;
+  }
+
+  .workspace-command-strip {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .workspace-command-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-command-strip__left,
+  .workspace-command-strip__right {
+    flex: 0 0 auto;
+  }
+
+  .workspace-command-strip__signal {
+    display: none;
+  }
+
+  .workspace-dock {
+    left: 7px;
+    right: 7px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .workspace-sidebar {
+    display: none;
+  }
+
+  .topbar {
+    padding: 0 12px;
+  }
+
+  .topbar__right > .soft-button {
+    display: none;
+  }
+
+  .runtime-chip {
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-command-strip__left .workspace-context-chip--wide {
+    display: none;
+  }
+
+  .workspace-command-strip__left {
+    max-width: 100%;
+  }
+
+  .workspace-command-strip__right {
+    gap: 4px;
+  }
+
+  .chat-header__actions > .soft-button {
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 0;
+  }
+
+  .chat-header__actions > .soft-button svg {
+    margin: 0;
+  }
+
+  .message-stack {
+    padding: 20px 14px 28px;
+  }
+
+  .composer-wrap {
+    padding: 0 10px 10px;
+  }
+
+  .starter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-grid,
+  .metric-row,
+  .platform-metrics,
+  .platform-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-dock__meta .dock-context {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .activity-rail {
+    padding-top: 10px;
+  }
+
+  .rail-button {
+    width: 38px;
+    height: 38px;
+  }
+
+  .topbar__title .eyebrow,
+  .topbar__title .topbar__group {
+    display: none;
+  }
+
+  .topbar__title h1 {
+    font-size: 14px;
+  }
+
+  .workspace-command-strip__left .workspace-context-chip:not(.workspace-context-chip--status) {
+    min-width: 0;
+  }
+
+  .workspace-command-button {
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 0;
+  }
+
+  .workspace-command-button svg {
+    margin: 0;
+  }
+
+  .starter-grid,
+  .overview-grid,
+  .metric-row,
+  .platform-metrics,
+  .platform-grid--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-empty {
+    width: min(620px, 96%);
+    padding: 28px 14px;
+  }
+
+  .chat-empty h1 {
+    font-size: 30px;
+  }
+
+  .workspace-dock {
+    left: 5px;
+    right: 5px;
+    bottom: 34px;
+  }
+
+  .workspace-dock__tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .workspace-dock__tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dock-output__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dock-timeline-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dock-timeline-step::after {
+    display: none !important;
+  }
+
+  .studio-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studio-header__actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .file-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .editor-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+}

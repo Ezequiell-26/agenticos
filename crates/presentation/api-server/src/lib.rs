@@ -545,6 +545,7 @@ pub struct RuntimeState {
     memory: Arc<SqliteMemory>,
     persistent_memory: Arc<PersistentMemoryStore>,
     mcp: Arc<McpManager>,
+    channels: Arc<ChannelRegistry>,
     audit: Arc<AuditStore>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
@@ -592,6 +593,11 @@ impl RuntimeState {
             McpManager::open(&database_url, 30_000)
                 .await
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
+        let channels = Arc::new(
+            ChannelRegistry::open(&database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
         );
         let audit = Arc::new(
             AuditStore::open(&database_url)
@@ -817,6 +823,7 @@ impl RuntimeState {
             memory,
             persistent_memory,
             mcp,
+            channels,
             audit,
             provider,
             kernel,
@@ -1318,6 +1325,25 @@ struct WorkspacePatchRequest {
     replacement: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct RegisterChannelRequest {
+    channel: ChannelDefinition,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChannelEventRequest {
+    profile_id: String,
+    session_id: Option<String>,
+    sender_id: Option<String>,
+    payload: serde_json::Value,
+    attachments: Option<Vec<serde_json::Value>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChannelEventsQuery {
+    limit: Option<usize>,
+}
+
 async fn list_workspace(
     query: web::Query<WorkspacePathQuery>,
     state: web::Data<RuntimeState>,
@@ -1521,6 +1547,79 @@ async fn patch_workspace_file(
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
             error,
             code: "WORKSPACE_PATCH_REJECTED",
+        }),
+    }
+}
+
+async fn list_channels(state: web::Data<RuntimeState>) -> impl Responder {
+    let channels: Vec<ChannelDefinition> = state.channels.list().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "channels": channels,
+        "count": channels.len(),
+    }))
+}
+
+async fn register_channel(
+    request: web::Json<RegisterChannelRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.channels.register(request.channel.clone()).await {
+        Ok(channel) => HttpResponse::Ok().json(channel),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "CHANNEL_INVALID",
+        }),
+    }
+}
+
+async fn delete_channel(
+    channel_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.channels.remove(&channel_id).await {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "CHANNEL_NOT_FOUND",
+        }),
+    }
+}
+
+async fn append_channel_event(
+    channel_id: web::Path<String>,
+    request: web::Json<ChannelEventRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.channels.append_event(
+        &channel_id,
+        &request.profile_id,
+        request.session_id.clone(),
+        request.sender_id.clone(),
+        request.payload.clone(),
+        request.attachments.clone().unwrap_or_default(),
+    ).await {
+        Ok(event) => HttpResponse::Created().json(event),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "CHANNEL_EVENT_REJECTED",
+        }),
+    }
+}
+
+async fn list_channel_events(
+    path: web::Path<String>,
+    query: web::Query<ChannelEventsQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.channels.events(&path, query.limit.unwrap_or(50).clamp(1, 500)).await {
+        Ok(events) => HttpResponse::Ok().json(serde_json::json!({
+            "channel_id": path.into_inner(),
+            "events": events,
+            "count": events.len(),
+        })),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "CHANNEL_EVENTS_QUERY_FAILED",
         }),
     }
 }
@@ -5284,6 +5383,11 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/audit", web::get().to(list_audit))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/channels", web::get().to(list_channels))
+            .route("/api/channels", web::post().to(register_channel))
+            .route("/api/channels/{channel_id}", web::delete().to(delete_channel))
+            .route("/api/channels/{channel_id}/events", web::get().to(list_channel_events))
+            .route("/api/channels/{channel_id}/events", web::post().to(append_channel_event))
             .route("/api/workspace/list", web::get().to(list_workspace))
             .route("/api/workspace/file", web::get().to(read_workspace_file))
             .route("/api/workspace/file", web::post().to(write_workspace_file))

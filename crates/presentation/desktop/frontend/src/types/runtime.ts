@@ -143,6 +143,30 @@ export interface RuntimeWorkspaceEntry {
   size_bytes?: number | null
 }
 
+export interface RuntimeChannel {
+  channel_id: string
+  name: string
+  channel_type: string
+  enabled: boolean
+  mode: string
+  threading: boolean
+  attachments: boolean
+  voice: boolean
+  delivery: string
+}
+
+export interface RuntimeChannelEvent extends RuntimeApiRecord {
+  schemaVersion?: number
+  eventId?: string
+  channelId?: string
+  profileId?: string
+  sessionId?: string | null
+  senderId?: string | null
+  receivedAt?: string
+  payload?: RuntimeApiRecord
+  attachments?: RuntimeApiRecord[]
+}
+
 export interface RuntimeWorkspaceFile {
   path: string
   content: string
@@ -275,6 +299,13 @@ export interface RuntimeServices {
   }
   skills: {
     list(): Promise<RuntimeApiRecord[]>
+  }
+  channels: {
+    list(): Promise<RuntimeChannel[]>
+    register(channel: RuntimeChannel): Promise<RuntimeChannel>
+    remove(channelId: string): Promise<void>
+    events(channelId: string, limit?: number): Promise<RuntimeChannelEvent[]>
+    sendEvent(channelId: string, request: { profile_id: string; session_id?: string; sender_id?: string; payload: RuntimeApiRecord; attachments?: RuntimeApiRecord[] }): Promise<RuntimeChannelEvent>
   }
   workspace: {
     list(path: string, grantId: string): Promise<RuntimeWorkspaceEntry[]>

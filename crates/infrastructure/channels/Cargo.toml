@@ -1,0 +1,15 @@
+[package]
+name = "agenticos-channels"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+[lints]
+workspace = true

@@ -19,6 +19,8 @@ import type {
   RuntimeServices,
   RuntimeStreamEvent,
   RuntimeWorkerJob,
+  RuntimeChannel,
+  RuntimeChannelEvent,
   RuntimeWorkspaceEntry,
   RuntimeWorkspaceFile,
 } from '../types/runtime'
@@ -507,6 +509,24 @@ export class AgenticosRuntime implements RuntimeServices {
 
   readonly skills = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/skills'), 'skills'),
+  }
+
+  readonly channels = {
+    list: async (): Promise<RuntimeChannel[]> => {
+      const data = await this.transport.get<RuntimeApiRecord>('/api/channels')
+      return arrayOfRecords(data.channels) as unknown as RuntimeChannel[]
+    },
+    register: async (channel: RuntimeChannel): Promise<RuntimeChannel> =>
+      this.transport.post<RuntimeChannel>('/api/channels', { channel }),
+    remove: async (channelId: string) => {
+      await this.transport.delete(`/api/channels/${encodeURIComponent(channelId)}`)
+    },
+    events: async (channelId: string, limit = 50): Promise<RuntimeChannelEvent[]> => {
+      const data = await this.transport.get<RuntimeApiRecord>(`/api/channels/${encodeURIComponent(channelId)}/events?limit=${Math.min(500, Math.max(1, limit))}`)
+      return arrayOfRecords(data.events) as unknown as RuntimeChannelEvent[]
+    },
+    sendEvent: async (channelId: string, request: { profile_id: string; session_id?: string; sender_id?: string; payload: RuntimeApiRecord; attachments?: RuntimeApiRecord[] }): Promise<RuntimeChannelEvent> =>
+      this.transport.post<RuntimeChannelEvent>(`/api/channels/${encodeURIComponent(channelId)}/events`, request),
   }
 
   readonly workspace = {

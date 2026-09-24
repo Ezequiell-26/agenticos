@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import Icon from './Icon'
 import type { RailMode } from '../navigation'
@@ -47,6 +47,7 @@ interface NotificationDrawerProps {
   onClose: () => void
   onOpenCenter: () => void
   onNavigate: (mode: RailMode) => void
+  onUnreadChange?: (count: number) => void
 }
 
 export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavigate }: NotificationDrawerProps) {
@@ -65,6 +66,9 @@ export default function NotificationDrawer({ open, onClose, onOpenCenter, onNavi
   }, [filter, items])
 
   const unreadCount = items.filter((item) => !item.read).length
+  useEffect(() => {
+    onUnreadChange?.(unreadCount)
+  }, [onUnreadChange, unreadCount])
 
   function markRead(id: string) {
     setItems((current) => {

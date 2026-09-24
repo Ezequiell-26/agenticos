@@ -1044,7 +1044,7 @@ async fn create_approval(
             code: "INVALID_APPROVAL",
         });
     }
-    let approval = state
+    match state
         .capabilities
         .request_approval(
             request.run_id.clone(),
@@ -1052,8 +1052,14 @@ async fn create_approval(
             request.resource.clone(),
             request.expires_at.unwrap_or(0),
         )
-        .await;
-    HttpResponse::Created().json(approval)
+        .await
+    {
+        Ok(approval) => HttpResponse::Created().json(approval),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "APPROVAL_PERSIST_FAILED",
+        }),
+    }
 }
 
 async fn resolve_approval(

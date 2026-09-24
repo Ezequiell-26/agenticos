@@ -41,6 +41,8 @@ struct PersistedQuota {
     current_usage: u64,
     #[serde(default)]
     window_started_at: u64,
+    #[serde(default)]
+    token_usage: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -333,6 +335,7 @@ impl ProviderPlatform {
                                 current_usage: quota.current_usage,
                             },
                             quota.window_started_at,
+                            quota.token_usage,
                         )
                         .await?;
                 }
@@ -383,11 +386,12 @@ impl ProviderPlatform {
             .quotas
             .get_state(provider_id)
             .await
-            .map(|(value, window_started_at)| PersistedQuota {
+            .map(|(value, window_started_at, token_usage)| PersistedQuota {
                 requests_per_minute: value.requests_per_minute,
                 tokens_per_minute: value.tokens_per_minute,
                 current_usage: value.current_usage,
                 window_started_at,
+                token_usage,
             });
         let retry = self
             .retries
@@ -936,6 +940,19 @@ impl ProviderPlatform {
 
                 match client.execute(routed_request.clone()).await {
                     Ok(response) => {
+                        if let Some(tokens) = response.tokens_used {
+                            if let Err(error) = self
+                                .quotas
+                                .record_tokens(&provider.provider_id, tokens)
+                                .await
+                            {
+                                tracing::warn!(
+                                    provider = %provider.provider_id,
+                                    %error,
+                                    "failed to record provider token usage"
+                                );
+                            }
+                        }
                         let _ = self.persist_runtime_state(&provider.provider_id).await;
                         let _ = self
                             .update_health(&provider.provider_id, HealthStatus::Healthy, None)

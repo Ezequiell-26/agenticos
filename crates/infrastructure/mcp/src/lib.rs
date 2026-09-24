@@ -130,6 +130,7 @@ pub enum McpError {
 #[derive(Clone, Debug)]
 pub struct McpManager {
     servers: Arc<RwLock<HashMap<String, McpServerDefinition>>>,
+    db: Option<Arc<sqlx::SqlitePool>>,
     default_timeout_ms: u64,
 }
 
@@ -138,15 +139,106 @@ impl McpManager {
     pub fn new(default_timeout_ms: u64) -> Self {
         Self {
             servers: Arc::new(RwLock::new(HashMap::new())),
+            db: None,
             default_timeout_ms: default_timeout_ms.clamp(1_000, 300_000),
         }
+    }
+
+    /// Open a SQLite-backed manager and recover registered servers.
+    pub async fn open(database_url: &str, default_timeout_ms: u64) -> Result<Self, McpError> {
+        let db = sqlx::SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| McpError::InvalidConfiguration(format!("MCP database connection failed: {error}")))?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS mcp_servers (
+                server_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                transport TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                timeout_ms INTEGER
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| McpError::InvalidConfiguration(format!("MCP schema initialization failed: {error}")))?;
+
+        let rows = sqlx::query_as::<_, (String, String, String, i64, Option<i64>)>(
+            "SELECT server_id, name, transport, enabled, timeout_ms FROM mcp_servers",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| McpError::InvalidConfiguration(format!("MCP recovery query failed: {error}")))?;
+
+        let mut servers = HashMap::with_capacity(rows.len());
+        for (server_id, name, transport_json, enabled, timeout_ms) in rows {
+            let transport = serde_json::from_str::<McpTransport>(&transport_json)?;
+            let definition = McpServerDefinition {
+                server_id: server_id.clone(),
+                name,
+                transport,
+                enabled: enabled != 0,
+                timeout_ms: timeout_ms.map(|value| value as u64),
+            };
+            validate_server(&definition)?;
+            servers.insert(server_id, definition);
+        }
+
+        Ok(Self {
+            servers: Arc::new(RwLock::new(servers)),
+            db: Some(Arc::new(db)),
+            default_timeout_ms: default_timeout_ms.clamp(1_000, 300_000),
+        })
+    }
+
+    async fn persist(&self, server: &McpServerDefinition) -> Result<(), McpError> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        let transport = serde_json::to_string(&server.transport)?;
+        sqlx::query(
+            r#"
+            INSERT INTO mcp_servers (server_id, name, transport, enabled, timeout_ms)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(server_id) DO UPDATE SET
+                name = excluded.name,
+                transport = excluded.transport,
+                enabled = excluded.enabled,
+                timeout_ms = excluded.timeout_ms
+            "#,
+        )
+        .bind(&server.server_id)
+        .bind(&server.name)
+        .bind(transport)
+        .bind(i64::from(server.enabled))
+        .bind(server.timeout_ms.map(|value| value as i64))
+        .execute(db)
+        .await
+        .map_err(|error| McpError::InvalidConfiguration(format!("MCP persistence failed: {error}")))?;
+        Ok(())
+    }
+
+    async fn delete_persisted(&self, server_id: &str) -> Result<(), McpError> {
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
+        sqlx::query("DELETE FROM mcp_servers WHERE server_id = ?")
+            .bind(server_id)
+            .execute(db)
+            .await
+            .map_err(|error| McpError::InvalidConfiguration(format!("MCP persistence delete failed: {error}")))?;
+        Ok(())
     }
 
     /// Register or replace a server definition.
     pub async fn register(&self, server: McpServerDefinition) -> Result<(), McpError> {
         validate_server(&server)?;
-        self.servers.write().await.insert(server.server_id.clone(), server);
-        Ok(())
+        let mut servers = self.servers.write().await;
+        servers.insert(server.server_id.clone(), server.clone());
+        drop(servers);
+        self.persist(&server).await
     }
 
     /// Enable a server.
@@ -156,7 +248,9 @@ impl McpManager {
             .get_mut(server_id)
             .ok_or_else(|| McpError::ServerNotFound(server_id.to_string()))?;
         server.enabled = true;
-        Ok(())
+        let snapshot = server.clone();
+        drop(servers);
+        self.persist(&snapshot).await
     }
 
     /// Disable a server.
@@ -166,12 +260,18 @@ impl McpManager {
             .get_mut(server_id)
             .ok_or_else(|| McpError::ServerNotFound(server_id.to_string()))?;
         server.enabled = false;
-        Ok(())
+        let snapshot = server.clone();
+        drop(servers);
+        self.persist(&snapshot).await
     }
 
     /// Remove a server definition.
     pub async fn unregister(&self, server_id: &str) -> bool {
-        self.servers.write().await.remove(server_id).is_some()
+        let removed = self.servers.write().await.remove(server_id).is_some();
+        if removed {
+            let _ = self.delete_persisted(server_id).await;
+        }
+        removed
     }
 
     /// Return all registered servers.

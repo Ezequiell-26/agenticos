@@ -128,7 +128,7 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
   const [tab, setTab] = useState<ToolTab>('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(toolCatalog[0].name)
-  const [, setLiveTools] = useState(toolCatalog)
+  const [liveTools, setLiveTools] = useState(toolCatalog)
 
   useEffect(() => {
     let cancelled = false
@@ -146,7 +146,7 @@ export default function ToolsStudio({ onAction }: { onAction: (message: string) 
       setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
     }).catch(() => {
       // Keep local tool catalog while runtime is unavailable.
-    })
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
     return () => { cancelled = true }
   }, [])
   const [enabled, setEnabled] = useState(() => new Set(toolCatalog.filter((tool) => tool.enabled).map((tool) => tool.name)))

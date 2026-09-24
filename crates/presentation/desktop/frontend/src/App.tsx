@@ -331,6 +331,7 @@ function App() {
         onCreateConversation={handleCreateConversation}
         onSelectConversation={handleSelectConversation}
         onSelectMode={(nextMode) => { setMode(nextMode); setPaletteOpen(false) }}
+        onOpenShortcuts={() => { setPaletteOpen(false); setShortcutsOpen(true) }}
         open={paletteOpen}
       />
       <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

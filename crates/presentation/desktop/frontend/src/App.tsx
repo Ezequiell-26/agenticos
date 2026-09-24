@@ -19,7 +19,7 @@ import { navigationItems, primaryRailIds, type RailMode } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, readUiPreferences, subscribeUiPreferences, updateUiPreferences, type ExperienceLevel } from './services/ui-preferences'
 import { useExclusiveOverlay } from './hooks/useExclusiveOverlay'
-import type { AgentStatusSnapshot, ChatMessage, ConversationSummary } from './types/runtime'
+import type { AgentStatusSnapshot, ChatMessage, ChatSendOptions, ConversationSummary } from './types/runtime'
 
 const now = Date.now()
 
@@ -77,6 +77,7 @@ function App() {
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages)
   const [conversations, setConversations] = useState(initialConversations)
   const [status, setStatus] = useState<AgentStatusSnapshot>(fallbackStatus)
+  const [availableModels, setAvailableModels] = useState<string[]>([])
   const [running, setRunning] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
@@ -153,14 +154,16 @@ function App() {
     const requestSequence = ++runtimeSyncSequence.current
     setRuntimeSyncing(true)
     setRuntimeError(null)
-    const [statusResult, historyResult] = await Promise.allSettled([
+    const [statusResult, historyResult, modelsResult] = await Promise.allSettled([
       runtime.status.get(),
       runtime.conversations.history(targetSessionId),
+      runtime.models.list(),
     ])
     if (requestSequence !== runtimeSyncSequence.current) return
     if (statusResult.status === 'fulfilled') setStatus(statusResult.value)
     if (historyResult.status === 'fulfilled' && historyResult.value.length > 0) setMessages(historyResult.value)
-    const failures = [statusResult, historyResult].filter((result) => result.status === 'rejected')
+    if (modelsResult.status === 'fulfilled') setAvailableModels(modelsResult.value.map((model) => model.name || model.model_id).filter(Boolean))
+    const failures = [statusResult, historyResult, modelsResult].filter((result) => result.status === 'rejected')
     if (failures.length > 0) {
       const firstFailure = failures[0]
       const reason = firstFailure.status === 'rejected' ? firstFailure.reason : null
@@ -233,7 +236,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  async function handleSend(message: string) {
+  async function handleSend(message: string, options?: ChatSendOptions) {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -251,7 +254,7 @@ function App() {
     setStatus((current) => ({ ...current, state: 'executing' }))
 
     try {
-      const response = await runtime.chat.sendMessage(sessionId, message)
+      const response = await runtime.chat.sendMessage(sessionId, message, options)
       setMessages((current) => [...current, response])
       setStatus((current) => ({ ...current, state: response.role === 'system' ? 'failed' : 'completed' }))
     } catch (error) {
@@ -345,7 +348,7 @@ function App() {
         <div className="workspace-main__content">
           {mode === 'chat' ? (
             <div className={'workspace-split' + (browserPanelVisible ? ' workspace-split--browser' : '')}>
-              <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} browserPanelVisible={browserPanelVisible} onToggleBrowserPanel={() => updateUiPreferences({ browserPanelVisible: !browserPanelVisible })} />
+              <ChatSurface availableModels={availableModels} disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} browserPanelVisible={browserPanelVisible} onToggleBrowserPanel={() => updateUiPreferences({ browserPanelVisible: !browserPanelVisible })} />
               {browserPanelVisible && <BrowserPanel onAction={setToast} />}
             </div>
           ) : (

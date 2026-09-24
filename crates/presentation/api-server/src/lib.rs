@@ -820,7 +820,10 @@ async fn upsert_memory(
             code: "MEMORY_TAG_LIMIT",
         });
     }
-    if request.importance.is_some_and(|importance| !importance.is_finite()) {
+    if request
+        .importance
+        .is_some_and(|importance| !importance.is_finite())
+    {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "importance must be a finite number".to_string(),
             code: "INVALID_MEMORY_IMPORTANCE",

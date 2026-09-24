@@ -78,9 +78,8 @@ impl ProviderPlatform {
                 "provider metadata exceeds supported limits".to_string(),
             ));
         }
-        let url = reqwest::Url::parse(&base_url).map_err(|error| {
-            ContractError::ParseError(format!("invalid provider URL: {error}"))
-        })?;
+        let url = reqwest::Url::parse(&base_url)
+            .map_err(|error| ContractError::ParseError(format!("invalid provider URL: {error}")))?;
         if !matches!(url.scheme(), "http" | "https") {
             return Err(ContractError::ParseError(
                 "provider URL must use http or https".to_string(),
@@ -100,9 +99,11 @@ impl ProviderPlatform {
                 "provider contains an invalid model identifier".to_string(),
             ));
         }
-        if entry.capabilities.iter().any(|capability| {
-            capability.trim().is_empty() || capability.len() > 128
-        }) {
+        if entry
+            .capabilities
+            .iter()
+            .any(|capability| capability.trim().is_empty() || capability.len() > 128)
+        {
             return Err(ContractError::ParseError(
                 "provider contains an invalid capability".to_string(),
             ));
@@ -111,7 +112,11 @@ impl ProviderPlatform {
             provider_id: provider_id.clone(),
             name,
             base_url,
-            models: entry.models.iter().map(|model| model.trim().to_string()).collect(),
+            models: entry
+                .models
+                .iter()
+                .map(|model| model.trim().to_string())
+                .collect(),
             capabilities: entry
                 .capabilities
                 .iter()

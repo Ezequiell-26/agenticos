@@ -1,0 +1,29 @@
+name: Temporary backend formatter
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  format-backend:
+    if: ${{ !contains(github.event.head_commit.message, 'chore(style): format backend') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Format workspace
+        run: cargo fmt --all
+      - name: Commit formatted Rust
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates
+          git commit -m "chore(style): format backend"
+          git push

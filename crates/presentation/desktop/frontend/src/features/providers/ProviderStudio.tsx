@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
+import ProviderAcceptanceBoard from './ProviderAcceptanceBoard'
 import ProviderCapabilityMatrix from './ProviderCapabilityMatrix'
 import ProviderEvidenceLedger from './ProviderEvidenceLedger'
 import ProviderRouteSimulator from './ProviderRouteSimulator'
@@ -184,6 +185,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                })}
             </div>
             <ProviderEvidenceLedger onInspect={onAction} />
+            <ProviderAcceptanceBoard />
             <div className="callout"><Icon name="shield" size={14} /><span>Preview matrix only: a local simulated pass never substitutes CI, provider-adapter or live resilience evidence.</span></div>
           </div>}
           {tab === 'Health' && <div className="provider-health">

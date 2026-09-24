@@ -889,14 +889,11 @@ async fn provider_platform_enforces_requests_per_minute_before_network_dispatch(
             .current_usage,
         1
     );
-}
 
 #[tokio::test]
 async fn provider_platform_persists_active_quota_window_across_restart() {
-    let path = std::env::temp_dir().join(format!(
-        "agenticos-provider-quota-{}",
-        uuid::Uuid::new_v4()
-    ));
+    let path =
+        std::env::temp_dir().join(format!("agenticos-provider-quota-{}", uuid::Uuid::new_v4()));
     let url = format!("sqlite://{}?mode=rwc", path.display());
 
     let first = ProviderPlatform::open(&url)
@@ -904,11 +901,7 @@ async fn provider_platform_persists_active_quota_window_across_restart() {
         .expect("open provider platform");
     first
         .register(
-            provider_with_base_url(
-                "durable-quota",
-                "http://127.0.0.1:45555",
-                &["quota-model"],
-            ),
+            provider_with_base_url("durable-quota", "http://127.0.0.1:45555", &["quota-model"]),
             None,
         )
         .await

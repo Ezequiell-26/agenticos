@@ -2050,6 +2050,8 @@ struct ReactAgentInner {
     memory_md: String,
     /// Memory tier 1: USER.md (interior mutable)
     user_md: String,
+    /// Cached static system-prompt section. Dynamic conversation history is appended per turn.
+    static_system_prompt: Option<Arc<str>>,
 }
 
 impl ReactAgent {
@@ -2082,6 +2084,7 @@ impl ReactAgent {
                 skills_catalog: Vec::new(),
                 memory_md: String::new(),
                 user_md: String::new(),
+                static_system_prompt: None,
             }),
         }
     }
@@ -2320,6 +2323,7 @@ impl ReactAgent {
     pub fn add_skill(&self, skill: Skill) {
         let mut inner = self.inner.lock().unwrap();
         inner.skills_catalog.push(skill);
+        inner.static_system_prompt = None;
     }
 
     /// Add a skill from markdown content.
@@ -2327,6 +2331,7 @@ impl ReactAgent {
         let skill = Skill::from_markdown(markdown)?;
         let mut inner = self.inner.lock().unwrap();
         inner.skills_catalog.push(skill);
+        inner.static_system_prompt = None;
         Ok(())
     }
 
@@ -2334,51 +2339,100 @@ impl ReactAgent {
     pub fn set_memory_md(&self, content: String) {
         let mut inner = self.inner.lock().unwrap();
         inner.memory_md = content;
+        inner.static_system_prompt = None;
     }
 
     /// Set USER.md content.
     pub fn set_user_md(&self, content: String) {
         let mut inner = self.inner.lock().unwrap();
         inner.user_md = content;
+        inner.static_system_prompt = None;
     }
 
-    /// Build system prompt from SOUL, memory snapshot, and skills catalog.
+    /// Build system prompt from a cached static section plus budgeted conversation history.
     pub async fn build_system_prompt(&self) -> String {
-        let mut prompt = String::new();
-
-        // Slot #1: SOUL.md (identity)
-        prompt.push_str(&self.identity);
-        prompt.push('\n');
-
-        // Memory snapshot (from interior mutable fields)
-        let (memory_md, user_md, skills_catalog) = {
+        let cached_static = {
             let inner = self.inner.lock().unwrap();
-            (
-                inner.memory_md.clone(),
-                inner.user_md.clone(),
-                inner.skills_catalog.clone(),
-            )
+            inner.static_system_prompt.clone()
         };
 
-        if !memory_md.is_empty() {
-            prompt.push_str("## Memory (MEMORY.md)\n");
-            prompt.push_str(&memory_md);
-            prompt.push('\n');
-        }
+        let static_prompt = if let Some(cached) = cached_static {
+            cached
+        } else {
+            let (memory_md, user_md, skill_summaries) = {
+                let inner = self.inner.lock().unwrap();
+                let max_skill_summaries = std::env::var("AGENTICOS_MAX_PROMPT_SKILLS")
+                    .ok()
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .unwrap_or(32)
+                    .clamp(0, 128);
 
-        if !user_md.is_empty() {
-            prompt.push_str("## User Preferences (USER.md)\n");
-            prompt.push_str(&user_md);
-            prompt.push('\n');
-        }
+                (
+                    inner.memory_md.clone(),
+                    inner.user_md.clone(),
+                    inner
+                        .skills_catalog
+                        .iter()
+                        .take(max_skill_summaries)
+                        .map(Skill::summary)
+                        .collect::<Vec<_>>(),
+                )
+            };
 
-        // Tier 2 memory: Conversation History from SQLite
+            let mut prompt = String::new();
+            prompt.push_str(&self.identity);
+            prompt.push('\n');
+
+            if !memory_md.is_empty() {
+                prompt.push_str("## Memory (MEMORY.md)\n");
+                prompt.push_str(&memory_md);
+                prompt.push('\n');
+            }
+
+            if !user_md.is_empty() {
+                prompt.push_str("## User Preferences (USER.md)\n");
+                prompt.push_str(&user_md);
+                prompt.push('\n');
+            }
+
+            if !skill_summaries.is_empty() {
+                prompt.push_str("## Available Skills\n");
+                for summary in skill_summaries {
+                    prompt.push_str("- ");
+                    prompt.push_str(&summary);
+                    prompt.push('\n');
+                }
+                prompt.push('\n');
+            }
+
+            prompt.push_str("## Instructions\n");
+            prompt.push_str("Use ReAct pattern: Thought → Action → Observation → repeat.\n");
+            prompt.push_str("Be concise and precise.\n");
+
+            let cached = Arc::<str>::from(prompt);
+            let mut inner = self.inner.lock().unwrap();
+            let existing = inner
+                .static_system_prompt
+                .get_or_insert_with(|| cached.clone())
+                .clone();
+            existing
+        };
+
         let (memory, session_id) = {
             let inner = self.inner.lock().unwrap();
             (inner.memory.clone(), inner.session_id.clone())
         };
+
+        let mut prompt = static_prompt.to_string();
+
         if let Some(memory) = memory {
-            if let Ok(context) = memory.get_session_history(&session_id, 100).await {
+            let history_limit = std::env::var("AGENTICOS_MEMORY_HISTORY_LIMIT")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(64)
+                .clamp(8, 256);
+
+            if let Ok(context) = memory.get_session_history(&session_id, history_limit).await {
                 if !context.is_empty() {
                     let run_id = agenticos_contracts::RunId::new(format!("session:{session_id}"))
                         .unwrap_or_else(|_| {
@@ -2389,11 +2443,10 @@ impl ReactAgent {
                         .map(|msg| agenticos_contracts::Message {
                             message_id: msg.id,
                             role: msg.role,
-                            content: msg.content.clone(),
+                            content: msg.content,
                             timestamp: msg.timestamp.max(0) as u64,
-                            token_count: ((msg.content.chars().count() as u32).saturating_add(3)
-                                / 4)
-                            .max(1),
+                            token_count: ((msg.content.chars().count() as u32).saturating_add(3) / 4)
+                                .max(1),
                             run_id: run_id.clone(),
                         })
                         .collect::<Vec<_>>();
@@ -2424,19 +2477,6 @@ impl ReactAgent {
                 }
             }
         }
-
-        // Skills catalog (progressive disclosure)
-        if !skills_catalog.is_empty() {
-            prompt.push_str("## Available Skills\n");
-            for skill in &skills_catalog {
-                prompt.push_str(&format!("- {}\n", skill.summary()));
-            }
-            prompt.push('\n');
-        }
-
-        prompt.push_str("## Instructions\n");
-        prompt.push_str("Use ReAct pattern: Thought → Action → Observation → repeat.\n");
-        prompt.push_str("Be concise and precise.\n");
 
         prompt
     }

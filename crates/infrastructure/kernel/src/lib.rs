@@ -309,7 +309,7 @@ pub struct SqliteIdempotencyStore {
 impl SqliteIdempotencyStore {
     /// Open or initialize the idempotency store.
     pub async fn new(connection_string: &str, ttl_seconds: u64) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::SqlitePool::connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS idempotency_records (
                 idempotency_key TEXT PRIMARY KEY,
@@ -1001,7 +1001,7 @@ pub struct SqliteEventStore {
 impl SqliteEventStore {
     /// Create a new SQLite event store with the given connection string.
     pub async fn new(connection_string: &str) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePool::connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
 
         // Initialize schema
         sqlx::query(
@@ -1121,7 +1121,7 @@ pub struct SqliteSnapshotStore {
 impl SqliteSnapshotStore {
     /// Create a new SQLite snapshot store with the given connection string.
     pub async fn new(connection_string: &str) -> Result<Self, sqlx::Error> {
-        let pool = sqlx::sqlite::SqlitePool::connect(connection_string).await?;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(connection_string).await?;
 
         // Initialize schema
         sqlx::query(
@@ -3489,7 +3489,7 @@ pub struct SqliteMemory {
 impl SqliteMemory {
     /// Create a new SQLite memory store.
     pub async fn new(database_url: &str) -> Result<Self, ContractError> {
-        let pool = sqlx::SqlitePool::connect(database_url).await.map_err(|e| {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new().min_connections(1).max_connections(4).connect(database_url).await.map_err(|e| {
             ContractError::ParseError(format!("Failed to connect to SQLite: {}", e))
         })?;
 

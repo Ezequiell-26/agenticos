@@ -100,6 +100,7 @@ pub struct ProviderPlatform {
     retries: Arc<RetryManager>,
     fallbacks: Arc<FallbackManager>,
     db: Option<Arc<SqlitePool>>,
+    cost_ledger: Option<Arc<agenticos_observability::cost::CostLedger>>,
     secret_key: Option<ProviderSecretKey>,
 }
 
@@ -115,6 +116,7 @@ impl ProviderPlatform {
             retries: Arc::new(RetryManager::new()),
             fallbacks: Arc::new(FallbackManager::new()),
             db: None,
+            cost_ledger: None,
             secret_key: provider_secret_key(),
         }
     }
@@ -201,6 +203,12 @@ impl ProviderPlatform {
         .await
         .map_err(|error| ContractError::ParseError(format!("provider recovery failed: {error}")))?;
 
+        let cost_ledger = Some(Arc::new(
+            agenticos_observability::cost::CostLedger::open(database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
+        ));
+
         let platform = Self {
             registry: Arc::new(ProviderRegistry::new()),
             catalog: Arc::new(ModelCatalog::new()),
@@ -210,6 +218,7 @@ impl ProviderPlatform {
             retries: Arc::new(RetryManager::new()),
             fallbacks: Arc::new(FallbackManager::new()),
             db: Some(Arc::new(db)),
+            cost_ledger,
             secret_key: provider_secret_key(),
         };
 
@@ -986,6 +995,24 @@ impl ProviderPlatform {
                                     %error,
                                     "failed to record provider token usage"
                                 );
+                            }
+                            if let Some(ledger) = &self.cost_ledger {
+                                if let Err(error) = ledger
+                                    .record(
+                                        &response.request_id,
+                                        &provider.provider_id,
+                                        &routed_request.model,
+                                        tokens,
+                                        unix_time(),
+                                    )
+                                    .await
+                                {
+                                    tracing::warn!(
+                                        provider = %provider.provider_id,
+                                        %error,
+                                        "failed to record model usage"
+                                    );
+                                }
                             }
                         }
                         let _ = self.persist_runtime_state(&provider.provider_id).await;

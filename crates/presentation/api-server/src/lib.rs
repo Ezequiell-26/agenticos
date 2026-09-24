@@ -304,6 +304,7 @@ struct RegisterMcpRequest {
 #[derive(Debug, Deserialize)]
 struct McpToolCallRequest {
     arguments: Option<serde_json::Value>,
+    grant_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -410,6 +411,40 @@ async fn call_mcp_tool(
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let (server_id, tool_name) = path.into_inner();
+    let grant_id = request.grant_id.trim();
+    if grant_id.is_empty() {
+        return HttpResponse::Forbidden().json(ErrorResponse {
+            error: "grant_id is required for MCP tool execution".to_string(),
+            code: "MCP_CAPABILITY_REQUIRED",
+        });
+    }
+
+    let resource = format!("mcp/{server_id}/{tool_name}");
+    match state
+        .capabilities
+        .authorize(
+            grant_id,
+            CapabilityType::Execute,
+            &resource,
+            "mcp.call",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "MCP tool execution is not authorized".to_string(),
+                code: "MCP_EXECUTION_DENIED",
+            })
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MCP_CAPABILITY_CHECK_FAILED",
+            })
+        }
+    }
+
     match state
         .mcp
         .call_tool(

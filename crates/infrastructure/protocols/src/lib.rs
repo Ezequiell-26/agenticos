@@ -113,7 +113,7 @@ impl InMemoryProtocolTransport {
     /// Get all messages in the transport.
     pub async fn get_all_messages(&self) -> Vec<ProtocolMessage> {
         let messages = self.messages.read().await;
-        messages.clone()
+        messages.iter().cloned().collect()
     }
 }
 

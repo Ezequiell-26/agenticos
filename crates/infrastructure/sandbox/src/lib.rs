@@ -10,11 +10,12 @@ use agenticos_contracts::{
     ContractError, ResourceUsage, Sandbox, SandboxRequest, SandboxResponse, SandboxStatus,
 };
 use serde::{Deserialize, Serialize};
+use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio::process::{Command, Stdio};
+use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
 /// Returns the architectural owner of this crate.
@@ -125,10 +126,12 @@ impl ProcessSandbox {
             command_builder.current_dir(dir);
         }
 
-        let mut child = command_builder.spawn().map_err(|error| {
+        let mut child_guard = ChildGuard::new(command_builder.spawn().map_err(|error| {
             ContractError::ParseError(format!("sandbox process spawn failed: {error}"))
-        })?;
-        child.kill_on_drop(true);
+        })?);
+        let child = child_guard
+            .child_mut()
+            .ok_or_else(|| ContractError::ParseError("sandbox child unavailable".to_string()))?;
 
         let stdout = child.stdout.take().ok_or_else(|| {
             ContractError::ParseError("sandbox stdout pipe unavailable".to_string())
@@ -147,7 +150,7 @@ impl ProcessSandbox {
         let elapsed = started.elapsed().as_millis() as u64;
 
         if result.is_err() {
-            let _ = child.kill().await;
+            let _ = child.start_kill();
             let _ = child.wait().await;
         }
 
@@ -216,6 +219,27 @@ impl ProcessSandbox {
                     execution_time_ms: elapsed,
                 },
             }),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ChildGuard(Option<tokio::process::Child>);
+
+impl ChildGuard {
+    fn new(child: tokio::process::Child) -> Self {
+        Self(Some(child))
+    }
+
+    fn child_mut(&mut self) -> Option<&mut tokio::process::Child> {
+        self.0.as_mut()
+    }
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        if let Some(child) = self.0.as_mut() {
+            let _ = child.start_kill();
         }
     }
 }

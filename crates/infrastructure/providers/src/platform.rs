@@ -27,6 +27,35 @@ pub struct ProviderStatus {
     pub health: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedProviderState {
+    quota: Option<PersistedQuota>,
+    retry: Option<PersistedRetry>,
+    health: Option<PersistedHealth>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedQuota {
+    requests_per_minute: Option<u32>,
+    tokens_per_minute: Option<u32>,
+    current_usage: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedRetry {
+    max_attempts: u32,
+    initial_backoff_ms: u64,
+    max_backoff_ms: u64,
+    exponential_backoff: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedHealth {
+    status: String,
+    last_check: u64,
+    message: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct EnvProvider {
     provider_id: String,
@@ -134,6 +163,22 @@ impl ProviderPlatform {
         .map_err(|error| {
             ContractError::ParseError(format!(
                 "provider fallback schema initialization failed: {error}"
+            ))
+        })?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS provider_runtime_state (
+                provider_id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
+            )
+            "#,
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!(
+                "provider runtime state schema initialization failed: {error}"
             ))
         })?;
 
@@ -257,6 +302,62 @@ impl ProviderPlatform {
             }
         }
 
+        if let Some(db) = platform.db.as_ref() {
+            let rows = sqlx::query_as::<_, (String, String)>(
+                "SELECT provider_id, payload FROM provider_runtime_state",
+            )
+            .fetch_all(db.as_ref())
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("provider runtime recovery failed: {error}"))
+            })?;
+
+            for (provider_id, payload) in rows {
+                let state: PersistedProviderState = serde_json::from_str(&payload).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "invalid persisted runtime state for {provider_id}: {error}"
+                    ))
+                })?;
+
+                if let Some(quota) = state.quota {
+                    platform
+                        .quotas
+                        .set_quota(agenticos_contracts::QuotaInfo {
+                            provider_id: provider_id.clone(),
+                            requests_per_minute: quota.requests_per_minute,
+                            tokens_per_minute: quota.tokens_per_minute,
+                            current_usage: quota.current_usage,
+                        })
+                        .await?;
+                }
+                if let Some(retry) = state.retry {
+                    platform
+                        .retries
+                        .set_policy(
+                            provider_id.clone(),
+                            agenticos_contracts::RetryPolicy {
+                                max_attempts: retry.max_attempts.max(1),
+                                initial_backoff_ms: retry.initial_backoff_ms,
+                                max_backoff_ms: retry.max_backoff_ms,
+                                exponential_backoff: retry.exponential_backoff,
+                            },
+                        )
+                        .await?;
+                }
+                if let Some(health) = state.health {
+                    platform
+                        .health
+                        .update(HealthCheck {
+                            provider_id,
+                            status: parse_health_status(&health.status),
+                            last_check: health.last_check,
+                            message: health.message,
+                        })
+                        .await?;
+                }
+            }
+        }
+
         Ok(platform)
     }
 
@@ -265,6 +366,70 @@ impl ProviderPlatform {
         let platform = Self::open(database_url).await?;
         platform.apply_env().await?;
         Ok(platform)
+    }
+
+    async fn persist_runtime_state(
+        &self,
+        provider_id: &str,
+    ) -> Result<(), ContractError> {
+        let Some(db) = self.db.as_ref() else {
+            return Ok(());
+        };
+
+        let quota = self.quotas.get(provider_id).await.map(|value| PersistedQuota {
+            requests_per_minute: value.requests_per_minute,
+            tokens_per_minute: value.tokens_per_minute,
+            current_usage: value.current_usage,
+        });
+        let retry = self.retries.get_policy(provider_id).await.map(|value| PersistedRetry {
+            max_attempts: value.max_attempts,
+            initial_backoff_ms: value.initial_backoff_ms,
+            max_backoff_ms: value.max_backoff_ms,
+            exponential_backoff: value.exponential_backoff,
+        });
+        let health = self.health.get(provider_id).await.map(|value| PersistedHealth {
+            status: health_status_name(&value.status).to_string(),
+            last_check: value.last_check,
+            message: value.message,
+        });
+
+        let payload = serde_json::to_string(&PersistedProviderState {
+            quota,
+            retry,
+            health,
+        })
+        .map_err(|error| {
+            ContractError::ParseError(format!("runtime state serialization failed: {error}"))
+        })?;
+
+        sqlx::query(
+            "INSERT INTO provider_runtime_state (provider_id, payload) VALUES (?, ?) ON CONFLICT(provider_id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(provider_id)
+        .bind(payload)
+        .execute(db.as_ref())
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("runtime state persistence failed: {error}"))
+        })?;
+
+        Ok(())
+    }
+
+    async fn update_health(
+        &self,
+        provider_id: &str,
+        status: HealthStatus,
+        message: Option<String>,
+    ) -> Result<(), ContractError> {
+        let check = HealthCheck {
+            provider_id: provider_id.to_string(),
+            status,
+            last_check: unix_time(),
+            message,
+        };
+        self.health.update(check).await?;
+        self.persist_runtime_state(provider_id).await
     }
 
     async fn apply_env(&self) -> Result<(), ContractError> {
@@ -495,16 +660,48 @@ impl ProviderPlatform {
                 })
                 .await?;
         }
-        self.health
-            .update(HealthCheck {
-                provider_id,
-                status: HealthStatus::Unknown,
-                last_check: unix_time(),
-                message: None,
-            })
+        self.update_health(&provider_id, HealthStatus::Unknown, None)
             .await?;
         Ok(())
     }
+    /// Set and persist provider quota state.
+    pub async fn set_quota(
+        &self,
+        quota: agenticos_contracts::QuotaInfo,
+    ) -> Result<(), ContractError> {
+        let provider_id = quota.provider_id.clone();
+        self.quotas.set_quota(quota).await?;
+        self.persist_runtime_state(&provider_id).await
+    }
+
+    /// Get provider quota state.
+    pub async fn get_quota(
+        &self,
+        provider_id: &str,
+    ) -> Option<agenticos_contracts::QuotaInfo> {
+        self.quotas.get(provider_id).await
+    }
+
+    /// Set and persist provider retry policy.
+    pub async fn set_retry_policy(
+        &self,
+        provider_id: String,
+        policy: agenticos_contracts::RetryPolicy,
+    ) -> Result<(), ContractError> {
+        self.retries
+            .set_policy(provider_id.clone(), policy)
+            .await?;
+        self.persist_runtime_state(&provider_id).await
+    }
+
+    /// Get provider retry policy.
+    pub async fn get_retry_policy(
+        &self,
+        provider_id: &str,
+    ) -> Option<agenticos_contracts::RetryPolicy> {
+        self.retries.get_policy(provider_id).await
+    }
+
     /// Configure explicit provider failover order.
     pub async fn set_fallback_config(
         &self,
@@ -672,20 +869,10 @@ impl ProviderPlatform {
                 )?;
                 match client.execute(routed_request.clone()).await {
                     Ok(response) => {
-                        if let Some(tokens) = response.tokens_used {
-                            let _ = self.quotas.increment_usage(&provider.provider_id).await;
-                            let _ = tokens;
-                        } else {
-                            let _ = self.quotas.increment_usage(&provider.provider_id).await;
-                        }
+                        let _ = self.quotas.increment_usage(&provider.provider_id).await;
+                        let _ = self.persist_runtime_state(&provider.provider_id).await;
                         let _ = self
-                            .health
-                            .update(HealthCheck {
-                                provider_id: provider.provider_id.clone(),
-                                status: HealthStatus::Healthy,
-                                last_check: unix_time(),
-                                message: None,
-                            })
+                            .update_health(&provider.provider_id, HealthStatus::Healthy, None)
                             .await;
                         return Ok(response);
                     }
@@ -706,13 +893,11 @@ impl ProviderPlatform {
                 }
             }
             let _ = self
-                .health
-                .update(HealthCheck {
-                    provider_id: provider.provider_id,
-                    status: HealthStatus::Degraded,
-                    last_check: unix_time(),
-                    message: last_error.as_ref().map(ToString::to_string),
-                })
+                .update_health(
+                    &provider.provider_id,
+                    HealthStatus::Degraded,
+                    last_error.as_ref().map(ToString::to_string),
+                )
                 .await;
         }
         Err(last_error.unwrap_or(ContractError::MissingCapability))
@@ -766,6 +951,13 @@ impl ProviderPlatform {
                 .await
                 .map_err(|error| {
                     ContractError::ParseError(format!("fallback deletion failed: {error}"))
+                })?;
+            sqlx::query("DELETE FROM provider_runtime_state WHERE provider_id = ?")
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("runtime state deletion failed: {error}"))
                 })?;
             tx.commit().await.map_err(|error| {
                 ContractError::ParseError(format!("provider delete commit failed: {error}"))
@@ -1021,6 +1213,24 @@ fn decrypt_provider_secret(
         .map_err(|_| ContractError::ParseError("provider secret decryption failed".to_string()))?;
     String::from_utf8(plaintext.to_vec())
         .map_err(|_| ContractError::ParseError("provider secret is not valid UTF-8".to_string()))
+}
+
+fn health_status_name(status: &HealthStatus) -> &'static str {
+    match status {
+        HealthStatus::Healthy => "healthy",
+        HealthStatus::Degraded => "degraded",
+        HealthStatus::Unhealthy => "unhealthy",
+        HealthStatus::Unknown => "unknown",
+    }
+}
+
+fn parse_health_status(status: &str) -> HealthStatus {
+    match status {
+        "healthy" => HealthStatus::Healthy,
+        "degraded" => HealthStatus::Degraded,
+        "unhealthy" => HealthStatus::Unhealthy,
+        _ => HealthStatus::Unknown,
+    }
 }
 
 fn unix_time() -> u64 {

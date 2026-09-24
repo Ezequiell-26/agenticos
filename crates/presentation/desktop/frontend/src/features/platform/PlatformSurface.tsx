@@ -89,7 +89,7 @@ import './FrontendStateMatrix.css'
 import './VisualAccessibilityLab.css'
 import './GitControlCenter.css'
 
-import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, batchJobs, learningSignals, integrations, sessions, tasks, logEntries, analyticsCards, webhooks, toolsets, imports, mediaItems, evaluationSuites, evaluationRuns, notifications, securityPolicies } from './platformData'
+import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, integrations, evaluationRuns } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
 
 function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
@@ -98,19 +98,8 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
   const [selectedJob, setSelectedJob] = useState(backgroundJobs[0][0])
   const [selectedRule, setSelectedRule] = useState(ruleSources[0][0])
   const [ruleText, setRuleText] = useState('Prefer reversible changes. Preserve runtime contracts. Verify every implementation slice before advancing state.')
-  const [enabledPolicies, setEnabledPolicies] = useState(() => new Set(securityPolicies.filter((item) => item[2]).map((item) => item[0])))
   const [voiceMode, setVoiceMode] = useState(true)
-  const [batchJob, setBatchJob] = useState(batchJobs[0][0])
   const [integration, setIntegration] = useState(integrations[0][0])
-  const [selectedSession, setSelectedSession] = useState(sessions[0][0])
-  const [enabledWebhooks, setEnabledWebhooks] = useState(() => new Set(webhooks.filter((item) => item[4]).map((item) => item[0])))
-  const [enabledToolsets, setEnabledToolsets] = useState(() => new Set(toolsets.filter((item) => item[3]).map((item) => item[0])))
-  const [selectedImport, setSelectedImport] = useState(imports[0][0])
-  const [selectedMedia, setSelectedMedia] = useState(mediaItems[0][0])
-  const [selectedEvaluation, setSelectedEvaluation] = useState(evaluationSuites[0][0])
-  const [notificationsRead, setNotificationsRead] = useState(() => new Set(notifications.filter((item) => item[4]).map((item) => item[0])))
-  const [wakeEnabled, setWakeEnabled] = useState(true)
-  const [selectedTask, setSelectedTask] = useState(tasks[0][0])
   const [artifactSelected, setArtifactSelected] = useState('agenticos-command-center.png')
   const [notice, setNotice] = useState('')
 
@@ -305,12 +294,6 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
       <Toast message={notice} />
     </Shell>
   )
-
-  function toggle(setter: (value: Set<string>) => void, current: Set<string>, value: string) {
-    const next = new Set(current)
-    next.has(value) ? next.delete(value) : next.add(value)
-    setter(next)
-  }
 
   const filteredIndex = useMemo(() => {
     const normalized = query.trim().toLowerCase()

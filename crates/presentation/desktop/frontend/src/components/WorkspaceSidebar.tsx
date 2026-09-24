@@ -1,5 +1,5 @@
 
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import PanelResizeHandle from './PanelResizeHandle'
@@ -35,8 +35,9 @@ export default function WorkspaceSidebar({
   const menuRef = useRef<HTMLDivElement>(null)
   const activeMenuButton = menuOpen ? menuButtonRefs.current[menuOpen] : null
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeConversationMenu = useCallback(() => setMenuOpen(null), [])
   if (menuOpen && activeMenuButton) triggerRef.current = activeMenuButton
-  useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: () => setMenuOpen(null) })
+  useMenuKeyboard({ open: menuOpen !== null, menuRef, triggerRef, onClose: closeConversationMenu })
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()

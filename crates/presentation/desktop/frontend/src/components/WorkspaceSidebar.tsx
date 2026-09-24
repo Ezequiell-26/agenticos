@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
 import PanelResizeHandle from './PanelResizeHandle'
@@ -30,6 +30,35 @@ export default function WorkspaceSidebar({
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const current = menuButtonRefs.current[menuOpen]
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMenuOpen(null)
+        current?.focus()
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const menu = current?.parentElement?.querySelector<HTMLElement>('[role="menu"]')
+        if (!menu) return
+        const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+        const index = items.indexOf(document.activeElement as HTMLButtonElement)
+        const nextIndex = event.key === 'ArrowDown'
+          ? (index + 1 + items.length) % items.length
+          : (index - 1 + items.length) % items.length
+        event.preventDefault()
+        items[nextIndex]?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.requestAnimationFrame(() => {
+      const menu = menuButtonRefs.current[menuOpen]?.parentElement?.querySelector<HTMLElement>('[role="menu"]')
+      menu?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
+    })
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [menuOpen])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -116,7 +145,7 @@ export default function WorkspaceSidebar({
                       <time>{new Date(conversation.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}</time>
                     </button>
                     <div className="conversation-menu-wrap">
-                      <button className="conversation-menu-button" type="button" aria-label={'Actions for ' + conversation.title} title="Conversation actions" onClick={() => setMenuOpen((current) => current === conversation.id ? null : conversation.id)}>
+                      <button ref={(element) => { menuButtonRefs.current[conversation.id] = element }} className="conversation-menu-button" type="button" aria-label={'Actions for ' + conversation.title} aria-haspopup="menu" aria-expanded={menuOpen === conversation.id} title="Conversation actions" onClick={() => setMenuOpen((current) => current === conversation.id ? null : conversation.id)}>
                         <Icon name="more" size={13} />
                       </button>
                       {menuOpen === conversation.id && (

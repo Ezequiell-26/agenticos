@@ -24,6 +24,7 @@ use agenticos_kernel::{
     SqliteSnapshotStore,
 };
 use agenticos_memory::PersistentMemoryStore;
+use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobScheduler, JobSpec};
@@ -45,6 +46,7 @@ pub struct RuntimeState {
     sessions: Arc<RwLock<HashMap<String, Arc<ReactAgent>>>>,
     memory: Arc<SqliteMemory>,
     persistent_memory: Arc<PersistentMemoryStore>,
+    mcp: Arc<McpManager>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
     subagents: Arc<SubagentManager>,
@@ -75,6 +77,11 @@ impl RuntimeState {
             .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
         let memory = Arc::new(SqliteMemory::new(&database_url).await?);
         let persistent_memory = Arc::new(PersistentMemoryStore::new(&database_url).await?);
+        let mcp = Arc::new(
+            McpManager::open(&database_url, 30_000)
+                .await
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
 
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
             ContractError::ParseError(format!("failed to initialize event store: {e}"))
@@ -132,6 +139,7 @@ impl RuntimeState {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             memory,
             persistent_memory,
+            mcp,
             provider,
             kernel,
             subagents,
@@ -285,6 +293,16 @@ struct CreateCapabilityRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RegisterMcpRequest {
+    server: McpServerDefinition,
+}
+
+#[derive(Debug, Deserialize)]
+struct McpToolCallRequest {
+    arguments: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
 struct RegisterProviderRequest {
     provider_id: String,
     name: String,
@@ -301,6 +319,112 @@ struct ToolExecutionRequest {
     grant_id: String,
     command: String,
     timeout_ms: Option<u64>,
+}
+
+async fn list_mcp_servers(state: web::Data<RuntimeState>) -> impl Responder {
+    let servers = state.mcp.list().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "servers": servers,
+        "count": servers.len(),
+    }))
+}
+
+async fn register_mcp_server(
+    request: web::Json<RegisterMcpRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.mcp.register(request.server.clone()).await {
+        Ok(()) => HttpResponse::Created().json(request.server.clone()),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MCP_REGISTRATION_FAILED",
+        }),
+    }
+}
+
+async fn delete_mcp_server(
+    server_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    if state.mcp.unregister(&server_id).await {
+        HttpResponse::NoContent().finish()
+    } else {
+        HttpResponse::NotFound().json(ErrorResponse {
+            error: "MCP server not found".to_string(),
+            code: "MCP_SERVER_NOT_FOUND",
+        })
+    }
+}
+
+async fn set_mcp_enabled(
+    path: web::Path<(String, String)>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (server_id, action) = path.into_inner();
+    let result = match action.as_str() {
+        "enable" => state.mcp.enable(&server_id).await,
+        "disable" => state.mcp.disable(&server_id).await,
+        _ => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "action must be enable or disable".to_string(),
+                code: "INVALID_MCP_ACTION",
+            })
+        }
+    };
+
+    match result {
+        Ok(()) => HttpResponse::Ok().json(
+            serde_json::json!({"server_id": server_id, "enabled": action == "enable"}),
+        ),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MCP_SERVER_NOT_FOUND",
+        }),
+    }
+}
+
+async fn list_mcp_tools(
+    server_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.mcp.list_tools(&server_id).await {
+        Ok(tools) => HttpResponse::Ok().json(serde_json::json!({
+            "server_id": server_id.into_inner(),
+            "tools": tools,
+            "count": tools.len(),
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MCP_TOOL_DISCOVERY_FAILED",
+        }),
+    }
+}
+
+async fn call_mcp_tool(
+    path: web::Path<(String, String)>,
+    request: web::Json<McpToolCallRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (server_id, tool_name) = path.into_inner();
+    match state
+        .mcp
+        .call_tool(
+            &server_id,
+            &tool_name,
+            request.arguments.clone().unwrap_or_else(|| serde_json::json!({})),
+        )
+        .await
+    {
+        Ok(result) => HttpResponse::Ok().json(serde_json::json!({
+            "server_id": server_id,
+            "tool": tool_name,
+            "result": result,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MCP_TOOL_CALL_FAILED",
+        }),
+    }
 }
 
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
@@ -1464,6 +1588,12 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 "/api/conversations/search",
                 web::get().to(conversation_search),
             )
+            .route("/api/mcp", web::get().to(list_mcp_servers))
+            .route("/api/mcp", web::post().to(register_mcp_server))
+            .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))
+            .route("/api/mcp/{server_id}/{action}", web::post().to(set_mcp_enabled))
+            .route("/api/mcp/{server_id}/tools", web::get().to(list_mcp_tools))
+            .route("/api/mcp/{server_id}/tools/{tool_name}/call", web::post().to(call_mcp_tool))
             .route("/api/providers", web::get().to(list_providers))
             .route("/api/providers", web::post().to(register_provider))
             .route(

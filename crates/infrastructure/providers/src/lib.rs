@@ -220,7 +220,7 @@ impl QuotaTracker {
             quota.provider_id.clone(),
             QuotaState {
                 quota,
-                window_started_at: super::unix_time(),
+                window_started_at: unix_time(),
             },
         );
         Ok(())
@@ -247,7 +247,7 @@ impl QuotaTracker {
     pub async fn get(&self, provider_id: &str) -> Option<QuotaInfo> {
         let mut quotas = self.quotas.write().await;
         let state = quotas.get_mut(provider_id)?;
-        Self::refresh_window(state, super::unix_time());
+        Self::refresh_window(state, unix_time());
         Some(state.quota.clone())
     }
 
@@ -260,7 +260,7 @@ impl QuotaTracker {
             return Ok(());
         };
 
-        let now = super::unix_time();
+        let now = unix_time();
         Self::refresh_window(state, now);
         if let Some(limit) = state.quota.requests_per_minute {
             if state.quota.current_usage >= u64::from(limit) {
@@ -282,7 +282,7 @@ impl QuotaTracker {
         let state = quotas
             .get_mut(provider_id)
             .ok_or(ContractError::MissingCapability)?;
-        Self::refresh_window(state, super::unix_time());
+        Self::refresh_window(state, unix_time());
         if let Some(limit) = state.quota.requests_per_minute {
             if state.quota.current_usage >= u64::from(limit) {
                 return Err(ContractError::ParseError(format!(
@@ -799,3 +799,12 @@ mod tests {
 
 mod platform;
 pub use platform::{ProviderPlatform, ProviderStatus};
+
+
+fn unix_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}

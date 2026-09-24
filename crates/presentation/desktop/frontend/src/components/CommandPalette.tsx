@@ -129,8 +129,6 @@ export default function CommandPalette({
             aria-controls="command-palette-results"
             aria-expanded="true"
             aria-autocomplete="list"
-            aria-autocomplete="list"
-            aria-expanded="true"
             aria-activedescendant={filtered[selectedIndex] ? 'command-' + filtered[selectedIndex].id : undefined}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search commands, views and conversations…"

@@ -520,6 +520,13 @@ export class AgenticosRuntime implements RuntimeServices {
   }
 
   readonly artifacts = {
+    list: async (options: { runId?: string; limit?: number } = {}) => {
+      const params = new URLSearchParams()
+      if (options.runId?.trim()) params.set('run_id', options.runId.trim())
+      if (options.limit !== undefined) params.set('limit', String(Math.min(500, Math.max(1, options.limit))))
+      const suffix = params.toString() ? `?${params.toString()}` : ''
+      return unwrapArray(await this.transport.get<RuntimeApiRecord>(`/api/artifacts${suffix}`), 'artifacts')
+    },
     create: async (request: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/api/artifacts', request),
     upload: async (content: Blob | ArrayBuffer, options: { kind?: string; mimeType?: string; runId?: string; trusted?: boolean; expiresAt?: number; metadata?: RuntimeApiRecord } = {}) => {
       const headers: Record<string, string> = {

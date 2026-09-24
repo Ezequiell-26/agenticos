@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, type RefObject } from 'react'
 
 interface UseMenuKeyboardOptions {
   open: boolean
-  menuRef: React.RefObject<HTMLElement | null>
-  triggerRef?: React.RefObject<HTMLElement | null>
+  menuRef: RefObject<HTMLElement | null>
+  triggerRef?: RefObject<HTMLElement | null>
   onClose: () => void
   initialFocus?: boolean
 }

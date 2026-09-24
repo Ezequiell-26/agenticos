@@ -2425,7 +2425,7 @@ mod tests {
             vec!["gemini-3.8-flash".to_string(), "gemini-special".to_string()]
         );
     }
-    
+
     #[tokio::test]
     async fn anthropic_discovery_uses_configured_models() {
         let provider = ProviderEntry {

@@ -39,7 +39,7 @@ use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
-use agenticos_workflows::{WorkflowDefinition, WorkflowEngine};
+use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -322,6 +322,13 @@ struct EvaluateCaseRequest {
 struct AuditQuery {
     limit: Option<usize>,
 }
+
+#[derive(Debug, Deserialize)]
+struct WorkflowTransitionRequest {
+    state: WorkflowNodeState,
+}
+
+
 
 #[derive(Debug, Deserialize)]
 struct MemorySearchQuery {
@@ -1626,7 +1633,81 @@ async fn create_workflow(
     }
 }
 
-async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {
+async fn start_workflow(
+    workflow_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.workflows.initial_state(&workflow_id).await {
+        Ok(workflow_state) => HttpResponse::Ok().json(workflow_state),
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "WORKFLOW_START_FAILED",
+        }),
+    }
+}
+
+async fn workflow_ready_nodes(
+    workflow_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.workflows.initial_state(&workflow_id).await {
+        Ok(workflow_state) => match state
+            .workflows
+            .ready_nodes(&workflow_id, &workflow_state)
+            .await
+        {
+            Ok(nodes) => HttpResponse::Ok().json(serde_json::json!({
+                "workflow_id": workflow_id.into_inner(),
+                "nodes": nodes,
+                "count": nodes.len(),
+            })),
+            Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_READY_QUERY_FAILED",
+            }),
+        },
+        Err(error) => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "WORKFLOW_NOT_FOUND",
+        }),
+    }
+}
+
+async fn transition_workflow_node(
+    path: web::Path<(String, String)>,
+    request: web::Json<WorkflowTransitionRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (workflow_id, node_id) = path.into_inner();
+    let mut workflow_state = match state.workflows.initial_state(&workflow_id).await {
+        Ok(value) => value,
+        Err(error) => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_NOT_FOUND",
+            })
+        }
+    };
+
+    match state
+        .workflows
+        .transition_node(
+            &workflow_id,
+            &mut workflow_state,
+            &node_id,
+            request.state.clone(),
+        )
+        .await
+    {
+        Ok(()) => HttpResponse::Ok().json(workflow_state),
+        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
+            error,
+            code: "WORKFLOW_TRANSITION_REJECTED",
+        }),
+    }
+}
+
+async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {async fn list_workflows(state: web::Data<RuntimeState>) -> impl Responder {
     let workflows = state.workflows.list().await;
     HttpResponse::Ok().json(serde_json::json!({"workflows": workflows, "count": workflows.len()}))
 }
@@ -2470,6 +2551,18 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/jobs/{job_id}/cancel", web::post().to(cancel_job))
             .route("/api/workflows", web::get().to(list_workflows))
             .route("/api/workflows", web::post().to(create_workflow))
+            .route(
+                "/api/workflows/{workflow_id}/start",
+                web::post().to(start_workflow),
+            )
+            .route(
+                "/api/workflows/{workflow_id}/ready",
+                web::get().to(workflow_ready_nodes),
+            )
+            .route(
+                "/api/workflows/{workflow_id}/nodes/{node_id}/transition",
+                web::post().to(transition_workflow_node),
+            )
             .route(
                 "/api/workflows/{workflow_id}/state",
                 web::get().to(workflow_state),

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import './ProviderResilience.css'
 
-type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Quotas' | 'Accounts'
+type ProviderTab = 'Overview' | 'Models' | 'Routing' | 'Health' | 'Resilience' | 'Verification' | 'Quotas' | 'Accounts'
 
 const providers = [
   { name: 'Primary Route', type: 'Gateway', health: 'Healthy', models: 12, latency: '142 ms', load: 68, quota: '68%' },
@@ -50,6 +50,8 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [maskMetadata, setMaskMetadata] = useState(true)
   const [selectedScenario, setSelectedScenario] = useState<string>(resilienceScenarios[0].id)
   const [scenarioResults, setScenarioResults] = useState<Record<string, 'Passed' | 'Pending' | 'Blocked'>>({})
+  const [verificationFilter, setVerificationFilter] = useState<'All' | 'Ready' | 'Attention'>('All')
+  const [verificationResults, setVerificationResults] = useState<Record<string, 'Passed' | 'Pending' | 'Needs review'>>({})
 
   const provider = providers.find((item) => item.name === selected) ?? providers[0]
   const visibleModels = useMemo(() => models.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [query])
@@ -73,7 +75,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
         </div>
 
         <div className="provider-studio__tabs" role="tablist" aria-label="Provider details">
-          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
+          {(['Overview', 'Models', 'Routing', 'Health', 'Resilience', 'Verification', 'Quotas', 'Accounts'] as ProviderTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'provider-studio__tab provider-studio__tab--active' : 'provider-studio__tab'} onClick={() => setTab(item)}>{item}</button>)}
         </div>
 
         <div className="provider-studio__content">
@@ -129,6 +131,45 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
                 })()}
               </div>
             </div>
+          </div>}
+          {tab === 'Verification' && <div className="provider-verification">
+            <div className="provider-verification__head">
+              <div><span className="eyebrow">Integration evidence</span><strong>Provider verification matrix</strong><small>Track the frontend contract for provider failover, health checks, resilience behavior and multi-provider orchestration.</small></div>
+              <div className="provider-verification__controls">
+                {(['All','Ready','Attention'] as const).map((filter) => <button key={filter} type="button" className={verificationFilter === filter ? 'soft-button soft-button--active' : 'soft-button'} onClick={() => setVerificationFilter(filter)}>{filter}</button>)}
+                <button className="studio-button studio-button--active" type="button" onClick={() => onAction('Provider verification suite queued in preview')}><Icon name="play" size={13} /> Run suite</button>
+              </div>
+            </div>
+            <div className="provider-verification__summary">
+              <MetricCard label="Contracts" value="12" sub="Provider integration checks" />
+              <MetricCard label="Passed" value={String(Object.values(verificationResults).filter((value) => value === 'Passed').length)} sub="Local preview results" />
+              <MetricCard label="Needs review" value={String(Object.values(verificationResults).filter((value) => value === 'Needs review').length)} sub="Evidence required" />
+              <MetricCard label="Runtime" value="Required" sub="CI / adapter evidence" />
+            </div>
+            <div className="provider-verification__matrix">
+              {[
+                ['PV-001','Health check','Detect unavailable provider before selection','Ready','health'],
+                ['PV-002','Failover','Route to next compatible provider','Ready','failover'],
+                ['PV-003','Retry bound','Respect capped retry policy','Ready','resilience'],
+                ['PV-004','Circuit break','Open circuit after repeated failures','Attention','resilience'],
+                ['PV-005','Quota pressure','Move traffic when quota threshold is crossed','Ready','quota'],
+                ['PV-006','Context overflow','Compact then select compatible route','Ready','routing'],
+                ['PV-007','Tool mismatch','Select route supporting required capability','Ready','routing'],
+                ['PV-008','Multi-provider','Preserve one orchestration contract across providers','Ready','orchestration'],
+              ].filter(([, , , readiness]) => verificationFilter === 'All' || (verificationFilter === 'Ready' ? readiness === 'Ready' : readiness === 'Attention'))
+               .map(([id,name,detail,readiness,group]) => {
+                 const result = verificationResults[id] ?? 'Pending'
+                 return <div className="provider-verification__row" key={id}>
+                   <span className="provider-verification__id">{id}</span>
+                   <div><strong>{name}</strong><small>{detail} · {group}</small></div>
+                   <Tag label={readiness} />
+                   <Tag label={result} />
+                   <button className="studio-button" type="button" onClick={() => setVerificationResults((current) => ({ ...current, [id]: 'Passed' }))}>Simulate</button>
+                   <button className="icon-button" type="button" aria-label={'Inspect evidence for ' + id} title="Inspect evidence" onClick={() => onAction(id + ' evidence opened in preview')}><Icon name="chevron-right" size={13} /></button>
+                 </div>
+               })}
+            </div>
+            <div className="callout"><Icon name="shield" size={14} /><span>Preview matrix only: a local simulated pass never substitutes CI, provider-adapter or live resilience evidence.</span></div>
           </div>}
           {tab === 'Health' && <div className="provider-health-grid"><MetricCard label="Success rate" value="99.2%" sub="312 requests preview" /><MetricCard label="P95 latency" value="428 ms" sub="rolling window" /><MetricCard label="Retries" value="7" sub="bounded retry policy" /><MetricCard label="Circuit" value="Closed" sub="healthy state" /><div className="provider-health-chart">{[34,49,42,65,51,77,60,83,67,91,72,80].map((height, index) => <i key={index} style={{ height: height + '%' }} />)}</div></div>}
 

@@ -270,6 +270,10 @@ impl VectorStore {
         self.db.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.db.is_empty()
+    }
+
     pub fn clear(&mut self) {
         self.db.clear();
     }

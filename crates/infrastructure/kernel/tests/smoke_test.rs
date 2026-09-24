@@ -3,6 +3,7 @@
 
 //! Smoke tests for the AgentiCOS kernel durable runtime.
 
+use agenticos_brain::capability_registry::CapabilityRegistry;
 use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ConfigLayer, EventStore, FeatureFlag,
     FeatureFlagStore, FlagValue, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest,
@@ -30,12 +31,14 @@ fn test_durable_run_lifecycle() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-1").unwrap();
@@ -77,12 +80,14 @@ fn test_optimistic_concurrency() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-2").unwrap();
@@ -105,12 +110,14 @@ fn test_lease_acquisition() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-3").unwrap();
@@ -135,12 +142,14 @@ fn test_snapshot_and_recovery() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store.clone(),
             snapshot_store.clone(),
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-4").unwrap();
@@ -162,12 +171,14 @@ fn test_snapshot_and_recovery() {
         let logger_new = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config_new = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer_new = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry_new = std::sync::Arc::new(CapabilityRegistry::default());
         let recovered_runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger_new,
             config_new,
             capability_issuer_new,
+            capability_registry_new,
         );
         let recovered_run = recovered_runtime.recover_run(&run_id).await.unwrap();
 
@@ -185,12 +196,14 @@ fn test_cancellation_propagation() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-5").unwrap();
@@ -224,12 +237,14 @@ fn test_invalid_state_transitions() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-6").unwrap();
@@ -264,6 +279,7 @@ fn test_sqlite_persistence() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
 
         let runtime = KernelRuntime::new(
             event_store.clone(),
@@ -271,6 +287,7 @@ fn test_sqlite_persistence() {
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("test-run-sqlite-1").unwrap();
@@ -292,12 +309,14 @@ fn test_sqlite_persistence() {
         let logger_new = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config_new = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer_new = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry_new = std::sync::Arc::new(CapabilityRegistry::default());
         let recovered_runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger_new,
             config_new,
             capability_issuer_new,
+            capability_registry_new,
         );
         let recovered_run = recovered_runtime.recover_run(&run_id).await.unwrap();
 
@@ -815,12 +834,14 @@ fn test_multi_run_orchestration() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store,
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         // Create multiple runs
@@ -876,12 +897,14 @@ fn test_event_store_recovery() {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer = std::sync::Arc::new(InMemoryCapabilityIssuer::new());
+        let capability_registry = std::sync::Arc::new(CapabilityRegistry::default());
         let runtime = KernelRuntime::new(
             event_store.clone(),
             snapshot_store,
             logger,
             config,
             capability_issuer,
+            capability_registry,
         );
 
         let run_id = RunId::new("recovery-run").unwrap();

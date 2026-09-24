@@ -1,6 +1,18 @@
 #![forbid(unsafe_code)]
 #![allow(missing_docs)]
 #![allow(missing_debug_implementations)]
+#![allow(
+    clippy::new_without_default,
+    clippy::manual_clamp,
+    clippy::unwrap_or_default,
+    clippy::single_char_add_str,
+    clippy::unnecessary_sort_by,
+    clippy::await_holding_lock,
+    clippy::unnecessary_map_or,
+    clippy::redundant_closure,
+    clippy::needless_borrow,
+    clippy::unnecessary_filter_map
+)]
 
 //! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
 

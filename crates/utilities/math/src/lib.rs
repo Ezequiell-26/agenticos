@@ -656,6 +656,10 @@ impl Quat {
         }
     }
 
+    pub fn length(&self) -> f32 {
+        (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
+    }
+
     pub fn normalize(&self) -> Self {
         let len = (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
         if len > 0.0 {
@@ -776,7 +780,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Quat uses length() method not magnitude()"]
     fn test_quat_from_axis_angle() {
         let q = Quat::from_axis_angle(Vec3::new(0.0, 1.0, 0.0), std::f32::consts::PI);
         let normalized = q.normalize();

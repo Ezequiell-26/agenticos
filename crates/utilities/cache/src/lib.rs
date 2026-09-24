@@ -165,6 +165,10 @@ where
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn clear(&self) {
         if let Ok(mut cache) = self.inner.write() {
             cache.clear();
@@ -213,6 +217,10 @@ where
 
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 
     pub fn clear(&mut self) {

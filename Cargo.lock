@@ -21,6 +21,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-cors"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2aff07ada3254fc02618cb7850da91dceb23b5dbda53c6676ccbb28ba504f150"
+dependencies = [
+ "actix-utils",
+ "actix-web",
+ "derive_more",
+ "futures-util",
+ "log",
+ "once_cell",
+ "smallvec",
+]
+
+[[package]]
 name = "actix-http"
 version = "3.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -214,14 +229,18 @@ dependencies = [
 name = "agenticos-api-server"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
  "actix-web",
  "agenticos-contracts",
  "agenticos-kernel",
+ "async-trait",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -269,6 +288,7 @@ dependencies = [
 name = "agenticos-desktop"
 version = "0.1.0"
 dependencies = [
+ "agenticos-api-server",
  "agenticos-contracts",
  "agenticos-kernel",
  "reqwest 0.12.28",
@@ -291,6 +311,7 @@ dependencies = [
 name = "agenticos-execution"
 version = "0.1.0"
 dependencies = [
+ "agenticos-brain",
  "agenticos-contracts",
  "agenticos-kernel",
  "agenticos-memory",

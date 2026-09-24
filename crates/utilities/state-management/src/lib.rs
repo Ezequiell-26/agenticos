@@ -363,7 +363,7 @@ mod tests {
             .with_on_enter(|ctx| ctx.set("entered".to_string(), serde_json::json!(true)));
 
         let mut context = StateContext::new();
-        let _ = handler.on_enter(&mut context);
+        std::mem::drop(handler.on_enter(&mut context));
         assert_eq!(context.get("entered"), Some(&serde_json::json!(true)));
     }
 

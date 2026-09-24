@@ -428,6 +428,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let engine = BasicAgentEngine::with_kernel("test-engine".to_string(), runtime.clone());
@@ -491,6 +494,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let engine = BasicAgentEngine::with_kernel("test-engine".to_string(), runtime.clone());
@@ -531,6 +537,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer.clone(),
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             use agenticos_contracts::CapabilityIssuer;
@@ -600,6 +609,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let handler = BasicCommandHandler::new(runtime.clone());
@@ -636,6 +648,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let handler = BasicQueryHandler::new(runtime.clone());
@@ -677,6 +692,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let command_handler = BasicCommandHandler::new(runtime.clone());
@@ -730,6 +748,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let projection = BasicProjection::new(runtime.clone());
@@ -764,6 +785,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let command_handler = BasicCommandHandler::new(runtime.clone());
@@ -810,6 +834,9 @@ mod tests {
                 logger,
                 config,
                 capability_issuer,
+                std::sync::Arc::new(
+                    agenticos_brain::capability_registry::CapabilityRegistry::default(),
+                ),
             ));
 
             let query_handler = BasicQueryHandler::new(runtime.clone());

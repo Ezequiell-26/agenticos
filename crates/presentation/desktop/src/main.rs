@@ -5,10 +5,12 @@ fn main() {
     let runtime = tauri::async_runtime::block_on(agenticos_api_server::RuntimeState::from_env())
         .expect("failed to initialize AgentiCOS backend runtime");
 
-    tauri::async_runtime::spawn(async move {
-        if let Err(error) = agenticos_api_server::run_server(runtime).await {
-            eprintln!("AgentiCOS backend stopped: {error}");
-        }
+    std::thread::spawn(move || {
+        tauri::async_runtime::block_on(async move {
+            if let Err(error) = agenticos_api_server::run_server(runtime).await {
+                eprintln!("AgentiCOS backend stopped: {error}");
+            }
+        });
     });
 
     tauri::Builder::default()

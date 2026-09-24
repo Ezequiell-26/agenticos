@@ -417,7 +417,7 @@ async fn create_run(
                     code: "RUN_ADMISSION_FAILED",
                 });
             }
-            let _ = state
+            if let Err(error) = state
                 .memory
                 .store_message(
                     &format!("{}-objective", run_id.as_str()),
@@ -425,8 +425,21 @@ async fn create_run(
                     "objective",
                     objective,
                 )
-                .await;
-            let _ = state
+                .await
+            {
+                tracing::error!(
+                    error = ?error,
+                    run_id = %run_id.as_str(),
+                    "failed to persist run objective"
+                );
+                let _ = state.kernel.cancel_run(&run_id).await;
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "RUN_OBJECTIVE_PERSIST_FAILED",
+                });
+            }
+
+            if let Err(error) = state
                 .scheduler
                 .enqueue(JobSpec {
                     job_id: format!("job-{}", run_id.as_str()),
@@ -436,7 +449,19 @@ async fn create_run(
                     priority: 100,
                     max_attempts: 3,
                 })
-                .await;
+                .await
+            {
+                tracing::error!(
+                    error = ?error,
+                    run_id = %run_id.as_str(),
+                    "failed to enqueue initial run job"
+                );
+                let _ = state.kernel.cancel_run(&run_id).await;
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error,
+                    code: "RUN_JOB_ENQUEUE_FAILED",
+                });
+            }
 
             HttpResponse::Created().json(RunResponse {
                 run_id: run_id_text,
@@ -797,12 +822,42 @@ async fn issue_capability(
         }
     };
 
+    let resource = request.resource.trim();
+    let permission = request.permission.trim();
+    let grant_id = request.grant_id.trim();
+    if resource.is_empty() || permission.is_empty() || grant_id.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "resource, permission and grant_id are required".to_string(),
+            code: "INVALID_CAPABILITY",
+        });
+    }
+    if grant_id.len() > 256 || resource.len() > 512 || permission.len() > 128 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "capability fields exceed supported limits".to_string(),
+            code: "CAPABILITY_TOO_LARGE",
+        });
+    }
+
+    let expires_at = request.expires_at.unwrap_or(0);
+    if expires_at != 0 {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        if expires_at <= now {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "expires_at must be in the future".to_string(),
+                code: "INVALID_CAPABILITY_EXPIRY",
+            });
+        }
+    }
+
     let grant = CapabilityGrant {
         capability_type,
-        resource: request.resource.trim().to_string(),
-        permission: request.permission.trim().to_string(),
-        expires_at: request.expires_at.unwrap_or(0),
-        grant_id: request.grant_id.trim().to_string(),
+        resource: resource.to_string(),
+        permission: permission.to_string(),
+        expires_at,
+        grant_id: grant_id.to_string(),
     };
 
     match state.capabilities.issue(grant.clone()).await {
@@ -881,6 +936,20 @@ async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {
 
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
+    let remote_opt_in = std::env::var("AGENTICOS_ALLOW_REMOTE")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if !is_loopback && !remote_opt_in {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "refusing non-loopback bind without AGENTICOS_ALLOW_REMOTE=true",
+        ));
+    }
+    if !is_loopback {
+        tracing::warn!(host = %host, "AgentiCOS API server is running on a non-loopback interface");
+    }
+
     let port = std::env::var("AGENTICOS_BIND_PORT")
         .ok()
         .and_then(|value| value.parse::<u16>().ok())

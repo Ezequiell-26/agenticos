@@ -444,7 +444,10 @@ async fn provider_http_failure_can_be_followed_by_successful_fallback_transport(
     };
 
     let primary_result = primary.execute(request.clone()).await;
-    assert!(primary_result.is_err(), "primary transport failure must remain an error");
+    assert!(
+        primary_result.is_err(),
+        "primary transport failure must remain an error"
+    );
 
     let fallback_result = fallback
         .execute(request)

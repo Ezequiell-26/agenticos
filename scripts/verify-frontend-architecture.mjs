@@ -53,12 +53,18 @@ const studioSource = readFileSync(
   "utf8",
 );
 const navigationItems = [...navigationSource.matchAll(/id:\s*'([^']+)'/g)].map((match) => match[1]);
+const genericFeatureModesSource =
+  platformSource.match(/const GENERIC_FEATURE_MODES[\\s\\S]*?\\[([\\s\\S]*?)\\]/)?.[1] ?? "";
+const genericFeatureModes = new Set(
+  [...genericFeatureModesSource.matchAll(/'([^']+)'/g)].map((match) => match[1]),
+);
 const exemptModes = new Set(["chat", "settings"]);
 const unresolvedModes = navigationItems.filter((id) => {
   if (exemptModes.has(id)) return false;
-  return ![appSource, platformSource, studioSource].some((source) =>
+  const explicitRoute = [appSource, platformSource, studioSource].some((source) =>
     source.includes("mode === '" + id + "'"),
   );
+  return !explicitRoute && !genericFeatureModes.has(id);
 });
 
 if (unresolvedModes.length > 0) {

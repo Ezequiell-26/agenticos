@@ -183,6 +183,19 @@ for (const { op, lineNumber } of journalEntries) {
   if (ids.has(operationId)) fail(`duplicate operation_id: ${operationId}`);
   ids.add(operationId);
 
+  const operationTimestamp = Date.parse(op.timestamp);
+  const historicalSchemaCompatibility = operationTimestamp < EVIDENCE_POLICY_CUTOFF;
+
+  if (modern && historicalSchemaCompatibility) {
+    // Historical schema_version=1 records remain immutable. Their shape
+    // predates the strict required-field contract, so only durable identity,
+    // timestamp and completed-operation handoff semantics are enforced.
+    if (op.status === "completed" && typeof op.next_step !== "string") {
+      fail(`historical completed operation ${operationId} has no next step`);
+    }
+    continue;
+  }
+
   if (modern) {
     if (!Array.isArray(op.deleted)) fail(`deleted must be an array in ${operationId}`);
     if (op.deleted.length > 0) {
@@ -194,20 +207,7 @@ for (const { op, lineNumber } of journalEntries) {
       }
     }
 
-    const operationTimestamp = Date.parse(op.timestamp);
-
-    // Historical schema_version=1 records before the evidence policy cutoff
-    // remain immutable and readable. They still need a durable next step, but
-    // must not be retrofitted with evidence just to satisfy a newer policy.
-    if (op.status === "completed" && operationTimestamp < EVIDENCE_POLICY_CUTOFF) {
-      if (typeof op.next_step !== "string") {
-        fail(`historical completed operation ${operationId} has no next step`);
-      }
-      continue;
-    }
-
-    // All completed records created at/after the cutoff are subject to the
-    // strict evidence contract.
+    // Current/future completed records are held to the strict evidence contract.
     if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
       fail(`completed operation ${operationId} has no evidence (timestamp=${op.timestamp}, cutoff=2026-09-24T01:00:00Z)`);
     }

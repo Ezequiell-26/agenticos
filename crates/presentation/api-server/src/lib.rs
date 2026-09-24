@@ -57,6 +57,7 @@ const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
 #[derive(Clone, Debug)]
 struct SecureCommandTool {
     service: Arc<SecureToolService>,
+    artifacts: Arc<ArtifactStore>,
 }
 
 #[async_trait::async_trait]
@@ -100,9 +101,53 @@ impl AgentTool for SecureCommandTool {
             )
             .await?;
 
+        let output = result.output.unwrap_or_default();
+        if self.artifacts.should_spill(output.len()) {
+            let artifact = self
+                .artifacts
+                .put_bytes(
+                    None,
+                    "tool-output",
+                    "text/plain; charset=utf-8",
+                    output.as_bytes(),
+                    None,
+                    false,
+                    serde_json::json!({
+                        "tool": "process.execute",
+                        "session_id": session_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "tool output spill persistence failed: {error}"
+                    ))
+                })?;
+
+            return Ok(ToolResponse {
+                request_id: request.request_id,
+                result: serde_json::json!({
+                    "artifact_id": artifact.artifact_id,
+                    "size_bytes": artifact.size_bytes,
+                    "checksum": artifact.checksum,
+                    "content_url": format!(
+                        "/api/artifacts/{}/content",
+                        artifact.artifact_id
+                    ),
+                })
+                .to_string(),
+                success: result.success,
+                error: result.error,
+                metadata: Some(
+                    "native capability-gated process execution; output spilled to artifact"
+                        .to_string(),
+                ),
+            });
+        }
+
         Ok(ToolResponse {
             request_id: request.request_id,
-            result: result.output.unwrap_or_default(),
+            result: output,
             success: result.success,
             error: result.error,
             metadata: Some("native capability-gated process execution".to_string()),
@@ -199,6 +244,19 @@ impl RuntimeState {
             capabilities.clone(),
             sandbox.clone(),
         ));
+        let artifacts = Arc::new(
+            ArtifactStore::open(
+                &database_url,
+                std::env::var("AGENTICOS_ARTIFACT_ROOT")
+                    .unwrap_or_else(|_| ".agenticos/artifacts".to_string()),
+                std::env::var("AGENTICOS_MAX_ARTIFACT_BYTES")
+                    .ok()
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .unwrap_or(agenticos_artifacts::DEFAULT_MAX_ARTIFACT_BYTES),
+            )
+            .await
+            .map_err(ContractError::ParseError)?,
+        );
 
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
@@ -219,6 +277,7 @@ impl RuntimeState {
                 },
                 Arc::new(SecureCommandTool {
                     service: secure_tools.clone(),
+                    artifacts: artifacts.clone(),
                 }),
             )
             .await
@@ -305,19 +364,7 @@ impl RuntimeState {
                     .await
                     .map_err(ContractError::ParseError)?,
             ),
-            artifacts: Arc::new(
-                ArtifactStore::open(
-                    &database_url,
-                    std::env::var("AGENTICOS_ARTIFACT_ROOT")
-                        .unwrap_or_else(|_| ".agenticos/artifacts".to_string()),
-                    std::env::var("AGENTICOS_MAX_ARTIFACT_BYTES")
-                        .ok()
-                        .and_then(|value| value.parse::<u64>().ok())
-                        .unwrap_or(agenticos_artifacts::DEFAULT_MAX_ARTIFACT_BYTES),
-                )
-                .await
-                .map_err(ContractError::ParseError)?,
-            ),
+            artifacts: artifacts.clone(),
             model,
         })
     }

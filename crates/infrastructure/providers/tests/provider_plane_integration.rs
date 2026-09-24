@@ -47,7 +47,10 @@ fn credential(provider_id: &str, id: &str) -> Credential {
     }
 }
 
-fn spawn_http_response_server(response_body: &'static str) -> (String, thread::JoinHandle<()>) {
+fn spawn_http_response_server_with_status(
+    status_line: &'static str,
+    response_body: &'static str,
+) -> (String, thread::JoinHandle<()>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind test HTTP server");
     let address = listener.local_addr().expect("read local address");
 
@@ -57,7 +60,7 @@ fn spawn_http_response_server(response_body: &'static str) -> (String, thread::J
             let _ = stream.read(&mut request);
 
             let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 response_body.len(),
                 response_body
             );
@@ -69,6 +72,10 @@ fn spawn_http_response_server(response_body: &'static str) -> (String, thread::J
     });
 
     (format!("http://{}", address), handle)
+}
+
+fn spawn_http_response_server(response_body: &'static str) -> (String, thread::JoinHandle<()>) {
+    spawn_http_response_server_with_status("200 OK", response_body)
 }
 
 async fn select_healthy_provider(
@@ -414,6 +421,97 @@ async fn credential_pool_keeps_credentials_scoped_to_their_provider() {
     assert_eq!(primary[0].provider_id, "primary");
     assert_eq!(fallback.len(), 1);
     assert_eq!(fallback[0].provider_id, "fallback");
+}
+
+#[tokio::test]
+async fn http_model_provider_propagates_non_success_status_to_resilience_layer() {
+    let (base_url, server) = spawn_http_response_server_with_status(
+        "503 Service Unavailable",
+        r#"{"error":{"message":"temporarily unavailable"}}"#,
+    );
+
+    let provider = HttpModelProvider::new("unhealthy-provider".to_string(), base_url);
+    let result = provider
+        .execute(ModelRequest {
+            request_id: "failure-request-1".to_string(),
+            model: "test-model".to_string(),
+            input: "hello".to_string(),
+            parameters: None,
+        })
+        .await;
+
+    server.join().expect("join test HTTP server");
+
+    let error = result.expect_err("non-success provider status must be an execution error");
+    assert!(error.to_string().contains("503"));
+    assert!(error.to_string().contains("temporarily unavailable"));
+}
+
+#[tokio::test]
+async fn http_model_provider_rejects_malformed_success_payload() {
+    let (base_url, server) = spawn_http_response_server("not-json");
+
+    let provider = HttpModelProvider::new("malformed-provider".to_string(), base_url);
+    let result = provider
+        .execute(ModelRequest {
+            request_id: "malformed-request-1".to_string(),
+            model: "test-model".to_string(),
+            input: "hello".to_string(),
+            parameters: None,
+        })
+        .await;
+
+    server.join().expect("join test HTTP server");
+
+    let error = result.expect_err("malformed provider payload must be rejected");
+    assert!(error.to_string().contains("Invalid provider response"));
+}
+
+#[tokio::test]
+async fn health_unknown_provider_is_fail_closed() {
+    let health_checker = HealthChecker::new();
+
+    assert!(!health_checker.is_healthy("never-registered").await);
+    assert!(health_checker.get("never-registered").await.is_none());
+}
+
+#[tokio::test]
+async fn quota_tracker_is_safe_for_concurrent_usage_updates() {
+    let tracker = std::sync::Arc::new(QuotaTracker::new());
+
+    tracker
+        .set_quota(QuotaInfo {
+            provider_id: "concurrent-provider".to_string(),
+            requests_per_minute: Some(1000),
+            tokens_per_minute: Some(1_000_000),
+            current_usage: 0,
+        })
+        .await
+        .expect("set concurrent quota");
+
+    let mut tasks = Vec::new();
+    for _ in 0..32 {
+        let tracker = tracker.clone();
+        tasks.push(tokio::spawn(async move {
+            tracker
+                .increment_usage("concurrent-provider")
+                .await
+                .expect("increment concurrent usage");
+        }));
+    }
+
+    for task in tasks {
+        task.await.expect("concurrent quota task");
+    }
+
+    assert_eq!(
+        tracker
+            .get("concurrent-provider")
+            .await
+            .expect("read concurrent quota")
+            .current_usage,
+        32
+    );
 }
 
 #[tokio::test]

@@ -465,6 +465,306 @@ async fn delete_provider(
     }
 }
 
+async fn invoke_tool(
+    request: web::Json<ToolInvokeRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let tool_id = request.tool_id.trim();
+    if request.session_id.trim().is_empty()
+        || request.grant_id.trim().is_empty()
+        || tool_id.is_empty()
+    {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "session_id, grant_id and tool_id are required".to_string(),
+            code: "INVALID_TOOL_INVOKE",
+        });
+    }
+
+    let Some(tool) = state.tools.get(tool_id).await else {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "tool is not registered".to_string(),
+            code: "TOOL_NOT_FOUND",
+        });
+    };
+
+    let permission = tool
+        .required_permissions
+        .first()
+        .cloned()
+        .unwrap_or_else(|| tool_id.to_string());
+    let capability_type = match tool_id {
+        "memory.search" => CapabilityType::Read,
+        "memory.write" | "memory.delete" => CapabilityType::Write,
+        _ => CapabilityType::Execute,
+    };
+    let resource = match tool_id {
+        "process.execute" => "process/command".to_string(),
+        "memory.search" | "memory.write" | "memory.delete" => {
+            format!("memory/{}", request.parameters.get("namespace").and_then(|v| v.as_str()).unwrap_or("*"))
+        }
+        "provider.chat" => format!(
+            "provider/{}",
+            request
+                .parameters
+                .get("provider_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        "subagent.spawn" => format!(
+            "subagent/{}",
+            request
+                .parameters
+                .get("parent_run_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        "workflow.execute" => format!(
+            "workflow/{}",
+            request
+                .parameters
+                .get("workflow_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("*")
+        ),
+        _ => tool_id.to_string(),
+    };
+
+    let authorized = match state
+        .capabilities
+        .authorize(
+            &request.grant_id,
+            capability_type,
+            &resource,
+            &permission,
+        )
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "TOOL_AUTHORIZATION_FAILED",
+            });
+        }
+    };
+
+    if !authorized {
+        return HttpResponse::Forbidden().json(ErrorResponse {
+            error: "capability grant does not authorize this tool".to_string(),
+            code: "TOOL_NOT_AUTHORIZED",
+        });
+    }
+
+    let result = match tool_id {
+        "process.execute" => {
+            let command = request
+                .parameters
+                .get("command")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("command is required".to_string()));
+            match command {
+                Ok(command) => state
+                    .secure_tools
+                    .execute_command(
+                        request.session_id.trim(),
+                        request.user_id.as_deref(),
+                        request.grant_id.trim(),
+                        command,
+                        request
+                            .parameters
+                            .get("timeout_ms")
+                            .and_then(|value| value.as_u64()),
+                    )
+                    .await
+                    .map(|execution| serde_json::json!({
+                        "success": execution.success,
+                        "output": execution.output,
+                    })),
+                Err(error) => Err(error),
+            }
+        }
+        "memory.search" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .unwrap_or("global");
+            let query = request
+                .parameters
+                .get("q")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            state
+                .persistent_memory
+                .search(namespace, query, request.parameters.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize)
+                .await
+                .map(|records| serde_json::json!({ "records": records }))
+        }
+        "memory.write" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("namespace is required".to_string()));
+            let key = request
+                .parameters
+                .get("key")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("key is required".to_string()));
+            let value = request
+                .parameters
+                .get("value")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("value is required".to_string()));
+            match (namespace, key, value) {
+                (Ok(namespace), Ok(key), Ok(value)) => {
+                    let tags = request
+                        .parameters
+                        .get("tags")
+                        .and_then(|value| value.as_array())
+                        .map(|items| {
+                            items.iter()
+                                .filter_map(|item| item.as_str().map(str::to_string))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    state
+                        .persistent_memory
+                        .upsert(
+                            namespace,
+                            key,
+                            value,
+                            &tags,
+                            request
+                                .parameters
+                                .get("importance")
+                                .and_then(|value| value.as_f64())
+                                .unwrap_or(0.5),
+                            request
+                                .parameters
+                                .get("expires_at")
+                                .and_then(|value| value.as_i64())
+                                .unwrap_or(0),
+                        )
+                        .await
+                        .map(|record| serde_json::to_value(record).unwrap_or_default())
+                }
+                (Err(error), _, _) | (_, Err(error), _) | (_, _, Err(error)) => Err(error),
+            }
+        }
+        "memory.delete" => {
+            let namespace = request
+                .parameters
+                .get("namespace")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("namespace is required".to_string()));
+            let key = request
+                .parameters
+                .get("key")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("key is required".to_string()));
+            match (namespace, key) {
+                (Ok(namespace), Ok(key)) => state
+                    .persistent_memory
+                    .delete(namespace, key)
+                    .await
+                    .map(|removed| serde_json::json!({ "removed": removed })),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "provider.chat" => {
+            let model = request
+                .parameters
+                .get("model")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("model is required".to_string()));
+            let input = request
+                .parameters
+                .get("input")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("input is required".to_string()));
+            match (model, input) {
+                (Ok(model), Ok(input)) => state
+                    .provider
+                    .execute_routed(ModelRequest {
+                        request_id: format!("req-{}", uuid::Uuid::new_v4()),
+                        model: model.to_string(),
+                        input: input.to_string(),
+                        parameters: None,
+                    })
+                    .await
+                    .and_then(|response| {
+                        serde_json::to_value(response)
+                            .map_err(|error| ContractError::ParseError(error.to_string()))
+                    }),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "subagent.spawn" => {
+            let parent_run_id = request
+                .parameters
+                .get("parent_run_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("parent_run_id is required".to_string()));
+            let agent_id = request
+                .parameters
+                .get("agent_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("agent_id is required".to_string()));
+            match (parent_run_id, agent_id) {
+                (Ok(parent_run_id), Ok(agent_id)) => state
+                    .subagents
+                    .spawn_child(
+                        parent_run_id,
+                        agent_id,
+                        request
+                            .parameters
+                            .get("parent_depth")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0) as u16,
+                    )
+                    .await
+                    .map(|child| serde_json::to_value(child).unwrap_or_default())
+                    .map_err(ContractError::ParseError),
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            }
+        }
+        "workflow.execute" => {
+            let workflow_id = request
+                .parameters
+                .get("workflow_id")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| ContractError::ParseError("workflow_id is required".to_string()));
+            match workflow_id {
+                Ok(workflow_id) => state
+                    .workflows
+                    .initial_state(workflow_id)
+                    .await
+                    .map(|state| serde_json::to_value(state).unwrap_or_default())
+                    .map_err(ContractError::ParseError),
+                Err(error) => Err(error),
+            }
+        }
+        _ => Err(ContractError::ParseError(format!(
+            "tool '{}' has no runtime implementation",
+            tool_id
+        ))),
+    };
+
+    match result {
+        Ok(result) => HttpResponse::Ok().json(serde_json::json!({
+            "tool_id": tool_id,
+            "session_id": request.session_id,
+            "success": true,
+            "result": result,
+        })),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "TOOL_INVOCATION_FAILED",
+        }),
+    }
+}
+
 async fn test_provider(
     request: web::Json<ProviderTestRequest>,
     state: web::Data<RuntimeState>,
@@ -1140,6 +1440,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/providers/test", web::post().to(test_provider))
             .route("/api/models", web::get().to(list_models))
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/tools/invoke", web::post().to(invoke_tool))
             .route("/api/runs", web::post().to(create_run))
             .route("/api/runs/{run_id}", web::get().to(get_run))
             .route("/api/runs/{run_id}/cancel", web::post().to(cancel_run))

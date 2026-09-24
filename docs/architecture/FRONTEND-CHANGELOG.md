@@ -1189,3 +1189,9 @@ Verification status:
 - Added a fail-closed guard if the migration anchor is ever missing, and reject schema-less legacy records after the strict boundary.
 - This avoids misclassifying historical records with timezone offsets or inconsistent legacy field sets as current work.
 - Verification status: awaiting the next GitHub Actions run.
+
+## 2026-09-24 — Continuity risk-field alias hardening
+
+- Added a narrow schema alias so current journal records using `risk` satisfy the manifest's `risks` field without changing any other required-field or evidence validation.
+- This addresses the schema-name mismatch in the newly appended continuity/frontend operations while keeping future records subject to the same strict contract.
+- Verification status: source-level journal simulation passed through the current strict block; awaiting CI confirmation.

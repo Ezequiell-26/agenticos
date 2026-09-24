@@ -77,7 +77,8 @@ fn spawn_http_response_server_with_status(
 fn spawn_http_response_server(response_body: &'static str) -> (String, thread::JoinHandle<()>) {
     spawn_http_response_server_with_status("200 OK", response_body)
 }
-\nfn spawn_http_response_sequence_server(
+
+fn spawn_http_response_sequence_server(
     responses: Vec<(&'static str, &'static str)>,
 ) -> (String, thread::JoinHandle<()>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind sequence test HTTP server");
@@ -92,7 +93,7 @@ fn spawn_http_response_server(response_body: &'static str) -> (String, thread::J
             let _ = stream.read(&mut request);
 
             let response = format!(
-                "HTTP/1.1 {status_line}\\r\\nContent-Type: application/json\\r\\nContent-Length: {}\\r\\nConnection: close\\r\\n\\r\\n{}",
+                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 response_body.len(),
                 response_body
             );
@@ -401,6 +402,15 @@ async fn provider_platform_executes_through_fallback_after_primary_transport_fai
         )
         .await
         .expect("register fallback provider");
+
+    platform
+        .set_fallback_config(FallbackConfig {
+            primary_provider: "primary".to_string(),
+            fallback_providers: vec!["fallback".to_string()],
+            auto_failover: true,
+        })
+        .await
+        .expect("configure explicit fallback policy");
 
     let response = platform
         .execute(

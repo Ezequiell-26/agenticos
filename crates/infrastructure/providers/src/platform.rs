@@ -225,17 +225,21 @@ impl ProviderPlatform {
             });
 
         let mut ordered_ids = Vec::new();
+        let mut allow_discovered_fallbacks = true;
         if let Some(primary) = primary_provider.as_deref() {
             ordered_ids.push(primary.to_string());
             if let Some(config) = self.fallbacks.get_config(primary).await {
+                allow_discovered_fallbacks = config.auto_failover;
                 if config.auto_failover {
                     ordered_ids.extend(config.fallback_providers);
                 }
             }
         }
-        for provider in &providers {
-            if !ordered_ids.iter().any(|id| id == &provider.provider_id) {
-                ordered_ids.push(provider.provider_id.clone());
+        if allow_discovered_fallbacks {
+            for provider in &providers {
+                if !ordered_ids.iter().any(|id| id == &provider.provider_id) {
+                    ordered_ids.push(provider.provider_id.clone());
+                }
             }
         }
 

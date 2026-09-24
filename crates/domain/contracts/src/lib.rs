@@ -216,7 +216,7 @@ pub struct SerializedEvent {
 }
 
 /// Serialized snapshot for recovery.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SerializedSnapshot {
     /// Stream identifier.
     pub stream_id: String,
@@ -314,7 +314,7 @@ impl From<ConfigError> for ContractError {
 }
 
 /// Capability grant type.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CapabilityType {
     /// Read-only capability.
     Read,
@@ -327,7 +327,7 @@ pub enum CapabilityType {
 }
 
 /// Capability grant with scope.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CapabilityGrant {
     /// Capability type.
     pub capability_type: CapabilityType,
@@ -606,7 +606,7 @@ pub struct ProviderEntry {
 }
 
 /// Model catalog entry.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ModelEntry {
     /// Model identifier.
     pub model_id: String,

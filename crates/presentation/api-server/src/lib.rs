@@ -247,6 +247,41 @@ struct CreateWorkflowRequest {
     workflow: WorkflowDefinition,
 }
 
+#[derive(Debug, Deserialize)]
+struct MemorySearchQuery {
+    namespace: String,
+    q: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateMemoryRequest {
+    namespace: String,
+    key: String,
+    value: String,
+    tags: Option<Vec<String>>,
+    importance: Option<f64>,
+    expires_at: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateCapabilityRequest {
+    capability_type: String,
+    resource: String,
+    permission: String,
+    expires_at: Option<u64>,
+    grant_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ToolExecutionRequest {
+    session_id: String,
+    user_id: Option<String>,
+    grant_id: String,
+    command: String,
+    timeout_ms: Option<u64>,
+}
+
 async fn health_check(state: web::Data<RuntimeState>) -> impl Responder {
     let configured = state.configured().await;
     let sandbox_status = state
@@ -681,6 +716,15 @@ async fn create_approval(
     request: web::Json<CreateApprovalRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
+    if request.run_id.trim().is_empty()
+        || request.action.trim().is_empty()
+        || request.resource.trim().is_empty()
+    {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "run_id, action and resource are required".to_string(),
+            code: "INVALID_APPROVAL",
+        });
+    }
     let approval = state
         .capabilities
         .request_approval(
@@ -762,6 +806,30 @@ async fn upsert_memory(
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "namespace, key and value are required".to_string(),
             code: "INVALID_MEMORY",
+        });
+    }
+    if namespace.len() > 256 || key.len() > 512 || request.value.len() > 1_000_000 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "memory field exceeds supported limits".to_string(),
+            code: "MEMORY_TOO_LARGE",
+        });
+    }
+    if request.tags.as_ref().is_some_and(|tags| tags.len() > 64) {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "too many memory tags".to_string(),
+            code: "MEMORY_TAG_LIMIT",
+        });
+    }
+    if request.importance.is_some_and(|importance| !importance.is_finite()) {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "importance must be a finite number".to_string(),
+            code: "INVALID_MEMORY_IMPORTANCE",
+        });
+    }
+    if request.expires_at.is_some_and(|expires_at| expires_at < 0) {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "expires_at must not be negative".to_string(),
+            code: "INVALID_MEMORY_EXPIRY",
         });
     }
 
@@ -969,11 +1037,34 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
     let data = web::Data::new(state);
-    let cors = Cors::permissive();
+    let cors_origins: Vec<String> = std::env::var("AGENTICOS_CORS_ORIGINS")
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+
+    if !is_loopback && cors_origins.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "remote bind requires AGENTICOS_CORS_ORIGINS",
+        ));
+    }
 
     HttpServer::new(move || {
+        let cors = if is_loopback {
+            Cors::permissive()
+        } else {
+            let mut cors = Cors::default();
+            for origin in &cors_origins {
+                cors = cors.allowed_origin(origin);
+            }
+            cors
+        };
+
         App::new()
-            .wrap(cors.clone())
+            .wrap(cors)
             .app_data(data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/agent/status", web::get().to(agent_status))

@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 use super::{BrainError, CapabilityId};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// Reasoning & Planning Engine.
@@ -32,7 +33,7 @@ pub struct CapabilitySelector {
 }
 
 /// Selection strategy.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SelectionStrategy {
     Greedy,
     Balanced,
@@ -40,7 +41,7 @@ pub enum SelectionStrategy {
 }
 
 /// Reasoning plan.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReasoningPlan {
     pub steps: Vec<PlanStep>,
     pub estimated_cost: PlanCost,
@@ -48,7 +49,7 @@ pub struct ReasoningPlan {
 }
 
 /// Plan step.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanStep {
     pub id: String,
     pub action: String,
@@ -57,7 +58,7 @@ pub struct PlanStep {
 }
 
 /// Plan cost.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanCost {
     pub tokens: u64,
     pub monetary: f64,
@@ -257,7 +258,7 @@ impl Default for EngineConfig {
 }
 
 /// Plan evaluation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationResult {
     pub score: f64,
     pub risk_assessment: RiskAssessment,
@@ -265,7 +266,7 @@ pub struct EvaluationResult {
 }
 
 /// Risk assessment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskAssessment {
     pub low_risk: bool,
     pub medium_risk: bool,

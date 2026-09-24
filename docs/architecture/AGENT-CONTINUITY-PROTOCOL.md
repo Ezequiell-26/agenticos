@@ -101,21 +101,29 @@ Deletion/replacement of code, data, contracts, schemas, manifests or evidence re
 
 Without all seven, the operation is BLOCKED.
 
-## Monotonic progress
+## Capability-driven progress
 
-Implementation state follows:
+Implementation state is organized by workstreams and capabilities, not by a single numbered sequence.
 
-`PENDING → IN_PROGRESS → VERIFYING → CORRECTING → VERIFIED → UNLOCKED_NEXT`
+A workstream follows:
 
-Normal development may not move a verified step backward.
+`PLANNED → IN_PROGRESS → VERIFYING → COMPLETED`
 
-Rollback is a separate controlled operation and must restore to a recorded checkpoint rather than rewrite history.
+A capability follows:
 
-## Scope lock
+`PLANNED → IN_PROGRESS → IMPLEMENTED-UNVERIFIED → VERIFIED`
 
-An agent may not implement future steps while working on the current step.
+A capability may be advanced independently when its own contracts, dependencies, security boundary and verification plan are satisfied.
 
-Finding a future concern is recorded as a risk or follow-up, not implemented opportunistically.
+A failed verification blocks the affected capability or release path. It does not automatically block unrelated workstreams.
+
+Rollback is a controlled operation that restores a recorded checkpoint without rewriting Git history.
+
+## Scope control
+
+An agent must declare the capability/workstream scope it is changing and must not bypass its contracts or security boundaries.
+
+Discovering work in another area is recorded as backlog/risk unless it is directly required to complete the current capability.
 
 ## Memory integrity
 
@@ -151,7 +159,7 @@ Every completed operation ends with this exact conceptual structure:
 `UNVERIFIED: ...`
 `RISKS: ...`
 `ROLLBACK: ...`
-`NEXT: exactly one step`
+`NEXT: concrete actions/workstream transitions`
 
 The repository journal stores the machine-readable equivalent.
 

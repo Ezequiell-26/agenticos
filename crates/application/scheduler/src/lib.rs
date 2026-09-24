@@ -218,8 +218,9 @@ impl JobScheduler {
 
     /// List scheduler state.
     pub async fn list(&self) -> Vec<JobRecord> {
-        let jobs = self.jobs.read().await;
-        jobs.values().cloned().collect()
+        let mut jobs: Vec<_> = self.jobs.read().await.values().cloned().collect();
+        jobs.sort_by(|left, right| left.spec.job_id.cmp(&right.spec.job_id));
+        jobs
     }
 }
 
@@ -232,6 +233,29 @@ impl Default for JobScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cancelling_running_job_is_terminal() {
+        let scheduler = JobScheduler::new();
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "cancel-me".into(),
+                run_id: "run".into(),
+                task: "work".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 3,
+            })
+            .await
+            .unwrap();
+
+        scheduler.start("cancel-me").await.unwrap();
+        scheduler.cancel("cancel-me").await.unwrap();
+
+        let record = scheduler.get("cancel-me").await.unwrap();
+        assert_eq!(record.state, JobState::Cancelled);
+        assert!(scheduler.start("cancel-me").await.is_err());
+    }
 
     #[tokio::test]
     async fn dependency_aware_scheduler() {

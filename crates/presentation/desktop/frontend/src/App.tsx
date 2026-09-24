@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ActivityRail, { type RailMode } from './components/ActivityRail'
 import AgentPanel from './components/AgentPanel'
 import ChatSurface from './components/ChatSurface'
@@ -85,6 +85,8 @@ function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationUnread, setNotificationUnread] = useState(2)
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeError, setRuntimeError] = useState<string | null>(null)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -106,17 +108,27 @@ function App() {
     persistUiState(sessionStorageKey, sessionId)
   }, [sessionId])
 
-  useEffect(() => {
-    let active = true
-    void Promise.all([runtime.status.get(), runtime.conversations.history(sessionId)]).then(([nextStatus, history]) => {
-      if (!active) return
-      setStatus(nextStatus)
-      if (history.length > 0) setMessages(history)
-    })
-    return () => {
-      active = false
+  const refreshRuntime = useCallback(async (targetSessionId: string) => {
+    setRuntimeSyncing(true)
+    setRuntimeError(null)
+    const [statusResult, historyResult] = await Promise.allSettled([
+      runtime.status.get(),
+      runtime.conversations.history(targetSessionId),
+    ])
+    if (statusResult.status === 'fulfilled') setStatus(statusResult.value)
+    if (historyResult.status === 'fulfilled' && historyResult.value.length > 0) setMessages(historyResult.value)
+    const failures = [statusResult, historyResult].filter((result) => result.status === 'rejected')
+    if (failures.length > 0) {
+      const firstFailure = failures[0]
+      const reason = firstFailure.status === 'rejected' ? firstFailure.reason : null
+      setRuntimeError(reason instanceof Error ? reason.message : 'Runtime synchronization failed.')
     }
-  }, [sessionId])
+    setRuntimeSyncing(false)
+  }, [])
+
+  useEffect(() => {
+    void refreshRuntime(sessionId)
+  }, [refreshRuntime, sessionId])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -284,9 +296,9 @@ function App() {
             <button className={notificationsOpen ? 'notification-button notification-button--active' : 'notification-button'} type="button" title="Notifications" aria-label={'Notifications · ' + notificationUnread + ' unread'} aria-expanded={notificationsOpen} aria-controls="agenticos-notification-drawer" onClick={() => setNotificationsOpen((open) => !open)}>
               <Icon name="bell" size={15} />{notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
             </button>
-            <span className="runtime-chip" aria-live="polite" title={`Runtime: ${status.provider}`}>
+            <span className={runtimeSyncing ? 'runtime-chip runtime-chip--syncing' : 'runtime-chip'} aria-live="polite" title={"Runtime: " + status.provider}>
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
-              {status.state}
+              {runtimeSyncing ? 'syncing' : status.state}
             </span>
             <button className="icon-button" aria-label="Command palette" title="Command palette" onClick={() => setPaletteOpen(true)} type="button">
               <Icon name="command" size={17} />
@@ -302,6 +314,19 @@ function App() {
           onNavigate={setMode}
           onAction={(message) => console.info('[AgentiCOS UI]', message)}
         />
+        {runtimeError && (
+          <section className="runtime-recovery-banner" role="alert" aria-live="assertive">
+            <span className="runtime-recovery-banner__icon"><Icon name="cloud" size={14} /></span>
+            <div>
+              <strong>{runtimeSyncing ? 'Synchronizing runtime…' : 'Runtime synchronization failed'}</strong>
+              <small>{runtimeError}</small>
+            </div>
+            <button className="studio-button studio-button--active" type="button" onClick={() => { void refreshRuntime(sessionId) }} disabled={runtimeSyncing}>
+              <Icon name="refresh" size={13} /> {runtimeSyncing ? 'Retrying…' : 'Retry'}
+            </button>
+            <button className="icon-button" type="button" aria-label="Dismiss runtime recovery message" onClick={() => setRuntimeError(null)}><Icon name="x" size={13} /></button>
+          </section>
+        )}
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (

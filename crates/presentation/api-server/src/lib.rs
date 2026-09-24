@@ -1905,9 +1905,8 @@ async fn sync_mcp_tools(
                 error: error.to_string(),
                 code: "MCP_TOOL_SYNC_FAILED",
             })
-        },
+        }
     }
-}
 
 async fn execute_registered_tool(
     request: web::Json<ToolCallRequest>,

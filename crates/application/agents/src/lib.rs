@@ -260,7 +260,11 @@ impl SubagentManager {
 
     /// Return a recovered child depth when the run itself is a delegated child.
     pub async fn depth_of(&self, run_id: &str) -> Option<u16> {
-        self.children.read().await.get(run_id).map(|child| child.depth)
+        self.children
+            .read()
+            .await
+            .get(run_id)
+            .map(|child| child.depth)
     }
 
     /// List child runs for a parent.

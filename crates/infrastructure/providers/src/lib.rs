@@ -433,7 +433,9 @@ impl ModelProvider for HttpModelProvider {
         });
         if let Some(parameters) = &request.parameters {
             let extra = serde_json::from_str::<serde_json::Value>(parameters).map_err(|error| {
-                ContractError::ParseError(format!("provider parameters must be valid JSON: {error}"))
+                ContractError::ParseError(format!(
+                    "provider parameters must be valid JSON: {error}"
+                ))
             })?;
             let target = payload.as_object_mut().ok_or_else(|| {
                 ContractError::ParseError("provider request payload is not an object".to_string())

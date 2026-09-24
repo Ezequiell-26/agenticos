@@ -406,7 +406,10 @@ async fn evaluate_output(
     request: web::Json<EvaluationRunRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    let run_id = request.run_id.clone().unwrap_or_else(|| "offline".to_string());
+    let run_id = request
+        .run_id
+        .clone()
+        .unwrap_or_else(|| "offline".to_string());
     match state
         .evaluations
         .evaluate_and_record(&request.case_id, &run_id, &request.output)
@@ -1123,11 +1126,7 @@ async fn spawn_agent(
         });
     }
 
-    let depth = state
-        .subagents
-        .depth_of(&parent_run_id)
-        .await
-        .unwrap_or(0);
+    let depth = state.subagents.depth_of(&parent_run_id).await.unwrap_or(0);
 
     let child = match state
         .subagents
@@ -2022,10 +2021,19 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/audit", web::get().to(list_audit))
-            .route("/api/evaluations/cases", web::get().to(list_evaluation_cases))
-            .route("/api/evaluations/cases", web::post().to(upsert_evaluation_case))
+            .route(
+                "/api/evaluations/cases",
+                web::get().to(list_evaluation_cases),
+            )
+            .route(
+                "/api/evaluations/cases",
+                web::post().to(upsert_evaluation_case),
+            )
             .route("/api/evaluations/evaluate", web::post().to(evaluate_output))
-            .route("/api/evaluations/results", web::get().to(list_evaluation_results))
+            .route(
+                "/api/evaluations/results",
+                web::get().to(list_evaluation_results),
+            )
             .route("/api/mcp", web::get().to(list_mcp_servers))
             .route("/api/mcp", web::post().to(register_mcp_server))
             .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))

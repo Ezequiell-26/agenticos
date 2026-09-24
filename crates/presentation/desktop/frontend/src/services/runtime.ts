@@ -259,6 +259,23 @@ export class AgenticosRuntime implements RuntimeServices {
         message,
         session_id: sessionId,
         ...(model ? { model } : {}),
+        ...(options?.maxTokens || options?.temperature || options?.responseFormat
+          ? {
+              parameters: {
+                ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
+                ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+                ...(options.responseFormat
+                  ? {
+                      response_format: {
+                        type: options.responseFormat === 'Structured'
+                          ? 'json_object'
+                          : 'text',
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       })
       const response = readString(data, 'response')?.trim() ?? ''
       if (!response) throw new RuntimeHttpError('The runtime returned an empty response.', 502, 'EMPTY_RESPONSE', data)

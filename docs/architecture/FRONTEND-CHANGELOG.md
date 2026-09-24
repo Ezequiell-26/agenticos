@@ -1012,3 +1012,14 @@ Verification status:
 
 - Added `onboarding` and `qa` to the canonical `RailMode` union so every registered navigation item is represented in the typed route domain.
 - Preserved the existing ownership model: both surfaces are already handled by `PlatformSurface`; this change closes type-level registry drift without changing runtime behavior.
+
+## 2026-09-24 — Frontend route completeness and shared feature workbench
+
+- Added `FeatureWorkbench` as a reusable, data-driven presentation surface for platform capabilities that did not yet have a dedicated module.
+- Added dedicated route ownership in `PlatformSurface` for overview, tasks, permissions, canvas, commands, subagents, cloud agents, remote control, computer use, operations, kanban, credentials, hooks, marketplace, security and Home Assistant/social integration surfaces.
+- Routed evaluation, version, audit, notification, session, log, analytics, batch, learning, playground, routing, token-observatory, toolsets, execution, webhooks, imports, media and wake surfaces through the shared workbench instead of the unrelated Security Center fallback.
+- Removed stale platform-local state left by the previous fragmented route implementation and preserved the existing `StudioSurface` ownership for `chat`, `files`, `terminal`, `runs`, `agents`, `artifacts` and `settings`.
+- Source audit result: 98 navigation IDs, 91 typed platform modes, 0 missing platform owners, 0 invalid non-platform owners.
+- Verification status: source structure verified. Frontend build, browser verification, accessibility execution, Tauri rendering and Step 25 implementation-state verification remain unverified.
+- Boundary: all new actions are presentation intents; no provider calls, secret handling, durable runtime mutation or execution was introduced.
+- Current implementation-state note: repository remains governed by Step 25 (`integration-test-implementation-phase-3`); this frontend source is preserved but not marked as a verified implementation step.

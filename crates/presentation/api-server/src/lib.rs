@@ -354,6 +354,14 @@ struct ChatRequest {
     model: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct DirectModelRequest {
+    request_id: Option<String>,
+    model: String,
+    input: String,
+    parameters: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 struct ChatResponse {
     response: String,
@@ -1037,6 +1045,79 @@ async fn agent_status(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+async fn direct_model_execute(
+    request: web::Json<DirectModelRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let model = request.model.trim();
+    let input = request.input.trim();
+    if model.is_empty() || input.is_empty() {
+        state.metrics.record_http(true);
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model and input are required".to_string(),
+            code: "INVALID_MODEL_REQUEST",
+        });
+    }
+    if model.len() > 256 || input.len() > 1_000_000 {
+        state.metrics.record_http(true);
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model request exceeds supported limits".to_string(),
+            code: "MODEL_REQUEST_TOO_LARGE",
+        });
+    }
+    if request
+        .parameters
+        .as_ref()
+        .is_some_and(|value| value.len() > 64 * 1024)
+    {
+        state.metrics.record_http(true);
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "model parameters exceed supported limits".to_string(),
+            code: "MODEL_PARAMETERS_TOO_LARGE",
+        });
+    }
+
+    let request_id = request
+        .request_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let started_at = std::time::Instant::now();
+    state.metrics.record_provider(false);
+    match state
+        .provider
+        .execute(agenticos_contracts::ModelRequest {
+            request_id,
+            model: model.to_string(),
+            input: input.to_string(),
+            parameters: request.parameters.clone(),
+        })
+        .await
+    {
+        Ok(response) => {
+            state.metrics.record_http(false);
+            state
+                .metrics
+                .record_llm_latency(started_at.elapsed().as_millis() as u64);
+            HttpResponse::Ok().json(response)
+        }
+        Err(error) => {
+            state.metrics.record_provider(true);
+            state.metrics.record_http(true);
+            state
+                .metrics
+                .record_llm_latency(started_at.elapsed().as_millis() as u64);
+            HttpResponse::BadGateway().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MODEL_EXECUTION_FAILED",
+            })
+        }
+    }
+}
+
 async fn agent_chat(
     request: web::Json<ChatRequest>,
     state: web::Data<RuntimeState>,
@@ -1689,10 +1770,16 @@ async fn create_run(
                 ))
                 .await;
 
+            let current = state
+                .kernel
+                .get_or_recover_run(&run_id)
+                .await
+                .unwrap_or(created_run);
+
             HttpResponse::Created().json(RunResponse {
                 run_id: run_id_text,
-                state: "Admitted".to_string(),
-                version: 2,
+                state: format!("{:?}", current.state),
+                version: current.version,
             })
         }
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
@@ -2909,6 +2996,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/agent/status", web::get().to(agent_status))
             .route("/api/agent/chat", web::post().to(agent_chat))
+            .route("/api/models/execute", web::post().to(direct_model_execute))
             .route(
                 "/api/conversations/{session_id}/history",
                 web::get().to(conversation_history),

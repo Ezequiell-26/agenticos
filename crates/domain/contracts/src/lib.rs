@@ -124,7 +124,7 @@ pub trait ModelProvider: Send + Sync + 'static {
 }
 
 /// Model request for execution.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ModelRequest {
     /// Request identifier.
     pub request_id: String,
@@ -137,7 +137,7 @@ pub struct ModelRequest {
 }
 
 /// Model response from execution.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ModelResponse {
     /// Request identifier (echoed).
     pub request_id: String,

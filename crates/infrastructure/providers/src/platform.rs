@@ -206,7 +206,7 @@ impl ProviderPlatform {
             let rows = sqlx::query_as::<_, (String, String, String, i64, Option<String>)>(
                 "SELECT provider_id, credential_type, encrypted_value, expires_at, scope FROM provider_credentials",
             )
-            .fetch_all(db)
+            .fetch_all(db.as_ref())
             .await
             .map_err(|error| ContractError::ParseError(format!("credential recovery failed: {error}")))?;
 
@@ -235,7 +235,7 @@ impl ProviderPlatform {
             let rows = sqlx::query_as::<_, (String, String, i64)>(
                 "SELECT primary_provider, fallback_providers, auto_failover FROM provider_fallback_configs",
             )
-            .fetch_all(db)
+            .fetch_all(db.as_ref())
             .await
             .map_err(|error| ContractError::ParseError(format!("fallback recovery failed: {error}")))?;
 

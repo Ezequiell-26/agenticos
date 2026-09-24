@@ -8,6 +8,7 @@ license.workspace = true
 agenticos-contracts = { path = "../../domain/contracts" }
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio-rustls"] }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 uuid = { workspace = true, features = ["v4"] }
 

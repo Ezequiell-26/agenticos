@@ -73,6 +73,7 @@ pub struct JobScheduler {
 }
 
 impl JobScheduler {
+    /// Create an in-memory scheduler without durable storage.
     pub fn new() -> Self {
         Self {
             jobs: Arc::new(RwLock::new(HashMap::new())),

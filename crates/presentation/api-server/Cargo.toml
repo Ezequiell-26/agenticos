@@ -17,6 +17,7 @@ agenticos-brain = { path = "../../domain/brain" }
 agenticos-execution = { path = "../../application/execution" }
 agenticos-evaluation = { path = "../../infrastructure/evaluation" }
 agenticos-contracts = { path = "../../domain/contracts" }
+agenticos-context = { path = "../../infrastructure/context" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-mcp = { path = "../../infrastructure/mcp" }

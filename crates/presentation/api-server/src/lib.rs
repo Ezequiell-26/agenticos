@@ -1392,6 +1392,7 @@ async fn execute_tool(
 }
 
 async fn scheduler_worker(state: RuntimeState) {
+    let worker_id = format!("scheduler-worker-{}", uuid::Uuid::new_v4());
     loop {
         let ready_jobs = state.scheduler.next_ready(8).await;
         if ready_jobs.is_empty() {
@@ -1400,7 +1401,10 @@ async fn scheduler_worker(state: RuntimeState) {
         }
 
         for queued_job in ready_jobs {
-            let started_job = match state.scheduler.start(&queued_job.spec.job_id).await {
+            let started_job = match state
+                .scheduler
+                .start_as(&queued_job.spec.job_id, worker_id.clone(), 30)
+                .await {
                 Ok(job) => job,
                 Err(error) => {
                     tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
@@ -1452,7 +1456,13 @@ async fn scheduler_worker(state: RuntimeState) {
                         {
                             let _ = state
                                 .scheduler
-                                .complete(&started_job.spec.job_id, false, Some(error.to_string()))
+                                .complete_as(
+                                    &started_job.spec.job_id,
+                                    started_job.lease_owner.as_deref(),
+                                    Some(started_job.lease_token),
+                                    false,
+                                    Some(error.to_string()),
+                                )
                                 .await;
                             continue;
                         }
@@ -1527,7 +1537,13 @@ async fn scheduler_worker(state: RuntimeState) {
                     }
                     let _ = state
                         .scheduler
-                        .complete(&started_job.spec.job_id, true, None)
+                        .complete_as(
+                            &started_job.spec.job_id,
+                            started_job.lease_owner.as_deref(),
+                            Some(started_job.lease_token),
+                            true,
+                            None,
+                        )
                         .await;
                 }
                 Err(error) => {
@@ -1565,7 +1581,13 @@ async fn scheduler_worker(state: RuntimeState) {
                     tracing::error!(job_id = %started_job.spec.job_id, %error, final_attempt, "agent execution failed");
                     let _ = state
                         .scheduler
-                        .complete(&started_job.spec.job_id, false, Some(error.to_string()))
+                        .complete_as(
+                            &started_job.spec.job_id,
+                            started_job.lease_owner.as_deref(),
+                            Some(started_job.lease_token),
+                            false,
+                            Some(error.to_string()),
+                        )
                         .await;
                 }
             }

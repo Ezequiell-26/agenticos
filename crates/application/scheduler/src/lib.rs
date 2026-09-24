@@ -57,6 +57,12 @@ pub struct JobRecord {
     pub attempts: u32,
     /// Last error.
     pub last_error: Option<String>,
+    /// Current lease owner.
+    pub lease_owner: Option<String>,
+    /// Monotonic fencing token for the current claim.
+    pub lease_token: u64,
+    /// Lease expiration as Unix seconds.
+    pub lease_expires_at: u64,
 }
 
 /// Dependency-aware scheduler for bounded run jobs.
@@ -91,7 +97,10 @@ impl JobScheduler {
                 max_attempts INTEGER NOT NULL,
                 state TEXT NOT NULL,
                 attempts INTEGER NOT NULL,
-                last_error TEXT
+                last_error TEXT,
+                lease_owner TEXT,
+                lease_token INTEGER NOT NULL DEFAULT 0,
+                lease_expires_at INTEGER NOT NULL DEFAULT 0
             )
             "#,
         )
@@ -99,8 +108,38 @@ impl JobScheduler {
         .await
         .map_err(|error| format!("scheduler schema initialization failed: {error}"))?;
 
-        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>)>(
-            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error FROM scheduler_jobs",
+        let columns = sqlx::query_as::<_, (String,)>(
+            "SELECT name FROM pragma_table_info('scheduler_jobs')",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
+        let has_column = |name: &str| columns.iter().any(|(column,)| column == name);
+        if !has_column("lease_owner") {
+            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT")
+                .execute(&db)
+                .await
+                .map_err(|error| format!("scheduler lease owner migration failed: {error}"))?;
+        }
+        if !has_column("lease_token") {
+            sqlx::query(
+                "ALTER TABLE scheduler_jobs ADD COLUMN lease_token INTEGER NOT NULL DEFAULT 0",
+            )
+            .execute(&db)
+            .await
+            .map_err(|error| format!("scheduler lease token migration failed: {error}"))?;
+        }
+        if !has_column("lease_expires_at") {
+            sqlx::query(
+                "ALTER TABLE scheduler_jobs ADD COLUMN lease_expires_at INTEGER NOT NULL DEFAULT 0",
+            )
+            .execute(&db)
+            .await
+            .map_err(|error| format!("scheduler lease expiry migration failed: {error}"))?;
+        }
+
+        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, Option<String>, i64, i64)>(
+            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs",
         )
         .fetch_all(&db)
         .await
@@ -117,6 +156,9 @@ impl JobScheduler {
             state,
             attempts,
             last_error,
+            lease_owner,
+            lease_token,
+            lease_expires_at,
         ) in rows
         {
             let dependencies: Vec<String> =
@@ -146,6 +188,9 @@ impl JobScheduler {
                     state,
                     attempts: attempts.max(0) as u32,
                     last_error,
+                    lease_owner,
+                    lease_token: lease_token.max(0) as u64,
+                    lease_expires_at: lease_expires_at.max(0) as u64,
                 },
             );
         }
@@ -165,8 +210,8 @@ impl JobScheduler {
         sqlx::query(
             r#"
             INSERT INTO scheduler_jobs
-                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, lease_owner, lease_token, lease_expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(job_id) DO UPDATE SET
                 run_id = excluded.run_id,
                 task = excluded.task,
@@ -175,7 +220,10 @@ impl JobScheduler {
                 max_attempts = excluded.max_attempts,
                 state = excluded.state,
                 attempts = excluded.attempts,
-                last_error = excluded.last_error
+                last_error = excluded.last_error,
+                lease_owner = excluded.lease_owner,
+                lease_token = excluded.lease_token,
+                lease_expires_at = excluded.lease_expires_at
             "#,
         )
         .bind(&record.spec.job_id)
@@ -187,6 +235,9 @@ impl JobScheduler {
         .bind(format!("{:?}", record.state))
         .bind(record.attempts as i64)
         .bind(record.last_error.as_deref())
+        .bind(record.lease_owner.as_deref())
+        .bind(record.lease_token as i64)
+        .bind(record.lease_expires_at as i64)
         .execute(db)
         .await
         .map_err(|error| format!("scheduler persistence failed: {error}"))?;
@@ -228,6 +279,9 @@ impl JobScheduler {
             state,
             attempts: 0,
             last_error: None,
+            lease_owner: None,
+            lease_token: 0,
+            lease_expires_at: 0,
         };
         let job_id = record.spec.job_id.clone();
         jobs.insert(job_id.clone(), record.clone());
@@ -242,10 +296,13 @@ impl JobScheduler {
     /// Return ready jobs whose dependencies have all succeeded.
     pub async fn next_ready(&self, limit: usize) -> Vec<JobRecord> {
         let jobs = self.jobs.read().await;
+        let now = unix_time();
         let mut ready: Vec<JobRecord> = jobs
             .values()
             .filter(|record| {
-                if !matches!(record.state, JobState::Ready | JobState::Pending) {
+                let claimable = matches!(record.state, JobState::Ready | JobState::Pending)
+                    || (record.state == JobState::Running && record.lease_expires_at <= now);
+                if !claimable {
                     return false;
                 }
                 record.spec.dependencies.iter().all(|dependency| {
@@ -261,8 +318,22 @@ impl JobScheduler {
         ready
     }
 
-    /// Claim a job for execution.
+    /// Claim a job for execution using a stable local owner.
     pub async fn start(&self, job_id: &str) -> Result<JobRecord, String> {
+        self.start_as(job_id, "local-scheduler".to_string(), 30).await
+    }
+
+    /// Claim a job with an owner lease and fencing token.
+    pub async fn start_as(
+        &self,
+        job_id: &str,
+        owner_id: String,
+        lease_seconds: u64,
+    ) -> Result<JobRecord, String> {
+        if owner_id.trim().is_empty() {
+            return Err("lease owner is required".to_string());
+        }
+
         let mut jobs = self.jobs.write().await;
         let dependencies_satisfied = {
             let record = jobs
@@ -277,41 +348,96 @@ impl JobScheduler {
             .get(job_id)
             .cloned()
             .ok_or_else(|| "job not found".to_string())?;
-        let record = jobs
-            .get_mut(job_id)
-            .ok_or_else(|| "job not found".to_string())?;
-        if !matches!(record.state, JobState::Pending | JobState::Ready) {
-            return Err(format!("job cannot start from state {:?}", record.state));
+        let now = unix_time();
+        let expired_lease = previous.state == JobState::Running
+            && previous.lease_expires_at <= now;
+        if !matches!(previous.state, JobState::Pending | JobState::Ready)
+            && !expired_lease
+        {
+            return Err(format!(
+                "job cannot start from state {:?}",
+                previous.state
+            ));
         }
         if !dependencies_satisfied {
             return Err("job dependencies are not satisfied".to_string());
         }
-        if record.attempts >= record.spec.max_attempts.max(1) {
-            record.state = JobState::Failed;
-            record.last_error = Some("maximum attempts reached".to_string());
-            let result = record.clone();
+        if previous.attempts >= previous.spec.max_attempts.max(1) {
+            let mut result = previous.clone();
+            result.state = JobState::Failed;
+            result.last_error = Some("maximum attempts reached".to_string());
+            result.lease_owner = None;
+            result.lease_expires_at = 0;
             drop(jobs);
             self.persist(&result).await?;
-            return Ok(result);
-        }
-        record.attempts += 1;
-        record.state = JobState::Running;
-        let result = record.clone();
-        drop(jobs);
-        if let Err(error) = self.persist(&result).await {
             self.jobs
                 .write()
                 .await
-                .insert(result.spec.job_id.clone(), previous);
-            return Err(error);
+                .insert(result.spec.job_id.clone(), result.clone());
+            return Ok(result);
         }
+
+        let next_attempt = previous.attempts.saturating_add(1);
+        let lease_token = next_attempt as u64;
+        let lease_expires_at = now.saturating_add(lease_seconds.max(1));
+
+        if let Some(db) = &self.db {
+            let result = sqlx::query(
+                "UPDATE scheduler_jobs SET state = 'Running', attempts = ?, lease_owner = ?, lease_token = ?, lease_expires_at = ?, last_error = NULL WHERE job_id = ? AND (state IN ('Ready', 'Pending') OR (state = 'Running' AND lease_expires_at <= ?)) AND attempts < ?",
+            )
+            .bind(next_attempt as i64)
+            .bind(&owner_id)
+            .bind(lease_token as i64)
+            .bind(lease_expires_at as i64)
+            .bind(job_id)
+            .bind(now as i64)
+            .bind(previous.spec.max_attempts.max(1) as i64)
+            .execute(db)
+            .await
+            .map_err(|error| format!("scheduler claim persistence failed: {error}"))?;
+
+            if result.rows_affected() != 1 {
+                return Err("job was claimed by another worker".to_string());
+            }
+        }
+
+        let mut result = previous;
+        result.attempts = next_attempt;
+        result.state = JobState::Running;
+        result.lease_owner = Some(owner_id);
+        result.lease_token = lease_token;
+        result.lease_expires_at = lease_expires_at;
+        jobs.insert(job_id.to_string(), result.clone());
         Ok(result)
     }
 
-    /// Finish a job.
+    /// Finish a job without lease validation (primarily for single-process callers).
     pub async fn complete(
         &self,
         job_id: &str,
+        success: bool,
+        error: Option<String>,
+    ) -> Result<(), String> {
+        let lease = self
+            .get(job_id)
+            .await
+            .and_then(|record| record.lease_owner.zip(Some(record.lease_token)));
+        self.complete_as(
+            job_id,
+            lease.as_ref().map(|(owner, _)| owner.as_str()),
+            lease.map(|(_, token)| token),
+            success,
+            error,
+        )
+        .await
+    }
+
+    /// Finish a job only when the caller owns the current lease.
+    pub async fn complete_as(
+        &self,
+        job_id: &str,
+        owner_id: Option<&str>,
+        lease_token: Option<u64>,
         success: bool,
         error: Option<String>,
     ) -> Result<(), String> {
@@ -320,29 +446,51 @@ impl JobScheduler {
             .get(job_id)
             .cloned()
             .ok_or_else(|| "job not found".to_string())?;
-        let record = jobs
-            .get_mut(job_id)
-            .ok_or_else(|| "job not found".to_string())?;
-        if record.state != JobState::Running {
-            return Err(format!("job cannot complete from state {:?}", record.state));
+        if previous.state != JobState::Running {
+            return Err(format!("job cannot complete from state {:?}", previous.state));
         }
-        record.state = if success {
+
+        if let (Some(expected_owner), Some(expected_token), Some(current_owner)) =
+            (owner_id, lease_token, previous.lease_owner.as_deref())
+        {
+            if current_owner != expected_owner || previous.lease_token != expected_token {
+                return Err("job lease ownership lost".to_string());
+            }
+        }
+
+        let next_state = if success {
             JobState::Succeeded
-        } else if record.attempts < record.spec.max_attempts.max(1) {
+        } else if previous.attempts < previous.spec.max_attempts.max(1) {
             JobState::Ready
         } else {
             JobState::Failed
         };
-        record.last_error = error;
-        let result = record.clone();
-        drop(jobs);
-        if let Err(error) = self.persist(&result).await {
-            self.jobs
-                .write()
+
+        let mut result = previous.clone();
+        result.state = next_state;
+        result.last_error = error;
+        result.lease_owner = None;
+        result.lease_expires_at = 0;
+
+        if let Some(db) = &self.db {
+            let current_owner = previous.lease_owner.as_deref().unwrap_or("");
+            let expected_token = lease_token.unwrap_or(previous.lease_token);
+            let sql = "UPDATE scheduler_jobs SET state = ?, last_error = ?, lease_owner = NULL, lease_expires_at = 0 WHERE job_id = ? AND state = 'Running' AND lease_owner = ? AND lease_token = ?";
+            let updated = sqlx::query(sql)
+                .bind(format!("{:?}", result.state))
+                .bind(result.last_error.as_deref())
+                .bind(job_id)
+                .bind(current_owner)
+                .bind(expected_token as i64)
+                .execute(db)
                 .await
-                .insert(result.spec.job_id.clone(), previous);
-            return Err(error);
+                .map_err(|error| format!("scheduler completion persistence failed: {error}"))?;
+            if updated.rows_affected() != 1 {
+                return Err("job lease ownership lost before completion".to_string());
+            }
         }
+
+        jobs.insert(job_id.to_string(), result);
         Ok(())
     }
 
@@ -366,8 +514,26 @@ impl JobScheduler {
             ));
         }
         record.state = JobState::Cancelled;
+        record.lease_owner = None;
+        record.lease_expires_at = 0;
         let result = record.clone();
         drop(jobs);
+        if let Some(db) = &self.db {
+            let updated = sqlx::query(
+                "UPDATE scheduler_jobs SET state = 'Cancelled', lease_owner = NULL, lease_expires_at = 0 WHERE job_id = ? AND state NOT IN ('Succeeded', 'Failed', 'Cancelled')",
+            )
+            .bind(job_id)
+            .execute(db)
+            .await
+            .map_err(|error| format!("scheduler cancellation persistence failed: {error}"))?;
+            if updated.rows_affected() != 1 {
+                self.jobs
+                    .write()
+                    .await
+                    .insert(result.spec.job_id.clone(), previous);
+                return Err("job cancellation lost a concurrent state transition".to_string());
+            }
+        }
         if let Err(error) = self.persist(&result).await {
             self.jobs
                 .write()
@@ -459,6 +625,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn expired_lease_can_be_reclaimed_without_stale_completion() {
+        let scheduler = JobScheduler::new();
+        scheduler
+            .enqueue(JobSpec {
+                job_id: "lease-job".into(),
+                run_id: "run".into(),
+                task: "work".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 3,
+            })
+            .await
+            .unwrap();
+
+        let first = scheduler
+            .start_as("lease-job", "worker-a".into(), 1)
+            .await
+            .unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+        let second = scheduler
+            .start_as("lease-job", "worker-b".into(), 30)
+            .await
+            .unwrap();
+        assert_eq!(second.lease_token, first.lease_token + 1);
+
+        assert!(scheduler
+            .complete_as(
+                "lease-job",
+                first.lease_owner.as_deref(),
+                Some(first.lease_token),
+                true,
+                None
+            )
+            .await
+            .is_err());
+
+        scheduler
+            .complete_as(
+                "lease-job",
+                second.lease_owner.as_deref(),
+                Some(second.lease_token),
+                true,
+                None
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn dependency_aware_scheduler() {
         let scheduler = JobScheduler::new();
         scheduler
@@ -488,4 +705,12 @@ mod tests {
         scheduler.complete("a", true, None).await.unwrap();
         assert_eq!(scheduler.next_ready(10).await[0].spec.job_id, "b");
     }
+}
+
+
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
 }

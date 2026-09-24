@@ -273,10 +273,10 @@ function App() {
             <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
             <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} />Search</button>
-            <button className="notification-button" type="button" title="Notifications" aria-label="Notifications" onClick={() => setMode('notifications')}>
-              <Icon name="history" size={15} /><span className="notification-badge">2</span>
+            <button className="notification-button" type="button" title="Notifications" aria-label="Notifications · 2 unread" aria-current={mode === 'notifications' ? 'page' : undefined} onClick={() => setMode('notifications')}>
+              <Icon name="bell" size={15} /><span className="notification-badge" aria-hidden="true">2</span>
             </button>
-            <span className="runtime-chip">
+            <span className="runtime-chip" aria-live="polite" title={`Runtime: ${status.provider}`}>
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
               {status.state}
             </span>

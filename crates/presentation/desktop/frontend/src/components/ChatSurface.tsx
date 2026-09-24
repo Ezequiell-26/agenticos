@@ -66,6 +66,8 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [effort, setEffort] = useState(effortLevels[effortLevels.length - 1])
   const [effortOpen, setEffortOpen] = useState(false)
   const [plusOpen, setPlusOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
+  const [modelQuery, setModelQuery] = useState('')
   const [reasoningOn, setReasoningOn] = useState(true)
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.3')
@@ -90,6 +92,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   useExclusiveOverlay('agent-run', runDrawerOpen, () => setRunDrawerOpen(false))
   useExclusiveOverlay('composer-plus', plusOpen, () => setPlusOpen(false))
   useExclusiveOverlay('effort-options', effortOpen, () => setEffortOpen(false))
+  useExclusiveOverlay('model-options', modelOpen, () => setModelOpen(false))
   useExclusiveOverlay('slash-commands', slashOpen, () => setSlashOpen(false))
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
@@ -97,6 +100,11 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
   useEffect(() => { setSlashIndex(0) }, [slashMatches.length, slashOpen])
   const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(draft.length / 4)), [draft])
+  const filteredModels = useMemo(() => {
+    const term = modelQuery.trim().toLowerCase()
+    return models.filter((item) => !term || item.toLowerCase().includes(term))
+  }, [modelQuery])
+  const effortLabel = effort === 'Ultra' ? 'Ultra→Max' : effort
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -109,17 +117,19 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [draft, sessionId])
 
   useEffect(() => {
-    if (!plusOpen && !effortOpen) return
+    if (!plusOpen && !effortOpen && !modelOpen) return
     const onPointerDown = (event: PointerEvent) => {
       if (!composerMenusRef.current?.contains(event.target as Node)) {
         setPlusOpen(false)
         setEffortOpen(false)
+        setModelOpen(false)
       }
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         setPlusOpen(false)
         setEffortOpen(false)
+        setModelOpen(false)
       }
     }
     document.addEventListener('pointerdown', onPointerDown)
@@ -128,7 +138,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       document.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [plusOpen, effortOpen])
+  }, [plusOpen, effortOpen, modelOpen])
 
   useEffect(() => {
     if (!notice) return
@@ -254,11 +264,16 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       )}
 
       <div className="chat-content" aria-busy={running}>
-        {messages.length > 0 && (
+        {messages.length > 0 ? (
           <div className="message-stack">
             {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} onCopy={(content) => void copyResponse(content)} />)}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
             <div ref={messagesEndRef} aria-hidden="true" />
+          </div>
+        ) : (
+          <div className="chat-wordmark" aria-hidden="true">
+            <strong>AGENTICOS</strong>
+            <span>Ask a question, paste an error or tell the agent what to build.</span>
           </div>
         )}
       </div>
@@ -311,16 +326,26 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
             </div>
             <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Add more context" rows={1} value={draft} />
             <div className="composer-right">
-              <span className="composer-select-wrap" title="Model routing"><select className="composer-select" value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></span>
+              <span className="composer-model-wrap" title="Model routing">
+                <button
+                  type="button"
+                  className={`composer-select composer-select--button ${modelOpen ? 'composer-select--open' : ''}`}
+                  aria-haspopup="menu"
+                  aria-expanded={modelOpen}
+                  onClick={() => { setModelOpen((value) => !value); setPlusOpen(false); setEffortOpen(false) }}
+                >
+                  {model === 'Auto route' ? 'Auto •' : model} <Icon name="chevron-right" size={12} className="composer-select__chevron" />
+                </button>
+              </span>
               <span className="composer-select-wrap" title="Reasoning and effort">
                 <button
                   type="button"
                   className={`composer-select composer-select--button ${effortOpen ? 'composer-select--open' : ''}`}
                   aria-haspopup="menu"
                   aria-expanded={effortOpen}
-                  onClick={() => { setEffortOpen((value) => !value); setPlusOpen(false) }}
+                  onClick={() => { setEffortOpen((value) => !value); setPlusOpen(false); setModelOpen(false) }}
                 >
-                  {effort === 'Ultra' ? 'Ultra→Max' : effort} <Icon name="chevron-right" size={12} className="composer-select__chevron" />
+                  {effortLabel} <Icon name="chevron-right" size={12} className="composer-select__chevron" />
                 </button>
               </span>
               <button className="composer-icon" type="button" title="Voice dictation" aria-label="Voice dictation" onClick={() => setNotice('Voice dictation activates with the runtime')}><Icon name="mic" size={15} /></button>
@@ -345,6 +370,40 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
                   {effort === level && <Icon name="check" size={13} />}
                 </button>
               ))}
+            </div>
+          )}
+          {modelOpen && (
+            <div className="model-options" role="menu" aria-label="Model routing">
+              <label className="model-options__search">
+                <Icon name="search" size={12} />
+                <input
+                  autoFocus
+                  value={modelQuery}
+                  onChange={(event) => setModelQuery(event.target.value)}
+                  placeholder="Search models"
+                  aria-label="Search models"
+                />
+              </label>
+              <div className="model-options__group">freellmapi</div>
+              {filteredModels.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={model === item}
+                  className={model === item ? 'model-option model-option--active' : 'model-option'}
+                  onClick={() => { setModel(item); setModelOpen(false); setNotice(`Model: ${item}`) }}
+                >
+                  <span>{item === 'Auto route' ? 'Auto' : item} {effortLabel}</span>
+                  {model === item && <Icon name="check" size={13} />}
+                </button>
+              ))}
+              {filteredModels.length === 0 && <div className="model-options__empty">No models match “{modelQuery}”.</div>}
+              <div className="model-options__foot">
+                <button type="button" role="menuitem" onClick={() => { setModelOpen(false); setNotice('Model catalog refresh is handled by the runtime') }}><Icon name="refresh" size={13} /><span>Update models</span></button>
+                <button type="button" role="menuitem" onClick={() => { setModelOpen(false); setNotice('Custom models are added from the Providers surface') }}><Icon name="plus" size={13} /><span>Add custom model…</span></button>
+                <button type="button" role="menuitem" onClick={() => { setModelOpen(false); setNotice('Model editing lives in the Providers surface') }}><Icon name="settings" size={13} /><span>Edit models…</span></button>
+              </div>
             </div>
           )}
         </div>

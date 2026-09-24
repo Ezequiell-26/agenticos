@@ -1464,3 +1464,11 @@ Verification status:
 - Added the persisted `sidebarSide` preference applied as `data-agenticos-sidebar-side`.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; Layouts card, template switching, reset and the settings modal verified in the browser preview.
+
+## 2026-09-25 — Model picker popover and AgentiCOS wordmark empty state
+
+- Replaced the model select in the composer with the Hermes-style model picker popover: a search field, the provider group label (freellmapi), the model list with the active effort appended to each entry and a check on the current model, plus Update models / Add custom model… / Edit models… footer actions.
+- The model button shows "Auto •" while auto routing is selected and the picker participates in the exclusive overlay registry.
+- Added the AgentiCOS serif wordmark empty state with a hint line for new sessions, matching the reference.
+- Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
+- Verification status: tsc, Vite production build, the frontend architecture contract and the repository test suite (29 tests) pass; full overlay sweep (palette, layouts, customize, context menu, model picker) verified in the browser preview.

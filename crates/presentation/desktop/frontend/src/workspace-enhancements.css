@@ -2591,3 +2591,20 @@ body { background: var(--shell-black); }
 .layouts-thumb .layouts-thumb__main { background: #1d1d24; }
 .layouts-template__label { display: block; margin-top: 6px; color: #d6d6de; font-size: 11px; font-weight: 650; }
 .layouts-close-hint { display: none; }
+
+/* ─── Model options popover and empty-state wordmark ───────────────────────── */
+.composer-model-wrap { position: relative; display: inline-flex; }
+.model-options { position: absolute; right: 0; bottom: calc(100% + 12px); z-index: 240; width: 250px; max-height: min(430px, calc(100vh - 200px)); overflow-y: auto; padding: 6px; border: 1px solid #26262c; border-radius: 12px; background: #0b0b0e; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.model-options__search { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 8px; margin-bottom: 5px; border: 1px solid #232329; border-radius: 7px; background: #101014; color: #75757e; }
+.model-options__search input { flex: 1; min-width: 0; border: 0; background: transparent; color: #e8e8ec; font-size: 11.5px; outline: none; }
+.model-options__group { padding: 5px 8px 3px; color: #63636b; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.model-option, .model-options__foot [role="menuitem"] { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: #c9c9d1; font-size: 11.5px; text-align: left; cursor: pointer; }
+.model-option:hover, .model-options__foot [role="menuitem"]:hover { background: #17171c; color: #f0f0f4; }
+.model-option--active { color: var(--agenticos-accent); }
+.model-option span, .model-options__foot [role="menuitem"] span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-options__empty { padding: 8px; color: #6d6d78; font-size: 11px; }
+.model-options__foot { margin-top: 5px; padding-top: 5px; border-top: 1px solid #1b1b21; }
+
+.chat-wordmark { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; user-select: none; }
+.chat-wordmark strong { font-family: Georgia, 'Times New Roman', 'Playfair Display', serif; font-weight: 600; font-size: clamp(56px, 9vw, 128px); letter-spacing: .01em; color: #c9c9d2; text-transform: uppercase; line-height: 1; }
+.chat-wordmark span { color: #7c7c87; font-size: 13px; }

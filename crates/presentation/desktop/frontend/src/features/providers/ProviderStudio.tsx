@@ -50,7 +50,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [selected, setSelected] = useState<string>(providers[0].name)
   const [query, setQuery] = useState('')
   const [compare, setCompare] = useState<string[]>([])
-  const [selectedAccount, setSelectedAccount] = useState(accounts[0][0])
+  const [selectedAccount, setSelectedAccount] = useState<string>(accounts[0][0])
   const [maskMetadata, setMaskMetadata] = useState(true)
   const [selectedScenario, setSelectedScenario] = useState<string>(resilienceScenarios[0].id)
   const [scenarioResults, setScenarioResults] = useState<Record<string, 'Passed' | 'Pending' | 'Blocked'>>({})

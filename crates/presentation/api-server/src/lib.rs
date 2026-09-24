@@ -24,6 +24,7 @@ use agenticos_kernel::{
     SqliteSnapshotStore,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
+use agenticos_observability::{AuditEvent, AuditStore};
 use agenticos_memory::PersistentMemoryStore;
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
@@ -47,6 +48,7 @@ pub struct RuntimeState {
     memory: Arc<SqliteMemory>,
     persistent_memory: Arc<PersistentMemoryStore>,
     mcp: Arc<McpManager>,
+    audit: Arc<AuditStore>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
     subagents: Arc<SubagentManager>,
@@ -81,6 +83,11 @@ impl RuntimeState {
             McpManager::open(&database_url, 30_000)
                 .await
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
+        let audit = Arc::new(
+            AuditStore::open(&database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
         );
 
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(|e| {
@@ -148,6 +155,7 @@ impl RuntimeState {
             memory,
             persistent_memory,
             mcp,
+            audit,
             provider,
             kernel,
             subagents,
@@ -279,6 +287,11 @@ struct CreateWorkflowRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct AuditQuery {
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 struct MemorySearchQuery {
     namespace: String,
     q: Option<String>,
@@ -332,6 +345,22 @@ struct ToolExecutionRequest {
     grant_id: String,
     command: String,
     timeout_ms: Option<u64>,
+}
+
+async fn list_audit(
+    query: web::Query<AuditQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    match state.audit.list_recent(query.limit.unwrap_or(100)).await {
+        Ok(events) => HttpResponse::Ok().json(serde_json::json!({
+            "events": events,
+            "count": events.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "AUDIT_QUERY_FAILED",
+        }),
+    }
 }
 
 async fn list_mcp_servers(state: web::Data<RuntimeState>) -> impl Responder {
@@ -459,11 +488,25 @@ async fn call_mcp_tool(
         )
         .await
     {
-        Ok(result) => HttpResponse::Ok().json(serde_json::json!({
-            "server_id": server_id,
-            "tool": tool_name,
-            "result": result,
-        })),
+        Ok(result) => {
+            let _ = state
+                .audit
+                .append(AuditEvent::new(
+                    "mcp",
+                    "tool.call",
+                    None,
+                    format!("mcp/{server_id}/{tool_name}"),
+                    None,
+                    "success",
+                    serde_json::json!({}),
+                ))
+                .await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "server_id": server_id,
+                "tool": tool_name,
+                "result": result,
+            }))
+        },
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
@@ -825,6 +868,19 @@ async fn create_run(
                 });
             }
 
+            let _ = state
+                .audit
+                .append(AuditEvent::new(
+                    "run",
+                    "create",
+                    None,
+                    format!("run/{}", run_id.as_str()),
+                    Some(run_id.as_str().to_string()),
+                    "success",
+                    serde_json::json!({"objective_length": objective.len()}),
+                ))
+                .await;
+
             HttpResponse::Created().json(RunResponse {
                 run_id: run_id_text,
                 state: "Admitted".to_string(),
@@ -878,8 +934,22 @@ async fn cancel_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -
         });
     }
     match state.kernel.cancel_run(&id).await {
-        Ok(()) => HttpResponse::Ok()
-            .json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"})),
+        Ok(()) => {
+            let _ = state
+                .audit
+                .append(AuditEvent::new(
+                    "run",
+                    "cancel",
+                    None,
+                    format!("run/{}", id.as_str()),
+                    Some(id.as_str().to_string()),
+                    "success",
+                    serde_json::json!({"state":"Cancelling"}),
+                ))
+                .await;
+            HttpResponse::Ok()
+                .json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"}))
+        },
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
             error: error.to_string(),
             code: "RUN_CANCEL_FAILED",
@@ -1736,6 +1806,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 "/api/conversations/search",
                 web::get().to(conversation_search),
             )
+            .route("/api/audit", web::get().to(list_audit))
             .route("/api/mcp", web::get().to(list_mcp_servers))
             .route("/api/mcp", web::post().to(register_mcp_server))
             .route("/api/mcp/{server_id}", web::delete().to(delete_mcp_server))

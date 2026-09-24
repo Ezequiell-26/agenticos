@@ -3,6 +3,7 @@
 
 //! telemetry and tracing boundary. Functionality is introduced only through verified vertical slices.
 
+pub mod audit;
 pub mod metrics;
 
 use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};

@@ -380,16 +380,18 @@ impl StdioClient {
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
 
-        let response = timeout(self.timeout, self.reader.read_line(&mut String::new()));
         let mut line = String::new();
-        response
+        let bytes = timeout(self.timeout, self.reader.read_line(&mut line))
             .await
             .map_err(|_| McpError::Timeout)?
             .map_err(McpError::Io)?;
-        // Re-read with a dedicated buffer because the timeout call consumed the first line.
-        // This branch is intentionally replaced below.
-        drop(line);
-        Err(McpError::InvalidConfiguration("internal MCP reader path invalid".to_string()))
+        if bytes == 0 {
+            return Err(McpError::Io(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "MCP server closed stdout before returning JSON-RPC response",
+            )));
+        }
+        serde_json::from_str(line.trim()).map_err(McpError::Serialization)
     }
 }
 
@@ -432,7 +434,7 @@ mod tests {
         assert!(manager.list().await[0].server_id == "filesystem");
         assert!(manager.list_tools("filesystem").await.is_err());
         manager.enable("filesystem").await.unwrap();
-        assert!(!manager.list().await[0].enabled);
+        assert!(manager.list().await[0].enabled);
     }
 
     #[test]

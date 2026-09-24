@@ -16,7 +16,8 @@
 
 //! AgentiCOS kernel - durable runtime lifecycle and persistence foundation.
 
-pub use agenticos_contracts::{
+pub use agenticos_context::{ContextBudget, ContextEngine};
+use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
     LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
@@ -2168,13 +2169,45 @@ impl ReactAgent {
             (inner.memory.clone(), inner.session_id.clone())
         };
         if let Some(memory) = memory {
-            if let Ok(context) = memory.get_session_history(&session_id, 10).await {
+            if let Ok(context) = memory.get_session_history(&session_id, 100).await {
                 if !context.is_empty() {
-                    prompt.push_str("## Conversation History (Recent)\n");
-                    for msg in context.iter().take(10) {
-                        prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+                    let run_id = agenticos_contracts::RunId::new(format!("session:{session_id}"))
+                        .unwrap_or_else(|_| agenticos_contracts::RunId::new("session").expect("static run id"));
+                    let messages = context
+                        .into_iter()
+                        .map(|msg| agenticos_contracts::Message {
+                            message_id: msg.id,
+                            role: msg.role,
+                            content: msg.content.clone(),
+                            timestamp: msg.timestamp.max(0) as u64,
+                            token_count: ((msg.content.chars().count() as u32).saturating_add(3) / 4).max(1),
+                            run_id: run_id.clone(),
+                        })
+                        .collect::<Vec<_>>();
+                    let context_window = std::env::var("AGENTICOS_CONTEXT_WINDOW")
+                        .ok()
+                        .and_then(|value| value.parse::<u32>().ok())
+                        .unwrap_or(8192)
+                        .max(256);
+                    let reserved_output = std::env::var("AGENTICOS_RESERVED_OUTPUT_TOKENS")
+                        .ok()
+                        .and_then(|value| value.parse::<u32>().ok())
+                        .unwrap_or(2048)
+                        .min(context_window.saturating_sub(1));
+                    let budget = ContextBudget {
+                        context_window_tokens: context_window,
+                        reserved_output_tokens: reserved_output,
+                        safety_margin_tokens: context_window / 20,
+                        min_recent_messages: 10,
+                    };
+                    let plan = ContextEngine::new().prepare(&messages, budget);
+                    if !plan.messages.is_empty() {
+                        prompt.push_str("## Conversation History (Budgeted)\n");
+                        for msg in plan.messages {
+                            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+                        }
+                        prompt.push('\n');
                     }
-                    prompt.push('\n');
                 }
             }
         }

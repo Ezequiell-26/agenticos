@@ -75,33 +75,53 @@ impl ContextEngine {
             };
         }
 
-        let recent_floor = messages
-            .len()
-            .saturating_sub(budget.min_recent_messages.max(1));
-        let mut selected = Vec::with_capacity(messages.len());
+        let mut selected_indices = Vec::with_capacity(messages.len());
         let mut used = 0_u32;
-        let mut dropped_tokens = 0_u32;
 
+        // Preserve system messages first because they define the runtime contract.
         for (index, message) in messages.iter().enumerate() {
-            let protected = message.role == "system" || index >= recent_floor;
-            if protected && used.saturating_add(message.token_count) <= limit {
-                selected.push(message.clone());
+            if message.role == "system" && used.saturating_add(message.token_count) <= limit {
+                selected_indices.push(index);
                 used = used.saturating_add(message.token_count);
-                continue;
-            }
-            if protected {
-                selected.push(message.clone());
-                used = used.saturating_add(message.token_count);
-            } else {
-                dropped_tokens = dropped_tokens.saturating_add(message.token_count);
             }
         }
+
+        // Fill the remaining budget with the newest messages.
+        for index in (0..messages.len()).rev() {
+            if selected_indices.contains(&index) {
+                continue;
+            }
+            let message = &messages[index];
+            if used.saturating_add(message.token_count) > limit {
+                continue;
+            }
+            selected_indices.push(index);
+            used = used.saturating_add(message.token_count);
+            if selected_indices.len() >= budget.min_recent_messages.max(1) + messages.iter().filter(|m| m.role == "system").count() {
+                break;
+            }
+        }
+
+        selected_indices.sort_unstable();
+
+        let selected_set = selected_indices.iter().copied().collect::<std::collections::HashSet<_>>();
+        let selected = selected_indices
+            .into_iter()
+            .map(|index| messages[index].clone())
+            .collect::<Vec<_>>();
+        let dropped_tokens = messages
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !selected_set.contains(index))
+            .map(|(_, message)| message.token_count)
+            .sum();
 
         ContextPlan {
             messages: selected,
             dropped_tokens,
             trimmed: dropped_tokens > 0,
         }
+    }
     }
 }
 

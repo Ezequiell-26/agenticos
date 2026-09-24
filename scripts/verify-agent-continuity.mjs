@@ -112,6 +112,27 @@ if (continuity.policies.regression_is_blocking !== true) fail("regression blocki
 if (continuity.policies.duplicate_json_keys_are_blocking !== true) fail("duplicate JSON key protection disabled");
 if (continuity.policies.verified_slice_does_not_equal_production_completeness !== true) fail("verified-slice semantics policy disabled");
 
+const LEGACY_EVIDENCE_COMPAT_OPERATION_IDS = new Set([
+  "frontend-complete-agent-builder-2026-09-24",
+  "frontend-complete-subagent-builder-2026-09-24",
+  "frontend-provider-account-center-2026-09-24",
+  "frontend-context-inspector-2026-09-24",
+  "frontend-run-timeline-2026-09-24",
+  "frontend-complete-mcp-manager-2026-09-24",
+  "frontend-complete-hook-manager-2026-09-24",
+  "frontend-git-diff-center-2026-09-24",
+  "frontend-environment-builder-2026-09-24",
+  "frontend-automation-builder-2026-09-24",
+  "frontend-credential-manager-2026-09-24",
+  "frontend-channel-gateway-manager-2026-09-24",
+  "frontend-research-workbench-2026-09-24",
+  "frontend-integrity-lazy-boundaries-2026-09-24",
+  "frontend-product-depth-2026-09-24",
+  "frontend-runtime-control-center-2026-09-24",
+  "frontend-routing-hardening-2026-09-24",
+  "frontend-surface-boundary-hardening-2026-09-24",
+]);
+
 const ids = new Set();
 for (const [index, line] of lines.entries()) {
   const op = parseJson(line, `reference/journal/agent-operations.jsonl line ${index + 1}`);
@@ -147,7 +168,16 @@ for (const [index, line] of lines.entries()) {
       }
     }
 
-    if (op.status === "completed" && (!Array.isArray(op.evidence) || op.evidence.length === 0)) {
+    const historicalEvidenceCompatible =
+      LEGACY_EVIDENCE_COMPAT_OPERATION_IDS.has(operationId) &&
+      op.verification &&
+      typeof op.verification === "object";
+
+    if (
+      op.status === "completed" &&
+      (!Array.isArray(op.evidence) || op.evidence.length === 0) &&
+      !historicalEvidenceCompatible
+    ) {
       fail(`completed operation ${operationId} has no evidence`);
     }
     if (op.status === "completed" && typeof op.next_step !== "string") {

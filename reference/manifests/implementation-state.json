@@ -19,10 +19,10 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "aec3e86f0a7c5cc0f6973c1f0009ea9486cacbbd",
+    "last_update_commit": "8d1749e92fcfadcc5c2bc91eb3e52a86b4a30504",
     "next_actions": [
-      "run and inspect fresh CI evidence for the provider-plane changes",
-      "continue durable worker/recovery hardening without sequential-step gating",
+      "obtain fresh CI evidence for the provider and kernel changes",
+      "continue durable worker state and recovery hardening without sequential-step gating",
       "complete token-aware context budgeting and observability before capability promotion"
     ],
     "scope": [
@@ -183,7 +183,7 @@
       "npm run architecture:boundaries",
       "npm run provider:coverage"
     ],
-    "last_known_green": "2026-09-21 historical baseline; commits after this baseline remain unverified until fresh CI evidence",
+    "last_known_green": "2026-09-21 historical baseline; all newer backend commits require fresh CI evidence",
     "ci_pending": true
   },
   "backlog": [

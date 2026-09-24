@@ -1871,7 +1871,10 @@ async fn execute_tool(
         for queued_job in ready_jobs {
             let permit = match semaphore.clone().try_acquire_owned() {
                 Ok(permit) => permit,
-                Err(_) => break,
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    break;
+                }
             };
 
             let state = state.clone();

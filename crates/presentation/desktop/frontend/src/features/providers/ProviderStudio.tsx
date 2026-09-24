@@ -363,32 +363,32 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
             {showRegister && <div className="provider-account-detail" style={{ marginBottom: 16 }}><div className="provider-account-detail__head"><div><span className="eyebrow">Runtime registration</span><h3>Add OpenAI-compatible provider</h3></div><button className="icon-button" type="button" aria-label="Close provider form" onClick={() => setShowRegister(false)}><Icon name="close" size={14} /></button></div><div className="provider-account-meta" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}><label><span>Provider ID</span><input value={registerForm.provider_id} onChange={(event) => setRegisterForm((current) => ({ ...current, provider_id: event.target.value }))} placeholder="groq" /></label><label><span>Name</span><input value={registerForm.name} onChange={(event) => setRegisterForm((current) => ({ ...current, name: event.target.value }))} placeholder="Groq" /></label><label><span>OpenAI-compatible endpoint</span><input value={registerForm.base_url} onChange={(event) => setRegisterForm((current) => ({ ...current, base_url: event.target.value }))} /></label><label><span>Models</span><input value={registerForm.models} onChange={(event) => setRegisterForm((current) => ({ ...current, models: event.target.value }))} placeholder="model-a, model-b" /></label><label><span>Capabilities</span><input value={registerForm.capabilities} onChange={(event) => setRegisterForm((current) => ({ ...current, capabilities: event.target.value }))} placeholder="chat,tools" /></label><label><span>API key</span><input type="password" autoComplete="off" value={registerForm.api_key} onChange={(event) => setRegisterForm((current) => ({ ...current, api_key: event.target.value }))} placeholder="optional" /></label></div><div className="platform-actions"><button className="studio-button" type="button" onClick={() => setShowRegister(false)}>Cancel</button><button className="studio-button studio-button--active" type="button" onClick={() => void registerProvider()}><Icon name="check" size={13} /> Register provider</button></div></div>}
             <div className="provider-account-layout">
               <div className="provider-account-list">
-                {accounts.map(([name, label, , state]) => <button type="button" key={name} className={selectedAccount === name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(name)}>
-                  <span className="provider-account-icon"><Icon name={name === 'Local runtime' ? 'terminal' : 'network'} size={14} /></span>
-                  <span><strong>{name}</strong><small>{label}</small></span>
-                  <span className={state === 'Configured' || state === 'Ready' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{state}</span>
+                {liveProviders.map((item) => <button type="button" key={item.id} className={selectedAccount === item.name ? 'provider-account-row provider-account-row--active' : 'provider-account-row'} onClick={() => setSelectedAccount(item.name)}>
+                  <span className="provider-account-icon"><Icon name={item.type === 'Local' ? 'terminal' : 'network'} size={14} /></span>
+                  <span><strong>{item.name}</strong><small>{item.type} provider</small></span>
+                  <span className={item.health === 'Healthy' ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{item.health}</span>
                 </button>)}
                 <button className="studio-button studio-button--active" type="button" onClick={() => setShowRegister((value) => !value)}><Icon name="plus" size={13} /> {showRegister ? 'Close form' : 'Add account'}</button>
               </div>
               <div className="provider-account-detail">
-                <div className="provider-account-detail__head"><div><span className="eyebrow">{accounts.find((item) => item[0] === selectedAccount)?.[6] ?? 'Route'}</span><h3>{selectedAccount}</h3></div><span className="status-dot status-dot--live" /></div>
+                <div className="provider-account-detail__head"><div><span className="eyebrow">{(liveProviders.find((item) => item.name === selectedAccount) ?? liveProviders[0]).type}</span><h3>{selectedAccount}</h3></div><span className="status-dot status-dot--live" /></div>
                 <div className="provider-account-meta">
                   {(() => {
-                    const account = accounts.find((item) => item[0] === selectedAccount) ?? accounts[0]
+                    const account = liveProviders.find((item) => item.name === selectedAccount) ?? liveProviders[0]
                     return <>
-                      <Metric label="Connection" value={account[3]} />
-                      <Metric label="Auth" value={account[2].split(' · ')[0]} />
-                      <Metric label="Models" value={account[4]} />
-                      <Metric label="Quota" value={account[5]} />
-                      <Metric label="Secret" value={maskMetadata ? '••••••••' : 'Stored externally'} />
-                      <Metric label="Routing role" value={account[6]} />
+                      <Metric label="Connection" value={account.health} />
+                      <Metric label="Auth" value="Runtime credential" />
+                      <Metric label="Models" value={String(account.models)} />
+                      <Metric label="Quota" value={account.quota} />
+                      <Metric label="Secret" value={maskMetadata ? '••••••••' : 'Stored in runtime'} />
+                      <Metric label="Routing role" value={account.type} />
                     </>
                   })()}
                 </div>
                 <div className="provider-account-capabilities"><Tag label="chat" /><Tag label="tools" /><Tag label="streaming" /><Tag label="fallback-aware" /><Tag label="quota-aware" /></div>
                 <div className="platform-actions">
-                  <button className="studio-button" type="button" onClick={() => onAction(selectedAccount + ' connection test staged in preview')}><Icon name="play" size={13} /> Test connection</button>
-                  <button className="studio-button" type="button" onClick={() => onAction(selectedAccount + ' model catalog refresh staged')}><Icon name="refresh" size={13} /> Refresh models</button>
+                  <button className="studio-button" type="button" onClick={() => { const current = liveProviders.find((item) => item.name === selectedAccount); if (current) void runtime.providers.health(current.id).then((health) => onAction(`${current.name}: ${health.status}`)).catch((error) => onAction(error instanceof Error ? error.message : 'Connection test failed')) }}><Icon name="play" size={13} /> Test connection</button>
+                  <button className="studio-button" type="button" onClick={() => { const current = liveProviders.find((item) => item.name === selectedAccount); if (current) void refreshProviderModels() }}><Icon name="refresh" size={13} /> Refresh models</button>
                   <button className="studio-button studio-button--active" type="button" onClick={() => onAction(selectedAccount + ' routing opened in preview')}><Icon name="settings" size={13} /> Routing</button>
                 </div>
                 <div className="callout"><Icon name="shield" size={14} /><span>Presentation boundary: credentials, OAuth tokens and provider transport stay outside React state.</span></div>

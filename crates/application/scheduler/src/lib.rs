@@ -167,7 +167,8 @@ impl JobScheduler {
             let state = match state.as_str() {
                 "Pending" => JobState::Pending,
                 "Ready" => JobState::Ready,
-                "Running" => JobState::Ready,
+                "Running" if lease_expires_at.max(0) as u64 <= unix_time() => JobState::Ready,
+                "Running" => JobState::Running,
                 "Succeeded" => JobState::Succeeded,
                 "Failed" => JobState::Failed,
                 "Cancelled" => JobState::Cancelled,
@@ -335,6 +336,40 @@ impl JobScheduler {
         }
 
         let mut jobs = self.jobs.write().await;
+        if let Some(db) = &self.db {
+            let row = sqlx::query_as::<_, (String, i64, Option<String>, i64, i64)>(
+                "SELECT state, attempts, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs WHERE job_id = ?",
+            )
+            .bind(job_id)
+            .fetch_optional(db.as_ref())
+            .await
+            .map_err(|error| format!("scheduler claim preflight failed: {error}"))?;
+
+            if let Some((state, attempts, lease_owner, lease_token, lease_expires_at)) = row {
+                let now = unix_time();
+                let db_claimable = matches!(state.as_str(), "Ready" | "Pending")
+                    || (state == "Running" && lease_expires_at.max(0) as u64 <= now);
+                if !db_claimable {
+                    return Err("job is already owned by another worker".to_string());
+                }
+                if let Some(local) = jobs.get_mut(job_id) {
+                    local.state = match state.as_str() {
+                        "Pending" => JobState::Pending,
+                        "Ready" => JobState::Ready,
+                        "Running" => JobState::Running,
+                        "Succeeded" => JobState::Succeeded,
+                        "Failed" => JobState::Failed,
+                        "Cancelled" => JobState::Cancelled,
+                        other => return Err(format!("unknown scheduler state {other}")),
+                    };
+                    local.attempts = attempts.max(0) as u32;
+                    local.lease_owner = lease_owner;
+                    local.lease_token = lease_token.max(0) as u64;
+                    local.lease_expires_at = lease_expires_at.max(0) as u64;
+                }
+            }
+        }
+
         let dependencies_satisfied = {
             let record = jobs
                 .get(job_id)

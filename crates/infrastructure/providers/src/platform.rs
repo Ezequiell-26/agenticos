@@ -434,7 +434,13 @@ impl ProviderPlatform {
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
 
-            if provided_key.is_some() {
+            if let Some(provided_key) = provided_key {
+                let secret_key = self.secret_key.as_ref().ok_or_else(|| {
+                    ContractError::ParseError(
+                        "AGENTICOS_SECRET_KEY is required to persist provider credentials".to_string(),
+                    )
+                })?;
+
                 sqlx::query("DELETE FROM provider_credentials WHERE provider_id = ?")
                     .bind(&provider_id)
                     .execute(&mut *tx)
@@ -445,11 +451,7 @@ impl ProviderPlatform {
                         ))
                     })?;
 
-                if let Some(secret_key) = self.secret_key.as_ref() {
-                    let encrypted = encrypt_provider_secret(
-                        secret_key,
-                        provided_key.expect("provider key was checked"),
-                    )?;
+                let encrypted = encrypt_provider_secret(secret_key, provided_key)?;
                     sqlx::query(
                         "INSERT INTO provider_credentials (provider_id, credential_type, encrypted_value, expires_at, scope) VALUES (?, 'api_key', ?, 0, NULL)",
                     )

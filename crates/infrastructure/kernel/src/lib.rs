@@ -2468,7 +2468,7 @@ impl ReactAgent {
                     };
                     let plan = ContextEngine::new().prepare(&messages, budget);
                     if !plan.messages.is_empty() {
-                        prompt.push_str("## Conversation History (Recent, Budgeted)\n");
+                        prompt.push_str("## Conversation History (Recent)\n");
                         for msg in plan.messages {
                             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
                         }

@@ -5,6 +5,7 @@ use super::{
     ProvenanceEvidence, RepoId,
 };
 use chrono::{DateTime, Utc};
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -16,6 +17,7 @@ pub struct SourceIntelligenceEngine {
     config: EngineConfig,
     /// Registry for discovered capabilities
     registry: Arc<RwLock<HashMap<RepoId, RepositoryMetadata>>>,
+    db: Option<Arc<SqlitePool>>,
 }
 
 /// Engine configuration
@@ -135,10 +137,96 @@ impl SourceIntelligenceEngine {
             discovery: Arc::new(RwLock::new(discovery)),
             config,
             registry: Arc::new(RwLock::new(HashMap::new())),
+            db: None,
         }
     }
 
-    /// Discover repositories from a source (GitHub, GitLab, local git, etc.)
+    /// Open a SQLite-backed source intelligence registry and recover repository metadata.
+    pub async fn open(database_url: &str, config: EngineConfig) -> Result<Self, BrainError> {
+        let engine = Self::new(config);
+        let db = SqlitePool::connect(database_url)
+            .await
+            .map_err(|error| BrainError::SourceIntelligenceError(format!(
+                "source intelligence database connection failed: {error}"
+            )))?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS source_repositories (
+                repo_id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                default_branch TEXT NOT NULL,
+                last_indexed TEXT NOT NULL,
+                license TEXT,
+                language TEXT,
+                stars INTEGER NOT NULL,
+                status TEXT NOT NULL
+            )",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| BrainError::SourceIntelligenceError(format!(
+            "source intelligence schema initialization failed: {error}"
+        )))?;
+
+        let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>, i64, String)>(
+            "SELECT repo_id, url, default_branch, last_indexed, license, language, stars, status
+             FROM source_repositories ORDER BY repo_id",
+        )
+        .fetch_all(&db)
+        .await
+        .map_err(|error| BrainError::SourceIntelligenceError(format!(
+            "source intelligence recovery failed: {error}"
+        )))?;
+
+        {
+            let mut registry = engine.registry.write().await;
+            for (repo_id, url, default_branch, last_indexed, license, language, stars, status) in rows {
+                let parsed_time = DateTime::parse_from_rfc3339(&last_indexed)
+                    .map(|value| value.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now());
+                registry.insert(
+                    repo_id.clone(),
+                    RepositoryMetadata {
+                        repo_id,
+                        url,
+                        default_branch,
+                        last_indexed: parsed_time,
+                        license,
+                        language,
+                        stars: stars.max(0) as u64,
+                        status: parse_repository_status(&status),
+                    },
+                );
+            }
+        }
+
+        Ok(Self {
+            discovery: engine.discovery,
+            config: engine.config,
+            registry: engine.registry,
+            db: Some(Arc::new(db)),
+        })
+    }
+
+    fn repository_status_name(status: &RepositoryStatus) -> &'static str {
+    match status {
+        RepositoryStatus::Discovered => "discovered",
+        RepositoryStatus::Indexing => "indexing",
+        RepositoryStatus::Indexed => "indexed",
+        RepositoryStatus::Failed => "failed",
+    }
+}
+
+fn parse_repository_status(status: &str) -> RepositoryStatus {
+    match status {
+        "indexing" => RepositoryStatus::Indexing,
+        "indexed" => RepositoryStatus::Indexed,
+        "failed" => RepositoryStatus::Failed,
+        _ => RepositoryStatus::Discovered,
+    }
+}
+
+/// Discover repositories from a source (GitHub, GitLab, local git, etc.)
     pub async fn discover(&self, source: &str) -> Result<Vec<RepoId>, BrainError> {
         let discovery = self.discovery.read().await;
 
@@ -175,6 +263,38 @@ impl SourceIntelligenceEngine {
                 "maximum repository count reached".to_string(),
             ));
         }
+
+        if let Some(db) = &self.db {
+            sqlx::query(
+                "INSERT INTO source_repositories
+                 (repo_id, url, default_branch, last_indexed, license, language, stars, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(repo_id) DO UPDATE SET
+                    url = excluded.url,
+                    default_branch = excluded.default_branch,
+                    last_indexed = excluded.last_indexed,
+                    license = excluded.license,
+                    language = excluded.language,
+                    stars = excluded.stars,
+                    status = excluded.status",
+            )
+            .bind(&metadata.repo_id)
+            .bind(&metadata.url)
+            .bind(&metadata.default_branch)
+            .bind(metadata.last_indexed.to_rfc3339())
+            .bind(&metadata.license)
+            .bind(&metadata.language)
+            .bind(metadata.stars as i64)
+            .bind(repository_status_name(&metadata.status))
+            .execute(db.as_ref())
+            .await
+            .map_err(|error| {
+                BrainError::SourceIntelligenceError(format!(
+                    "source metadata persistence failed: {error}"
+                ))
+            })?;
+        }
+
         registry.insert(metadata.repo_id.clone(), metadata);
         Ok(())
     }

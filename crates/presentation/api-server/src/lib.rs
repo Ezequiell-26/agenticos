@@ -368,6 +368,19 @@ struct ProviderRetryRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ProviderFallbackRequest {
+    fallback_providers: Vec<String>,
+    auto_failover: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ProviderFallbackResponse {
+    primary_provider: String,
+    fallback_providers: Vec<String>,
+    auto_failover: bool,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolExecutionRequest {
     session_id: String,
     user_id: Option<String>,
@@ -917,6 +930,109 @@ async fn set_provider_retry_policy(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "PROVIDER_RETRY_UPDATE_FAILED",
+        }),
+    }
+}
+
+async fn get_provider_fallback(
+    provider_id: web::Path<String>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    let exists = state
+        .provider
+        .list_status()
+        .await
+        .iter()
+        .any(|provider| provider.provider_id == provider_id);
+    if !exists {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    match state.provider.get_fallback_config(&provider_id).await {
+        Some(config) => HttpResponse::Ok().json(ProviderFallbackResponse {
+            primary_provider: config.primary_provider,
+            fallback_providers: config.fallback_providers,
+            auto_failover: config.auto_failover,
+        }),
+        None => HttpResponse::Ok().json(ProviderFallbackResponse {
+            primary_provider: provider_id,
+            fallback_providers: Vec::new(),
+            auto_failover: false,
+        }),
+    }
+}
+
+async fn set_provider_fallback(
+    provider_id: web::Path<String>,
+    request: web::Json<ProviderFallbackRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let provider_id = provider_id.into_inner();
+    let providers = state.provider.list_status().await;
+    if !providers
+        .iter()
+        .any(|provider| provider.provider_id == provider_id)
+    {
+        return HttpResponse::NotFound().json(ErrorResponse {
+            error: "provider not found".to_string(),
+            code: "PROVIDER_NOT_FOUND",
+        });
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    let mut fallback_providers = Vec::with_capacity(request.fallback_providers.len());
+    for fallback in &request.fallback_providers {
+        let fallback = fallback.trim();
+        if fallback.is_empty() || fallback.len() > 128 {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "fallback provider identifiers must be non-empty and <= 128 characters"
+                    .to_string(),
+                code: "INVALID_FALLBACK_POLICY",
+            });
+        }
+        if fallback == provider_id {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "primary provider cannot be its own fallback".to_string(),
+                code: "INVALID_FALLBACK_POLICY",
+            });
+        }
+        if !seen.insert(fallback.to_string()) {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "fallback provider identifiers must be unique".to_string(),
+                code: "INVALID_FALLBACK_POLICY",
+            });
+        }
+        if !providers
+            .iter()
+            .any(|provider| provider.provider_id == fallback)
+        {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: format!("fallback provider '{fallback}' is not registered"),
+                code: "INVALID_FALLBACK_POLICY",
+            });
+        }
+        fallback_providers.push(fallback.to_string());
+    }
+
+    let config = agenticos_contracts::FallbackConfig {
+        primary_provider: provider_id.clone(),
+        fallback_providers,
+        auto_failover: request.auto_failover,
+    };
+
+    match state.provider.set_fallback_config(config.clone()).await {
+        Ok(()) => HttpResponse::Ok().json(ProviderFallbackResponse {
+            primary_provider: config.primary_provider,
+            fallback_providers: config.fallback_providers,
+            auto_failover: config.auto_failover,
+        }),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "PROVIDER_FALLBACK_UPDATE_FAILED",
         }),
     }
 }
@@ -2155,6 +2271,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/providers/{provider_id}/retry",
                 web::put().to(set_provider_retry_policy),
+            )
+            .route(
+                "/api/providers/{provider_id}/fallback",
+                web::get().to(get_provider_fallback),
+            )
+            .route(
+                "/api/providers/{provider_id}/fallback",
+                web::put().to(set_provider_fallback),
             )
             .route(
                 "/api/providers/{provider_id}",

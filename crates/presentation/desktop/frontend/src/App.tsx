@@ -84,6 +84,7 @@ function App() {
   const [focusMode, setFocusMode] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationUnread, setNotificationUnread] = useState(2)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -280,8 +281,8 @@ function App() {
             <button className={dockOpen ? 'soft-button soft-button--active' : 'soft-button'} type="button" title="Bottom dock · Ctrl+J" onClick={() => setDockOpen((open) => !open)}><Icon name="terminal" size={14} />Dock</button>
             <button className={leftPanelOpen && agentPanelOpen ? 'soft-button' : 'soft-button soft-button--active'} type="button" title="Toggle side panels" onClick={() => { const next = !(leftPanelOpen && agentPanelOpen); setLeftPanelOpen(next); setAgentPanelOpen(next) }}><Icon name="layout" size={14} />Panels</button>
             <button className="soft-button" type="button" title="Universal search · Ctrl+Shift+F" onClick={() => setGlobalSearchOpen(true)}><Icon name="search" size={14} />Search</button>
-            <button className={notificationsOpen ? 'notification-button notification-button--active' : 'notification-button'} type="button" title="Notifications" aria-label="Notifications · 2 unread" aria-expanded={notificationsOpen} aria-controls="agenticos-notification-drawer" onClick={() => setNotificationsOpen((open) => !open)}>
-              <Icon name="bell" size={15} /><span className="notification-badge" aria-hidden="true">2</span>
+            <button className={notificationsOpen ? 'notification-button notification-button--active' : 'notification-button'} type="button" title="Notifications" aria-label={'Notifications · ' + notificationUnread + ' unread'} aria-expanded={notificationsOpen} aria-controls="agenticos-notification-drawer" onClick={() => setNotificationsOpen((open) => !open)}>
+              <Icon name="bell" size={15} />{notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
             </button>
             <span className="runtime-chip" aria-live="polite" title={`Runtime: ${status.provider}`}>
               <span className={`status-dot ${status.provider === 'Runtime offline' ? 'status-dot--offline' : 'status-dot--live'}`} />
@@ -324,6 +325,7 @@ function App() {
           onClose={() => setNotificationsOpen(false)}
           onOpenCenter={() => setMode('notifications')}
           onNavigate={(nextMode) => setMode(nextMode)}
+          onUnreadChange={setNotificationUnread}
         />
         <StatusBar messageCount={messages.length} status={status} />
       </main>

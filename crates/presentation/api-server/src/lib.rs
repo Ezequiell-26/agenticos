@@ -1705,7 +1705,9 @@ async fn create_run(
                     code: "IDEMPOTENCY_CACHE_INVALID",
                 });
             }
-            Ok(record) if record.status == agenticos_contracts::IdempotencyStatus::InProgress => {
+            Ok(record)
+                if record.status == agenticos_contracts::IdempotencyStatus::InProgress
+                    && !record.owner => {
                 return HttpResponse::Conflict().json(ErrorResponse {
                     error: "equivalent run creation is already in progress".to_string(),
                     code: "IDEMPOTENCY_IN_PROGRESS",

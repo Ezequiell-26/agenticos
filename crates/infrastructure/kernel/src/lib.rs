@@ -353,6 +353,7 @@ impl SqliteIdempotencyStore {
                 fingerprint,
                 status: Self::parse_status(&status)?,
                 result,
+                owner: false,
             })
         })
         .transpose()
@@ -370,7 +371,7 @@ impl SqliteIdempotencyStore {
         }
 
         let now = unix_time();
-        sqlx::query(
+        let inserted = sqlx::query(
             "INSERT INTO idempotency_records
                 (idempotency_key, fingerprint, status, result, created_at)
              VALUES (?, ?, 'in_progress', NULL, ?)
@@ -381,16 +382,19 @@ impl SqliteIdempotencyStore {
         .bind(now as i64)
         .execute(&self.pool)
         .await
-        .map_err(|_| ContractError::Persistence)?;
+        .map_err(|_| ContractError::Persistence)?
+        .rows_affected()
+            == 1;
 
         let mut existing = self.load(key).await?.ok_or(ContractError::Persistence)?;
         if existing.fingerprint != fingerprint {
             return Err(ContractError::InvalidId);
         }
 
-        if existing.status == IdempotencyStatus::InProgress {
+        let mut owner = inserted;
+        if existing.status == IdempotencyStatus::InProgress && !owner {
             let stale_before = now.saturating_sub(self.ttl_seconds);
-            let _ = sqlx::query(
+            let reclaimed = sqlx::query(
                 "UPDATE idempotency_records
                  SET created_at = ?
                  WHERE idempotency_key = ? AND status = 'in_progress' AND created_at < ?",
@@ -400,10 +404,16 @@ impl SqliteIdempotencyStore {
             .bind(stale_before as i64)
             .execute(&self.pool)
             .await
-            .map_err(|_| ContractError::Persistence)?;
-            existing = self.load(key).await?.ok_or(ContractError::Persistence)?;
+            .map_err(|_| ContractError::Persistence)?
+            .rows_affected();
+
+            if reclaimed == 1 {
+                owner = true;
+                existing = self.load(key).await?.ok_or(ContractError::Persistence)?;
+            }
         }
 
+        existing.owner = owner;
         Ok(existing)
     }
 

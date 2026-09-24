@@ -260,10 +260,25 @@ impl EvaluationRegistry {
         let result = ReplayEvaluator::new()
             .evaluate(&case, output)
             .map_err(|error| error.to_string())?;
-        self.results
+        let previous = self
+            .results
             .write()
             .await
             .insert(case_id.to_string(), result.clone());
+
+        if let Err(error) = self.persist_result(&result).await {
+            let mut results = self.results.write().await;
+            match previous {
+                Some(previous) => {
+                    results.insert(case_id.to_string(), previous);
+                }
+                None => {
+                    results.remove(case_id);
+                }
+            }
+            return Err(error);
+        }
+
         Ok(result)
     }
 
@@ -308,6 +323,22 @@ mod tests {
         assert_eq!(result.matched_fragments, 1);
         assert!(result.exceeded_output_limit);
         assert!(result.score < 1.0);
+    }
+
+    #[tokio::test]
+    async fn persisted_result_survives_reopen() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-eval-result-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = EvaluationRegistry::open(&url).await.unwrap();
+        first.register(case()).await.unwrap();
+        first.evaluate("basic", "hello agent").await.unwrap();
+        drop(first);
+
+        let second = EvaluationRegistry::open(&url).await.unwrap();
+        assert_eq!(second.result("basic").await.unwrap().case_id, "basic");
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

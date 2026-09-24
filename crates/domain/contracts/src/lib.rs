@@ -244,6 +244,8 @@ pub struct IdempotencyRecord {
     pub status: IdempotencyStatus,
     /// Cached result if completed.
     pub result: Option<String>,
+    /// True when the current request claimed creation/recovery ownership.
+    pub owner: bool,
 }
 
 /// Idempotency operation status.

@@ -145,7 +145,7 @@ pub struct McpManager {
     servers: Arc<RwLock<HashMap<String, McpServerDefinition>>>,
     db: Option<Arc<sqlx::SqlitePool>>,
     default_timeout_ms: u64,
-    sessions: Arc<RwLock<HashMap<String, Arc<Mutex<StdioClient>>>>>,
+    sessions: Arc<RwLock<HashMap<String, ActiveSession>>>,
     tools_cache: Arc<RwLock<HashMap<String, CachedTools>>>,
     concurrency: Arc<Semaphore>,
     tool_cache_ttl: Duration,
@@ -225,6 +225,8 @@ impl McpManager {
             tools_cache: Arc::new(RwLock::new(HashMap::new())),
             concurrency: Arc::new(Semaphore::new(mcp_concurrency_limit())),
             tool_cache_ttl: mcp_tool_cache_ttl(),
+            max_active_sessions: mcp_max_active_sessions(),
+            max_tool_cache_entries: mcp_max_tool_cache_entries(),
         })
     }
 

@@ -1418,7 +1418,7 @@ async fn scheduler_worker(state: RuntimeState) {
                         }
                         continue;
                     }
-                    RunState::Admitted => {
+                    RunState::Admitted | RunState::Waiting => {
                         if let Err(error) = state
                             .kernel
                             .transition_run(&run_id, RunState::Running, run.version)
@@ -1431,7 +1431,7 @@ async fn scheduler_worker(state: RuntimeState) {
                             continue;
                         }
                     }
-                    RunState::Created | RunState::Waiting => {
+                    RunState::Created => {
                         let _ = state
                             .scheduler
                             .complete(
@@ -1507,18 +1507,31 @@ async fn scheduler_worker(state: RuntimeState) {
                 Err(error) => {
                     let final_attempt =
                         started_job.attempts >= started_job.spec.max_attempts.max(1);
-                    if final_attempt {
-                        if let Some(run_id) = run_id {
-                            let current_run = state.kernel.runs.read().await.get(&run_id).cloned();
-                            if let Some(run) = current_run {
-                                if run.state == RunState::Running {
-                                    if let Err(transition_error) = state
-                                        .kernel
-                                        .transition_run(&run_id, RunState::Failed, run.version)
-                                        .await
-                                    {
-                                        tracing::error!(run_id = %run_id.as_str(), %transition_error, "failed to mark run as failed");
-                                    }
+                    if let Some(run_id) = run_id {
+                        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+                            if final_attempt && run.state == RunState::Running {
+                                if let Err(transition_error) = state
+                                    .kernel
+                                    .transition_run(&run_id, RunState::Failed, run.version)
+                                    .await
+                                {
+                                    tracing::error!(
+                                        run_id = %run_id.as_str(),
+                                        %transition_error,
+                                        "failed to mark run as failed"
+                                    );
+                                }
+                            } else if !final_attempt && run.state == RunState::Running {
+                                if let Err(transition_error) = state
+                                    .kernel
+                                    .transition_run(&run_id, RunState::Waiting, run.version)
+                                    .await
+                                {
+                                    tracing::error!(
+                                        run_id = %run_id.as_str(),
+                                        %transition_error,
+                                        "failed to return run to waiting state for retry"
+                                    );
                                 }
                             }
                         }

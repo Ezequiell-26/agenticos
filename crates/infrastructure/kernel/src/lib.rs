@@ -96,6 +96,7 @@ pub fn validate_transition(from: RunState, to: RunState) -> Result<(), ContractE
             | (RunState::Admitted, RunState::Waiting)
             | (RunState::Admitted, RunState::Running)
             | (RunState::Waiting, RunState::Running)
+            | (RunState::Running, RunState::Waiting)
             | (RunState::Running, RunState::Cancelling)
             | (RunState::Cancelling, RunState::Cancelled)
             | (RunState::Running, RunState::Completed)

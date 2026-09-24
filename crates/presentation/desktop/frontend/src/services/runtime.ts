@@ -196,11 +196,11 @@ export class AgenticosRuntime implements RuntimeServices {
   readonly providers = {
     list: async (): Promise<RuntimeProviderStatus[]> => {
       const data = await this.transport.get<RuntimeApiRecord>('/api/providers')
-      return arrayOfRecords(data.providers) as RuntimeProviderStatus[]
+      return arrayOfRecords(data.providers).map((entry) => entry as unknown as RuntimeProviderStatus)
     },
     register: async (request: RuntimeProviderRegistration): Promise<RuntimeProviderStatus | null> => {
       const data = await this.transport.post<RuntimeApiRecord>('/api/providers', request)
-      return isRecord(data) ? data as RuntimeProviderStatus : null
+      return isRecord(data) ? data as unknown as RuntimeProviderStatus : null
     },
     remove: async (providerId: string) => { await this.transport.delete(`/api/providers/${encodeURIComponent(providerId)}`) },
     models: async (providerId: string) => {
@@ -282,7 +282,7 @@ export class AgenticosRuntime implements RuntimeServices {
       const params = new URLSearchParams({ namespace, limit: String(Math.min(500, Math.max(1, limit))) })
       if (query?.trim()) params.set('q', query.trim())
       const data = await this.transport.get<RuntimeApiRecord>(`/api/memory?${params.toString()}`)
-      return arrayOfRecords(data.records) as RuntimeMemoryRecord[]
+      return arrayOfRecords(data.records).map((entry) => entry as unknown as RuntimeMemoryRecord)
     },
     upsert: async (record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>) => this.transport.post<RuntimeMemoryRecord>('/api/memory', record),
     remove: async (namespace: string, key: string) => { await this.transport.delete(`/api/memory/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`) },

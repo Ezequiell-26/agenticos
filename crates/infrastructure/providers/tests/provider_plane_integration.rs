@@ -78,6 +78,43 @@ fn spawn_http_response_server(response_body: &'static str) -> (String, thread::J
     spawn_http_response_server_with_status("200 OK", response_body)
 }
 
+fn spawn_authenticated_models_server(
+    expected_auth: &'static str,
+) -> (String, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind auth model server");
+    let address = listener.local_addr().expect("read auth model server address");
+
+    let handle = thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            let mut request = [0_u8; 8192];
+            let read = stream.read(&mut request).expect("read model request");
+            let request = String::from_utf8_lossy(&request[..read]);
+            assert!(
+                request
+                    .lines()
+                    .any(|line| line.trim() == expected_auth),
+                "expected auth header was not sent: {request}"
+            );
+
+            let body = r#"{"data":[{"id":"discovered-model"}]}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: {}
+Connection: close
+
+{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).expect("write model response");
+            stream.flush().expect("flush model response");
+        }
+    });
+
+    (format!("http://{}", address), handle)
+}
+
 fn spawn_http_response_sequence_server(
     responses: Vec<(&'static str, &'static str)>,
 ) -> (String, thread::JoinHandle<()>) {
@@ -324,6 +361,37 @@ async fn multi_provider_orchestration_selects_healthy_provider_and_executes_tran
         .metadata
         .as_deref()
         .is_some_and(|value| value.contains("fallback")));
+}
+
+#[tokio::test]
+async fn provider_platform_sends_api_key_during_model_discovery() {
+    let (base_url, server) =
+        spawn_authenticated_models_server("authorization: Bearer discovery-secret");
+
+    let platform = ProviderPlatform::new();
+    platform
+        .register(
+            provider_with_base_url("discovery-provider", base_url, &["initial-model"]),
+            Some("discovery-secret".to_string()),
+        )
+        .await
+        .expect("register provider");
+
+    let models = platform
+        .refresh_models("discovery-provider")
+        .await
+        .expect("model discovery should authenticate");
+
+    server.join().expect("join discovery server");
+
+    assert_eq!(models, vec!["discovered-model".to_string()]);
+    assert_eq!(
+        platform
+            .list_models_for_provider("discovery-provider")
+            .await
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]

@@ -1275,7 +1275,11 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ContractError> {
-        let response = self.client.get(&self.models_url()).send().await.map_err(|error| {
+        let mut request = self.client.get(&self.models_url());
+        if let Some(api_key) = &self.api_key {
+            request = request.bearer_auth(api_key);
+        }
+        let response = request.send().await.map_err(|error| {
             ContractError::ParseError(format!("provider model discovery failed: {error}"))
         })?;
         let status = response.status();

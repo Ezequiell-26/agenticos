@@ -6,8 +6,8 @@ license.workspace = true
 
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
+sqlx = { workspace = true }
+uuid = { workspace = true }
 
 [lints]
 workspace = true
-
-sqlx = { workspace = true, features = ["sqlite", "runtime-tokio-rustls"] }

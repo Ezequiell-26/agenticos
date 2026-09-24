@@ -39,7 +39,7 @@ use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
-use agenticos_source_forge::{GitHubSourceClient, SourceFile, GitHubRepositoryInfo};
+use agenticos_source_forge::GitHubSourceClient;
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -3,6 +3,7 @@
 
 //! MCP server registry and stdio JSON-RPC transport boundary.
 
+use agenticos_context::optimize_tool_output;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -411,7 +412,7 @@ impl McpManager {
             Ok(response) => {
                 if let Some(result) = response.result {
                     self.touch_session(server_id).await;
-                    return Ok(result);
+                    return Ok(optimize_mcp_value(result));
                 }
                 if let Some(error) = response.error {
                     return Err(McpError::Rpc {
@@ -843,4 +844,31 @@ fn mcp_max_tool_cache_entries() -> usize {
         .and_then(|value| value.parse::<usize>().ok())
         .unwrap_or(256)
         .clamp(8, 2048)
+}
+
+
+fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
+        serde_json::Value::Array(values) => {
+            serde_json::Value::Array(values.into_iter().map(optimize_mcp_value).collect())
+        }
+        serde_json::Value::Object(values) => serde_json::Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| {
+                    let value = if matches!(key.as_str(), "text" | "stdout" | "stderr" | "output" | "message") {
+                        match value {
+                            serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
+                            other => optimize_mcp_value(other),
+                        }
+                    } else {
+                        optimize_mcp_value(value)
+                    };
+                    (key, value)
+                })
+                .collect(),
+        ),
+        other => other,
+    }
 }

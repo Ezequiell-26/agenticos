@@ -155,7 +155,7 @@ if (continuity.policies.verified_slice_does_not_equal_production_completeness !=
 // The strict journal schema was introduced at a concrete append-only operation.
 // Earlier records may use their historical schema; records from this operation
 // onward must satisfy the current required fields and evidence contract.
-const EVIDENCE_POLICY_FIRST_OPERATION = "ci-error-repair-rustfmt-continuity-2026-09-24";
+const EVIDENCE_POLICY_FIRST_OPERATION = "continuity-strict-schema-rebaseline-2026-09-24";
 
 const ids = new Set();
 let strictJournalSchemaActive = false;
@@ -174,14 +174,10 @@ for (const { op, lineNumber } of journalEntries) {
 
   if (modern) {
     const required = continuity.required_operation_fields;
-    const fieldAliases = { risks: ["risks", "risk"] };
 
     for (const field of required) {
       if (!strictJournalSchemaActive && !(field in op)) continue;
-      const aliases = fieldAliases[field] ?? [field];
-      if (!aliases.some((alias) => alias in op)) {
-        fail(`journal operation ${operationId} is missing ${field}`);
-      }
+      if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
     }
   } else if (strictJournalSchemaActive) {
     fail(`legacy journal operation ${operationId} appears after strict schema migration`);

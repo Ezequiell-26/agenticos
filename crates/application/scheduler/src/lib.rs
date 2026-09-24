@@ -223,9 +223,13 @@ impl JobScheduler {
             attempts: 0,
             last_error: None,
         };
-        jobs.insert(record.spec.job_id.clone(), record.clone());
+        let job_id = record.spec.job_id.clone();
+        jobs.insert(job_id.clone(), record.clone());
         drop(jobs);
-        self.persist(&record).await?;
+        if let Err(error) = self.persist(&record).await {
+            self.jobs.write().await.remove(&job_id);
+            return Err(error);
+        }
         Ok(())
     }
 
@@ -263,6 +267,10 @@ impl JobScheduler {
                     .is_some_and(|job| job.state == JobState::Succeeded)
             })
         };
+        let previous = jobs
+            .get(job_id)
+            .cloned()
+            .ok_or_else(|| "job not found".to_string())?;
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
@@ -284,7 +292,10 @@ impl JobScheduler {
         record.state = JobState::Running;
         let result = record.clone();
         drop(jobs);
-        self.persist(&result).await?;
+        if let Err(error) = self.persist(&result).await {
+            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            return Err(error);
+        }
         Ok(result)
     }
 
@@ -296,6 +307,10 @@ impl JobScheduler {
         error: Option<String>,
     ) -> Result<(), String> {
         let mut jobs = self.jobs.write().await;
+        let previous = jobs
+            .get(job_id)
+            .cloned()
+            .ok_or_else(|| "job not found".to_string())?;
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
@@ -312,13 +327,20 @@ impl JobScheduler {
         record.last_error = error;
         let result = record.clone();
         drop(jobs);
-        self.persist(&result).await?;
+        if let Err(error) = self.persist(&result).await {
+            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            return Err(error);
+        }
         Ok(())
     }
 
     /// Cancel a job.
     pub async fn cancel(&self, job_id: &str) -> Result<(), String> {
         let mut jobs = self.jobs.write().await;
+        let previous = jobs
+            .get(job_id)
+            .cloned()
+            .ok_or_else(|| "job not found".to_string())?;
         let record = jobs
             .get_mut(job_id)
             .ok_or_else(|| "job not found".to_string())?;
@@ -334,7 +356,10 @@ impl JobScheduler {
         record.state = JobState::Cancelled;
         let result = record.clone();
         drop(jobs);
-        self.persist(&result).await?;
+        if let Err(error) = self.persist(&result).await {
+            self.jobs.write().await.insert(result.spec.job_id.clone(), previous);
+            return Err(error);
+        }
         Ok(())
     }
 

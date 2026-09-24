@@ -38,6 +38,8 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
   const [selectedId, setSelectedId] = useState('s2')
   const [enabled, setEnabled] = useState(true)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeWorkflowId, setRuntimeWorkflowId] = useState<string | null>(null)
+  const [runtimeState, setRuntimeState] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +47,7 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
       if (cancelled || remoteWorkflows.length === 0) return
       const workflow = remoteWorkflows[0]
       const remoteId = typeof workflow.workflow_id === 'string' ? workflow.workflow_id : typeof workflow.id === 'string' ? workflow.id : 'runtime-workflow'
+      setRuntimeWorkflowId(remoteId)
       const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
       if (nodes.length > 0) {
         const mapped = nodes.map((node, index) => ({
@@ -72,7 +75,60 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
     const next: Step = { id, kind: 'tool', title: 'New tool step', detail: 'Configure capability and inputs', status: 'ready' }
     setSteps((current) => [...current, next])
     setSelectedId(id)
-    onAction('Workflow step added in preview')
+    onAction('Workflow step added locally')
+  }
+
+  async function saveRuntimeWorkflow() {
+    const workflowId = runtimeWorkflowId ?? `workflow-${Date.now()}`
+    try {
+      const saved = await runtime.workflows.create({
+        workflow_id: workflowId,
+        name: 'AgentiCOS workflow',
+        nodes: steps.map((step, index) => ({
+          id: step.id,
+          task: step.detail || step.title,
+          depends_on: index === 0 ? [] : [steps[index - 1].id],
+        })),
+      })
+      setRuntimeWorkflowId(typeof saved.workflow_id === 'string' ? saved.workflow_id : workflowId)
+      onAction('Workflow saved to runtime')
+      const state = await runtime.workflows.start(workflowId)
+      setRuntimeState(state)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Workflow save failed')
+    }
+  }
+
+  async function startRuntimeWorkflow() {
+    if (!runtimeWorkflowId) {
+      await saveRuntimeWorkflow()
+      return
+    }
+    try {
+      const state = await runtime.workflows.start(runtimeWorkflowId)
+      setRuntimeState(state)
+      onAction('Workflow state initialized in runtime')
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Workflow start failed')
+    }
+  }
+
+  async function transitionSelected(nextState: 'Ready' | 'Running' | 'Succeeded' | 'Failed') {
+    if (!runtimeWorkflowId) {
+      onAction('Save the workflow to runtime first')
+      return
+    }
+    try {
+      const state = await runtime.workflows.transition(runtimeWorkflowId, selected.id, nextState)
+      setRuntimeState(state)
+      setSteps((current) => current.map((step) => step.id === selected.id ? {
+        ...step,
+        status: nextState === 'Running' ? 'active' : nextState === 'Failed' ? 'blocked' : 'ready',
+      } : step))
+      onAction(`${selected.title} transitioned to ${nextState}`)
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Workflow transition failed')
+    }
   }
 
   function moveSelected(direction: -1 | 1) {
@@ -107,11 +163,13 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
 
       <section className="workflow-builder__canvas">
         <div className="workflow-builder__toolbar">
-          <div><span className="mono-text">workflow://frontend-delivery/v3</span><span className="state-pill state-pill--completed">Draft saved</span></div>
+          <div><span className="mono-text">{runtimeWorkflowId ? `workflow://${runtimeWorkflowId}` : 'workflow://draft'}</span><span className="state-pill state-pill--completed">Draft saved</span></div>
           <div className="workflow-builder__toolbar-actions">
             <button className="studio-button" type="button" onClick={() => moveSelected(-1)}><Icon name="arrow-up" size={13} /> Up</button>
             <button className="studio-button" type="button" onClick={() => moveSelected(1)}><Icon name="arrow-down" size={13} /> Down</button>
-            <button className={enabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setEnabled((value) => !value)}>{enabled ? 'Pause' : 'Enable'}</button>
+            <button className="studio-button" type="button" onClick={() => void saveRuntimeWorkflow()}><Icon name="save" size={13} /> Save runtime</button>
+            <button className="studio-button studio-button--active" type="button" onClick={() => void startRuntimeWorkflow()}><Icon name="play" size={13} /> Start</button>
+            <button className={enabled ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => setEnabled((value) => !value)}>{enabled ? 'Pause UI' : 'Enable UI'}</button>
           </div>
         </div>
         <div className="workflow-builder__flow">
@@ -137,8 +195,8 @@ export default function WorkflowBuilder({ onAction }: { onAction: (message: stri
         }}>{Object.entries(kindLabels).map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></label>
         <label className="workflow-field"><span>Step name</span><input defaultValue={selected.title} onChange={(event) => setSteps((current) => current.map((step) => step.id === selected.id ? { ...step, title: event.target.value } : step))} /></label>
         <label className="workflow-field"><span>Instruction</span><textarea defaultValue={selected.detail} onChange={(event) => setSteps((current) => current.map((step) => step.id === selected.id ? { ...step, detail: event.target.value } : step))} /></label>
-        <div className="workflow-inspector-group"><span>Runtime policy</span><div><span>Context</span><strong>Explicit</strong></div><div><span>Failure</span><strong>Fail closed</strong></div><div><span>Approval</span><strong>{selected.kind === 'approval' ? 'Required' : 'Policy based'}</strong></div></div>
-        <div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction('Step test opened in preview')}><Icon name="play" size={13} /> Test step</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Workflow validation passed in preview')}><Icon name="check" size={13} /> Validate</button></div>
+        <div className="workflow-inspector-group"><span>Runtime policy</span><div><span>Context</span><strong>Explicit</strong></div><div><span>Failure</span><strong>Fail closed</strong></div><div><span>Approval</span><strong>{selected.kind === 'approval' ? 'Required' : 'Policy based'}</strong></div><div><span>Runtime version</span><strong>{runtimeState && typeof runtimeState.version === 'number' ? String(runtimeState.version) : '—'}</strong></div></div>
+        <div className="platform-actions"><button className="studio-button" type="button" onClick={() => void transitionSelected('Ready')}>Mark ready</button><button className="studio-button" type="button" onClick={() => void transitionSelected('Running')}><Icon name="play" size={13} /> Run step</button><button className="studio-button studio-button--active" type="button" onClick={() => void transitionSelected('Succeeded')}><Icon name="check" size={13} /> Complete step</button></div>
       </aside>
     </div>
   )

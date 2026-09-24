@@ -47,11 +47,14 @@ export default function SecurityCenter({ onAction }: { onAction: (message: strin
         <div className="security-summary-grid"><Metric label="Secrets exposed" value="0" /><Metric label="Blocked events" value="3" /><Metric label="Trusted sessions" value="1" /><Metric label="Last check" value="12s" /></div>
       </div>
 
-      <div className="security-center__tabs" role="tablist" aria-label="Security center">
-        {(['Overview', 'Policies', 'Audit', 'Sessions', 'Recovery'] as SecurityTab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'security-tab security-tab--active' : 'security-tab'} onClick={() => setTab(item)}>{item}</button>)}
+      <div className="security-center__tabs" role="tablist" aria-label="Security center" aria-orientation="horizontal">
+        {(['Overview', 'Policies', 'Audit', 'Sessions', 'Recovery'] as SecurityTab[]).map((item, index, tabs) => <button type="button" key={item} id={'security-tab-' + item.toLowerCase()} role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="security-tabpanel" className={tab === item ? 'security-tab security-tab--active' : 'security-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
+          const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+          if (nextIndex >= 0) { event.preventDefault(); const next = tabs[nextIndex]; setTab(next); window.requestAnimationFrame(() => document.getElementById('security-tab-' + next.toLowerCase())?.focus()) }
+        }}>{item}</button>)}
       </div>
 
-      <div className="security-center__body">
+      <div id="security-tabpanel" className="security-center__body" role="tabpanel" aria-labelledby={'security-tab-' + tab.toLowerCase()} tabIndex={0}>
         {tab === 'Overview' && <div className="security-overview"><div className="security-overview-grid"><Panel title="Execution boundary"><Row label="File scope" value="Workspace only" /><Row label="Network" value="Policy + confirm" /><Row label="Destructive" value="Blocked by default" /><Row label="Credentials" value="External boundary" /></Panel><Panel title="Current posture"><div className="security-posture"><div className="security-posture-bar"><span style={{ width: '94%' }} /></div><div><span>Policy coverage</span><strong>94%</strong></div></div><div className="callout"><Icon name="shield" size={13} /><span>Security values in this screen are visual preview state; runtime authorization is enforced outside the React layer.</span></div></Panel></div><Panel title="Protected operations"><div className="protected-operation-grid"><span><Icon name="check" size={12} />Read-only inspection</span><span><Icon name="check" size={12} />Scoped file changes</span><span><Icon name="check" size={12} />Approval-gated tools</span><span><Icon name="check" size={12} />Redacted credentials</span></div></Panel></div>}
 
         {tab === 'Policies' && <div className="security-policy-list">{policyRows.map(([name, detail]) => <div className="security-policy-row" key={name}><div><strong>{name}</strong><span>{detail}</span></div><button className={policies.has(name) ? 'switch switch--on' : 'switch'} type="button" role="switch" aria-checked={policies.has(name)} onClick={() => toggle(name)}><span /></button></div>)}</div>}

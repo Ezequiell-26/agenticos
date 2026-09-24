@@ -1872,10 +1872,16 @@ fn normalize_agenticos_chat_parameters(
                 .and_then(|item| item.as_str())
                 .is_some_and(|value| value == "json_object")
             {
-                generation.insert("responseMimeType".to_string(), serde_json::json!("application/json"));
+                generation.insert(
+                    "responseMimeType".to_string(),
+                    serde_json::json!("application/json"),
+                );
             }
             if !generation.is_empty() {
-                output.insert("generationConfig".to_string(), serde_json::Value::Object(generation));
+                output.insert(
+                    "generationConfig".to_string(),
+                    serde_json::Value::Object(generation),
+                );
             }
         }
     }
@@ -1885,7 +1891,9 @@ fn normalize_agenticos_chat_parameters(
     } else {
         serde_json::to_string(&serde_json::Value::Object(output))
             .map(Some)
-            .map_err(|error| ContractError::ParseError(format!("provider parameter encoding failed: {error}")))
+            .map_err(|error| {
+                ContractError::ParseError(format!("provider parameter encoding failed: {error}"))
+            })
     }
 }
 
@@ -1895,7 +1903,8 @@ async fn execute_protocol(
     credential: Option<&Credential>,
     mut request: ModelRequest,
 ) -> Result<ModelResponse, ContractError> {
-    request.parameters = normalize_agenticos_chat_parameters(protocol, request.parameters.as_deref())?;
+    request.parameters =
+        normalize_agenticos_chat_parameters(protocol, request.parameters.as_deref())?;
     match protocol {
         ProviderProtocol::OpenAiChat => {
             AuthenticatedOpenAiProvider::new(

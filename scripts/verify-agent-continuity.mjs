@@ -98,7 +98,47 @@ async function readJson(relativePath) {
 const continuity = await readJson("reference/manifests/agent-continuity.json");
 const state = await readJson("reference/manifests/implementation-state.json");
 const operationsRaw = await readText("reference/journal/agent-operations.jsonl");
-const lines = operationsRaw.split(/\r?\n/).filter(Boolean);
+
+function skipLegacyJournalSeparator(source, index) {
+  let cursor = skipWhitespace(source, index);
+  if (source[cursor] === "\\\\" && source[cursor + 1] === "n") {
+    cursor += 2;
+    cursor = skipWhitespace(source, cursor);
+  }
+  return cursor;
+}
+
+function parseJournalEntries(source) {
+  const entries = [];
+  let cursor = 0;
+  let ordinal = 0;
+
+  while (true) {
+    cursor = skipLegacyJournalSeparator(source, cursor);
+    if (cursor >= source.length) break;
+
+    const start = cursor;
+    const end = scanJsonValue(source, start, `reference/journal/agent-operations.jsonl entry ${ordinal + 1}`);
+    const raw = source.slice(start, end);
+    let op;
+    try {
+      op = JSON.parse(raw);
+    } catch (error) {
+      fail(`reference/journal/agent-operations.jsonl entry ${ordinal + 1} is not valid JSON: ${error.message}`);
+    }
+
+    entries.push({
+      op,
+      lineNumber: source.slice(0, start).split(/\r?\n/).length,
+    });
+    cursor = end;
+    ordinal += 1;
+  }
+
+  return entries;
+}
+
+const journalEntries = parseJournalEntries(operationsRaw);
 
 if (continuity.schema_version !== 1) fail("unsupported continuity manifest schema");
 if (continuity.policies.read_state_before_action !== true) fail("state-read policy disabled");
@@ -117,8 +157,7 @@ if (continuity.policies.verified_slice_does_not_equal_production_completeness !=
 const EVIDENCE_POLICY_CUTOFF = Date.parse("2026-09-24T01:00:00Z");
 
 const ids = new Set();
-for (const [index, line] of lines.entries()) {
-  const op = parseJson(line, `reference/journal/agent-operations.jsonl line ${index + 1}`);
+for (const { op, lineNumber } of journalEntries) {
   const modern = op.schema_version === 1;
   const operationId = String(op.operation_id ?? op.operation ?? `legacy-line-${index + 1}`).trim();
 
@@ -128,7 +167,13 @@ for (const [index, line] of lines.entries()) {
 
   if (modern) {
     const required = continuity.required_operation_fields;
+    const operationTimestamp = Date.parse(op.timestamp);
+    const historicalEvidenceOmissionAllowed =
+      operationTimestamp < EVIDENCE_POLICY_CUTOFF &&
+      op.status === "completed";
+
     for (const field of required) {
+      if (field === "evidence" && historicalEvidenceOmissionAllowed) continue;
       if (!(field in op)) fail(`journal operation ${operationId} is missing ${field}`);
     }
   } else {

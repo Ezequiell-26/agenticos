@@ -186,7 +186,7 @@ impl AgentTool for GitWorkspaceTool {
         let result = self
             .service
             .execute_scoped(
-                &request.session_id,
+                &request.agent_id,
                 Some(&request.agent_id),
                 &request.grant_id,
                 &command,

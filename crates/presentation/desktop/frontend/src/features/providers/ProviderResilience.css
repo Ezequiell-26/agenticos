@@ -30,3 +30,21 @@
 .provider-resilience__step small{color:#555;font-size:6px}
 .provider-resilience__step svg{color:#aaa}
 @media (max-width:850px){.provider-resilience__grid{grid-template-columns:1fr}.provider-resilience__summary{align-items:flex-start;flex-direction:column}.provider-resilience__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.provider-verification{display:flex;flex-direction:column;gap:9px}
+.provider-verification__head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px;border:1px solid #202020;border-radius:9px;background:#101010}
+.provider-verification__head>div:first-child{display:flex;flex-direction:column;gap:4px;min-width:0}
+.provider-verification__head strong{color:#c2c2c2;font-size:14px}
+.provider-verification__head small{max-width:760px;color:#595959;font-size:7px;line-height:1.6}
+.provider-verification__controls{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.soft-button--active{background:#171717;color:#eee;border-color:#303030}
+.provider-verification__summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.provider-verification__matrix{display:flex;flex-direction:column;border:1px solid #1f1f1f;border-radius:9px;background:#0f0f0f;overflow:hidden}
+.provider-verification__row{display:grid;grid-template-columns:52px minmax(0,1fr) auto auto auto 30px;gap:8px;align-items:center;padding:8px 9px;border-bottom:1px solid #1a1a1a}
+.provider-verification__row:last-child{border-bottom:0}
+.provider-verification__row:hover{background:#121212}
+.provider-verification__row>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.provider-verification__row strong{color:#a7a7a7;font-size:8px}
+.provider-verification__row small{color:#555;font-size:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.provider-verification__id{color:#4f4f4f;font:7px ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (max-width:850px){.provider-verification__head{flex-direction:column}.provider-verification__controls{justify-content:flex-start}.provider-verification__summary{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-verification__row{grid-template-columns:44px minmax(0,1fr) auto 28px}.provider-verification__row>.platform-tag:nth-of-type(2),.provider-verification__row>.studio-button{display:none}}

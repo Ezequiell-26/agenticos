@@ -46,7 +46,7 @@ export default function AgentPanel({ status, running, onRun, onStop }: AgentPane
       </div>
 
       <div className="agent-tabs" role="tablist" aria-label="Agent inspector" aria-orientation="horizontal">
-        {(['Agent', 'Context', 'Task', 'Safety'] as AgentTab[]).map((item, index, tabs) => (
+        {(['Agent', 'Context', 'Task', 'Safety'] as AgentTab[]).map((item, _index, tabs) => (
           <button key={item} id={'agent-tab-' + item.toLowerCase()} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls={'agent-panel-' + item.toLowerCase()} className={tab === item ? 'agent-tab agent-tab--active' : 'agent-tab'} onClick={() => setTab(item)} onKeyDown={(event) => {
             const currentIndex = tabs.indexOf(item)
             const nextIndex = event.key === 'ArrowRight'

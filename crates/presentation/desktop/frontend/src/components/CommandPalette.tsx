@@ -95,6 +95,12 @@ export default function CommandPalette({
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
         setSelectedIndex((index) => (index - 1 + filtered.length) % filtered.length)
+      } else if (event.key === 'Home') {
+        event.preventDefault()
+        setSelectedIndex(0)
+      } else if (event.key === 'End') {
+        event.preventDefault()
+        setSelectedIndex(filtered.length - 1)
       } else if (event.key === 'Enter') {
         event.preventDefault()
         filtered[selectedIndex]?.action()
@@ -119,6 +125,10 @@ export default function CommandPalette({
           <input
             ref={inputRef}
             aria-label="Search commands"
+            aria-controls="command-palette-results"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-activedescendant={filtered[selectedIndex] ? 'command-' + filtered[selectedIndex].id : undefined}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search commands, views and conversations…"
             value={query}
@@ -126,11 +136,12 @@ export default function CommandPalette({
           <button aria-label="Close command palette" className="icon-button" onClick={onClose} type="button"><Icon name="x" size={16} /></button>
         </div>
 
-        <div className="palette-list" role="listbox" aria-label="Commands and conversations">
+        <div id="command-palette-results" className="palette-list" role="listbox" aria-label="Commands and conversations">
           {filtered.length === 0 ? (
             <div className="palette-empty">No command matches “{query}”.</div>
           ) : filtered.map((command, index) => (
             <button
+              id={'command-' + command.id}
               aria-selected={index === selectedIndex}
               className={`palette-item ${index === selectedIndex ? 'palette-item--active' : ''}`}
               key={command.id}

@@ -288,7 +288,11 @@ impl QuotaTracker {
         let mut quotas = self.quotas.write().await;
         let state = quotas.get_mut(provider_id)?;
         Self::refresh_window(state, unix_time());
-        Some((state.quota.clone(), state.window_started_at, state.token_usage))
+        Some((
+            state.quota.clone(),
+            state.window_started_at,
+            state.token_usage,
+        ))
     }
 
     /// Return token usage for a provider in its active minute window.
@@ -795,10 +799,7 @@ mod tests {
             .expect_err("third request should exceed the configured limit");
 
         assert!(error.to_string().contains("quota exceeded"));
-        assert_eq!(
-            tracker.get("limited").await.unwrap().current_usage,
-            2
-        );
+        assert_eq!(tracker.get("limited").await.unwrap().current_usage, 2);
     }
 
     #[tokio::test]
@@ -845,10 +846,7 @@ mod tests {
             .expect_err("token quota should block the next request");
 
         assert!(error.to_string().contains("token quota exceeded"));
-        assert_eq!(
-            tracker.token_usage("token-limited").await,
-            Some(10)
-        );
+        assert_eq!(tracker.token_usage("token-limited").await, Some(10));
     }
 
     #[test]
@@ -924,7 +922,6 @@ mod tests {
 
 mod platform;
 pub use platform::{ProviderPlatform, ProviderStatus};
-
 
 fn unix_time() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};

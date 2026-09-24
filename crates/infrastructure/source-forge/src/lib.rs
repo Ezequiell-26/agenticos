@@ -644,10 +644,7 @@ mod github_source_tests {
         assert!(normalize_source_path("../README.md").is_err());
         assert!(normalize_source_path("/etc/passwd").is_err());
         assert!(normalize_source_path("src//lib.rs").is_err());
-        assert_eq!(
-            normalize_source_path("src/lib.rs").unwrap(),
-            "src/lib.rs"
-        );
+        assert_eq!(normalize_source_path("src/lib.rs").unwrap(), "src/lib.rs");
     }
 }
 
@@ -656,7 +653,9 @@ fn normalize_source_path(path: &str) -> Result<String, SourceForgeError> {
     if path.is_empty()
         || path.len() > 2048
         || std::path::Path::new(path).is_absolute()
-        || path.split('/').any(|segment| segment == ".." || segment.is_empty())
+        || path
+            .split('/')
+            .any(|segment| segment == ".." || segment.is_empty())
     {
         return Err(SourceForgeError::InvalidSource(
             "invalid source file path".to_string(),

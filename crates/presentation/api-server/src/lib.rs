@@ -22,8 +22,8 @@ use agenticos_contracts::{
     AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState,
     Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
-use agenticos_execution::SecureToolService;
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
+use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,
     SqliteSnapshotStore,
@@ -37,8 +37,8 @@ use agenticos_observability::{
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
-use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use serde::{Deserialize, Serialize};
@@ -68,8 +68,9 @@ impl AgentTool for SecureCommandTool {
             session_id: Option<String>,
         }
 
-        let args = serde_json::from_str::<CommandArgs>(&request.parameters)
-            .map_err(|error| ContractError::ParseError(format!("invalid process.execute arguments: {error}")))?;
+        let args = serde_json::from_str::<CommandArgs>(&request.parameters).map_err(|error| {
+            ContractError::ParseError(format!("invalid process.execute arguments: {error}"))
+        })?;
 
         if args.command.trim().is_empty() {
             return Err(ContractError::ParseError(
@@ -203,7 +204,8 @@ impl RuntimeState {
                 ToolEntry {
                     tool_id: "process.execute".to_string(),
                     name: "Execute Process".to_string(),
-                    description: "Execute an allowlisted local process through the sandbox".to_string(),
+                    description: "Execute an allowlisted local process through the sandbox"
+                        .to_string(),
                     capabilities: vec!["process".to_string()],
                     required_permissions: vec![],
                     context_requirements: vec!["capability:process.execute".to_string()],
@@ -213,7 +215,9 @@ impl RuntimeState {
                 }),
             )
             .await
-            .map_err(|error| ContractError::ParseError(format!("native tool registration failed: {error}")))?;
+            .map_err(|error| {
+                ContractError::ParseError(format!("native tool registration failed: {error}"))
+            })?;
         let model = std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let mut default_agent = AgentDefinition {
@@ -858,11 +862,7 @@ async fn analyze_github_repository(
         stars: info.stars,
         status: agenticos_brain::RepositoryStatus::Discovered,
     };
-    if let Err(error) = state
-        .source_intelligence
-        .register_metadata(metadata)
-        .await
-    {
+    if let Err(error) = state.source_intelligence.register_metadata(metadata).await {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "SOURCE_METADATA_REJECTED",
@@ -1169,14 +1169,14 @@ async fn agent_chat(
     match agent.execute_turn(message).await {
         Ok(response) => {
             state.metrics.record_http(false);
-            state.metrics.record_llm_latency(started_at.elapsed().as_millis() as u64);
+            state
+                .metrics
+                .record_llm_latency(started_at.elapsed().as_millis() as u64);
             HttpResponse::Ok().json(ChatResponse {
                 response,
                 agent: agent.name().to_string(),
                 session_id,
-                model: requested_model
-                    .unwrap_or(state.model.as_str())
-                    .to_string(),
+                model: requested_model.unwrap_or(state.model.as_str()).to_string(),
             })
         }
         Err(error) => {
@@ -1682,7 +1682,11 @@ async fn create_run(
                 code: "IDEMPOTENCY_KEY_TOO_LARGE",
             });
         }
-        match state.idempotency.check_or_record(storage_key, &idempotency_fingerprint).await {
+        match state
+            .idempotency
+            .check_or_record(storage_key, &idempotency_fingerprint)
+            .await
+        {
             Ok(record) if record.status == agenticos_contracts::IdempotencyStatus::Completed => {
                 if let Some(cached) = record.result {
                     if let Ok(response) = serde_json::from_str::<RunResponse>(&cached) {
@@ -2669,222 +2673,64 @@ async fn scheduler_worker(state: RuntimeState) {
 }
 
 async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_job: JobRecord) {
-            let started_job = match state
-                .scheduler
-                .start_as(&queued_job.spec.job_id, worker_id.clone(), 120)
-                .await
-            {
-                Ok(job) => {
-                    state.metrics.record_scheduler_claim();
-                    job
-                }
-                Err(error) => {
-                    tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
-                    return;
-                }
-            };
+    let started_job = match state
+        .scheduler
+        .start_as(&queued_job.spec.job_id, worker_id.clone(), 120)
+        .await
+    {
+        Ok(job) => {
+            state.metrics.record_scheduler_claim();
+            job
+        }
+        Err(error) => {
+            tracing::warn!(job_id = %queued_job.spec.job_id, %error, "scheduler failed to claim job");
+            return;
+        }
+    };
 
-            if started_job.state == JobState::Failed {
-                tracing::warn!(
-                    job_id = %started_job.spec.job_id,
-                    "scheduler rejected execution because the job exhausted its attempts"
-                );
+    if started_job.state == JobState::Failed {
+        tracing::warn!(
+            job_id = %started_job.spec.job_id,
+            "scheduler rejected execution because the job exhausted its attempts"
+        );
+        return;
+    }
+
+    let run_id = RunId::new(started_job.spec.run_id.clone()).ok();
+    if let Some(run_id) = run_id.clone() {
+        let run = match state.kernel.get_or_recover_run(&run_id).await {
+            Ok(run) => run,
+            Err(error) => {
+                let _ = state
+                    .scheduler
+                    .complete(
+                        &started_job.spec.job_id,
+                        false,
+                        Some(format!("run recovery failed: {error}")),
+                    )
+                    .await;
                 return;
             }
+        };
 
-            let run_id = RunId::new(started_job.spec.run_id.clone()).ok();
-            if let Some(run_id) = run_id.clone() {
-                let run = match state.kernel.get_or_recover_run(&run_id).await {
-                    Ok(run) => run,
-                    Err(error) => {
-                        let _ = state
-                            .scheduler
-                            .complete(
-                                &started_job.spec.job_id,
-                                false,
-                                Some(format!("run recovery failed: {error}")),
-                            )
-                            .await;
-                        return;
-                    }
-                };
-
-                match run.state {
-                    RunState::Cancelling | RunState::Cancelled => {
-                        let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
-                        if run.state == RunState::Cancelling {
-                            let _ = state
-                                .kernel
-                                .transition_run(&run_id, RunState::Cancelled, run.version)
-                                .await;
-                        }
-                        return;
-                    }
-                    RunState::Admitted | RunState::Waiting => {
-                        if let Err(error) = state
-                            .kernel
-                            .transition_run(&run_id, RunState::Running, run.version)
-                            .await
-                        {
-                            let _ = state
-                                .scheduler
-                                .complete_as(
-                                    &started_job.spec.job_id,
-                                    started_job.lease_owner.as_deref(),
-                                    Some(started_job.lease_token),
-                                    false,
-                                    Some(error.to_string()),
-                                )
-                                .await;
-                            return;
-                        }
-                    }
-                    RunState::Created => {
-                        let _ = state
-                            .scheduler
-                            .complete(
-                                &started_job.spec.job_id,
-                                false,
-                                Some(format!(
-                                    "run {} is not executable in state {:?}",
-                                    run_id.as_str(),
-                                    run.state
-                                )),
-                            )
-                            .await;
-                        return;
-                    }
-                    RunState::Running => {}
-                    RunState::Completed | RunState::Failed => {
-                        let _ = state
-                            .scheduler
-                            .complete(
-                                &started_job.spec.job_id,
-                                true,
-                                Some("run already reached terminal state".to_string()),
-                            )
-                            .await;
-                        return;
-                    }
-                }
-            }
-
-            let session_id = format!("run:{}", started_job.spec.run_id);
-            let agent = state.session_agent(&session_id, None).await;
-
-            // Keep the worker lease alive while a model/tool turn is running.
-            let heartbeat_scheduler = state.scheduler.clone();
-            let heartbeat_job_id = started_job.spec.job_id.clone();
-            let heartbeat_owner = started_job
-                .lease_owner
-                .clone()
-                .unwrap_or_else(|| worker_id.clone());
-            let heartbeat_token = started_job.lease_token;
-            let heartbeat = tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                    match heartbeat_scheduler
-                        .renew_as(&heartbeat_job_id, &heartbeat_owner, heartbeat_token, 120)
-                        .await
-                    {
-                        Ok(_) => {}
-                        Err(error) => {
-                            tracing::warn!(
-                                job_id = %heartbeat_job_id,
-                                %error,
-                                "scheduler lease heartbeat failed"
-                            );
-                            break;
-                        }
-                    }
-                }
-            });
-
-            let execution_result = agent.execute_turn(&started_job.spec.task).await;
-            heartbeat.abort();
-
-            match execution_result {
-                Ok(response) => {
-                    if let Some(run_id) = run_id {
-                        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
-                            let transition = match run.state {
-                                RunState::Cancelling => {
-                                    state
-                                        .kernel
-                                        .transition_run(&run_id, RunState::Cancelled, run.version)
-                                        .await
-                                }
-                                RunState::Running => {
-                                    state
-                                        .kernel
-                                        .transition_run(&run_id, RunState::Completed, run.version)
-                                        .await
-                                }
-                                _ => Ok(()),
-                            };
-                            if let Err(error) = transition {
-                                tracing::error!(run_id = %run_id.as_str(), %error, "failed to finalize run after successful execution");
-                            }
-                        }
-                    }
-                    if let Err(error) = state
-                        .memory
-                        .store_message(
-                            &format!("{}-result", started_job.spec.run_id),
-                            &started_job.spec.run_id,
-                            "assistant",
-                            &response,
-                        )
-                        .await
-                    {
-                        tracing::warn!(job_id = %started_job.spec.job_id, %error, "failed to persist execution result");
-                    }
-                    let completion = state
-                        .scheduler
-                        .complete_as(
-                            &started_job.spec.job_id,
-                            started_job.lease_owner.as_deref(),
-                            Some(started_job.lease_token),
-                            true,
-                            None,
-                        )
+        match run.state {
+            RunState::Cancelling | RunState::Cancelled => {
+                let _ = state.scheduler.cancel(&started_job.spec.job_id).await;
+                if run.state == RunState::Cancelling {
+                    let _ = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Cancelled, run.version)
                         .await;
-                    state.metrics.record_scheduler_completion(completion.is_ok());
                 }
-                Err(error) => {
-                    let final_attempt =
-                        started_job.attempts >= started_job.spec.max_attempts.max(1);
-                    if let Some(run_id) = run_id {
-                        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
-                            if final_attempt && run.state == RunState::Running {
-                                if let Err(transition_error) = state
-                                    .kernel
-                                    .transition_run(&run_id, RunState::Failed, run.version)
-                                    .await
-                                {
-                                    tracing::error!(
-                                        run_id = %run_id.as_str(),
-                                        %transition_error,
-                                        "failed to mark run as failed"
-                                    );
-                                }
-                            } else if !final_attempt && run.state == RunState::Running {
-                                if let Err(transition_error) = state
-                                    .kernel
-                                    .transition_run(&run_id, RunState::Waiting, run.version)
-                                    .await
-                                {
-                                    tracing::error!(
-                                        run_id = %run_id.as_str(),
-                                        %transition_error,
-                                        "failed to return run to waiting state for retry"
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    tracing::error!(job_id = %started_job.spec.job_id, %error, final_attempt, "agent execution failed");
-                    let completion = state
+                return;
+            }
+            RunState::Admitted | RunState::Waiting => {
+                if let Err(error) = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Running, run.version)
+                    .await
+                {
+                    let _ = state
                         .scheduler
                         .complete_as(
                             &started_job.spec.job_id,
@@ -2894,9 +2740,167 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
                             Some(error.to_string()),
                         )
                         .await;
-                    state.metrics.record_scheduler_completion(completion.is_ok() && final_attempt);
+                    return;
                 }
             }
+            RunState::Created => {
+                let _ = state
+                    .scheduler
+                    .complete(
+                        &started_job.spec.job_id,
+                        false,
+                        Some(format!(
+                            "run {} is not executable in state {:?}",
+                            run_id.as_str(),
+                            run.state
+                        )),
+                    )
+                    .await;
+                return;
+            }
+            RunState::Running => {}
+            RunState::Completed | RunState::Failed => {
+                let _ = state
+                    .scheduler
+                    .complete(
+                        &started_job.spec.job_id,
+                        true,
+                        Some("run already reached terminal state".to_string()),
+                    )
+                    .await;
+                return;
+            }
+        }
+    }
+
+    let session_id = format!("run:{}", started_job.spec.run_id);
+    let agent = state.session_agent(&session_id, None).await;
+
+    // Keep the worker lease alive while a model/tool turn is running.
+    let heartbeat_scheduler = state.scheduler.clone();
+    let heartbeat_job_id = started_job.spec.job_id.clone();
+    let heartbeat_owner = started_job
+        .lease_owner
+        .clone()
+        .unwrap_or_else(|| worker_id.clone());
+    let heartbeat_token = started_job.lease_token;
+    let heartbeat = tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match heartbeat_scheduler
+                .renew_as(&heartbeat_job_id, &heartbeat_owner, heartbeat_token, 120)
+                .await
+            {
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(
+                        job_id = %heartbeat_job_id,
+                        %error,
+                        "scheduler lease heartbeat failed"
+                    );
+                    break;
+                }
+            }
+        }
+    });
+
+    let execution_result = agent.execute_turn(&started_job.spec.task).await;
+    heartbeat.abort();
+
+    match execution_result {
+        Ok(response) => {
+            if let Some(run_id) = run_id {
+                if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+                    let transition = match run.state {
+                        RunState::Cancelling => {
+                            state
+                                .kernel
+                                .transition_run(&run_id, RunState::Cancelled, run.version)
+                                .await
+                        }
+                        RunState::Running => {
+                            state
+                                .kernel
+                                .transition_run(&run_id, RunState::Completed, run.version)
+                                .await
+                        }
+                        _ => Ok(()),
+                    };
+                    if let Err(error) = transition {
+                        tracing::error!(run_id = %run_id.as_str(), %error, "failed to finalize run after successful execution");
+                    }
+                }
+            }
+            if let Err(error) = state
+                .memory
+                .store_message(
+                    &format!("{}-result", started_job.spec.run_id),
+                    &started_job.spec.run_id,
+                    "assistant",
+                    &response,
+                )
+                .await
+            {
+                tracing::warn!(job_id = %started_job.spec.job_id, %error, "failed to persist execution result");
+            }
+            let completion = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    true,
+                    None,
+                )
+                .await;
+            state.metrics.record_scheduler_completion(completion.is_ok());
+        }
+        Err(error) => {
+            let final_attempt =
+                started_job.attempts >= started_job.spec.max_attempts.max(1);
+            if let Some(run_id) = run_id {
+                if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+                    if final_attempt && run.state == RunState::Running {
+                        if let Err(transition_error) = state
+                            .kernel
+                            .transition_run(&run_id, RunState::Failed, run.version)
+                            .await
+                        {
+                            tracing::error!(
+                                run_id = %run_id.as_str(),
+                                %transition_error,
+                                "failed to mark run as failed"
+                            );
+                        }
+                    } else if !final_attempt && run.state == RunState::Running {
+                        if let Err(transition_error) = state
+                            .kernel
+                            .transition_run(&run_id, RunState::Waiting, run.version)
+                            .await
+                        {
+                            tracing::error!(
+                                run_id = %run_id.as_str(),
+                                %transition_error,
+                                "failed to return run to waiting state for retry"
+                            );
+                        }
+                    }
+                }
+            }
+            tracing::error!(job_id = %started_job.spec.job_id, %error, final_attempt, "agent execution failed");
+            let completion = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some(error.to_string()),
+                )
+                .await;
+            state.metrics.record_scheduler_completion(completion.is_ok() && final_attempt);
+        }
+    }
 }
 
 async fn sandbox_status(state: web::Data<RuntimeState>) -> impl Responder {

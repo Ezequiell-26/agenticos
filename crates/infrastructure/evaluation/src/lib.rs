@@ -196,7 +196,9 @@ impl EvaluationRegistry {
     }
 
     async fn persist_result(&self, result: &EvaluationResult) -> Result<(), String> {
-        let Some(db) = &self.db else { return Ok(()); };
+        let Some(db) = &self.db else {
+            return Ok(());
+        };
         let payload = serde_json::to_string(result)
             .map_err(|error| format!("evaluation result serialization failed: {error}"))?;
         sqlx::query(

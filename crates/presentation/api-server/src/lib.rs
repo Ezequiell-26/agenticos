@@ -506,7 +506,7 @@ async fn call_mcp_tool(
                 "tool": tool_name,
                 "result": result,
             }))
-        },
+        }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
@@ -949,7 +949,7 @@ async fn cancel_run(run_id: web::Path<String>, state: web::Data<RuntimeState>) -
                 .await;
             HttpResponse::Ok()
                 .json(serde_json::json!({"run_id": id.as_str(), "state": "Cancelling"}))
-        },
+        }
         Err(error) => HttpResponse::Conflict().json(ErrorResponse {
             error: error.to_string(),
             code: "RUN_CANCEL_FAILED",

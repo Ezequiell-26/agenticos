@@ -1852,7 +1852,11 @@ async fn execute_tool(
         Err(error) => HttpResponse::Forbidden().json(ErrorResponse {
             error: error.to_string(),
             code: "TOOL_EXECUTION_DENIED",
-        })async fn scheduler_worker(state: RuntimeState) {
+        })
+    }
+}
+
+async fn scheduler_worker(state: RuntimeState) {
     let worker_id = format!("scheduler-worker-{}", uuid::Uuid::new_v4());
     let concurrency = std::env::var("AGENTICOS_WORKER_CONCURRENCY")
         .ok()

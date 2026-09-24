@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio-rustls"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }
 uuid = { workspace = true, features = ["v4"] }

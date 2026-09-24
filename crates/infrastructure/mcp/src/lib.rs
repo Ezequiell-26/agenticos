@@ -220,7 +220,7 @@ impl McpManager {
         .bind(transport)
         .bind(if server.enabled { 1_i64 } else { 0_i64 })
         .bind(server.timeout_ms.map(|value| value as i64))
-        .execute(db)
+        .execute(db.as_ref())
         .await
         .map_err(|error| {
             McpError::InvalidConfiguration(format!("MCP persistence failed: {error}"))
@@ -234,7 +234,7 @@ impl McpManager {
         };
         sqlx::query("DELETE FROM mcp_servers WHERE server_id = ?")
             .bind(server_id)
-            .execute(db)
+            .execute(db.as_ref())
             .await
             .map_err(|error| {
                 McpError::InvalidConfiguration(format!("MCP persistence delete failed: {error}"))

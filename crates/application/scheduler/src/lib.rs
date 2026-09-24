@@ -454,7 +454,7 @@ impl JobScheduler {
         self.complete_as(
             job_id,
             lease.as_ref().map(|(owner, _)| owner.as_str()),
-            lease.map(|(_, token)| token),
+            lease.as_ref().map(|(_, token)| *token),
             success,
             error,
         )

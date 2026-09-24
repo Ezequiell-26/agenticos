@@ -521,7 +521,7 @@ impl ProviderPlatform {
             .bind(&config.primary_provider)
             .bind(fallback_json)
             .bind(if config.auto_failover { 1_i64 } else { 0_i64 })
-            .execute(db)
+            .execute(db.as_ref())
             .await
             .map_err(|error| ContractError::ParseError(format!("fallback persistence failed: {error}")))?;
         }

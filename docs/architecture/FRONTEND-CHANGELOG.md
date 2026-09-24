@@ -1046,3 +1046,12 @@ Verification status:
 - Added responsive styling in `ProviderResilience.css` while preserving the existing monochrome design system.
 - All new controls remain presentation-local; they do not execute provider traffic or claim CI/runtime verification.
 - Verification status: source inspection and route ownership remain clean. Frontend build, browser/Tauri verification and Step 25 acceptance evidence remain unverified.
+
+## 2026-09-24 — Provider policy editor and health diagnostics
+
+- Extended the Provider Studio with a Resilience tab containing failure simulations and recovery timelines.
+- Added a Verification tab whose matrix mirrors the real provider integration tests and exposes local result states plus evidence inspection affordances.
+- Added a Health diagnostics view with selectable telemetry windows and incident-style status history.
+- Added a resilience policy editor for automatic failover, health-aware selection, circuit breaking, bounded retries, maximum attempts and cooldown.
+- Kept every control presentation-only; no provider calls, credential reads, durable state writes or runtime failover behavior were introduced.
+- Verification status: static/source checks only. Frontend build, browser/Tauri verification and the authorized Step 25 acceptance suite remain unverified.

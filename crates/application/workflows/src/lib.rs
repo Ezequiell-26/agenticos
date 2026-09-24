@@ -113,8 +113,9 @@ impl WorkflowEngine {
 
         let mut state_map = HashMap::with_capacity(states.len());
         for (workflow_id, payload) in states {
-            let state: WorkflowState = serde_json::from_str(&payload)
-                .map_err(|error| format!("invalid persisted workflow state {workflow_id}: {error}"))?;
+            let state: WorkflowState = serde_json::from_str(&payload).map_err(|error| {
+                format!("invalid persisted workflow state {workflow_id}: {error}")
+            })?;
             state_map.insert(workflow_id, state);
         }
 

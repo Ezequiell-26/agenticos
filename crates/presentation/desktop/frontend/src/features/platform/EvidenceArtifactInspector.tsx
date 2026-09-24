@@ -25,4 +25,5 @@ export function EvidenceArtifactInspector({onAction}:{onAction:(message:string)=
   </div>
   <div className="evidence-inspector__footer"><span><Icon name="shield" size={12}/> Evidence metadata does not expose secrets.</span><span>Artifact download, mutation and external publication require runtime authorization.</span></div>
  </div>
+ </div>
 }

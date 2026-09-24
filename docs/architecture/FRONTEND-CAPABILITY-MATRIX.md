@@ -36,6 +36,7 @@ Backend pending means the UI contract exists but the corresponding Tauri/Rust se
 | Tasks | existing surface | objectives, dependencies, handoffs | preview |
 | Background Agents | existing surface | long-running isolated jobs | preview |
 | Cloud Agents | CloudAgentsWorkspace | remote agents and follow-ups | preview |
+| Remote Control Center | RemoteControlCenter | remote session monitoring, device pairing, approvals, notifications and resume workflow | preview |
 | Subagents | SubagentFleet | isolated specialists | preview |
 | Agent Teams | FinalControlSuite | multi-agent lanes and handoffs | preview |
 | Agent Control Plane | AgentControlPlane | autonomy, policy, budgets | preview |
@@ -133,9 +134,9 @@ The remaining work to call the frontend operational rather than presentation-com
 
 ## Final source-level ownership audit — 2026-09-24
 
-The navigation registry currently contains 90 surfaces. Ownership is explicit through the shared audit utility:
+The navigation registry currently contains 98 surfaces. Ownership is explicit through the shared audit utility:
 
-- 83 `PlatformSurface` modes
+- 91 `PlatformSurface` modes
 - 6 `StudioSurface` modes: `files`, `terminal`, `runs`, `agents`, `artifacts`, `settings`
 - 1 App-shell mode: `chat`
 - 0 unowned navigation surfaces
@@ -166,4 +167,9 @@ This is a structural completeness result, not a runtime-verification result. Bui
 
 ## Taxonomy exhaustiveness audit — 2026-09-24
 
-All 97 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
+All 98 navigation surfaces are now explicitly assigned to one of the seven navigation sections. `Run` has an explicit source set rather than relying on the classifier fallback.
+
+
+## Remote control and shell orientation — 2026-09-24
+
+Added a dedicated Remote Control Center and a persistent workspace command strip. The strip exposes project, branch, runtime, current surface, verification and agent-policy context without moving runtime authority into React state. Remote sessions, devices, approvals and notification preferences remain presentation-only until typed runtime contracts exist.

@@ -51,7 +51,7 @@ const integrationIds: ReadonlySet<RailMode> = new Set([
 ])
 
 const runIds: ReadonlySet<RailMode> = new Set([
-  'session-replay', 'runs', 'tasks', 'kanban', 'bots', 'artifacts', 'onboarding', 'analytics', 'hooks',
+  'session-replay', 'runs', 'tasks', 'kanban', 'bots', 'artifacts', 'onboarding', 'analytics', 'hooks', 'remote-control',
 ])
 
 const systemIds: ReadonlySet<RailMode> = new Set([

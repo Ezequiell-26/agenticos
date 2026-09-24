@@ -10,6 +10,7 @@ import StatusBar from './components/StatusBar'
 import WorkspaceOverview from './components/WorkspaceOverview'
 import WorkspaceSidebar from './components/WorkspaceSidebar'
 import WorkspaceDock from './components/WorkspaceDock'
+import WorkspaceCommandStrip from './components/WorkspaceCommandStrip'
 import { navigationItems } from './navigation'
 import { runtime } from './services/runtime'
 import { applyUiLayoutPreferences, readUiLayoutPreferences, subscribeUiPreferences } from './services/ui-preferences'
@@ -78,6 +79,7 @@ function App() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(initialUiPreferences.leftSidebarVisible)
   const [agentPanelOpen, setAgentPanelOpen] = useState(initialUiPreferences.agentInspectorVisible)
   const [dockOpen, setDockOpen] = useState(initialUiPreferences.bottomDockVisible)
+  const [focusMode, setFocusMode] = useState(false)
 
   useEffect(() => {
     persistUiState(modeStorageKey, mode)
@@ -113,6 +115,11 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'Enter') {
+        event.preventDefault()
+        setFocusMode((open) => !open)
+        return
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setPaletteOpen((open) => !open)
@@ -222,7 +229,7 @@ function App() {
   }
 
   return (
-    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
+    <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (!agentPanelOpen ? 'app-shell--agent-collapsed ' : '') + (focusMode ? 'app-shell--focus' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
       <ActivityRail active={mode} onChange={setMode} />
       <WorkspaceSidebar
         activeConversation={sessionId}
@@ -258,6 +265,15 @@ function App() {
             </button>
           </div>
         </header>
+
+        <WorkspaceCommandStrip
+          mode={mode}
+          status={status}
+          focusMode={focusMode}
+          onToggleFocus={() => setFocusMode((open) => !open)}
+          onNavigate={setMode}
+          onAction={(message) => console.info('[AgentiCOS UI]', message)}
+        />
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (

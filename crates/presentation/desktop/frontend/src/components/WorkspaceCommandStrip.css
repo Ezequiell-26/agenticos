@@ -1,0 +1,19 @@
+.workspace-command-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:7px 14px;border-bottom:1px solid #202020;background:linear-gradient(180deg,#0d0d0d,#0a0a0a);color:#a7a7a7}
+.workspace-command-strip__left,.workspace-command-strip__right{display:flex;align-items:center;gap:6px;min-width:0}
+.workspace-command-strip__left{overflow:hidden}.workspace-command-strip__right{flex:0 0 auto}
+.workspace-context-chip{display:inline-flex;align-items:center;gap:7px;min-width:0;padding:6px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:#8b8b8b;text-align:left;cursor:pointer}
+button.workspace-context-chip:hover{border-color:#292929;background:#131313;color:#e7e7e7}
+.workspace-context-chip>span:last-of-type{min-width:0;display:flex;flex-direction:column;gap:1px}
+.workspace-context-chip strong,.workspace-signal-item strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c9c9c9;font-size:9px;font-weight:650}
+.workspace-context-chip small,.workspace-signal-item small{color:#555;font-size:8px;line-height:1.2;white-space:nowrap}
+.workspace-context-chip--project{padding-left:0}.workspace-context-chip--project .workspace-context-chip__icon{width:27px;height:27px;display:grid;place-items:center;border:1px solid #292929;border-radius:8px;background:#161616;color:#e3e3e3}
+.workspace-context-chip--status{cursor:default}.workspace-context-chip--status:hover{border-color:transparent;background:transparent;color:#8b8b8b}
+.workspace-context-chip--wide{max-width:210px}.workspace-command-strip__signal{display:flex;align-items:center;gap:2px;padding-right:3px;border-right:1px solid #232323}
+.workspace-signal-item{display:inline-flex;align-items:center;gap:5px;min-width:0;padding:5px 7px;color:#6f6f6f}.workspace-signal-item>small{display:none}
+.workspace-command-button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:0 8px;border:1px solid #252525;border-radius:8px;background:#101010;color:#8a8a8a;font-size:9px;font-weight:650;cursor:pointer}
+.workspace-command-button:hover,.workspace-command-button--active{border-color:#353535;background:#181818;color:#f1f1f1}
+.app-shell--focus{grid-template-columns:minmax(0,1fr)!important}.app-shell--focus .activity-rail,.app-shell--focus .workspace-sidebar,.app-shell--focus .agent-panel{display:none}.app-shell--focus .workspace-main{grid-column:1}
+.workspace-main{grid-template-rows:62px auto minmax(0,1fr) 30px!important}
+@media(max-width:1180px){.workspace-command-strip{padding-inline:10px}.workspace-context-chip--wide,.workspace-signal-item small{display:none}.workspace-command-strip__signal{display:none}}
+@media(max-width:900px){.workspace-command-strip{align-items:stretch;flex-direction:column;min-height:0;padding:8px 10px}.workspace-command-strip__left,.workspace-command-strip__right{flex-wrap:wrap}.workspace-command-strip__right{justify-content:flex-end}}
+@media(prefers-reduced-motion:reduce){.workspace-command-button,.workspace-context-chip{transition:none!important}}

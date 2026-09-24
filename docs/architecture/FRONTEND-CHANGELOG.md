@@ -996,3 +996,19 @@ Verification status:
 - Added a workspace-level project control surface for project identity, current branch, tasks, environment, layout and recovery context.
 - Added direct launch cards into Developer, Mission, Execution, Intelligence, Governance and Integration workspaces.
 - Kept project/branch/environment changes as presentation intents until runtime project services are connected.
+
+
+## 2026-09-24 — Remote Control Center + workspace command strip
+
+- Added `Remote Control Center` for remote session monitoring, device pairing, approval queues, activity notifications, reconnect preferences and a remote viewport preview.
+- Added `WorkspaceCommandStrip` to keep project, branch, runtime, current surface, verification gates and agent policy visible while working.
+- Added a focus workspace mode with `Ctrl/Cmd+Shift+Enter` that collapses secondary chrome without creating a second application shell.
+- Added explicit `remote-control` navigation registration and taxonomy ownership.
+- Runtime boundary: remote transport, device authentication, push delivery, approvals and session resume remain backend/runtime responsibilities; the UI emits preview intents only.
+- Verification status: source-level registry and route wiring inspected; fresh frontend build, browser verification, accessibility execution and Tauri rendering remain unverified.
+
+
+## 2026-09-24 — Navigation type registry hardening
+
+- Added `onboarding` and `qa` to the canonical `RailMode` union so every registered navigation item is represented in the typed route domain.
+- Preserved the existing ownership model: both surfaces are already handled by `PlatformSurface`; this change closes type-level registry drift without changing runtime behavior.

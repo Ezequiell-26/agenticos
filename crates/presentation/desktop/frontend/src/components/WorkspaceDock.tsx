@@ -64,17 +64,31 @@ export default function WorkspaceDock({ open, mode, status, running, messageCoun
   return (
     <section className={'workspace-dock ' + (maximized ? 'workspace-dock--maximized' : '')} aria-label="Workspace bottom dock">
       <header className="workspace-dock__header">
-        <div className="workspace-dock__tabs" role="tablist" aria-label="Workspace dock">
-          {(['Terminal', 'Problems', 'Timeline', 'Output'] as DockTab[]).map((item) => (
+        <div className="workspace-dock__tabs" role="tablist" aria-label="Workspace dock" aria-orientation="horizontal">
+          {(['Terminal', 'Problems', 'Timeline', 'Output'] as DockTab[]).map((item, index, tabs) => (
             <button
               key={item}
               className={tab === item ? 'workspace-dock__tab workspace-dock__tab--active' : 'workspace-dock__tab'}
               type="button"
               role="tab"
+              tabIndex={tab === item ? 0 : -1}
               aria-selected={tab === item}
               aria-controls={'workspace-dock-panel-' + item.toLowerCase()}
               id={'workspace-dock-tab-' + item.toLowerCase()}
               onClick={() => setTab(item)}
+              onKeyDown={(event) => {
+                const nextIndex = event.key === 'ArrowRight'
+                  ? (index + 1) % tabs.length
+                  : event.key === 'ArrowLeft'
+                    ? (index - 1 + tabs.length) % tabs.length
+                    : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+                if (nextIndex >= 0) {
+                  event.preventDefault()
+                  const next = tabs[nextIndex]
+                  setTab(next)
+                  window.requestAnimationFrame(() => document.getElementById('workspace-dock-tab-' + next.toLowerCase())?.focus())
+                }
+              }}
             >
               <Icon name={item === 'Terminal' ? 'terminal' : item === 'Problems' ? 'shield' : item === 'Timeline' ? 'activity' : 'archive'} size={13} />
               {item}

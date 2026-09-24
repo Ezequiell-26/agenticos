@@ -269,8 +269,20 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
       </div>
 
       <div className="feature-workbench__toolbar">
-        <div className="feature-workbench__tabs" role="tablist" aria-label="Feature views">
-          {(['Overview', 'Activity'] as const).map(tab => <button key={tab} type="button" role="tab" aria-selected={view === tab} className={view === tab ? 'feature-tab feature-tab--active' : 'feature-tab'} onClick={() => setView(tab)}><Icon name={tab === 'Overview' ? 'layers' : 'activity'} size={13} />{tab}</button>)}
+        <div className="feature-workbench__tabs" role="tablist" aria-label="Feature views" aria-orientation="horizontal">
+          {(['Overview', 'Activity'] as const).map((tab, index, tabs) => <button key={tab} id={'feature-tab-' + tab.toLowerCase()} type="button" role="tab" tabIndex={view === tab ? 0 : -1} aria-selected={view === tab} aria-controls={'feature-panel-' + tab.toLowerCase()} className={view === tab ? 'feature-tab feature-tab--active' : 'feature-tab'} onClick={() => setView(tab)} onKeyDown={(event) => {
+            const nextIndex = event.key === 'ArrowRight'
+              ? (index + 1) % tabs.length
+              : event.key === 'ArrowLeft'
+                ? (index - 1 + tabs.length) % tabs.length
+                : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+            if (nextIndex >= 0) {
+              event.preventDefault()
+              const next = tabs[nextIndex]
+              setView(next)
+              window.requestAnimationFrame(() => document.getElementById('feature-tab-' + next.toLowerCase())?.focus())
+            }
+          }}><Icon name={tab === 'Overview' ? 'layers' : 'activity'} size={13} />{tab}</button>)}
         </div>
         <div className="feature-workbench__controls">
           <label className="feature-search"><Icon name="search" size={13} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search this workspace…" aria-label="Search feature workspace" /></label>
@@ -308,8 +320,9 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
           </div>
         </section>
       ) : view === 'Overview' ? (
-        <div className="feature-workbench__grid">
-          <Panel title="Workspace items">
+        <section id="feature-panel-overview" role="tabpanel" aria-labelledby="feature-tab-overview" tabIndex={0}>
+          <div className="feature-workbench__grid">
+            <Panel title="Workspace items">
             <div className="feature-list">
               {visible.map(([name, detail, state, kind]) => <button key={name} type="button" className={selected === name ? 'feature-list__row feature-list__row--active' : 'feature-list__row'} onClick={() => setSelected(name)}>
                 <span className="feature-list__icon"><Icon name={kind === 'Metric' ? 'activity' : kind === 'Timeline' ? 'history' : 'layers'} size={14} /></span>
@@ -329,14 +342,17 @@ export default function FeatureWorkbench({ mode, onAction }: FeatureWorkbenchPro
               <div className="feature-detail__section"><span>Capabilities</span><div className="feature-chip-grid">{config.capabilities.map(item => <span key={item}>{item}</span>)}</div></div>
               <div className="feature-detail__section"><span>Local presentation actions</span><div className="platform-actions">{config.actions.map(action => <button key={action} className="studio-button" type="button" onClick={() => onAction(action + ' staged in UI for ' + current[0])}>{action}</button>)}</div></div>
             </div>
-          </Panel>
-        </div>
-      ) : (
-        <Panel title="Recent activity">
-          <div className="feature-activity">
-            {config.items.map(([name, detail, state, kind], index) => <div className="feature-activity__row" key={name}><span className="feature-activity__index">0{index + 1}</span><div><strong>{name}</strong><small>{detail} · {kind}</small></div><Tag label={state} /><time>{index + 1}m ago</time></div>)}
+            </Panel>
           </div>
-        </Panel>
+        </section>
+      ) : (
+        <section id="feature-panel-activity" role="tabpanel" aria-labelledby="feature-tab-activity" tabIndex={0}>
+          <Panel title="Recent activity">
+            <div className="feature-activity">
+            {config.items.map(([name, detail, state, kind], index) => <div className="feature-activity__row" key={name}><span className="feature-activity__index">0{index + 1}</span><div><strong>{name}</strong><small>{detail} · {kind}</small></div><Tag label={state} /><time>{index + 1}m ago</time></div>)}
+            </div>
+          </Panel>
+        </section>
       )}
 
       <footer className="feature-workbench__footer">

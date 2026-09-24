@@ -1280,3 +1280,12 @@ Verification status:
 - Preserved the existing detailed Subagent Builder for task, context, delegation, safety and run configuration instead of duplicating those controls.
 - Added responsive fleet presentation styling.
 - Verification status: source-level wiring only; latest CI/build/browser/Tauri evidence remains pending.
+
+## 2026-09-24 — Browser automation workspace depth
+
+- Expanded Browser Workspace with explicit recording state, viewport presets and a dedicated automation action queue.
+- Added Click, Fill, Navigate, Assert, Wait and Screenshot step composition with reorder-ready/remove controls in the presentation layer.
+- Added Console severity filtering and Network request filtering while preserving the existing DOM and Storage inspectors.
+- Added responsive browser workspace styling for narrow desktop and mobile-sized viewports.
+- Preserved the runtime boundary: browser navigation, DOM mutation, network calls, downloads and recordings remain preview intents until browser services are connected.
+- Verification status: source-level wiring only; fresh CI and browser execution evidence remains pending.

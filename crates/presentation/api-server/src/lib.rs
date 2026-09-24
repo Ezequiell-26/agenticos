@@ -22,7 +22,7 @@ use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState, Sandbox,
     SandboxStatus,
 };
-use agenticos_evaluation::{EvaluationCase, EvaluationResult, EvaluationStore};
+use agenticos_evaluation::{EvaluationCase, EvaluationStore};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, SqliteEventStore, SqliteMemory,

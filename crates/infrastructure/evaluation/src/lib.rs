@@ -24,7 +24,7 @@ pub struct EvaluationCase {
 }
 
 /// Stored result of an evaluation.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EvaluationResult {
     /// Unique evaluation result identifier.
     pub evaluation_id: String,

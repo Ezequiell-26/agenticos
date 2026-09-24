@@ -8,6 +8,7 @@ actix-cors = { workspace = true }
 actix-web = { workspace = true }
 agenticos-agents = { path = "../../application/agents" }
 agenticos-brain = { path = "../../domain/brain" }
+agenticos-evaluation = { path = "../../infrastructure/evaluation" }
 agenticos-execution = { path = "../../application/execution" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
@@ -17,6 +18,7 @@ agenticos-observability = { path = "../../infrastructure/observability" }
 agenticos-providers = { path = "../../infrastructure/providers" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-scheduler = { path = "../../application/scheduler" }
+agenticos-runtime = { path = "../../infrastructure/runtime" }
 agenticos-security = { path = "../../infrastructure/security" }
 agenticos-workflows = { path = "../../application/workflows" }
 serde = { workspace = true, features = ["derive"] }

@@ -299,6 +299,166 @@ impl SnapshotStore for InMemorySnapshotStore {
     }
 }
 
+/// SQLite-backed idempotency store for durable request de-duplication.
+#[derive(Debug, Clone)]
+pub struct SqliteIdempotencyStore {
+    pool: sqlx::SqlitePool,
+    ttl_seconds: u64,
+}
+
+impl SqliteIdempotencyStore {
+    /// Open or initialize the idempotency store.
+    pub async fn new(connection_string: &str, ttl_seconds: u64) -> Result<Self, sqlx::Error> {
+        let pool = sqlx::SqlitePool::connect(connection_string).await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS idempotency_records (
+                idempotency_key TEXT PRIMARY KEY,
+                fingerprint TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT,
+                created_at INTEGER NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        Ok(Self {
+            pool,
+            ttl_seconds: ttl_seconds.max(60),
+        })
+    }
+
+    fn parse_status(value: &str) -> Result<IdempotencyStatus, ContractError> {
+        match value {
+            "in_progress" => Ok(IdempotencyStatus::InProgress),
+            "completed" => Ok(IdempotencyStatus::Completed),
+            "failed" => Ok(IdempotencyStatus::Failed),
+            _ => Err(ContractError::IncompatibleVersion),
+        }
+    }
+
+    async fn load(
+        &self,
+        key: &str,
+    ) -> Result<Option<IdempotencyRecord>, ContractError> {
+        let row = sqlx::query_as::<_, (String, String, String, Option<String>)>(
+            "SELECT idempotency_key, fingerprint, status, result
+             FROM idempotency_records
+             WHERE idempotency_key = ?",
+        )
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+
+        row.map(|(key, fingerprint, status, result)| {
+            Ok(IdempotencyRecord {
+                key,
+                fingerprint,
+                status: Self::parse_status(&status)?,
+                result,
+            })
+        })
+        .transpose()
+    }
+
+    /// Atomically create an in-progress record or return the existing operation.
+    pub async fn check_or_record(
+        &self,
+        key: &str,
+        fingerprint: &str,
+    ) -> Result<IdempotencyRecord, ContractError> {
+        let key = key.trim();
+        if key.is_empty() || key.len() > 256 || fingerprint.len() > 4096 {
+            return Err(ContractError::InvalidId);
+        }
+
+        let now = unix_time();
+        sqlx::query(
+            "INSERT INTO idempotency_records
+                (idempotency_key, fingerprint, status, result, created_at)
+             VALUES (?, ?, 'in_progress', NULL, ?)
+             ON CONFLICT(idempotency_key) DO NOTHING",
+        )
+        .bind(key)
+        .bind(fingerprint)
+        .bind(now as i64)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+
+        let mut existing = self.load(key).await?.ok_or(ContractError::Persistence)?;
+        if existing.fingerprint != fingerprint {
+            return Err(ContractError::InvalidId);
+        }
+
+        if existing.status == IdempotencyStatus::InProgress {
+            let stale_before = now.saturating_sub(self.ttl_seconds);
+            let _ = sqlx::query(
+                "UPDATE idempotency_records
+                 SET created_at = ?
+                 WHERE idempotency_key = ? AND status = 'in_progress' AND created_at < ?",
+            )
+            .bind(now as i64)
+            .bind(key)
+            .bind(stale_before as i64)
+            .execute(&self.pool)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+            existing = self.load(key).await?.ok_or(ContractError::Persistence)?;
+        }
+
+        Ok(existing)
+    }
+
+    /// Mark an operation completed and cache its result.
+    pub async fn mark_completed(
+        &self,
+        key: &str,
+        result: String,
+    ) -> Result<(), ContractError> {
+        let updated = sqlx::query(
+            "UPDATE idempotency_records SET status = 'completed', result = ?
+             WHERE idempotency_key = ?",
+        )
+        .bind(result)
+        .bind(key)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+        if updated.rows_affected() != 1 {
+            return Err(ContractError::MissingCapability);
+        }
+        Ok(())
+    }
+
+    /// Mark an operation as failed.
+    pub async fn mark_failed(&self, key: &str) -> Result<(), ContractError> {
+        let updated = sqlx::query(
+            "UPDATE idempotency_records SET status = 'failed'
+             WHERE idempotency_key = ?",
+        )
+        .bind(key)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+        if updated.rows_affected() != 1 {
+            return Err(ContractError::MissingCapability);
+        }
+        Ok(())
+    }
+
+    /// Remove records older than the configured TTL.
+    pub async fn prune(&self) -> Result<u64, ContractError> {
+        let cutoff = unix_time().saturating_sub(self.ttl_seconds);
+        let result = sqlx::query("DELETE FROM idempotency_records WHERE created_at < ?")
+            .bind(cutoff as i64)
+            .execute(&self.pool)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+        Ok(result.rows_affected())
+    }
+}
+
 /// In-memory idempotency store for testing.
 #[derive(Debug)]
 pub struct InMemoryIdempotencyStore {
@@ -5683,6 +5843,35 @@ Test procedure"#;
 
         assert_eq!(recovered.state, RunState::Admitted);
         assert_eq!(recovered.version, 2);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn sqlite_idempotency_deduplicates_and_recovers() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-idempotency-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = SqliteIdempotencyStore::new(&url, 600).await.unwrap();
+        let created = first.check_or_record("key-1", "fingerprint").await.unwrap();
+        assert_eq!(created.status, IdempotencyStatus::InProgress);
+        first
+            .mark_completed("key-1", "cached-result".to_string())
+            .await
+            .unwrap();
+        drop(first);
+
+        let second = SqliteIdempotencyStore::new(&url, 600).await.unwrap();
+        let recovered = second.check_or_record("key-1", "fingerprint").await.unwrap();
+        assert_eq!(recovered.status, IdempotencyStatus::Completed);
+        assert_eq!(recovered.result.as_deref(), Some("cached-result"));
+        assert!(matches!(
+            second.check_or_record("key-1", "different").await,
+            Err(ContractError::InvalidId)
+        ));
 
         let _ = std::fs::remove_file(path);
     }

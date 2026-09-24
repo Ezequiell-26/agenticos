@@ -128,6 +128,7 @@ pub struct RuntimeState {
     source_intelligence: Arc<agenticos_brain::SourceIntelligenceEngine>,
     metrics: Arc<RuntimeMetrics>,
     evaluation: Arc<EvaluationRegistry>,
+    idempotency: Arc<SqliteIdempotencyStore>,
     source_forge: Arc<GitHubSourceClient>,
     model: String,
 }
@@ -278,6 +279,11 @@ impl RuntimeState {
                 EvaluationRegistry::open(&database_url)
                     .await
                     .map_err(ContractError::ParseError)?,
+            ),
+            idempotency: Arc::new(
+                SqliteIdempotencyStore::new(&database_url, 86_400)
+                    .await
+                    .map_err(|error| ContractError::ParseError(error.to_string()))?,
             ),
             source_forge: Arc::new(
                 GitHubSourceClient::from_env()
@@ -1641,6 +1647,7 @@ async fn list_models(state: web::Data<RuntimeState>) -> impl Responder {
 }
 
 async fn create_run(
+    http_request: HttpRequest,
     request: web::Json<CreateRunRequest>,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
@@ -1655,6 +1662,59 @@ async fn create_run(
         .run_id
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let idempotency_key = http_request
+        .headers()
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let idempotency_storage_key = idempotency_key
+        .as_ref()
+        .map(|key| format!("run.create:{key}"));
+    let idempotency_fingerprint = format!("{run_id_text}\0{objective}");
+
+    if let Some(storage_key) = &idempotency_storage_key {
+        if storage_key.len() > 320 {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "Idempotency-Key exceeds supported limits".to_string(),
+                code: "IDEMPOTENCY_KEY_TOO_LARGE",
+            });
+        }
+        match state.idempotency.check_or_record(storage_key, &idempotency_fingerprint).await {
+            Ok(record) if record.status == agenticos_contracts::IdempotencyStatus::Completed => {
+                if let Some(cached) = record.result {
+                    if let Ok(response) = serde_json::from_str::<RunResponse>(&cached) {
+                        return HttpResponse::Ok().json(response);
+                    }
+                }
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "cached idempotent result is invalid".to_string(),
+                    code: "IDEMPOTENCY_CACHE_INVALID",
+                });
+            }
+            Ok(record) if record.status == agenticos_contracts::IdempotencyStatus::InProgress => {
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "equivalent run creation is already in progress".to_string(),
+                    code: "IDEMPOTENCY_IN_PROGRESS",
+                });
+            }
+            Ok(_) => {}
+            Err(ContractError::InvalidId) => {
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "Idempotency-Key was already used for a different request".to_string(),
+                    code: "IDEMPOTENCY_KEY_REUSED",
+                });
+            }
+            Err(error) => {
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "IDEMPOTENCY_STORE_FAILED",
+                });
+            }
+        }
+    }
     let run_id = match RunId::new(run_id_text.clone()) {
         Ok(id) => id,
         Err(error) => {
@@ -1672,6 +1732,9 @@ async fn create_run(
                 .transition_run(&run_id, RunState::Admitted, created_run.version)
                 .await
             {
+                if let Some(key) = &idempotency_storage_key {
+                    let _ = state.idempotency.mark_failed(key).await;
+                }
                 return HttpResponse::Conflict().json(ErrorResponse {
                     error: error.to_string(),
                     code: "RUN_ADMISSION_FAILED",
@@ -1709,6 +1772,9 @@ async fn create_run(
                             .transition_run(&run_id, RunState::Failed, waiting.version)
                             .await;
                     }
+                }
+                if let Some(key) = &idempotency_storage_key {
+                    let _ = state.idempotency.mark_failed(key).await;
                 }
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error: error.to_string(),
@@ -1751,6 +1817,9 @@ async fn create_run(
                             .await;
                     }
                 }
+                if let Some(key) = &idempotency_storage_key {
+                    let _ = state.idempotency.mark_failed(key).await;
+                }
                 return HttpResponse::InternalServerError().json(ErrorResponse {
                     error,
                     code: "RUN_JOB_ENQUEUE_FAILED",
@@ -1782,10 +1851,15 @@ async fn create_run(
                 version: current.version,
             })
         }
-        Err(error) => HttpResponse::Conflict().json(ErrorResponse {
-            error: error.to_string(),
-            code: "RUN_CREATE_FAILED",
-        }),
+        Err(error) => {
+            if let Some(key) = &idempotency_storage_key {
+                let _ = state.idempotency.mark_failed(key).await;
+            }
+            HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "RUN_CREATE_FAILED",
+            })
+        },
     }
 }
 

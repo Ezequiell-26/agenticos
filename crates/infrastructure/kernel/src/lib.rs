@@ -586,13 +586,7 @@ impl KernelRuntime {
         to: RunState,
         expected_version: u64,
     ) -> Result<(), ContractError> {
-        let previous = self
-            .runs
-            .read()
-            .await
-            .get(run_id)
-            .cloned()
-            .ok_or(ContractError::MissingCapability)?;
+        let previous = self.get_or_recover_run(run_id).await?;
 
         let mut updated = previous.clone();
         let from_state = updated.state;
@@ -647,6 +641,9 @@ impl KernelRuntime {
     }
 
     /// Acquire a lease for a run.
+    ///
+    /// Lease ownership is intentionally process-local until a dedicated
+    /// durable lease event is introduced; run lifecycle state remains durable.
     pub async fn acquire_lease(
         &self,
         run_id: &RunId,
@@ -666,13 +663,7 @@ impl KernelRuntime {
 
     /// Request cancellation of a run.
     pub async fn cancel_run(&self, run_id: &RunId) -> Result<(), ContractError> {
-        let previous = self
-            .runs
-            .read()
-            .await
-            .get(run_id)
-            .cloned()
-            .ok_or(ContractError::MissingCapability)?;
+        let previous = self.get_or_recover_run(run_id).await?;
 
         let mut updated = previous.clone();
         updated.request_cancellation()?;
@@ -701,8 +692,7 @@ impl KernelRuntime {
         &self,
         run_id: &RunId,
     ) -> Result<SerializedSnapshot, ContractError> {
-        let runs = self.runs.read().await;
-        let run = runs.get(run_id).ok_or(ContractError::MissingCapability)?;
+        let run = self.get_or_recover_run(run_id).await?;
 
         let snapshot = SerializedSnapshot {
             stream_id: format!("run:{}", run_id.as_str()),
@@ -5641,6 +5631,28 @@ Test procedure"#;
 
         assert_eq!(deserialized.plan_id, "test-plan");
         assert_eq!(deserialized.objective, "Test objective");
+    }
+
+    #[tokio::test]
+    async fn recovered_run_can_be_cancelled_without_being_preloaded() {
+        let event_store = Arc::new(InMemoryEventStore::new());
+        let snapshot_store = Arc::new(InMemorySnapshotStore::new());
+
+        let first = KernelRuntime::minimal(event_store.clone(), snapshot_store.clone());
+        let run_id = RunId::new("recover-cancel").unwrap();
+        first.create_run(run_id.clone()).await.unwrap();
+        let created = first.get_or_recover_run(&run_id).await.unwrap();
+        first
+            .transition_run(&run_id, RunState::Admitted, created.version)
+            .await
+            .unwrap();
+        drop(first);
+
+        let second = KernelRuntime::minimal(event_store, snapshot_store);
+        second.cancel_run(&run_id).await.unwrap();
+
+        let recovered = second.get_or_recover_run(&run_id).await.unwrap();
+        assert_eq!(recovered.state, RunState::Cancelling);
     }
 
     #[tokio::test]

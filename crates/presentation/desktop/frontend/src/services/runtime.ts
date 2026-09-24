@@ -3,16 +3,21 @@ import type {
   ChatMessage,
   RuntimeApiRecord,
   RuntimeFallbackConfig,
+  RuntimeHealth,
   RuntimeHealthCheck,
   RuntimeMemoryRecord,
   RuntimeModel,
+  RuntimeModelResponse,
   RuntimeProviderRegistration,
   RuntimeProviderStatus,
   RuntimeQuota,
+  RuntimeReadiness,
   RuntimeRetryPolicy,
   RuntimeRun,
   RuntimeSearchResult,
   RuntimeServices,
+  RuntimeStreamEvent,
+  RuntimeWorkerJob,
 } from '../types/runtime'
 
 export class RuntimeHttpError extends Error {
@@ -29,22 +34,30 @@ export class RuntimeHttpError extends Error {
 
 interface HttpTransport {
   get<T>(path: string): Promise<T>
+  getBlob(path: string): Promise<Blob>
   post<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T>
+  postStream(path: string, body?: unknown, headers?: Record<string, string>): Promise<Response>
+  postRaw<T>(path: string, body: BodyInit, headers?: Record<string, string>): Promise<T>
   put<T>(path: string, body?: unknown): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
   delete<T = void>(path: string): Promise<T>
 }
 
 class FetchTransport implements HttpTransport {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly apiToken?: string,
+  ) {}
 
-  private async request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
+  private headers(body?: unknown, headers?: Record<string, string>): Record<string, string> {
+    return {
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(this.apiToken ? { Authorization: `Bearer ${this.apiToken}` } : {}),
+      ...headers,
+    }
+  }
 
+  private async parseError(response: Response, method: string, path: string): Promise<never> {
     const text = await response.text()
     let data: unknown
     if (text) {
@@ -54,14 +67,62 @@ class FetchTransport implements HttpTransport {
         data = text
       }
     }
+    const record = isRecord(data) ? data : {}
+    const message = readString(record, 'error') ?? `${method} ${path} failed with ${response.status}`
+    throw new RuntimeHttpError(message, response.status, readString(record, 'code'), data)
+  }
 
-    if (!response.ok) {
-      const record = isRecord(data) ? data : {}
-      const message = readString(record, 'error') ?? `${method} ${path} failed with ${response.status}`
-      throw new RuntimeHttpError(message, response.status, readString(record, 'code'), data)
+  private async request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: this.headers(body, headers),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+
+    if (!response.ok) return this.parseError(response, method, path)
+
+    const text = await response.text()
+    if (!text) return undefined as T
+    try {
+      return JSON.parse(text) as T
+    } catch {
+      return text as T
     }
+  }
 
-    return data as T
+  async getBlob(path: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: this.headers(),
+    })
+    if (!response.ok) return this.parseError(response, 'GET', path)
+    return response.blob()
+  }
+
+  async postStream(path: string, body?: unknown, headers?: Record<string, string>): Promise<Response> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: this.headers(body, headers),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    if (!response.ok) return this.parseError(response, 'POST', path)
+    return response
+  }
+
+  async postRaw<T>(path: string, body: BodyInit, headers?: Record<string, string>): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: this.headers(undefined, headers),
+      body,
+    })
+    if (!response.ok) return this.parseError(response, 'POST', path)
+    const text = await response.text()
+    if (!text) return undefined as T
+    try {
+      return JSON.parse(text) as T
+    } catch {
+      return text as T
+    }
   }
 
   get<T>(path: string) { return this.request<T>('GET', path) }
@@ -122,13 +183,73 @@ function createMessage(role: ChatMessage['role'], content: string, timestamp = D
   return { id: id ?? `${role}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`, role, content, timestamp }
 }
 
+function normalizeAgentState(value: unknown): AgentStatusSnapshot['state'] {
+  switch (String(value).toLowerCase()) {
+    case 'queued': return 'queued'
+    case 'planning': return 'planning'
+    case 'executing':
+    case 'running': return 'executing'
+    case 'streaming': return 'streaming'
+    case 'verifying': return 'verifying'
+    case 'repairing': return 'repairing'
+    case 'failed':
+    case 'error': return 'failed'
+    case 'cancelled':
+    case 'canceled': return 'cancelled'
+    case 'completed':
+    case 'ready':
+    case 'idle':
+    default: return 'idle'
+  }
+}
+
+function parseSseEvent(block: string): RuntimeStreamEvent | null {
+  const lines = block.split(/\\r?\\n/)
+  let eventType = 'message'
+  const dataLines: string[] = []
+  for (const line of lines) {
+    if (line.startsWith('event:')) eventType = line.slice(6).trim()
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+  }
+  if (dataLines.length === 0) return null
+
+  const raw = dataLines.join('\\n')
+  try {
+    const data = JSON.parse(raw) as RuntimeApiRecord
+    if (eventType === 'done' || data.done === true) return {
+      type: 'done',
+      request_id: readString(data, 'request_id'),
+    }
+    if (eventType === 'error' || readString(data, 'error')) return {
+      type: 'error',
+      request_id: readString(data, 'request_id'),
+      error: readString(data, 'error') ?? 'Runtime stream failed',
+    }
+    return {
+      type: 'message',
+      request_id: readString(data, 'request_id'),
+      delta: readString(data, 'delta') ?? '',
+    }
+  } catch {
+    return { type: 'message', delta: raw }
+  }
+}
+
 export class AgenticosRuntime implements RuntimeServices {
   private readonly transport: HttpTransport
   readonly baseUrl: string
 
-  constructor(baseUrl = import.meta.env.VITE_AGENTICOS_API_URL ?? 'http://127.0.0.1:8080') {
-    this.baseUrl = baseUrl.replace(/\/+$/, '')
-    this.transport = new FetchTransport(this.baseUrl)
+  constructor(
+    baseUrl = import.meta.env.VITE_AGENTICOS_API_URL ?? 'http://127.0.0.1:8080',
+    apiToken = import.meta.env.VITE_AGENTICOS_API_TOKEN as string | undefined,
+  ) {
+    this.baseUrl = baseUrl.replace(/\\/+$/, '')
+    this.transport = new FetchTransport(this.baseUrl, apiToken?.trim() || undefined)
+  }
+
+  readonly health = {
+    get: async (): Promise<RuntimeHealth> => this.transport.get<RuntimeHealth>('/health'),
+    ready: async (): Promise<RuntimeReadiness> => this.transport.get<RuntimeReadiness>('/ready'),
   }
 
   readonly chat = {
@@ -153,7 +274,7 @@ export class AgenticosRuntime implements RuntimeServices {
         const configured = providers.filter((provider) => provider.configured)
         return {
           agentName: readString(data, 'agent_name') ?? 'AgentiCOS',
-          state: 'idle',
+          state: normalizeAgentState(data.state),
           runtimeState: readString(data, 'state') ?? 'unknown',
           provider: configured.map((provider) => provider.name).join(' + ') || 'No provider configured',
           model: readString(data, 'model') ?? 'Runtime-selected model',
@@ -191,6 +312,49 @@ export class AgenticosRuntime implements RuntimeServices {
         capabilities: arrayOfStrings(entry.capabilities),
       })).filter((model) => model.model_id)
     },
+    execute: async (model: string, input: string, parameters?: string, requestId?: string): Promise<RuntimeModelResponse> =>
+      this.transport.post<RuntimeModelResponse>('/api/models/execute', {
+        model,
+        input,
+        ...(parameters ? { parameters } : {}),
+        ...(requestId ? { request_id: requestId } : {}),
+      }),
+    stream: async function* (model: string, input: string, parameters?: string, requestId?: string): AsyncGenerator<RuntimeStreamEvent, void, unknown> {
+      const runtime = this as AgenticosRuntime
+      const response = await runtime.transport.postStream('/api/models/stream', {
+        model,
+        input,
+        ...(parameters ? { parameters } : {}),
+        ...(requestId ? { request_id: requestId } : {}),
+      })
+      if (!response.body) {
+        throw new RuntimeHttpError('Runtime stream body is unavailable.', 502, 'STREAM_BODY_UNAVAILABLE')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      try {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const blocks = buffer.split(/\\n\\n/)
+          buffer = blocks.pop() ?? ''
+          for (const block of blocks) {
+            const parsed = parseSseEvent(block)
+            if (parsed) yield parsed
+          }
+        }
+        buffer += decoder.decode()
+        if (buffer.trim()) {
+          const parsed = parseSseEvent(buffer)
+          if (parsed) yield parsed
+        }
+      } finally {
+        reader.releaseLock()
+      }
+    }.bind(null),
   }
 
   readonly providers = {
@@ -222,7 +386,7 @@ export class AgenticosRuntime implements RuntimeServices {
 
   readonly tools = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/tools'), 'tools'),
-    call: async (request: { tool_id: string; agent_id: string; grant_id: string; parameters?: RuntimeApiRecord }) => this.transport.post<RuntimeApiRecord>('/api/tools/call', request),
+    call: async (request: { tool_id: string; agent_id: string; grant_id: string; parameters?: unknown }) => this.transport.post<RuntimeApiRecord>('/api/tools/call', request),
     execute: async (request: { session_id: string; user_id?: string; grant_id: string; command: string; timeout_ms?: number }) => this.transport.post<RuntimeApiRecord>('/api/tools/execute', request),
   }
 
@@ -243,9 +407,13 @@ export class AgenticosRuntime implements RuntimeServices {
         run_id: readString(run, 'run_id') ?? '',
         state: readString(run, 'state') ?? 'Unknown',
         version: readNumber(run, 'version') ?? 0,
+        objective: readString(run, 'objective'),
       })).filter((run) => run.run_id)
     },
-    create: async (objective: string, runId?: string) => this.transport.post<RuntimeRun>('/api/runs', { objective, ...(runId ? { run_id: runId } : {}) }),
+    create: async (objective: string, runId?: string, idempotencyKey?: string) => {
+      const headers = idempotencyKey?.trim() ? { 'Idempotency-Key': idempotencyKey.trim() } : undefined
+      return this.transport.post<RuntimeRun>('/api/runs', { objective, ...(runId ? { run_id: runId } : {}) }, headers)
+    },
     get: async (runId: string) => this.transport.get<RuntimeRun>(`/api/runs/${encodeURIComponent(runId)}`),
     cancel: async (runId: string) => this.transport.post<RuntimeApiRecord>(`/api/runs/${encodeURIComponent(runId)}/cancel`),
     snapshot: async (runId: string) => this.transport.post<RuntimeApiRecord>(`/api/runs/${encodeURIComponent(runId)}/snapshot`),
@@ -256,7 +424,7 @@ export class AgenticosRuntime implements RuntimeServices {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/subagents'), 'agents'),
     create: async (agent: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/api/subagents', { agent }),
     children: async (parentRunId: string) => unwrapArray(await this.transport.get<RuntimeApiRecord>(`/api/subagents/${encodeURIComponent(parentRunId)}/children`), 'children'),
-    delegate: async (parentRunId: string, request: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>(`/api/subagents/${encodeURIComponent(parentRunId)}/delegate`, request),
+    delegate: async (parentRunId: string, request: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>(`/api/subagents/${encodeURIComponent(parentRunId)}/children`, request),
   }
 
   readonly jobs = {
@@ -265,6 +433,17 @@ export class AgenticosRuntime implements RuntimeServices {
     create: async (job: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/api/jobs', { job }),
     get: async (jobId: string) => this.transport.get<RuntimeApiRecord>(`/api/jobs/${encodeURIComponent(jobId)}`),
     cancel: async (jobId: string) => this.transport.post<RuntimeApiRecord>(`/api/jobs/${encodeURIComponent(jobId)}/cancel`),
+  }
+
+  readonly workers = {
+    claim: async (workerId: string, leaseSeconds?: number): Promise<RuntimeWorkerJob | null> => {
+      const response = await this.transport.post<RuntimeApiRecord>('/api/workers/claim', { worker_id: workerId, ...(leaseSeconds ? { lease_seconds: leaseSeconds } : {}) })
+      return Object.keys(response ?? {}).length === 0 ? null : response as RuntimeWorkerJob
+    },
+    heartbeat: async (jobId: string, request: { worker_id: string; lease_token: number; lease_seconds?: number }) =>
+      this.transport.post<RuntimeWorkerJob>(`/api/workers/jobs/${encodeURIComponent(jobId)}/heartbeat`, request),
+    complete: async (jobId: string, request: { worker_id: string; lease_token: number; success: boolean; output?: string; error?: string }) =>
+      this.transport.post<RuntimeApiRecord>(`/api/workers/jobs/${encodeURIComponent(jobId)}/complete`, request),
   }
 
   readonly workflows = {
@@ -299,7 +478,7 @@ export class AgenticosRuntime implements RuntimeServices {
   readonly approvals = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/approvals'), 'approvals'),
     create: async (request: { run_id: string; action: string; resource: string; expires_at?: number }) => this.transport.post<RuntimeApiRecord>('/api/approvals', request),
-    resolve: async (approvalId: string, approved: boolean) => this.transport.patch<RuntimeApiRecord>(`/api/approvals/${encodeURIComponent(approvalId)}`, { approved }),
+    resolve: async (approvalId: string, approved: boolean) => this.transport.post<RuntimeApiRecord>(`/api/approvals/${encodeURIComponent(approvalId)}`, { approved }),
   }
 
   readonly skills = {
@@ -319,14 +498,17 @@ export class AgenticosRuntime implements RuntimeServices {
   readonly evaluation = {
     cases: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/evaluation/cases'), 'cases'),
     create: async (testCase: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/api/evaluation/cases', { case: testCase }),
-    run: async (caseId: string) => this.transport.post<RuntimeApiRecord>(`/api/evaluation/cases/${encodeURIComponent(caseId)}/run`),
+    run: async (caseId: string, output: string) => this.transport.post<RuntimeApiRecord>(`/api/evaluation/cases/${encodeURIComponent(caseId)}/run`, { output }),
     result: async (caseId: string) => this.transport.get<RuntimeApiRecord>(`/api/evaluation/cases/${encodeURIComponent(caseId)}/result`),
   }
 
   readonly terminal = {
-    list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/terminals'), 'terminals'),
+    list: async (grantId?: string) => {
+      const params = grantId ? `?grant_id=${encodeURIComponent(grantId)}` : ''
+      return unwrapArray(await this.transport.get<RuntimeApiRecord>(`/api/terminals${params}`), 'terminals')
+    },
     create: async (request: { command: string; cwd?: string; grant_id: string }) => this.transport.post<RuntimeApiRecord>('/api/terminals', request),
-    get: async (terminalId: string) => this.transport.get<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}`),
+    get: async (terminalId: string, grantId: string) => this.transport.get<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}?grant_id=${encodeURIComponent(grantId)}`),
     input: async (terminalId: string, input: string, grantId: string) => this.transport.post<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}/input`, { input, grant_id: grantId }),
     output: async (terminalId: string, grantId: string, after?: number, limit?: number) => {
       const params = new URLSearchParams({ grant_id: grantId })
@@ -334,14 +516,25 @@ export class AgenticosRuntime implements RuntimeServices {
       if (limit !== undefined) params.set('limit', String(limit))
       return this.transport.get<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}/output?${params.toString()}`)
     },
-    close: async (terminalId: string, grantId: string) => this.transport.post<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}/close`, { grant_id: grantId }),
+    close: async (terminalId: string, grantId: string) => this.transport.post<RuntimeApiRecord>(`/api/terminals/${encodeURIComponent(terminalId)}/close?grant_id=${encodeURIComponent(grantId)}`),
     remove: async (terminalId: string, grantId: string) => { await this.transport.delete(`/api/terminals/${encodeURIComponent(terminalId)}?grant_id=${encodeURIComponent(grantId)}`) },
   }
 
   readonly artifacts = {
     create: async (request: RuntimeApiRecord) => this.transport.post<RuntimeApiRecord>('/api/artifacts', request),
+    upload: async (content: Blob | ArrayBuffer, options: { kind?: string; mimeType?: string; runId?: string; trusted?: boolean; expiresAt?: number; metadata?: RuntimeApiRecord } = {}) => {
+      const headers: Record<string, string> = {
+        'Content-Type': options.mimeType ?? (content instanceof Blob ? content.type : 'application/octet-stream'),
+      }
+      if (options.kind) headers['x-artifact-kind'] = options.kind
+      if (options.runId) headers['x-run-id'] = options.runId
+      if (options.trusted !== undefined) headers['x-artifact-trusted'] = String(options.trusted)
+      if (options.expiresAt !== undefined) headers['x-artifact-expires-at'] = String(options.expiresAt)
+      if (options.metadata) headers['x-artifact-metadata'] = JSON.stringify(options.metadata)
+      return this.transport.postRaw<RuntimeApiRecord>('/api/artifacts', content, headers)
+    },
     get: async (artifactId: string) => this.transport.get<RuntimeApiRecord>(`/api/artifacts/${encodeURIComponent(artifactId)}`),
-    content: async (artifactId: string) => this.transport.get<RuntimeApiRecord>(`/api/artifacts/${encodeURIComponent(artifactId)}/content`),
+    content: async (artifactId: string) => this.transport.getBlob(`/api/artifacts/${encodeURIComponent(artifactId)}/content`),
     remove: async (artifactId: string) => { await this.transport.delete(`/api/artifacts/${encodeURIComponent(artifactId)}`) },
   }
 

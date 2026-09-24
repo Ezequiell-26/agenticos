@@ -868,11 +868,22 @@ mod tests {
 }
 
 /// Capability-gated tool execution service.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SecureToolService {
     capabilities: Arc<agenticos_security::CapabilityManager>,
     sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
     pipeline: Arc<agenticos_kernel::ToolExecutionPipeline>,
+}
+
+impl std::fmt::Debug for SecureToolService {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SecureToolService")
+            .field("capabilities", &"<capability manager>")
+            .field("sandbox", &"<sandbox>")
+            .field("pipeline", &"<tool execution pipeline>")
+            .finish()
+    }
 }
 
 impl SecureToolService {

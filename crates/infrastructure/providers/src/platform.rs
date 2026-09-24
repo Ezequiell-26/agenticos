@@ -982,7 +982,13 @@ impl ProviderPlatform {
                     credential.as_ref().map(|value| value.value.clone()),
                 )?;
 
-                match client.execute(routed_request.clone()).await {
+                match execute_protocol(
+                    detect_protocol(&provider),
+                    &provider,
+                    credential.as_ref(),
+                    routed_request.clone(),
+                )
+                .await {
                     Ok(response) => {
                         if let Some(tokens) = response.tokens_used {
                             if let Err(error) = self
@@ -1747,6 +1753,302 @@ impl ModelProvider for ProviderPlatform {
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
         self.execute_routed(request).await
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ProviderProtocol {
+    OpenAiChat,
+    OpenAiResponses,
+    AnthropicMessages,
+    Gemini,
+}
+
+fn detect_protocol(provider: &ProviderEntry) -> ProviderProtocol {
+    let base = provider.base_url.to_ascii_lowercase();
+    let caps = provider
+        .capabilities
+        .iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+
+    if caps.iter().any(|value| value == "anthropic") || base.contains("api.anthropic.com") {
+        ProviderProtocol::AnthropicMessages
+    } else if caps.iter().any(|value| value == "gemini")
+        || base.contains("generativelanguage.googleapis.com")
+    {
+        ProviderProtocol::Gemini
+    } else if caps.iter().any(|value| value == "responses") || base.ends_with("/responses") {
+        ProviderProtocol::OpenAiResponses
+    } else {
+        ProviderProtocol::OpenAiChat
+    }
+}
+
+async fn execute_protocol(
+    protocol: ProviderProtocol,
+    provider: &ProviderEntry,
+    credential: Option<&Credential>,
+    request: ModelRequest,
+) -> Result<ModelResponse, ContractError> {
+    match protocol {
+        ProviderProtocol::OpenAiChat => {
+            AuthenticatedOpenAiProvider::new(
+                provider.provider_id.clone(),
+                provider.base_url.clone(),
+                credential.map(|value| value.value.clone()),
+            )?
+            .execute(request)
+            .await
+        }
+        ProviderProtocol::OpenAiResponses => {
+            let client = reqwest::Client::new();
+            let url = normalize_endpoint(&provider.base_url, "/v1/responses", "/responses");
+            let mut payload = serde_json::json!({
+                "model": request.model,
+                "input": request.input,
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            let mut builder = client.post(url).header("x-request-id", &request.request_id);
+            if let Some(key) = credential.map(|value| value.value.as_str()) {
+                builder = builder.bearer_auth(key);
+            }
+            let response = builder.json(&payload).send().await.map_err(|error| {
+                ContractError::ParseError(format!("OpenAI Responses request failed: {error}"))
+            })?;
+            parse_generic_model_response(
+                provider,
+                request.request_id,
+                response,
+                |json| {
+                    json.get("output_text")
+                        .and_then(|value| value.as_str())
+                        .map(ToOwned::to_owned)
+                        .or_else(|| {
+                            json.get("output")
+                                .and_then(|value| value.as_array())
+                                .and_then(|items| {
+                                    items.iter().find_map(|item| {
+                                        item.get("content")
+                                            .and_then(|value| value.as_array())
+                                            .and_then(|parts| {
+                                                parts.iter().find_map(|part| {
+                                                    part.get("text")
+                                                        .and_then(|value| value.as_str())
+                                                        .map(ToOwned::to_owned)
+                                                })
+                                            })
+                                    })
+                                })
+                        })
+                },
+                |json| {
+                    json.get("usage")
+                        .and_then(|usage| usage.get("total_tokens"))
+                        .and_then(|value| value.as_u64())
+                },
+                "openai-responses",
+            )
+            .await
+        }
+        ProviderProtocol::AnthropicMessages => {
+            let client = reqwest::Client::new();
+            let url = normalize_endpoint(&provider.base_url, "/v1/messages", "/messages");
+            let mut payload = serde_json::json!({
+                "model": request.model,
+                "max_tokens": 4096,
+                "messages": [{"role": "user", "content": request.input}],
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            let mut builder = client
+                .post(url)
+                .header("anthropic-version", "2023-06-01")
+                .header("x-request-id", &request.request_id);
+            if let Some(key) = credential.map(|value| value.value.as_str()) {
+                builder = builder.header("x-api-key", key);
+            }
+            let response = builder.json(&payload).send().await.map_err(|error| {
+                ContractError::ParseError(format!("Anthropic Messages request failed: {error}"))
+            })?;
+            parse_generic_model_response(
+                provider,
+                request.request_id,
+                response,
+                |json| {
+                    json.get("content")
+                        .and_then(|value| value.as_array())
+                        .and_then(|items| {
+                            items.iter().find_map(|item| {
+                                item.get("text")
+                                    .and_then(|value| value.as_str())
+                                    .map(ToOwned::to_owned)
+                            })
+                        })
+                },
+                |json| {
+                    let input = json
+                        .get("usage")
+                        .and_then(|value| value.get("input_tokens"))
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    let output = json
+                        .get("usage")
+                        .and_then(|value| value.get("output_tokens"))
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    Some(input.saturating_add(output))
+                },
+                "anthropic-messages",
+            )
+            .await
+        }
+        ProviderProtocol::Gemini => {
+            let client = reqwest::Client::new();
+            let url = normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
+            let mut payload = serde_json::json!({
+                "contents": [{
+                    "role": "user",
+                    "parts": [{"text": request.input}],
+                }],
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            let response = client
+                .post(url)
+                .header("x-request-id", &request.request_id)
+                .json(&payload)
+                .send()
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("Gemini request failed: {error}"))
+                })?;
+            parse_generic_model_response(
+                provider,
+                request.request_id,
+                response,
+                |json| {
+                    json.get("candidates")
+                        .and_then(|value| value.as_array())
+                        .and_then(|items| items.first())
+                        .and_then(|candidate| candidate.get("content"))
+                        .and_then(|content| content.get("parts"))
+                        .and_then(|parts| parts.as_array())
+                        .and_then(|parts| {
+                            parts.iter().find_map(|part| {
+                                part.get("text")
+                                    .and_then(|value| value.as_str())
+                                    .map(ToOwned::to_owned)
+                            })
+                        })
+                },
+                |json| {
+                    json.get("usageMetadata")
+                        .and_then(|usage| usage.get("totalTokenCount"))
+                        .and_then(|value| value.as_u64())
+                },
+                "gemini",
+            )
+            .await
+        }
+    }
+}
+
+fn normalize_endpoint(base_url: &str, v1_path: &str, terminal_path: &str) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    if trimmed.ends_with(terminal_path) {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{trimmed}{terminal_path}")
+    } else {
+        format!("{trimmed}{v1_path}")
+    }
+}
+
+fn normalize_gemini_endpoint(
+    base_url: &str,
+    model: &str,
+    credential: Option<&Credential>,
+) -> Result<reqwest::Url, ContractError> {
+    let trimmed = base_url.trim_end_matches('/');
+    let raw = if trimmed.contains(":generateContent") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1beta") || trimmed.ends_with("/v1") {
+        format!("{trimmed}/models/{model}:generateContent")
+    } else {
+        format!("{trimmed}/v1beta/models/{model}:generateContent")
+    };
+    let mut url = reqwest::Url::parse(&raw)
+        .map_err(|error| ContractError::ParseError(format!("invalid Gemini endpoint: {error}")))?;
+    if let Some(key) = credential.map(|value| value.value.as_str()) {
+        url.query_pairs_mut().append_pair("key", key);
+    }
+    Ok(url)
+}
+
+fn merge_parameters(
+    payload: &mut serde_json::Value,
+    parameters: Option<&str>,
+) -> Result<(), ContractError> {
+    let Some(parameters) = parameters.filter(|value| !value.trim().is_empty()) else {
+        return Ok(());
+    };
+    let extra = serde_json::from_str::<serde_json::Value>(parameters)
+        .map_err(|error| ContractError::ParseError(format!("invalid provider parameters: {error}")))?;
+    let object = extra
+        .as_object()
+        .ok_or_else(|| ContractError::ParseError("provider parameters must be a JSON object".to_string()))?;
+    let target = payload
+        .as_object_mut()
+        .ok_or_else(|| ContractError::ParseError("provider payload must be an object".to_string()))?;
+    for (key, value) in object {
+        target.insert(key.clone(), value.clone());
+    }
+    Ok(())
+}
+
+async fn parse_generic_model_response<F, T>(
+    provider: &ProviderEntry,
+    request_id: String,
+    response: reqwest::Response,
+    output: F,
+    tokens: T,
+    protocol: &str,
+) -> Result<ModelResponse, ContractError>
+where
+    F: Fn(&serde_json::Value) -> Option<String>,
+    T: Fn(&serde_json::Value) -> Option<u64>,
+{
+    let status = response.status();
+    let body = response.text().await.map_err(|error| {
+        ContractError::ParseError(format!(
+            "provider response body read failed for {}: {error}",
+            provider.provider_id
+        ))
+    })?;
+    if !status.is_success() {
+        return Err(ContractError::ParseError(format!(
+            "provider_http_status={}; provider returned HTTP {}: {}",
+            status.as_u16(),
+            status,
+            body.chars().take(4096).collect::<String>()
+        )));
+    }
+    let json = serde_json::from_str::<serde_json::Value>(&body).map_err(|error| {
+        ContractError::ParseError(format!(
+            "invalid {protocol} response for {}: {error}",
+            provider.provider_id
+        ))
+    })?;
+    let text = output(&json).ok_or_else(|| {
+        ContractError::ParseError(format!(
+            "{protocol} provider {} returned no output text",
+            provider.provider_id
+        ))
+    })?;
+    Ok(ModelResponse {
+        request_id,
+        output: text,
+        metadata: Some(format!("provider: {}; protocol: {protocol}", provider.provider_id)),
+        tokens_used: tokens(&json),
+    })
 }
 
 fn allows_anonymous_provider(base_url: &str) -> bool {

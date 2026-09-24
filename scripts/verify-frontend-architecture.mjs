@@ -235,6 +235,29 @@ if (!appSource.includes('role="status"') || !appSource.includes('aria-live="poli
   process.exit(1);
 }
 
+const appRuntimeSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/App.tsx",
+  "utf8",
+);
+const editorSource = readFileSync(
+  "crates/presentation/desktop/frontend/src/features/editor/CodeEditorSurface.tsx",
+  "utf8",
+);
+if (
+  !appRuntimeSource.includes("Promise.allSettled") ||
+  !appRuntimeSource.includes("runtimeSyncSequence") ||
+  !appRuntimeSource.includes("runtime-recovery-banner") ||
+  !appRuntimeSource.includes("notificationUnread") ||
+  !editorSource.includes("replaceAll") ||
+  !editorSource.includes("goToLineOpen") ||
+  !editorSource.includes("focusedColumn")
+) {
+  console.error(
+    "FRONTEND ARCHITECTURE: FAIL — runtime recovery, notification synchronization and advanced editor controls must remain present.",
+  );
+  process.exit(1);
+}
+
 const featureWorkbenchSource = readFileSync(
   "crates/presentation/desktop/frontend/src/features/platform/FeatureWorkbench.tsx",
   "utf8",

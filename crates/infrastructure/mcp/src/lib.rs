@@ -349,9 +349,9 @@ impl McpManager {
             .concurrency
             .acquire()
             .await
-            .map_err(|_| McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string()))?;
-            return Ok(tools);
-        }
+            .map_err(|_| {
+                McpError::InvalidConfiguration("MCP concurrency limiter closed".to_string())
+            })?;
 
         let server = self.get_enabled(server_id).await?;
         let session = self.get_or_spawn_session(&server).await?;

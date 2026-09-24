@@ -729,6 +729,34 @@ impl ProviderPlatform {
         &self,
         config: agenticos_contracts::FallbackConfig,
     ) -> Result<(), ContractError> {
+        let primary_provider = config.primary_provider.trim();
+        if primary_provider.is_empty() || primary_provider.len() > 128 {
+            return Err(ContractError::ParseError(
+                "primary provider identifier is invalid".to_string(),
+            ));
+        }
+        if self.registry.get(primary_provider).await.is_none() {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let mut seen = std::collections::HashSet::new();
+        for fallback in &config.fallback_providers {
+            let fallback = fallback.trim();
+            if fallback.is_empty() || fallback.len() > 128 || fallback == primary_provider {
+                return Err(ContractError::ParseError(
+                    "fallback provider identifier is invalid".to_string(),
+                ));
+            }
+            if !seen.insert(fallback.to_string()) {
+                return Err(ContractError::ParseError(
+                    "fallback providers must be unique".to_string(),
+                ));
+            }
+            if self.registry.get(fallback).await.is_none() {
+                return Err(ContractError::MissingCapability);
+            }
+        }
+
         if let Some(db) = self.db.as_ref() {
             let fallback_json =
                 serde_json::to_string(&config.fallback_providers).map_err(|error| {

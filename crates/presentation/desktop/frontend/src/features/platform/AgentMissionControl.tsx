@@ -29,7 +29,7 @@ const toolGroups = [
   ['Command', 'Terminal and build commands', false],
   ['Browser', 'Browser automation and visual checks', true],
   ['MCP', 'External tool servers', false],
-]
+] as const
 
 const verification = [
   ['Scope resolved', 'Project + task boundaries sealed', 'done'],

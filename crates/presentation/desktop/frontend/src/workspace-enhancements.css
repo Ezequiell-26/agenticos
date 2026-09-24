@@ -2477,7 +2477,7 @@ body { background: var(--shell-black); }
 :root[data-agenticos-sidebar="hidden"] .app-shell { grid-template-columns: minmax(0, 1fr) !important; }
 .workspace-main { grid-template-rows: minmax(0, 1fr) 30px !important; }
 :root[data-agenticos-statusbar="hidden"] .workspace-main { grid-template-rows: minmax(0, 1fr) 0 !important; }
-.chat-surface { grid-template-rows: minmax(0, 1fr) auto !important; }
+.chat-surface { grid-template-rows: auto minmax(0, 1fr) auto !important; }
 .app-shell--focus { grid-template-columns: minmax(0, 1fr) !important; }
 
 @media (max-width: 1180px) {
@@ -2503,3 +2503,37 @@ body { background: var(--shell-black); }
 
 .sidebar-footer__action { position: relative; }
 .sidebar-footer__action--badge .notification-badge { position: absolute; top: -3px; right: -3px; }
+
+/* ─── Hermes chat clone: session tabs, plus menu, effort options ───────────── */
+.session-tabs { display: flex; align-items: stretch; gap: 2px; padding: 6px 10px 0; border-bottom: 0; }
+.session-tab { position: relative; display: inline-flex; align-items: center; gap: 7px; max-width: 200px; padding: 9px 12px; border: 0; border-radius: 8px 8px 0 0; background: transparent; color: #7c7c85; font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-tab:hover { color: #d6d6dc; background: #0d0d10; }
+.session-tab--active { color: #f2f2f5; }
+.session-tab--active::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--agenticos-accent); }
+.session-tab__dot { width: 6px; height: 6px; border-radius: 50%; border: 1px solid #56565e; flex: 0 0 auto; }
+.session-tab__dot--active { background: var(--agenticos-accent); border-color: var(--agenticos-accent); }
+.session-tab--new { padding-inline: 9px; }
+
+.composer-row { display: flex; align-items: flex-end; gap: 4px; padding: 6px 8px 2px; }
+.composer-plus-wrap { position: relative; display: inline-flex; }
+.composer-icon--plus { width: 30px; height: 30px; align-self: center; }
+.composer-plus-menu { position: absolute; bottom: calc(100% + 10px); left: 0; z-index: 240; width: 240px; max-height: min(430px, calc(100vh - 220px)); overflow-y: auto; padding: 6px; border: 1px solid #26262c; border-radius: 12px; background: #0b0b0e; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.composer-plus-menu__label { padding: 7px 8px 3px; color: #63636b; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.composer-plus-menu [role="menuitem"] { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: #c9c9d1; font-size: 11.5px; text-align: left; cursor: pointer; }
+.composer-plus-menu [role="menuitem"]:hover { background: #17171c; color: #f0f0f4; }
+
+.composer-select--button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; font-weight: 600; }
+.composer-select--open { background: #17171c; color: #f0f0f4; }
+.composer-select__chevron { transform: rotate(90deg); color: #75757e; }
+
+.effort-options { position: absolute; right: 26px; bottom: calc(100% + 10px); z-index: 240; width: 258px; max-height: min(430px, calc(100vh - 200px)); overflow-y: auto; padding: 6px; border: 1px solid #26262c; border-radius: 12px; background: #0b0b0e; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.composer-shell--hermes { position: relative; }
+.effort-options__head { padding: 7px 9px 5px; color: #f0f0f4; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.effort-options__row { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 0 9px; border-bottom: 1px solid #1b1b21; margin-bottom: 4px; }
+.effort-options__row span { font-size: 12px; color: #e8e8ec; }
+.effort-options__label { padding: 5px 9px 3px; color: #63636b; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.effort-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: #c9c9d1; font-size: 11.5px; text-align: left; cursor: pointer; }
+.effort-option:hover { background: #17171c; color: #f0f0f4; }
+.effort-option--active { color: var(--agenticos-accent); }
+.effort-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-row .composer-input { flex: 1; min-width: 0; width: auto; }

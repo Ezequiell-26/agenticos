@@ -300,7 +300,7 @@ function App() {
 
         <div className="workspace-main__content">
           {mode === 'chat' ? (
-            <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} />
+            <ChatSurface disabled={running} messages={messages} onSend={handleSend} onStop={handleStop} onOpenPalette={() => setPaletteOpen(true)} running={running} sessionId={sessionId} sessions={conversations} onSelectSession={handleSelectConversation} onCreateSession={handleCreateConversation} />
           ) : (
             <WorkspaceOverview mode={mode} onNavigate={setMode} />
           )}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import type { ChatMessage } from '../types/runtime'
+import type { ChatMessage, ConversationSummary } from '../types/runtime'
 import Icon from './Icon'
-import ChatEnhancementDock from './ChatEnhancementDock'
 import AgentRunDrawer from '../features/chat/AgentRunDrawer'
 import { useExclusiveOverlay } from '../hooks/useExclusiveOverlay'
 import AgentModeStrip, { type AgentMode } from '../features/chat/AgentModeStrip'
@@ -14,12 +13,15 @@ interface ChatSurfaceProps {
   onSend: (message: string) => Promise<void>
   onStop: () => void
   onOpenPalette: () => void
+  sessions?: ConversationSummary[]
+  onSelectSession?: (id: string) => void
+  onCreateSession?: () => void
 }
 
 const models = ['Auto route', 'GPT-OSS 120B', 'Qwen3 Coder', 'DeepSeek', 'Local model']
 const agents = ['Builder', 'Reviewer', 'Researcher', 'Planner']
 const contextScopes = ['Workspace', 'Current file', 'Selection', 'Pinned memory', 'Custom']
-const effortLevels = ['Fast', 'Balanced', 'Deep', 'Maximum']
+const effortLevels = ['Minimal', 'Low', 'Medium', 'High', 'Extra high', 'Maximum', 'Ultra']
 const responseFormats = ['Markdown', 'Plain text', 'Structured', 'Code first']
 const slashCommands = [
   ['/plan', 'Create a step-by-step plan without editing.'],
@@ -55,13 +57,16 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   )
 }
 
-export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette }: ChatSurfaceProps) {
+export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession }: ChatSurfaceProps) {
   const [draft, setDraft] = useState('')
   const [model, setModel] = useState(models[0])
   const [agent, setAgent] = useState(agents[0])
   const [agentMode, setAgentMode] = useState<AgentMode>('Agent')
   const [contextScope, setContextScope] = useState(contextScopes[0])
-  const [effort, setEffort] = useState(effortLevels[2])
+  const [effort, setEffort] = useState(effortLevels[effortLevels.length - 1])
+  const [effortOpen, setEffortOpen] = useState(false)
+  const [plusOpen, setPlusOpen] = useState(false)
+  const [reasoningOn, setReasoningOn] = useState(true)
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.3')
   const [responseFormat, setResponseFormat] = useState(responseFormats[0])
@@ -70,7 +75,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [contextBudget] = useState('72%')
   const [showReasoning, setShowReasoning] = useState(true)
   const [showCitations, setShowCitations] = useState(true)
-  const [promptHistory, setPromptHistory] = useState<string[]>([])
   const [toolsOpen, setToolsOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [webAccess, setWebAccess] = useState(false)
@@ -80,12 +84,12 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   const [attachedFiles, setAttachedFiles] = useState<string[]>([])
   const [notice, setNotice] = useState('')
   const [runDrawerOpen, setRunDrawerOpen] = useState(false)
-  const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const sessionMenuRef = useRef<HTMLDivElement>(null)
+  const composerMenusRef = useRef<HTMLDivElement>(null)
   useExclusiveOverlay('agent-run', runDrawerOpen, () => setRunDrawerOpen(false))
-  useExclusiveOverlay('session-menu', sessionMenuOpen, () => setSessionMenuOpen(false))
+  useExclusiveOverlay('composer-plus', plusOpen, () => setPlusOpen(false))
+  useExclusiveOverlay('effort-options', effortOpen, () => setEffortOpen(false))
   useExclusiveOverlay('slash-commands', slashOpen, () => setSlashOpen(false))
 
   const canSend = useMemo(() => draft.trim().length > 0 && !disabled, [draft, disabled])
@@ -105,12 +109,18 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   }, [draft, sessionId])
 
   useEffect(() => {
-    if (!sessionMenuOpen) return
+    if (!plusOpen && !effortOpen) return
     const onPointerDown = (event: PointerEvent) => {
-      if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
+      if (!composerMenusRef.current?.contains(event.target as Node)) {
+        setPlusOpen(false)
+        setEffortOpen(false)
+      }
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setSessionMenuOpen(false)
+      if (event.key === 'Escape') {
+        setPlusOpen(false)
+        setEffortOpen(false)
+      }
     }
     document.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('keydown', onKeyDown)
@@ -118,7 +128,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       document.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [sessionMenuOpen])
+  }, [plusOpen, effortOpen])
 
   useEffect(() => {
     if (!notice) return
@@ -186,7 +196,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
     if (!message || disabled) return
     setDraft('')
     setSlashOpen(false)
-    setPromptHistory((current) => [message, ...current.filter((item) => item !== message)].slice(0, 5))
     try {
       await onSend(message)
     } catch {
@@ -194,12 +203,6 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       setNotice('Request failed. Your message was restored.')
       window.requestAnimationFrame(() => textareaRef.current?.focus())
     }
-  }
-
-  function useStarter(prompt: string) {
-    setDraft(prompt)
-    setSlashOpen(false)
-    window.requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   function useSlashCommand(command: string, description: string) {
@@ -210,6 +213,26 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
 
   return (
     <section className="chat-surface">
+      {sessions.length > 0 && (
+        <div className="session-tabs" role="tablist" aria-label="Open sessions">
+          {sessions.map((session) => (
+            <button
+              key={session.id}
+              type="button"
+              role="tab"
+              aria-selected={session.id === sessionId}
+              className={session.id === sessionId ? 'session-tab session-tab--active' : 'session-tab'}
+              onClick={() => onSelectSession?.(session.id)}
+            >
+              <span className={session.id === sessionId ? 'session-tab__dot session-tab__dot--active' : 'session-tab__dot'} aria-hidden="true" />
+              {session.title}
+            </button>
+          ))}
+          <button type="button" className="session-tab session-tab--new" aria-label="New session" title="New session · Ctrl+N" onClick={onCreateSession}>
+            <Icon name="plus" size={14} />
+          </button>
+        </div>
+      )}
       {advancedOpen && (
         <div className="chat-control-stack">
           <AgentModeStrip mode={agentMode} onAction={setNotice} onChange={setAgentMode} />
@@ -231,24 +254,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       )}
 
       <div className="chat-content" aria-busy={running}>
-        {messages.length === 0 ? (
-          <div className="chat-empty">
-            <div className="empty-orb"><Icon name="spark" size={22} /></div>
-            <span className="eyebrow">Start a run</span>
-            <h1>Build with AgentiCOS.</h1>
-            <p>Describe a goal, inspect a repository, plan a task or ask the agent to work through a technical problem.</p>
-            <div className="starter-grid starter-grid--large">
-              {[
-                ['Inspect workspace', 'Architecture + gaps', 'Inspect the current workspace and summarize what is missing.'],
-                ['Plan next step', 'Fail-closed planning', 'Plan the next implementation step without making changes.'],
-                ['Review frontend', 'UX + quality pass', 'Review the current frontend for regressions and usability issues.'],
-                ['Build workflow', 'Automations + checks', 'Design a repeatable workflow for a complex engineering task.'],
-                ['Create test plan', 'Evidence first', 'Create a professional test and verification plan.'],
-                ['Explain architecture', 'Runtime + UI', 'Explain the current project architecture in practical terms.'],
-              ].map(([title, detail, prompt]) => <button type="button" key={title} onClick={() => useStarter(prompt)}>{title}<small>{detail}</small></button>)}
-            </div>
-          </div>
-        ) : (
+        {messages.length > 0 && (
           <div className="message-stack">
             {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} onCopy={(content) => void copyResponse(content)} />)}
             {running && <div className="message-row"><div className="message-avatar"><Icon name="bot" size={15} /></div><div className="message-bubble message-bubble--typing" aria-label="AgentiCOS is working"><span /><span /><span /></div></div>}
@@ -258,7 +264,7 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       </div>
 
       <footer className="composer-wrap">
-        <div className="composer-shell">
+        <div className="composer-shell composer-shell--hermes" ref={composerMenusRef}>
           {slashOpen && <div className="slash-command-menu" role="listbox" aria-label="Slash commands">{slashMatches.map(([command, description], index) => <button type="button" role="option" aria-selected={index === slashIndex} className={index === slashIndex ? 'slash-command--active' : ''} key={command} onClick={() => useSlashCommand(command, description)}><span className="slash-command-name">{command}</span><span>{description}</span><kbd>{index === slashIndex ? 'Tab' : ''}</kbd></button>)}{slashMatches.length === 0 && <div className="slash-command-empty">No command matches the current input.</div>}</div>}
           {attachedFiles.length > 0 && <div className="attachment-strip">{attachedFiles.map((file) => <span className="attachment-chip" key={file}><Icon name="paperclip" size={12} />{file}<button type="button" onClick={() => setAttachedFiles((current) => current.filter((item) => item !== file))} aria-label={`Remove ${file}`} title={`Remove ${file}`}><Icon name="x" size={11} /></button></span>)}</div>}
           {toolsOpen && (
@@ -270,39 +276,77 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
               <button type="button" className={rememberContext ? 'composer-tool--active' : ''} onClick={() => setRememberContext((value) => !value)}><Icon name="history" size={13} /> Remember context</button>
             </div>
           )}
-          <ChatEnhancementDock compact onAction={setNotice} onInsert={(value) => setDraft((current) => `${current}${current ? ' ' : ''}${value}`)} />
-          <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="What are we building?" rows={1} value={draft} />
-          <div className="composer-toolbar">
-            <div className="composer-actions">
-              <button className="composer-icon" type="button" title="Attach file" onClick={addAttachment}><Icon name="paperclip" size={15} /></button>
-              <button className={`composer-icon ${slashOpen ? 'composer-icon--active' : ''}`} type="button" title="Slash commands" onClick={() => { setSlashOpen((value) => !value); if (!draft) setDraft('/') }}><Icon name="command" size={15} /></button>
-              <button className={`composer-icon ${toolsOpen ? 'composer-icon--active' : ''}`} type="button" title="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={15} /></button>
-              <button className={`composer-icon ${advancedOpen ? 'composer-icon--active' : ''}`} type="button" title="Agent controls" aria-label="Agent controls" onClick={() => setAdvancedOpen((value) => !value)}><Icon name="settings" size={15} /></button>
-              <button className={`composer-icon ${runDrawerOpen ? 'composer-icon--active' : ''}`} type="button" title="Open run trace" aria-label="Open run trace" onClick={() => setRunDrawerOpen((value) => !value)}><Icon name="activity" size={15} /></button>
-              <button className="composer-icon" type="button" title="Search session history" aria-label="Search session history" onClick={onOpenPalette}><Icon name="history" size={15} /></button>
-              <div className="session-menu-wrap composer-session-menu" ref={sessionMenuRef}>
-                <button className={`composer-icon ${sessionMenuOpen ? 'composer-icon--active' : ''}`} aria-label="Session actions" aria-haspopup="menu" aria-expanded={sessionMenuOpen} title="Session actions" onClick={() => setSessionMenuOpen((value) => !value)} type="button"><Icon name="more" size={15} /></button>
-                {sessionMenuOpen && <div className="session-menu" role="menu">
-                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
-                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Rename session opened in preview') }}><Icon name="code" size={13} /><span>Rename session</span></button>
-                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
-                  <button role="menuitem" type="button" onClick={() => { setSessionMenuOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
-                </div>}
-              </div>
-              <button className="composer-icon" type="button" title="Open command palette" aria-label="Open command palette" onClick={onOpenPalette}><Icon name="command" size={15} /></button>
+          <div className="composer-row">
+            <div className="composer-plus-wrap">
+              <button
+                className={`composer-icon composer-icon--plus ${plusOpen ? 'composer-icon--active' : ''}`}
+                type="button"
+                title="Add context and actions"
+                aria-label="Add context and actions"
+                aria-haspopup="menu"
+                aria-expanded={plusOpen}
+                onClick={() => { setPlusOpen((value) => !value); setEffortOpen(false) }}
+              ><Icon name="plus" size={15} /></button>
+              {plusOpen && (
+                <div className="composer-plus-menu" role="menu" aria-label="Add context and actions">
+                  <div className="composer-plus-menu__label">Add context</div>
+                  {['@files', '@diff', '@memory', '@rules', '@terminal', '@url'].map((token) => (
+                    <button key={token} type="button" role="menuitem" onClick={() => { setDraft((current) => `${current}${current.endsWith(' ') || !current ? '' : ' '}${token} `); setPlusOpen(false) }}>
+                      <Icon name="paperclip" size={13} /><span>{token}</span>
+                    </button>
+                  ))}
+                  <div className="composer-plus-menu__label">Actions</div>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); addAttachment() }}><Icon name="paperclip" size={13} /><span>Attach file</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setToolsOpen((value) => !value) }}><Icon name="tool" size={13} /><span>Composer tools</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setAdvancedOpen((value) => !value) }}><Icon name="settings" size={13} /><span>Agent controls</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setRunDrawerOpen((value) => !value) }}><Icon name="activity" size={13} /><span>Run trace</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); onOpenPalette() }}><Icon name="history" size={13} /><span>Session history</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); onOpenPalette() }}><Icon name="command" size={13} /><span>Command palette</span></button>
+                  <div className="composer-plus-menu__label">Session</div>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setNotice('Session fork staged in preview') }}><Icon name="branch" size={13} /><span>Fork session</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setNotice('Transcript export prepared in preview') }}><Icon name="arrow-down" size={13} /><span>Export transcript</span></button>
+                  <button type="button" role="menuitem" onClick={() => { setPlusOpen(false); setNotice('Archive action staged in preview') }}><Icon name="archive" size={13} /><span>Archive session</span></button>
+                </div>
+              )}
             </div>
+            <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Add more context" rows={1} value={draft} />
             <div className="composer-right">
-              <span className="context-chip" title="Context scope"><Icon name="folder" size={12} /> {contextScope}</span>
               <span className="composer-select-wrap" title="Model routing"><select className="composer-select" value={model} onChange={(event) => { setModel(event.target.value); setNotice(`Model: ${event.target.value}`) }} aria-label="Select model">{models.map((item) => <option key={item}>{item}</option>)}</select></span>
-              <span className="composer-select-wrap" title="Effort"><select className="composer-select" value={effort} onChange={(event) => { setEffort(event.target.value); setNotice(`Effort: ${event.target.value}`) }} aria-label="Select effort">{effortLevels.map((item) => <option key={item}>{item}</option>)}</select></span>
+              <span className="composer-select-wrap" title="Reasoning and effort">
+                <button
+                  type="button"
+                  className={`composer-select composer-select--button ${effortOpen ? 'composer-select--open' : ''}`}
+                  aria-haspopup="menu"
+                  aria-expanded={effortOpen}
+                  onClick={() => { setEffortOpen((value) => !value); setPlusOpen(false) }}
+                >
+                  {effort === 'Ultra' ? 'Ultra→Max' : effort} <Icon name="chevron-right" size={12} className="composer-select__chevron" />
+                </button>
+              </span>
               <button className="composer-icon" type="button" title="Voice dictation" aria-label="Voice dictation" onClick={() => setNotice('Voice dictation activates with the runtime')}><Icon name="mic" size={15} /></button>
               {running ? <button className="send-button send-button--stop send-button--round" onClick={onStop} type="button"><Icon name="stop" size={14} /></button> : <button className="send-button send-button--round" disabled={!canSend} onClick={() => void submit()} type="button" aria-label="Send message"><Icon name="send" size={14} /></button>}
             </div>
           </div>
           <div className="composer-meta">
-            <span className="composer-hint"><Icon name="code" size={11} /> {tokenEstimate.toLocaleString()} est. tokens · {maxTokens} max · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'} · {promptHistory.length} prompts</span>
+            <span className="composer-hint"><Icon name="code" size={11} /> {tokenEstimate.toLocaleString()} est. tokens · {maxTokens} max · {responseFormat} · {webAccess ? 'Web' : 'Local'} · {codeMode ? 'Code' : 'Chat'}</span>
             <span className="context-chip context-chip--budget"><span>{contextBudget}</span><i /></span>
           </div>
+          {effortOpen && (
+            <div className="effort-options" role="menu" aria-label="Reasoning and effort">
+              <div className="effort-options__head">Options</div>
+              <div className="effort-options__row">
+                <span>Reasoning</span>
+                <button type="button" role="switch" aria-checked={reasoningOn} aria-label="Reasoning" className={reasoningOn ? 'sw-switch sw-switch--on' : 'sw-switch'} onClick={() => setReasoningOn((value) => !value)}><span aria-hidden="true" /></button>
+              </div>
+              <div className="effort-options__label">Effort</div>
+              {effortLevels.map((level) => (
+                <button key={level} type="button" role="menuitemradio" aria-checked={effort === level} className={effort === level ? 'effort-option effort-option--active' : 'effort-option'} onClick={() => { setEffort(level); setEffortOpen(false); setNotice(`Effort: ${level}`) }}>
+                  <span>{level === 'Ultra' ? 'Ultra (sends Maximum on this route)' : level}</span>
+                  {effort === level && <Icon name="check" size={13} />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {notice && <div className="composer-notice" role="status" aria-live="polite">{notice}</div>}
       </footer>

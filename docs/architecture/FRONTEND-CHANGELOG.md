@@ -1438,3 +1438,12 @@ Verification status:
 - Simplified the shell grids to two columns (sidebar + content) and two workspace rows (content + status bar), with responsive variants updated to match.
 - Dropped the agent-inspector preference toggle from the Customize popover since the panel is no longer part of the layout.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; removals and relocated controls verified in the browser preview.
+
+## 2026-09-25 — Hermes chat clone: session tabs, plus menu and effort options
+
+- Added a session tab strip above the chat: one tab per conversation with status dot, active tab underline in the workspace accent and a quick "new session" tab; tabs switch sessions directly.
+- Rebuilt the composer into the single Hermes bar: one "+" button opening a grouped menu (context tokens, actions, session items), the "Add more context" input, the model dropdown, a reasoning/effort button labeled Ultra→Max, voice placeholder and the round accent send button.
+- Added the effort options popover: Options header, Reasoning switch and the full effort ladder (Minimal, Low, Medium, High, Extra high, Maximum, Ultra (sends Maximum on this route)) with the active level checked; replaces the previous four-level effort select everywhere.
+- Simplified the empty session state to a clean blank surface like the reference.
+- Removed the orphaned ChatEnhancementDock usage from the composer (component file retained for the architecture contract) and the starter prompt grid.
+- Verification status: tsc, Vite production build and the frontend architecture contract pass; session tabs, plus menu and effort popover verified in the browser preview.

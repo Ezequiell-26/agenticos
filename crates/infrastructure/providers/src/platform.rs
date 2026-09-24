@@ -1045,6 +1045,127 @@ impl ProviderPlatform {
         self.catalog.list().await
     }
 
+    /// Refresh the model catalog from an OpenAI-compatible provider.
+    pub async fn refresh_models(
+        &self,
+        provider_id: &str,
+    ) -> Result<Vec<String>, ContractError> {
+        let provider = self
+            .registry
+            .get(provider_id)
+            .await
+            .ok_or(ContractError::MissingCapability)?;
+        let credential = self
+            .credentials
+            .get_for_provider(provider_id)
+            .await
+            .into_iter()
+            .find(|credential| {
+                credential.expires_at == 0 || credential.expires_at > unix_time()
+            });
+        if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let client = AuthenticatedOpenAiProvider::new(
+            provider.provider_id.clone(),
+            provider.base_url.clone(),
+            credential.as_ref().map(|value| value.value.clone()),
+        )?;
+        let models = client.list_models().await?;
+
+        let normalized_models = models
+            .into_iter()
+            .map(|model| model.trim().to_string())
+            .filter(|model| !model.is_empty() && model.len() <= 256)
+            .collect::<Vec<_>>();
+        if normalized_models.is_empty() {
+            return Err(ContractError::ParseError(
+                "provider returned no usable models".to_string(),
+            ));
+        }
+
+        let mut unique_models = Vec::with_capacity(normalized_models.len());
+        let mut seen = std::collections::HashSet::new();
+        for model in normalized_models {
+            if seen.insert(model.clone()) {
+                unique_models.push(model);
+            }
+        }
+
+        let updated_entry = ProviderEntry {
+            models: unique_models.clone(),
+            ..provider.clone()
+        };
+
+        if let Some(db) = self.db.as_ref() {
+            let models_json = serde_json::to_string(&updated_entry.models).map_err(|error| {
+                ContractError::ParseError(format!("provider model serialization failed: {error}"))
+            })?;
+            sqlx::query("UPDATE providers SET models = ? WHERE provider_id = ?")
+                .bind(models_json)
+                .bind(provider_id)
+                .execute(db.as_ref())
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "provider model catalog persistence failed: {error}"
+                    ))
+                })?;
+        }
+
+        self.catalog.remove_by_provider(provider_id).await;
+        self.registry.register(updated_entry.clone()).await?;
+        for model in &updated_entry.models {
+            self.catalog
+                .register(ModelEntry {
+                    model_id: model.clone(),
+                    provider_id: provider_id.to_string(),
+                    name: model.clone(),
+                    context_window: None,
+                    capabilities: updated_entry.capabilities.clone(),
+                })
+                .await?;
+        }
+
+        self.update_health(
+            provider_id,
+            HealthStatus::Healthy,
+            Some("model catalog refreshed".to_string()),
+        )
+        .await?;
+
+        Ok(unique_models)
+    }
+
+    /// Probe an OpenAI-compatible provider and update its health state.
+    pub async fn check_health(&self, provider_id: &str) -> Result<HealthCheck, ContractError> {
+        match self.refresh_models(provider_id).await {
+            Ok(models) => {
+                let check = HealthCheck {
+                    provider_id: provider_id.to_string(),
+                    status: HealthStatus::Healthy,
+                    last_check: unix_time(),
+                    message: Some(format!("provider reachable; {} models discovered", models.len())),
+                };
+                self.health.update(check.clone()).await?;
+                self.persist_runtime_state(provider_id).await?;
+                Ok(check)
+            }
+            Err(error) => {
+                let check = HealthCheck {
+                    provider_id: provider_id.to_string(),
+                    status: HealthStatus::Unhealthy,
+                    last_check: unix_time(),
+                    message: Some(error.to_string()),
+                };
+                self.health.update(check.clone()).await?;
+                self.persist_runtime_state(provider_id).await?;
+                Err(error)
+            }
+        }
+    }
+
     /// List models registered for a provider.
     pub async fn list_models_for_provider(
         &self,
@@ -1151,6 +1272,56 @@ impl AuthenticatedOpenAiProvider {
 impl ModelProvider for AuthenticatedOpenAiProvider {
     fn provider_id(&self) -> &str {
         &self.provider_id
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>, ContractError> {
+        let response = self.client.get(&self.models_url()).send().await.map_err(|error| {
+            ContractError::ParseError(format!("provider model discovery failed: {error}"))
+        })?;
+        let status = response.status();
+        let body = response.text().await.map_err(|error| {
+            ContractError::ParseError(format!("provider model discovery response failed: {error}"))
+        })?;
+        if !status.is_success() {
+            return Err(ContractError::ParseError(format!(
+                "provider_http_status={}; model discovery returned HTTP {status}: {body}",
+                status.as_u16()
+            )));
+        }
+
+        let json: serde_json::Value = serde_json::from_str(&body).map_err(|error| {
+            ContractError::ParseError(format!("invalid provider model catalog: {error}"))
+        })?;
+        let values = json
+            .get("data")
+            .and_then(|value| value.as_array())
+            .cloned()
+            .or_else(|| json.as_array().cloned())
+            .ok_or_else(|| {
+                ContractError::ParseError(
+                    "provider model catalog response has no data array".to_string(),
+                )
+            })?;
+
+        Ok(values
+            .iter()
+            .filter_map(|item| item.get("id").and_then(|value| value.as_str()))
+            .map(ToOwned::to_owned)
+            .collect())
+    }
+
+    fn models_url(&self) -> String {
+        if self.base_url.ends_with("/chat/completions") {
+            return self
+                .base_url
+                .trim_end_matches("/chat/completions")
+                .to_string()
+                + "/models";
+        }
+        if self.base_url.ends_with("/v1") {
+            return self.base_url.clone() + "/models";
+        }
+        self.base_url.clone().replace("/chat/completions", "/models")
     }
 
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {

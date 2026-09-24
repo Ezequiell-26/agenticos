@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
 import { navigationItems, type RailMode } from '../navigation'
 import { navigationSections, getNavigationSection } from '../navigation-taxonomy'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 interface NavigationLauncherProps {
   active: RailMode
@@ -15,6 +16,7 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const dialogRef = useRef<HTMLElement>(null)
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return normalized
@@ -22,11 +24,12 @@ export default function NavigationLauncher({ active, onChange, onClose }: Naviga
       : navigationItems
   }, [query])
 
+  useFocusTrap(true, dialogRef)
   useEffect(() => { setSelectedIndex(0); itemRefs.current = [] }, [query])
   useEffect(() => { itemRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' }) }, [selectedIndex])
 
   return (
-    <div className="navigation-launcher" role="dialog" aria-label="All AgentiCOS features">
+    <div ref={dialogRef} className="navigation-launcher" role="dialog" aria-label="All AgentiCOS features">
       <div className="navigation-launcher__head">
         <div><span className="eyebrow">AgentiCOS</span><strong>All features</strong></div>
         <button className="icon-button" type="button" onClick={onClose} aria-label="Close feature launcher"><Icon name="x" size={14} /></button>

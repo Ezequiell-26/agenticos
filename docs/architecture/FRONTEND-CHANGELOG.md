@@ -1146,3 +1146,11 @@ Verification status:
 - Completed records before the fixed `2026-09-24T01:00:00Z` cutoff now exit the evidence-validation branch explicitly after checking `next_step`; records at/after the cutoff remain subject to strict non-empty evidence requirements.
 - The failure message for current records now includes the operation timestamp and cutoff to make any future policy mismatch diagnosable directly from CI logs.
 - Verification status: awaiting the newest CI run.
+
+## 2026-09-24 — Continuity legacy journal parser repair
+
+- Fixed the root cause behind the recurring historical `evidence` CI failure: `evidence` is a required modern field, so earlier cutoff logic was reached too late to help legacy completed records.
+- The verifier now skips only the `evidence` requirement for completed records before the fixed cutoff while continuing to require `next_step`.
+- Added tolerant journal-sequence parsing for legacy lines that contain multiple JSON objects separated by a literal `\\n`, without rewriting the historical journal contents.
+- Preserved strict evidence enforcement for all completed records at or after the cutoff.
+- Verification status: awaiting the CI run for the corrected verifier.

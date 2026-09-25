@@ -20,7 +20,7 @@ This file is the human-readable counterpart to `reference/manifests/architecture
 
 `crates/infrastructure/kernel/src/agent_core.rs` is a transitional internal module extracted from the historical kernel monolith. It makes the agent implementation boundary explicit without pretending that the application-layer migration is already complete.
 
-The root TypeScript tree under `src/` remains a transitional architecture/CLI prototype and is not the Rust product runtime. It must not become an undeclared production dependency.
+The TypeScript architecture/CLI prototype lives under `tools/ts-architecture-prototype/` and is not the Rust product runtime. It must not become an undeclared production dependency.
 
 ## Planned, not implemented
 

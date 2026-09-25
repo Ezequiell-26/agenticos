@@ -235,10 +235,11 @@ impl JobScheduler {
                 })?;
             let metadata = serde_json::from_str::<serde_json::Value>(&metadata)
                 .unwrap_or_else(|_| serde_json::json!({}));
+            let lease_expired = lease_expires_at.max(0) as u64 <= unix_time();
             let state = match state.as_str() {
                 "Pending" => JobState::Pending,
                 "Ready" => JobState::Ready,
-                "Running" if lease_expires_at.max(0) as u64 <= unix_time() => JobState::Ready,
+                "Running" if lease_expired => JobState::Ready,
                 "Running" => JobState::Running,
                 "Succeeded" => JobState::Succeeded,
                 "Failed" => JobState::Failed,
@@ -265,9 +266,17 @@ impl JobScheduler {
                     state,
                     attempts: attempts.max(0) as u32,
                     last_error,
-                    lease_owner,
+                    lease_owner: if lease_expired {
+                        None
+                    } else {
+                        lease_owner
+                    },
                     lease_token: lease_token.max(0) as u64,
-                    lease_expires_at: lease_expires_at.max(0) as u64,
+                    lease_expires_at: if lease_expired {
+                        0
+                    } else {
+                        lease_expires_at.max(0) as u64
+                    },
                     next_attempt_at: next_attempt_at.max(0) as u64,
                 },
             );

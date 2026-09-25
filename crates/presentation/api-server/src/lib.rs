@@ -5692,21 +5692,36 @@ async fn execute_workflow_job(
         .and_then(|value| RunId::new(value.to_string()).ok());
     if let Some(run_id) = run_id {
         if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+            let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
             if success && run.state == RunState::Admitted {
                 let _ = state
                     .kernel
                     .transition_run(&run_id, RunState::Running, run.version)
                     .await;
-            }
-            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            } else if !success && !final_attempt && run.state == RunState::Admitted {
                 let _ = state
                     .kernel
-                    .transition_run(
-                        &run_id,
-                        if success { RunState::Completed } else { RunState::Failed },
-                        current.version,
-                    )
+                    .transition_run(&run_id, RunState::Running, run.version)
                     .await;
+            }
+            if final_attempt {
+                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                    let _ = state
+                        .kernel
+                        .transition_run(
+                            &run_id,
+                            if success { RunState::Completed } else { RunState::Failed },
+                            current.version,
+                        )
+                        .await;
+                }
+            } else if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                if current.state == RunState::Running {
+                    let _ = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Waiting, current.version)
+                        .await;
+                }
             }
         }
     }

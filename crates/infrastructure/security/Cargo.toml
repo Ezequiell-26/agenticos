@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-sqlite-migrations = { path = "../../utilities/sqlite-migrations" }
 agenticos-contracts = { path = "../../domain/contracts" }
 async-trait = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

@@ -1579,15 +1579,7 @@ impl OutboxStore for SqliteOutboxStore {
             INSERT INTO outbox_entries
                 (entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(entry_id) DO UPDATE SET
-                event_type = excluded.event_type,
-                event_data = excluded.event_data,
-                event_schema_version = excluded.event_schema_version,
-                destination = excluded.destination,
-                attempts = excluded.attempts,
-                status = excluded.status,
-                created_at = excluded.created_at,
-                processed_at = excluded.processed_at
+            ON CONFLICT(entry_id) DO NOTHING
             "#,
         )
         .bind(&entry.entry_id)

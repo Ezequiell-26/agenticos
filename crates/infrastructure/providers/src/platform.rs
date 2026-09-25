@@ -889,7 +889,13 @@ impl ProviderPlatform {
             .map(|values| {
                 values
                     .into_iter()
-                    .filter_map(|value| value.as_str().map(str::trim).filter(|id| !id.is_empty()).map(ToOwned::to_owned))
+                    .filter_map(|value| {
+                        value
+                            .as_str()
+                            .map(str::trim)
+                            .filter(|id| !id.is_empty())
+                            .map(ToOwned::to_owned)
+                    })
                     .take(32)
                     .collect::<Vec<_>>()
             })
@@ -898,9 +904,9 @@ impl ProviderPlatform {
             Some(first.clone())
         } else {
             match std::env::var("AGENTICOS_PRIMARY_PROVIDER")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-        {
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            {
             Some(primary) => Some(primary),
             None => self
                 .fallbacks
@@ -1090,10 +1096,7 @@ impl ProviderPlatform {
                     Err(error) => {
                         if let Err(release_error) = self
                             .quotas
-                            .release_token_reservation(
-                                &provider.provider_id,
-                                token_reservation,
-                            )
+                            .release_token_reservation(&provider.provider_id, token_reservation)
                             .await
                         {
                             tracing::warn!(
@@ -1216,19 +1219,22 @@ impl ProviderPlatform {
 
         let mut last_error = None;
         for provider in candidates {
-            let effective_model =
-                if request.model == "default" || request.model == "default-model" {
-                    provider
-                        .models
-                        .first()
-                        .cloned()
-                        .unwrap_or_else(|| request.model.clone())
-                } else {
-                    request.model.clone()
-                };
+            let effective_model = if request.model == "default" || request.model == "default-model"
+            {
+                provider
+                    .models
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| request.model.clone())
+            } else {
+                request.model.clone()
+            };
 
             if !provider.models.is_empty()
-                && !provider.models.iter().any(|model| model == &effective_model)
+                && !provider
+                    .models
+                    .iter()
+                    .any(|model| model == &effective_model)
             {
                 continue;
             }
@@ -1258,9 +1264,12 @@ impl ProviderPlatform {
 
             let result = match protocol {
                 ProviderProtocol::OpenAiChat => {
-                    let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
-                        ContractError::ParseError("provider concurrency limiter closed".to_string())
-                    })?;
+                    let _network_permit =
+                        self.network_concurrency.acquire().await.map_err(|_| {
+                            ContractError::ParseError(
+                                "provider concurrency limiter closed".to_string(),
+                            )
+                        })?;
                     AuthenticatedOpenAiProvider::new(
                         provider.provider_id.clone(),
                         provider.base_url.clone(),
@@ -2103,10 +2112,7 @@ fn parse_stream_event(
             }
             if matches!(
                 kind,
-                "response.completed"
-                    | "response.failed"
-                    | "response.incomplete"
-                    | "response.done"
+                "response.completed" | "response.failed" | "response.incomplete" | "response.done"
             ) {
                 return Ok(Some(StreamItem::Done));
             }
@@ -2138,9 +2144,9 @@ fn parse_stream_event(
                 .and_then(|content| content.get("parts"))
                 .and_then(|parts| parts.as_array())
                 .and_then(|parts| {
-                    parts.iter().find_map(|part| {
-                        part.get("text").and_then(|value| value.as_str())
-                    })
+                    parts
+                        .iter()
+                        .find_map(|part| part.get("text").and_then(|value| value.as_str()))
                 })
                 .filter(|value| !value.is_empty())
             {
@@ -2584,14 +2590,11 @@ async fn stream_protocol_request(
                 "stream": true,
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
-            (
-                url,
-                payload,
-                vec![("anthropic-version", "2023-06-01")],
-            )
+            (url, payload, vec![("anthropic-version", "2023-06-01")])
         }
         StreamProtocol::Gemini => {
-            let mut url = normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
+            let mut url =
+                normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
             let stream_url = url
                 .as_str()
                 .replace(":generateContent", ":streamGenerateContent");
@@ -3230,9 +3233,7 @@ mod tests {
             request_id: "budget-test".to_string(),
             model: "model".to_string(),
             input: "hello".to_string(),
-            parameters: Some(
-                serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string(),
-            ),
+            parameters: Some(serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string()),
         };
         assert_eq!(requested_token_budget(&request), Some(321));
 

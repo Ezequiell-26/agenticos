@@ -548,6 +548,107 @@ impl AgentTool for TerminalTool {
     }
 }
 
+#[derive(Clone, Debug)]
+struct BrowserTool {
+    browser: Arc<BrowserRuntime>,
+    capabilities: Arc<CapabilityManager>,
+    operation: &'static str,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for BrowserTool {
+    fn tool_id(&self) -> &str {
+        self.operation
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        #[derive(Debug, Deserialize)]
+        struct SessionArgs {
+            session_id: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct OpenArgs {
+            session_id: String,
+            url: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ClickArgs {
+            session_id: String,
+            target: String,
+        }
+        #[derive(Debug, Deserialize)]
+        struct FillArgs {
+            session_id: String,
+            target: String,
+            text: String,
+        }
+
+        let session_id = match serde_json::from_str::<SessionArgs>(&request.parameters) {
+            Ok(args) => args.session_id,
+            Err(error) => {
+                return Err(ContractError::ParseError(format!(
+                    "invalid browser arguments: {error}"
+                )))
+            }
+        };
+
+        if !self
+            .capabilities
+            .authorize(
+                &request.grant_id,
+                CapabilityType::Execute,
+                &format!("browser/{session_id}"),
+                "browser.use",
+            )
+            .await?
+        {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let result = match self.operation {
+            "browser.open" => {
+                let args = serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid browser.open arguments: {error}"))
+                })?;
+                self.browser.open(&args.session_id, &args.url).await?
+            }
+            "browser.snapshot" => {
+                self.browser.snapshot(&session_id).await?
+            }
+            "browser.click" => {
+                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid browser.click arguments: {error}"))
+                })?;
+                self.browser.click(&args.session_id, &args.target).await?
+            }
+            "browser.fill" => {
+                let args = serde_json::from_str::<FillArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid browser.fill arguments: {error}"))
+                })?;
+                self.browser
+                    .fill(&args.session_id, &args.target, &args.text)
+                    .await?
+            }
+            "browser.screenshot" => self.browser.screenshot(&session_id).await?,
+            "browser.close" => self.browser.close(&session_id).await?,
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: serde_json::to_string(&result)
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+            success: result.success,
+            error: if result.success {
+                None
+            } else {
+                Some(result.output.clone())
+            },
+            metadata: Some(format!("capability-gated browser tool {}", self.operation)),
+        })
+    }
+}
+
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
@@ -777,6 +878,36 @@ impl RuntimeState {
                     ContractError::ParseError(format!(
                         "workspace tool registration failed: {error}"
                     ))
+                })?;
+        }
+
+        for (tool_id, name) in [
+            ("browser.open", "Open browser page"),
+            ("browser.snapshot", "Inspect browser DOM"),
+            ("browser.click", "Click browser target"),
+            ("browser.fill", "Fill browser target"),
+            ("browser.screenshot", "Capture browser screenshot"),
+            ("browser.close", "Close browser session"),
+        ] {
+            tool_runtime
+                .register(
+                    ToolEntry {
+                        tool_id: tool_id.to_string(),
+                        name: name.to_string(),
+                        description: name.to_string(),
+                        capabilities: vec!["browser".to_string()],
+                        required_permissions: vec!["browser.use".to_string()],
+                        context_requirements: vec!["capability:browser.use".to_string()],
+                    },
+                    Arc::new(BrowserTool {
+                        browser: browser.clone(),
+                        capabilities: capabilities.clone(),
+                        operation: tool_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("browser tool registration failed: {error}"))
                 })?;
         }
 

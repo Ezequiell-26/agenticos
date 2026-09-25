@@ -125,30 +125,7 @@ impl JobScheduler {
             .await
             .map_err(|error| format!("scheduler database connection failed: {error}"))?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS scheduler_jobs (
-                job_id TEXT PRIMARY KEY,
-                run_id TEXT NOT NULL,
-                task TEXT NOT NULL,
-                dependencies TEXT NOT NULL,
-                priority INTEGER NOT NULL,
-                max_attempts INTEGER NOT NULL,
-                state TEXT NOT NULL,
-                attempts INTEGER NOT NULL,
-                last_error TEXT,
-                job_type TEXT NOT NULL DEFAULT 'agent',
-                metadata TEXT NOT NULL DEFAULT '{}',
-                lease_owner TEXT,
-                lease_token INTEGER NOT NULL DEFAULT 0,
-                lease_expires_at INTEGER NOT NULL DEFAULT 0,
-                next_attempt_at INTEGER NOT NULL DEFAULT 0
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("scheduler schema initialization failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let columns =
             sqlx::query_as::<_, (String,)>("SELECT name FROM pragma_table_info('scheduler_jobs')")

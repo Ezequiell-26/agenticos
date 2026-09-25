@@ -341,17 +341,7 @@ impl SqliteIdempotencyStore {
             .max_connections(4)
             .connect(connection_string)
             .await?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS idempotency_records (
-                idempotency_key TEXT PRIMARY KEY,
-                fingerprint TEXT NOT NULL,
-                status TEXT NOT NULL,
-                result TEXT,
-                created_at INTEGER NOT NULL
-            )",
-        )
-        .execute(&pool)
-        .await?;
+        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
         Ok(Self {
             pool,
             ttl_seconds: ttl_seconds.max(60),
@@ -752,29 +742,7 @@ impl SqliteLeaseStore {
             .connect(connection_string)
             .await?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS run_lease_counters (
-                resource_id TEXT PRIMARY KEY,
-                next_fencing_token INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(&pool)
-        .await?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS run_leases (
-                resource_id TEXT PRIMARY KEY,
-                owner_id TEXT NOT NULL,
-                fencing_token INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(&pool)
-        .await?;
+        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1531,67 +1499,7 @@ impl SqliteEventStore {
             .connect(connection_string)
             .await?;
 
-        // Initialize schema
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                stream_id TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                event_type TEXT NOT NULL,
-                data TEXT NOT NULL,
-                schema_version INTEGER NOT NULL,
-                timestamp TEXT NOT NULL,
-                UNIQUE(stream_id, version)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_events_stream ON events(stream_id, version);
-
-            CREATE TABLE IF NOT EXISTS outbox_entries (
-                entry_id TEXT PRIMARY KEY,
-                event_type TEXT NOT NULL,
-                event_data TEXT NOT NULL,
-                event_schema_version INTEGER NOT NULL,
-                destination TEXT NOT NULL,
-                attempts INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at INTEGER NOT NULL,
-                processed_at INTEGER
-            );
-
-            CREATE TRIGGER IF NOT EXISTS trg_events_to_runtime_outbox
-            AFTER INSERT ON events
-            WHEN NEW.stream_id LIKE 'run:%'
-            BEGIN
-                INSERT INTO outbox_entries (
-                    entry_id,
-                    event_type,
-                    event_data,
-                    event_schema_version,
-                    destination,
-                    attempts,
-                    status,
-                    created_at,
-                    processed_at
-                )
-                VALUES (
-                    'runtime:' || NEW.stream_id || ':' || NEW.version || ':' ||
-                        NEW.event_type || ':v' || NEW.schema_version,
-                    NEW.event_type,
-                    NEW.data,
-                    NEW.schema_version,
-                    'runtime',
-                    0,
-                    'pending',
-                    CAST(strftime('%s', 'now') AS INTEGER),
-                    NULL
-                )
-                ON CONFLICT(entry_id) DO NOTHING;
-            END;
-            "#,
-        )
-        .execute(&pool)
-        .await?;
+        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1697,23 +1605,7 @@ impl SqliteSnapshotStore {
             .connect(connection_string)
             .await?;
 
-        // Initialize schema
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS snapshots (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                stream_id TEXT NOT NULL UNIQUE,
-                version INTEGER NOT NULL,
-                data TEXT NOT NULL,
-                schema_version INTEGER NOT NULL,
-                timestamp TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_snapshots_stream ON snapshots(stream_id);
-            "#,
-        )
-        .execute(&pool)
-        .await?;
+        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1969,28 +1861,7 @@ impl SqliteOutboxStore {
             .map_err(|error| {
                 ContractError::ParseError(format!("outbox database connection failed: {error}"))
             })?;
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS outbox_entries (
-                entry_id TEXT PRIMARY KEY,
-                event_type TEXT NOT NULL,
-                event_data TEXT NOT NULL,
-                event_schema_version INTEGER NOT NULL,
-                destination TEXT NOT NULL,
-                attempts INTEGER NOT NULL,
-                status TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                processed_at INTEGER,
-                claimed_by TEXT,
-                claimed_until INTEGER
-            )
-            "#,
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("outbox schema initialization failed: {error}"))
-        })?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
 
         for (column, definition) in [("claimed_by", "TEXT"), ("claimed_until", "INTEGER")] {
             let exists: Option<String> = sqlx::query_scalar(
@@ -2016,49 +1887,6 @@ impl SqliteOutboxStore {
             }
         }
 
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_outbox_claims
-             ON outbox_entries(status, claimed_until, created_at, entry_id)",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("outbox index initialization failed: {error}"))
-        })?;
-
-        Ok(Self {
-            pool: Arc::new(pool),
-        })
-    }
-
-    fn status_name(status: OutboxStatus) -> &'static str {
-        match status {
-            OutboxStatus::Pending => "pending",
-            OutboxStatus::Processing => "processing",
-            OutboxStatus::Published => "published",
-            OutboxStatus::Failed => "failed",
-            OutboxStatus::DeadLetter => "dead_letter",
-        }
-    }
-
-    fn parse_status(status: &str) -> Result<OutboxStatus, ContractError> {
-        match status {
-            "pending" => Ok(OutboxStatus::Pending),
-            "processing" => Ok(OutboxStatus::Processing),
-            "published" => Ok(OutboxStatus::Published),
-            "failed" => Ok(OutboxStatus::Failed),
-            "dead_letter" => Ok(OutboxStatus::DeadLetter),
-            other => Err(ContractError::ParseError(format!(
-                "unknown outbox status {other}"
-            ))),
-        }
-    }
-
-    async fn load_entries(
-        &self,
-        where_clause: &str,
-        limit: usize,
-    ) -> Result<Vec<OutboxEntry>, ContractError> {
         let query = format!(
             "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"
         );

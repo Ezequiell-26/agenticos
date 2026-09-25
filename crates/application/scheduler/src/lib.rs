@@ -125,7 +125,9 @@ impl JobScheduler {
             .await
             .map_err(|error| format!("scheduler database connection failed: {error}"))?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, String, String, Option<String>, i64, i64, i64)>(
             "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at, next_attempt_at FROM scheduler_jobs",

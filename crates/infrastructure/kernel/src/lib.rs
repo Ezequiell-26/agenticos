@@ -341,7 +341,9 @@ impl SqliteIdempotencyStore {
             .max_connections(4)
             .connect(connection_string)
             .await?;
-        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(connection_string)
+            .await
+            .map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
         Ok(Self {
             pool,
             ttl_seconds: ttl_seconds.max(60),
@@ -742,7 +744,9 @@ impl SqliteLeaseStore {
             .connect(connection_string)
             .await?;
 
-        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(connection_string)
+            .await
+            .map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1499,7 +1503,9 @@ impl SqliteEventStore {
             .connect(connection_string)
             .await?;
 
-        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(connection_string)
+            .await
+            .map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1605,7 +1611,9 @@ impl SqliteSnapshotStore {
             .connect(connection_string)
             .await?;
 
-        agenticos_sqlite_migrations::migrate(connection_string).await.map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(connection_string)
+            .await
+            .map_err(|error| sqlx::Error::Protocol(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { pool })
     }
@@ -1861,7 +1869,11 @@ impl SqliteOutboxStore {
             .map_err(|error| {
                 ContractError::ParseError(format!("outbox database connection failed: {error}"))
             })?;
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("sqlite migrations failed: {error}"))
+            })?;
 
         let query = format!(
             "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"

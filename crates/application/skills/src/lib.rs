@@ -10,10 +10,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
-use std::{
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 const MAX_SKILL_BYTES: usize = 512 * 1024;
 const MAX_TOTAL_BYTES: usize = 8 * 1024 * 1024;
@@ -86,7 +83,16 @@ impl SkillRegistry {
     pub async fn list(&self) -> Result<Vec<SkillRecord>, String> {
         let rows = sqlx::query_as::<
             _,
-            (String, String, String, String, String, i64, Option<String>, String),
+            (
+                String,
+                String,
+                String,
+                String,
+                String,
+                i64,
+                Option<String>,
+                String,
+            ),
         >(
             "SELECT skill_id, name, version, description, category, enabled, source, updated_at
              FROM skills
@@ -98,16 +104,7 @@ impl SkillRegistry {
 
         rows.into_iter()
             .map(
-                |(
-                    skill_id,
-                    name,
-                    version,
-                    description,
-                    category,
-                    enabled,
-                    source,
-                    updated_at,
-                )| {
+                |(skill_id, name, version, description, category, enabled, source, updated_at)| {
                     let updated_at = DateTime::parse_from_rfc3339(&updated_at)
                         .map_err(|error| format!("invalid persisted skill timestamp: {error}"))?
                         .with_timezone(&Utc);
@@ -139,15 +136,21 @@ impl SkillRegistry {
         .map_err(|error| format!("enabled skills query failed: {error}"))?;
 
         rows.into_iter()
-            .map(|(skill_id, name, version, description, content, category)| {
-                Ok(SkillMetadata {
-                    name: if name.trim().is_empty() { skill_id } else { name },
-                    description,
-                    version,
-                    category,
-                    content,
-                })
-            })
+            .map(
+                |(skill_id, name, version, description, content, category)| {
+                    Ok(SkillMetadata {
+                        name: if name.trim().is_empty() {
+                            skill_id
+                        } else {
+                            name
+                        },
+                        description,
+                        version,
+                        category,
+                        content,
+                    })
+                },
+            )
             .collect()
     }
 
@@ -176,7 +179,16 @@ impl SkillRegistry {
         let skill_id = normalize_id(skill_id)?;
         let row = sqlx::query_as::<
             _,
-            (String, String, String, String, String, i64, Option<String>, String),
+            (
+                String,
+                String,
+                String,
+                String,
+                String,
+                i64,
+                Option<String>,
+                String,
+            ),
         >(
             "SELECT skill_id, name, version, description, category, enabled, source, updated_at
              FROM skills WHERE skill_id = ?",
@@ -187,16 +199,7 @@ impl SkillRegistry {
         .map_err(|error| format!("skill lookup failed: {error}"))?;
 
         row.map(
-            |(
-                skill_id,
-                name,
-                version,
-                description,
-                category,
-                enabled,
-                source,
-                updated_at,
-            )| {
+            |(skill_id, name, version, description, category, enabled, source, updated_at)| {
                 let updated_at = DateTime::parse_from_rfc3339(&updated_at)
                     .map_err(|error| format!("invalid persisted skill timestamp: {error}"))?
                     .with_timezone(&Utc);
@@ -401,8 +404,11 @@ Review files.";
 
     #[test]
     fn rejects_missing_frontmatter() {
-        assert!(parse_metadata("## Procedure
-Do work").is_err());
+        assert!(parse_metadata(
+            "## Procedure
+Do work"
+        )
+        .is_err());
     }
 
     #[tokio::test]
@@ -410,9 +416,7 @@ Do work").is_err());
         let root = std::env::temp_dir().join(format!(
             "agenticos-skills-{}-{}",
             std::process::id(),
-            chrono::Utc::now()
-                .timestamp_nanos_opt()
-                .unwrap_or_default()
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         let skill_dir = root.join("repo-review");
         tokio::fs::create_dir_all(&skill_dir).await.unwrap();
@@ -426,9 +430,7 @@ Do work").is_err());
         let database = std::env::temp_dir().join(format!(
             "agenticos-skills-{}-{}.db",
             std::process::id(),
-            chrono::Utc::now()
-                .timestamp_nanos_opt()
-                .unwrap_or_default()
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         let url = format!("sqlite://{}?mode=rwc", database.display());
 
@@ -450,10 +452,13 @@ Do work").is_err());
 
     #[test]
     fn rejects_oversized_metadata() {
-        let content = format!("---
+        let content = format!(
+            "---
 name: x
 description: {}\n---
-", "a".repeat(MAX_SKILL_BYTES));
+",
+            "a".repeat(MAX_SKILL_BYTES)
+        );
         assert!(parse_metadata(&content).is_err());
     }
 }

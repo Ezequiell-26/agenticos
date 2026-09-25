@@ -7,7 +7,7 @@
 //! not represented by this crate.
 
 use agenticos_contracts::{CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError};
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

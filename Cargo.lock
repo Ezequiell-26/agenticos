@@ -624,18 +624,22 @@ name = "agenticos-tools"
 version = "0.1.0"
 dependencies = [
  "agenticos-artifacts",
+ "agenticos-browser",
  "agenticos-context",
  "agenticos-contracts",
  "agenticos-kernel",
  "agenticos-mcp",
+ "agenticos-observability",
  "agenticos-sandbox",
  "agenticos-security",
+ "agenticos-source-forge",
  "agenticos-terminal",
  "agenticos-workspace",
  "async-trait",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

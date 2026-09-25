@@ -18,9 +18,7 @@ use tokio::sync::RwLock;
 pub const OWNER: &str = "agenticos-execution";
 
 pub mod native_tools;
-pub use native_tools::{
-    GitWorkspaceTool, SecureCommandTool, TerminalTool, WorkspaceTool,
-};
+pub use native_tools::{GitWorkspaceTool, SecureCommandTool, TerminalTool, WorkspaceTool};
 
 /// Basic command handler for write operations.
 #[derive(Debug)]

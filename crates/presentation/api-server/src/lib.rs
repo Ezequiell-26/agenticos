@@ -30,7 +30,9 @@ use agenticos_contracts::{
     ModelProvider, RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
-use agenticos_execution::{GitWorkspaceTool, SecureCommandTool, SecureToolService, TerminalTool, WorkspaceTool};
+use agenticos_execution::{
+    GitWorkspaceTool, SecureCommandTool, SecureToolService, TerminalTool, WorkspaceTool,
+};
 use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
     InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill, SqliteEventStore,

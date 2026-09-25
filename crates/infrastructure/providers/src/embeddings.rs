@@ -104,12 +104,11 @@ impl EmbeddingProvider for OpenAiCompatibleEmbeddingProvider {
             })?;
 
         let status = response.status();
-        let body = response
-            .text()
-            .await
-            .map_err(|error| ContractError::ParseError(format!(
+        let body = response.text().await.map_err(|error| {
+            ContractError::ParseError(format!(
                 "embedding provider response read failed: {error}"
-            )))?;
+            ))
+        })?;
 
         if !status.is_success() {
             return Err(ContractError::ParseError(format!(
@@ -170,7 +169,10 @@ impl EmbeddingProvider for OpenAiCompatibleEmbeddingProvider {
         Ok(EmbeddingResponse {
             request_id: request.request_id,
             embeddings,
-            metadata: Some(format!("provider={};model={}", self.provider_id, request.model)),
+            metadata: Some(format!(
+                "provider={};model={}",
+                self.provider_id, request.model
+            )),
             tokens_used: payload.usage.and_then(|usage| usage.total_tokens),
         })
     }
@@ -188,10 +190,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(
-            provider.endpoint(),
-            "http://localhost:8000/v1/embeddings"
-        );
+        assert_eq!(provider.endpoint(), "http://localhost:8000/v1/embeddings");
     }
 
     #[test]
@@ -202,10 +201,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(
-            provider.endpoint(),
-            "http://localhost:8000/v1/embeddings"
-        );
+        assert_eq!(provider.endpoint(), "http://localhost:8000/v1/embeddings");
     }
 
     #[tokio::test]
@@ -253,7 +249,10 @@ mod tests {
 
         server.await.unwrap();
 
-        assert_eq!(response.embeddings, vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6]]);
+        assert_eq!(
+            response.embeddings,
+            vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6]]
+        );
         assert_eq!(response.tokens_used, Some(12));
         assert_eq!(response.request_id, "embed-test-1");
     }

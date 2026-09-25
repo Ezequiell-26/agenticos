@@ -95,7 +95,7 @@ impl SubagentManager {
         let db = SqlitePool::connect(database_url)
             .await
             .map_err(|error| format!("agent database connection failed: {error}"))?;
-        agenticos_sqlite_migrations::migrate(database_url)
+        agenticos_sqlite_migrations::migrate_pool(&db)
             .await
             .map_err(|error| format!("sqlite migrations failed: {error}"))?;
 

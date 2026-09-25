@@ -160,16 +160,8 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
     std::env::set_var("AGENTICOS_ALLOW_ANONYMOUS_PROVIDER", "true");
     std::env::set_var("AGENTICOS_DATABASE_URL", &database_url);
     std::env::set_var("AGENTICOS_ARTIFACT_ROOT", &artifact_root);
-    std::env::set_var(
-        "AGENTICOS_PROJECT_PATH",
-        std::env::current_dir().expect("workspace directory"),
-    );
-    std::env::set_var(
-        "AGENTICOS_SKILLS_ROOT",
-        std::env::current_dir()
-            .expect("workspace directory")
-            .join("skills"),
-    );
+    std::env::set_var("AGENTICOS_PROJECT_PATH", ".");
+    std::env::set_var("AGENTICOS_SKILLS_ROOT", "skills");
 
     let provider_task = tokio::spawn(serve_fake_provider(provider_listener));
     let runtime = RuntimeState::from_env()

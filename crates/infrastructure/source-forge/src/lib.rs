@@ -3,6 +3,7 @@
 
 //! reference corpus and source admission boundary. Functionality is introduced only through verified vertical slices.
 
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 
 use agenticos_contracts::{
@@ -401,6 +402,23 @@ pub struct GitHubRepositoryInfo {
     pub stars: u64,
 }
 
+/// Result of a successful GitHub file write.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GitHubWriteResult {
+    /// Repository identifier.
+    pub repo_id: String,
+    /// Updated file path.
+    pub path: String,
+    /// Target branch or reference.
+    pub reference: String,
+    /// New file blob SHA.
+    pub file_sha: String,
+    /// Commit SHA created by the write.
+    pub commit_sha: String,
+    /// GitHub file URL, when returned.
+    pub url: Option<String>,
+}
+
 /// A bounded source-file response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceFile {
@@ -564,6 +582,120 @@ impl GitHubSourceClient {
         })
     }
 
+    /// Write or update a UTF-8 file in a GitHub repository.
+    ///
+    /// When an expected SHA is supplied, GitHub rejects stale revisions instead
+    /// of silently overwriting concurrent changes.
+    pub async fn write_file(
+        &self,
+        repo: &str,
+        path: &str,
+        content: &str,
+        reference: Option<&str>,
+        message: &str,
+        expected_sha: Option<&str>,
+    ) -> Result<GitHubWriteResult, SourceForgeError> {
+        let token = self
+            .token
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or(SourceForgeError::AuthenticationRequired)?;
+
+        let repo_id = normalize_github_repo(repo)?;
+        let path = normalize_source_path(path)?;
+        if message.trim().is_empty() || message.len() > 512 {
+            return Err(SourceForgeError::InvalidSource(
+                "commit message must contain 1-512 characters".to_string(),
+            ));
+        }
+        if content.len() > self.max_file_bytes {
+            return Err(SourceForgeError::TooLarge);
+        }
+
+        let mut body = serde_json::json!({
+            "message": message.trim(),
+            "content": base64::engine::general_purpose::STANDARD.encode(content.as_bytes()),
+        });
+        if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
+            if reference.len() > 256 || reference.contains(['', '
+']) {
+                return Err(SourceForgeError::InvalidSource(
+                    "invalid Git reference".to_string(),
+                ));
+            }
+            body["branch"] = serde_json::Value::String(reference.to_string());
+        }
+        if let Some(sha) = expected_sha.map(str::trim).filter(|value| !value.is_empty()) {
+            if sha.len() > 128 || sha.contains(['', '
+']) {
+                return Err(SourceForgeError::InvalidSource(
+                    "invalid expected file SHA".to_string(),
+                ));
+            }
+            body["sha"] = serde_json::Value::String(sha.to_string());
+        }
+
+        let response = self
+            .client
+            .put(format!(
+                "{}/repos/{repo_id}/contents/{path}",
+                self.api_base
+            ))
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github+json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+
+        let status = response.status();
+        let response_body = response
+            .text()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        if status.as_u16() == 409 || (status.as_u16() == 422 && response_body.contains("sha")) {
+            return Err(SourceForgeError::Conflict);
+        }
+        if !status.is_success() {
+            let mut message = response_body;
+            if message.len() > 1024 {
+                message.truncate(1024);
+            }
+            return Err(SourceForgeError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+
+        #[derive(Deserialize)]
+        struct ContentPayload {
+            path: String,
+            sha: String,
+            html_url: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct CommitPayload {
+            sha: String,
+        }
+        #[derive(Deserialize)]
+        struct WritePayload {
+            content: ContentPayload,
+            commit: CommitPayload,
+        }
+
+        let payload = serde_json::from_str::<WritePayload>(&response_body)
+            .map_err(|error| SourceForgeError::Decode(error.to_string()))?;
+
+        Ok(GitHubWriteResult {
+            repo_id,
+            path: payload.content.path,
+            reference: reference.unwrap_or("default").to_string(),
+            file_sha: payload.content.sha,
+            commit_sha: payload.commit.sha,
+            url: payload.content.html_url,
+        })
+    }
+
     fn request(&self, path: String) -> reqwest::RequestBuilder {
         let mut request = self.client.get(format!("{}{}", self.api_base, path));
         if let Some(token) = &self.token {
@@ -637,6 +769,12 @@ mod github_source_tests {
         assert!(normalize_github_repo("https://example.com/a/b").is_err());
         assert!(normalize_github_repo("https://github.com/a/b/c").is_err());
         assert!(normalize_github_repo("github.com/a/../b").is_err());
+    }
+
+    #[test]
+    fn github_write_payload_is_base64_compatible() {
+        let encoded = base64::engine::general_purpose::STANDARD.encode("hello".as_bytes());
+        assert_eq!(encoded, "aGVsbG8=");
     }
 
     #[test]

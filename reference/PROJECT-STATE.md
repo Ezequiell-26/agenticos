@@ -8,6 +8,7 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
+- Latest CI remediation: Rust API server closure and rustfmt-required backend files corrected on `main`; pull-request verification is required before promotion.
 - Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, sandbox limits, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite

@@ -7195,6 +7195,39 @@ async fn api_auth_middleware(
     Ok(next.call(req).await?.map_into_right_body())
 }
 
+fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+fn runtime_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+fn agent_execution_concurrency_limit() -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let default_limit = cores.saturating_mul(2).clamp(2, 32);
+    runtime_env_usize("AGENTICOS_MAX_AGENT_CONCURRENCY", default_limit, 1, 64)
+}
+
+fn unix_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");

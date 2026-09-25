@@ -72,7 +72,7 @@ impl SkillRegistry {
             .await
             .map_err(|error| format!("skill database connection failed: {error}"))?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await?;
+        agenticos_sqlite_migrations::migrate_pool(&db).await?;
 
         let registry = Self {
             db: Arc::new(db),

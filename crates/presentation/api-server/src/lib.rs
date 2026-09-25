@@ -18,8 +18,8 @@ use agenticos_a2a::{
     AgentInterface, AgentSkill, JsonRpcError, JsonRpcRequest, JsonRpcResponse, TaskState, TaskView,
 };
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
-use agenticos_artifacts::{ArtifactRange, ArtifactStore};
-use agenticos_browser::BrowserRuntime;
+use agenticos_artifacts::{ArtifactRange, ArtifactRecord, ArtifactStore};
+use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
@@ -476,6 +476,7 @@ impl AgentTool for TerminalTool {
             return Err(ContractError::MissingCapability);
         }
 
+        let mut screenshot_artifact: Option<ArtifactRecord> = None;
         let result = match self.operation {
             "terminal.open" => {
                 let args =
@@ -688,6 +689,7 @@ struct BrowserTool {
     capabilities: Arc<CapabilityManager>,
     audit: Arc<AuditStore>,
     metrics: Arc<RuntimeMetrics>,
+    artifacts: Arc<ArtifactStore>,
     operation: &'static str,
 }
 
@@ -777,7 +779,13 @@ impl AgentTool for BrowserTool {
                 })?;
                 self.browser.get_text(&args.session_id, &args.target).await?
             }
-            "browser.screenshot" => self.browser.screenshot(&session_id).await?,
+            "browser.screenshot" => {
+                let (result, artifact) =
+                    capture_browser_screenshot_artifact(&self.browser, &self.artifacts, &session_id)
+                        .await?;
+                screenshot_artifact = artifact;
+                result
+            },
             "browser.close" => self.browser.close(&session_id).await?,
             _ => return Err(ContractError::MissingCapability),
         };
@@ -803,10 +811,21 @@ impl AgentTool for BrowserTool {
             tracing::warn!(%error, operation = self.operation, "failed to persist browser audit event");
         }
 
+        let mut result_json =
+            serde_json::to_value(&result).map_err(|error| ContractError::ParseError(error.to_string()))?;
+        if let Some(artifact) = screenshot_artifact {
+            if let Some(object) = result_json.as_object_mut() {
+                object.insert(
+                    "artifact".to_string(),
+                    serde_json::to_value(artifact)
+                        .map_err(|error| ContractError::ParseError(error.to_string()))?,
+                );
+            }
+        }
+
         Ok(ToolResponse {
             request_id: request.request_id,
-            result: serde_json::to_string(&result)
-                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+            result: result_json.to_string(),
             success: result.success,
             error: if result.success {
                 None
@@ -1119,6 +1138,7 @@ impl RuntimeState {
                         capabilities: capabilities.clone(),
                         audit: audit.clone(),
                         metrics: metrics.clone(),
+                        artifacts: artifacts.clone(),
                         operation: tool_id,
                     }),
                 )
@@ -3901,6 +3921,44 @@ async fn browser_get_text(
     }
 }
 
+async fn capture_browser_screenshot_artifact(
+    browser: &BrowserRuntime,
+    artifacts: &ArtifactStore,
+    session_id: &str,
+) -> Result<(BrowserActionResult, Option<ArtifactRecord>), ContractError> {
+    let temp_path = artifacts
+        .root()
+        .join(format!(".browser-screenshot-{}.png", uuid::Uuid::new_v4()));
+
+    let result = browser.screenshot_to(session_id, &temp_path).await?;
+    let artifact = if result.success {
+        let bytes = tokio::fs::read(&temp_path).await.map_err(|error| {
+            ContractError::ParseError(format!("browser screenshot read failed: {error}"))
+        })?;
+        let record = artifacts
+            .put_bytes(
+                None,
+                "browser-screenshot",
+                "image/png",
+                &bytes,
+                None,
+                false,
+                serde_json::json!({
+                    "session_id": session_id,
+                    "source": "agent-browser",
+                }),
+            )
+            .await
+            .map_err(ContractError::ParseError)?;
+        Some(record)
+    } else {
+        None
+    };
+
+    let _ = tokio::fs::remove_file(&temp_path).await;
+    Ok((result, artifact))
+}
+
 async fn browser_screenshot(
     path: web::Path<String>,
     request: web::Json<BrowserGrantRequest>,
@@ -3911,8 +3969,8 @@ async fn browser_screenshot(
     if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
         return response;
     }
-    match state.browser.screenshot(&session_id).await {
-        Ok(result) => {
+    match capture_browser_screenshot_artifact(&state.browser, &state.artifacts, &session_id).await {
+        Ok((result, artifact)) => {
             browser_audit_event(
                 &state,
                 &request_correlation_id(&request_http),
@@ -3921,7 +3979,17 @@ async fn browser_screenshot(
                 result.success,
             )
             .await;
-            HttpResponse::Ok().json(result)
+
+            let mut payload = serde_json::to_value(result).unwrap_or_else(|_| serde_json::json!({}));
+            if let Some(artifact) = artifact {
+                if let Some(object) = payload.as_object_mut() {
+                    object.insert(
+                        "artifact".to_string(),
+                        serde_json::to_value(artifact).unwrap_or_else(|_| serde_json::json!({})),
+                    );
+                }
+            }
+            HttpResponse::Ok().json(payload)
         },
         Err(error) => {
             browser_audit_event(

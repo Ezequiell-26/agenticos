@@ -335,20 +335,15 @@ mod tests {
             .await
             .unwrap();
 
-        manager
-            .spawn_child("bounded", "parent", 0)
-            .await
-            .unwrap();
+        manager.spawn_child("bounded", "parent", 0).await.unwrap();
         assert!(manager.spawn_child("bounded", "parent", 0).await.is_err());
         assert!(manager.spawn_child("bounded", "another", 1).await.is_err());
     }
 
     #[tokio::test]
     async fn persisted_child_runs_survive_manager_restart() {
-        let path = std::env::temp_dir().join(format!(
-            "agenticos-subagents-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("agenticos-subagents-{}.db", uuid::Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = SubagentManager::open(&url, 4).await.unwrap();

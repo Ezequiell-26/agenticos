@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useState } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,80 +12,108 @@ interface AgentResponse {
   session_id: string;
 }
 
+interface BackendHealth {
+  status: string;
+  version: string;
+  uptime_seconds: number;
+}
+
+interface HistoryResponse {
+  history: Array<{
+    role: string;
+    content: string;
+    timestamp?: number;
+  }>;
+}
+
+const API_BASE_URL = (import.meta.env.VITE_AGENTICOS_API_URL ?? 'http://127.0.0.1:8080').replace(/\/+$/, '');
+const API_TOKEN = import.meta.env.VITE_AGENTICOS_API_TOKEN as string | undefined;
+
+function headers(): Record<string, string> {
+  return {
+    ...(API_TOKEN?.trim() ? { Authorization: `Bearer ${API_TOKEN.trim()}` } : {}),
+  };
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `API request failed with ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export default function AgentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [backendHealth, setBackendHealth] = useState<string>('checking...');
+  const [backendHealth, setBackendHealth] = useState('checking...');
 
   useEffect(() => {
-    // Check backend health on mount
-    checkBackendHealth();
+    void checkBackendHealth();
   }, []);
 
-  const checkBackendHealth = async () => {
+  async function checkBackendHealth() {
     try {
-      const health = await invoke<any>('get_backend_health');
+      const response = await fetch(`${API_BASE_URL}/health`, { headers: headers() });
+      const health = await readJson<BackendHealth>(response);
       setBackendHealth(health.status === 'healthy' ? 'healthy' : 'not_ready');
-    } catch (error) {
+    } catch {
       setBackendHealth('offline');
-      console.error('Backend health check failed:', error);
     }
-  };
+  }
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
+  async function handleSendMessage() {
+    const message = input.trim();
+    if (!message) return;
 
-    const userMessage: Message = {
-      role: 'user',
-      content: input,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, { role: 'user', content: message }]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const response: AgentResponse = await invoke('send_agent_message', {
-        message: input,
-        sessionId: sessionId || undefined,
+      const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+        }),
       });
+      const data = await readJson<AgentResponse>(response);
 
-      if (!sessionId) {
-        setSessionId(response.session_id);
-      }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.content,
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      setSessionId((current) => current ?? data.session_id);
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.content }]);
     } catch (error) {
-      console.error('Failed to send message:', error);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Error: Failed to communicate with backend. Please check if the backend is running.',
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      const detail = error instanceof Error ? error.message : 'Backend communication failed.';
+      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}` }]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  const handleLoadHistory = async () => {
+  async function handleLoadHistory() {
     if (!sessionId) return;
 
     try {
-      const history: Message[] = await invoke('get_conversation_history', {
-        sessionId,
-      });
-      setMessages(history);
+      const response = await fetch(
+        `${API_BASE_URL}/api/conversations/${encodeURIComponent(sessionId)}/history`,
+        { headers: headers() },
+      );
+      const data = await readJson<HistoryResponse>(response);
+      setMessages(
+        data.history.map((entry) => ({
+          role: entry.role === 'user' ? 'user' : 'assistant',
+          content: entry.content,
+          timestamp: entry.timestamp,
+        })),
+      );
     } catch (error) {
-      console.error('Failed to load history:', error);
+      const detail = error instanceof Error ? error.message : 'History request failed.';
+      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}` }]);
     }
-  };
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
@@ -99,7 +126,7 @@ export default function AgentChat() {
             </span>
             {sessionId && (
               <button
-                onClick={handleLoadHistory}
+                onClick={() => void handleLoadHistory()}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
               >
                 Load History
@@ -107,9 +134,7 @@ export default function AgentChat() {
             )}
           </div>
         </div>
-        {sessionId && (
-          <p className="text-xs text-gray-500 mt-1">Session: {sessionId}</p>
-        )}
+        {sessionId && <p className="text-xs text-gray-500 mt-1">Session: {sessionId}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -119,17 +144,8 @@ export default function AgentChat() {
           </div>
         )}
         {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[70%] p-3 rounded-lg ${
-                msg.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-100'
-              }`}
-            >
+          <div key={`${msg.role}-${msg.timestamp ?? index}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[70%] p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-100'}`}>
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
           </div>
@@ -148,14 +164,19 @@ export default function AgentChat() {
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleSendMessage();
+              }
+            }}
             placeholder="Type your message..."
             disabled={isLoading}
             className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white"
           />
           <button
-            onClick={handleSendMessage}
+            onClick={() => void handleSendMessage()}
             disabled={isLoading || !input.trim()}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded font-medium"
           >

@@ -3,13 +3,14 @@
 
 //! Secure capability-gated process execution service.
 
-use agenticos_contracts::ContractError;
+use agenticos_contracts::{CapabilityType, ContractError};
+use agenticos_security::CapabilityManager;
 use std::sync::Arc;
 
 /// Capability-gated tool execution service.
 #[derive(Clone)]
 pub struct SecureToolService {
-    capabilities: Arc<dyn agenticos_contracts::CapabilityIssuer>,
+    capabilities: Arc<CapabilityManager>,
     sandbox: Arc<dyn agenticos_contracts::Sandbox>,
     pipeline: Arc<agenticos_kernel::ToolExecutionPipeline>,
 }
@@ -38,9 +39,18 @@ impl SecureToolService {
         permission: &str,
         workdir: Option<&std::path::Path>,
     ) -> Result<agenticos_kernel::ToolExecutionResult, ContractError> {
-        // Simplified authorization - in production, implement proper capability checking
-        // For now, we'll assume the grant exists and has the required permission
-        let _authorized = true;
+        let authorized = self
+            .capabilities
+            .authorize(
+                grant_id.trim(),
+                CapabilityType::Execute,
+                resource,
+                permission,
+            )
+            .await?;
+        if !authorized {
+            return Err(ContractError::MissingCapability);
+        }
 
         let mut context = agenticos_kernel::ToolExecutionContext::new(
             "process.execute".to_string(),
@@ -94,7 +104,7 @@ impl SecureToolService {
 
     /// Construct a secure tool service with a policy hook.
     pub fn new(
-        capabilities: Arc<dyn agenticos_contracts::CapabilityIssuer>,
+        capabilities: Arc<CapabilityManager>,
         sandbox: Arc<dyn agenticos_contracts::Sandbox>,
     ) -> Self {
         let pipeline = agenticos_kernel::ToolExecutionPipeline::new().add_pre_hook(Arc::new(

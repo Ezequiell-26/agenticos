@@ -30,61 +30,68 @@ impl AgentState {
     }
 }
 
+fn api_base_url() -> String {
+    if let Ok(url) = std::env::var("AGENTICOS_API_URL") {
+        if !url.trim().is_empty() {
+            return url.trim_end_matches('/').to_string();
+        }
+    }
+
+    let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = std::env::var("AGENTICOS_BIND_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(8080);
+    let host = if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]")
+    } else {
+        host
+    };
+    format!("http://{host}:{port}")
+}
+
 /// Send a message to the agent via Tauri command.
 #[tauri::command]
-pub async fn send_agent_message(message: String, session_id: Option<String>) -> Result<AgentResponse, String> {
-    let api_url = "http://127.0.0.1:8080";
+pub async fn send_agent_message(
+    message: String,
+    session_id: Option<String>,
+) -> Result<AgentResponse, String> {
+    let api_url = api_base_url();
     let user_message = UserMessage {
         content: message,
         session_id,
     };
-    send_message(user_message, api_url).await
+    send_message(user_message, &api_url).await
 }
 
-/// Get conversation history for a session.
+/// Get conversation history for a session via Tauri command.
 #[tauri::command]
-pub async fn get_conversation_history(session_id: String) -> Result<Vec<ConversationEntry>, String> {
-    let api_url = "http://127.0.0.1:8080";
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/agent/history/{}", api_url, session_id);
-
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("API request failed: {}", e))?
-        .error_for_status()
-        .map_err(|e| format!("API returned an error: {}", e))?;
-
-    let entries: Vec<ConversationEntry> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(entries)
+pub async fn get_conversation_history(
+    session_id: String,
+) -> Result<Vec<ConversationEntry>, String> {
+    let api_url = api_base_url();
+    get_conversation_history_from_api(&session_id, &api_url).await
 }
 
 /// Get backend health status.
 #[tauri::command]
 pub async fn get_backend_health() -> Result<BackendHealth, String> {
-    let api_url = "http://127.0.0.1:8080";
+    let api_url = api_base_url();
     let client = reqwest::Client::new();
-    let url = format!("{}/health", api_url);
+    let url = format!("{api_url}/health");
 
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?
+        .map_err(|e| format!("API request failed: {e}"))?
         .error_for_status()
-        .map_err(|e| format!("API returned an error: {}", e))?;
+        .map_err(|e| format!("API returned an error: {e}"))?;
 
-    let health: BackendHealth = response
-        .json()
+    response
+        .json::<BackendHealth>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(health)
+        .map_err(|e| format!("Failed to parse response: {e}"))
 }
 
 /// Backend health status.
@@ -119,21 +126,17 @@ pub struct ConversationEntry {
 }
 
 /// Log the desktop integration entry point used by embedding hosts.
-///
-/// The canonical executable is the Tauri entry point in
-/// `crates/presentation/desktop/src/main.rs`, which starts the durable HTTP
-/// runtime and then launches the Tauri shell.
 pub fn run() {
     println!("AgentiCOS Desktop runtime is managed by the canonical Tauri entry point.");
 }
 
 /// Send a message to the agent via backend API.
-/// Note: This uses the backend API server. Full React UI integration will use
-/// Tauri IPC commands and a React chat interface.
-pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentResponse, String> {
-    // Send request to backend API
+pub async fn send_message(
+    message: UserMessage,
+    api_url: &str,
+) -> Result<AgentResponse, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/api/agent/chat", api_url);
+    let url = format!("{}/api/agent/chat", api_url.trim_end_matches('/'));
 
     let response = client
         .post(&url)
@@ -143,18 +146,19 @@ pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentRe
         }))
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?
+        .map_err(|e| format!("API request failed: {e}"))?
         .error_for_status()
-        .map_err(|e| format!("API returned an error: {}", e))?;
+        .map_err(|e| format!("API returned an error: {e}"))?;
 
-    let json: serde_json::Value = response
-        .json()
+    let json = response
+        .json::<serde_json::Value>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
-    let content = json["response"]
-        .as_str()
-        .unwrap_or("No response")
+    let content = json
+        .get("response")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "API response did not contain a response field".to_string())?
         .to_string();
 
     let session_id = json
@@ -171,31 +175,34 @@ pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentRe
     })
 }
 
-/// Get conversation history from backend API.
-pub async fn get_conversation_history(
+/// Get conversation history from the backend API.
+pub async fn get_conversation_history_from_api(
     session_id: &str,
     api_url: &str,
 ) -> Result<Vec<ConversationEntry>, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/api/conversations/{}/history", api_url, session_id);
+    let url = format!(
+        "{}/api/conversations/{}/history",
+        api_url.trim_end_matches('/'),
+        session_id
+    );
 
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?
+        .map_err(|e| format!("API request failed: {e}"))?
         .error_for_status()
-        .map_err(|e| format!("API returned an error: {}", e))?;
+        .map_err(|e| format!("API returned an error: {e}"))?;
 
-    let json: serde_json::Value = response
-        .json()
+    let json = response
+        .json::<serde_json::Value>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
     let entries = json
         .get("history")
         .and_then(serde_json::Value::as_array)
-        .or_else(|| json.as_array())
         .ok_or_else(|| "history response did not contain an array".to_string())?;
 
     entries
@@ -221,27 +228,29 @@ pub async fn get_conversation_history(
         .collect()
 }
 
-/// Get the current agent status from backend API.
+/// Get the current agent name from the backend API.
 pub async fn get_agent_status(api_url: &str) -> Result<String, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/api/agent/status", api_url);
+    let url = format!("{}/api/agent/status", api_url.trim_end_matches('/'));
 
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?
+        .map_err(|e| format!("API request failed: {e}"))?
         .error_for_status()
-        .map_err(|e| format!("API returned an error: {}", e))?;
+        .map_err(|e| format!("API returned an error: {e}"))?;
 
-    let json: serde_json::Value = response
-        .json()
+    let json = response
+        .json::<serde_json::Value>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
-    let agent_name = json["agent_name"].as_str().unwrap_or("Unknown").to_string();
-
-    Ok(agent_name)
+    Ok(json
+        .get("agent_name")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Unknown")
+        .to_string())
 }
 
 #[cfg(test)]
@@ -276,16 +285,12 @@ mod tests {
             session_id: Some("session-1".to_string()),
         };
         let response = send_message(msg, "http://127.0.0.1:8080").await;
-        // Expect API request to fail in test environment
         assert!(response.is_err());
     }
 
     #[tokio::test]
     async fn test_get_agent_status() {
-        // Note: This test uses a placeholder API URL
-        // TODO: Add test with mock API server
         let status = get_agent_status("http://127.0.0.1:8080").await;
-        // Expect API request to fail in test environment
         assert!(status.is_err());
     }
 

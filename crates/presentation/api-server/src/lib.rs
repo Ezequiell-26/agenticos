@@ -26,8 +26,8 @@ use agenticos_brain::{
 use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest, ModelProvider,
-    RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest,
+    ModelProvider, RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 
 /// Get current Unix timestamp in seconds.
@@ -832,10 +832,18 @@ impl RuntimeState {
                             .await
                         {
                             Ok(result) => Ok(result),
-                            Err(_) => self.persistent_memory.search(&namespace, query, limit).await,
+                            Err(_) => {
+                                self.persistent_memory
+                                    .search(&namespace, query, limit)
+                                    .await
+                            },
                         }
                     }
-                    _ => self.persistent_memory.search(&namespace, query, limit).await,
+                    _ => {
+                        self.persistent_memory
+                            .search(&namespace, query, limit)
+                            .await
+                    },
                 }
             } else {
                 self.persistent_memory

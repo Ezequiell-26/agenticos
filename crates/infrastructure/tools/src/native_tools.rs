@@ -466,8 +466,6 @@ impl AgentTool for TerminalTool {
             return Err(ContractError::MissingCapability);
         }
 
-        let mut screenshot_artifact = None;
-
         let result = match self.operation {
             "terminal.open" => {
                 let args =
@@ -745,6 +743,8 @@ impl AgentTool for BrowserTool {
         {
             return Err(ContractError::MissingCapability);
         }
+
+        let mut screenshot_artifact = None;
 
         let result = match self.operation {
             "browser.open" => {

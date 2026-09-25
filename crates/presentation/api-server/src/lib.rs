@@ -3445,10 +3445,13 @@ async fn set_usage_pricing(
 
 async fn list_skills(state: web::Data<RuntimeState>) -> impl Responder {
     match state.skills_registry.list().await {
-        Ok(skills) => HttpResponse::Ok().json(serde_json::json!({
-            "skills": skills,
-            "count": skills.len(),
-        })),
+        Ok(skills) => {
+            let count = skills.len();
+            HttpResponse::Ok().json(serde_json::json!({
+                "skills": skills,
+                "count": count,
+            }))
+        }
         Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
             error,
             code: "SKILL_LIST_FAILED",

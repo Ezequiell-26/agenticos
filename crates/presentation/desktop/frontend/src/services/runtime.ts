@@ -9,6 +9,7 @@ import type {
   RuntimeMemoryRecord,
   RuntimeModel,
   RuntimeModelResponse,
+  RuntimeEmbeddingResponse,
   RuntimeProviderRegistration,
   RuntimeProviderStatus,
   RuntimeQuota,
@@ -415,6 +416,19 @@ export class AgenticosRuntime implements RuntimeServices {
       const data = await this.transport.get<RuntimeApiRecord>(`/api/conversations/search?q=${encodeURIComponent(query)}&limit=${Math.min(100, Math.max(1, limit))}`)
       return { query, results: arrayOfRecords(data.results), count: readNumber(data, 'count') ?? 0 }
     },
+  }
+
+  readonly embeddings = {
+    create: async (
+      model: string,
+      inputs: string[],
+      requestId?: string,
+    ): Promise<RuntimeEmbeddingResponse> =>
+      this.transport.post<RuntimeEmbeddingResponse>('/api/models/embeddings', {
+        model,
+        inputs,
+        ...(requestId ? { request_id: requestId } : {}),
+      }),
   }
 
   readonly models = {

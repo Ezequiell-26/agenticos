@@ -965,7 +965,7 @@ pub enum SandboxStatus {
 }
 
 /// Quota information for a provider.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct QuotaInfo {
     /// Provider identifier.
     pub provider_id: String,

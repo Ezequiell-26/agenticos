@@ -1076,6 +1076,107 @@ impl ProviderPlatform {
         Err(last_error.unwrap_or(ContractError::MissingCapability))
     }
 
+    /// Stream a routed OpenAI-compatible chat request.
+    ///
+    /// Streaming is available for providers using the OpenAI Chat Completions
+    /// protocol. Other provider protocols continue to use the normalized execute
+    /// path until protocol-specific streaming adapters are added.
+    pub async fn stream(
+        &self,
+        request: ModelRequest,
+    ) -> Result<
+        std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
+        ContractError,
+    > {
+        let providers = self.registry.list().await;
+        let primary_provider = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
+
+        let mut ordered = Vec::with_capacity(providers.len());
+        if let Some(primary) = primary_provider {
+            if let Some(provider) = providers.iter().find(|entry| entry.provider_id == primary) {
+                ordered.push(provider.clone());
+            }
+        }
+        for provider in providers {
+            if !ordered
+                .iter()
+                .any(|entry: &ProviderEntry| entry.provider_id == provider.provider_id)
+            {
+                ordered.push(provider);
+            }
+        }
+
+        let mut last_error = None;
+        for provider in ordered {
+            let effective_model =
+                if request.model == "default" || request.model == "default-model" {
+                    provider
+                        .models
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| request.model.clone())
+                } else {
+                    request.model.clone()
+                };
+
+            if !provider.models.is_empty()
+                && !provider
+                    .models
+                    .iter()
+                    .any(|model| model == &effective_model)
+            {
+                continue;
+            }
+
+            if detect_protocol(&provider) != ProviderProtocol::OpenAiChat {
+                continue;
+            }
+
+            let credential = self
+                .credentials
+                .get_for_provider(&provider.provider_id)
+                .await
+                .into_iter()
+                .find(|credential| {
+                    credential.expires_at == 0 || credential.expires_at > unix_time()
+                });
+            if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
+                continue;
+            }
+
+            let routed_request = ModelRequest {
+                model: effective_model,
+                ..request.clone()
+            };
+
+            let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
+                ContractError::ParseError("provider concurrency limiter closed".to_string())
+            })?;
+            let adapter = AuthenticatedOpenAiProvider::new(
+                provider.provider_id.clone(),
+                provider.base_url.clone(),
+                credential.map(|value| value.value),
+            )?;
+            match adapter.stream(routed_request).await {
+                Ok(stream) => return Ok(stream),
+                Err(error) => {
+                    last_error = Some(error);
+                    let _ = self
+                        .update_health(
+                            &provider.provider_id,
+                            HealthStatus::Degraded,
+                            last_error.as_ref().map(ToString::to_string),
+                        )
+                        .await;
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or(ContractError::MissingCapability))
+    }
+
     /// Seed a default provider from environment variables.
     pub async fn from_env() -> Result<Self, ContractError> {
         let platform = Self::new();

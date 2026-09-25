@@ -5725,6 +5725,13 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     .await
 }
 
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
     std::env::var(name)
         .ok()

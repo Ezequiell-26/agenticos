@@ -1888,11 +1888,12 @@ impl OutboxStore for SqliteOutboxStore {
                  claimed_until = NULL
              WHERE entry_id = ?
                AND status = 'processing'
-               AND claimed_by = ?",
+               AND claimed_by = ?
+               AND claimed_until > ?",
         )
-        .bind(unix_time() as i64)
         .bind(entry_id)
         .bind(worker_id)
+        .bind(unix_time() as i64)
         .execute(self.pool.as_ref())
         .await
         .map_err(|error| {
@@ -1959,10 +1960,14 @@ impl OutboxStore for SqliteOutboxStore {
         validate_outbox_worker_id(worker_id)?;
         let current_attempts = sqlx::query_scalar::<_, i64>(
             "SELECT attempts FROM outbox_entries
-             WHERE entry_id = ? AND status = 'processing' AND claimed_by = ?",
+             WHERE entry_id = ?
+               AND status = 'processing'
+               AND claimed_by = ?
+               AND claimed_until > ?",
         )
         .bind(entry_id)
         .bind(worker_id)
+        .bind(unix_time() as i64)
         .fetch_optional(self.pool.as_ref())
         .await
         .map_err(|error| {
@@ -1987,7 +1992,8 @@ impl OutboxStore for SqliteOutboxStore {
                  claimed_until = NULL
              WHERE entry_id = ?
                AND status = 'processing'
-               AND claimed_by = ?",
+               AND claimed_by = ?
+               AND claimed_until > ?",
         )
         .bind(if dead_letter { "dead_letter" } else { "pending" })
         .bind(attempts as i64)

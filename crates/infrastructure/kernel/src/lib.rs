@@ -1779,7 +1779,7 @@ impl BroadcastOutboxTransport {
 
 #[async_trait::async_trait]
 impl OutboxTransport for BroadcastOutboxTransport {
-    async fn publish_http(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
         // A local runtime is allowed to publish without an attached UI consumer.
         // Durable persistence remains the source of truth; active subscribers
         // receive the event in real time.
@@ -1816,7 +1816,7 @@ impl HttpOutboxTransport {
         Self { client }
     }
 
-    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+    async fn publish_http(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
         let response = self
             .client
             .post(&entry.destination)

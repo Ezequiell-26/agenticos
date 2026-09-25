@@ -1015,7 +1015,8 @@ impl RuntimeState {
             runtime: self.tool_runtime.clone(),
         }));
         let grant_id = format!("agent-read-{}", uuid::Uuid::new_v4());
-        self.capabilities
+        match self
+            .capabilities
             .issue(CapabilityGrant {
                 capability_type: CapabilityType::Read,
                 resource: "tool/*".to_string(),
@@ -1023,8 +1024,15 @@ impl RuntimeState {
                 expires_at: unix_time().saturating_add(3600),
                 grant_id: grant_id.clone(),
             })
-            .await?;
-        agent.set_tool_grant_id(grant_id);
+            .await
+        {
+            Ok(_) => agent.set_tool_grant_id(grant_id),
+            Err(error) => tracing::warn!(
+                session_id,
+                %error,
+                "failed to issue read-only tool grant; protected tool calls will require explicit authorization"
+            ),
+        }
         for skill in self.skills.iter().cloned() {
             agent.add_skill(skill);
         }

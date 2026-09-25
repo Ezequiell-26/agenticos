@@ -8,9 +8,7 @@ license.workspace = true
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-context = { path = "../../infrastructure/context" }
 agenticos-brain = { path = "../../domain/brain" }
-agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 async-trait = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

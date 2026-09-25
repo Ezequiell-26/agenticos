@@ -22,9 +22,8 @@ const apiRoutes = new Set(
 
 const frontendPaths = new Set([
   ...frontendFile.matchAll(/["'](\/api\/[^"']*)["']/g),
-  ...frontendFile.matchAll(/\`(\/api\/[^`]+)\`/g),
+  ...frontendFile.matchAll(/`(\/api\/[^`]+)`/g),
 ].map((match) => match[1]).map(normalizeRoute))
-
 
 const missing = [...frontendPaths]
   .filter((path) => {

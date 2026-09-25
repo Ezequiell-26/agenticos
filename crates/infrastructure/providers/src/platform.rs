@@ -920,8 +920,40 @@ impl ProviderPlatform {
         healthy_candidates.extend(other_candidates);
         let candidates = healthy_candidates;
 
+        let preferred_provider = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        if let Some(preferred) = preferred_provider.as_deref() {
+            candidates.sort_by_key(|provider| {
+                if provider.provider_id == preferred {
+                    0
+                } else if self.health.is_healthy_sync(&provider.provider_id) {
+                    1
+                } else {
+                    2
+                }
+            });
+        }
+
         let mut last_error = None;
         for provider in candidates {
+            if request.model != "default"
+                && !provider.models.is_empty()
+                && !provider.models.iter().any(|model| model == &request.model)
+            {
+                continue;
+            }
+
+            let effective_model = if request.model == "default" {
+                provider.models.first().cloned().unwrap_or_else(|| request.model.clone())
+            } else {
+                request.model.clone()
+            };
+
+            let mut effective_request = request.clone();
+            effective_request.model = effective_model;
+
             let credential = self
                 .credentials
                 .get_for_provider(&provider.provider_id)
@@ -950,7 +982,7 @@ impl ProviderPlatform {
                 credential.as_ref(),
             )?;
 
-            let result = adapter.embed(request.clone()).await;
+            let result = adapter.embed(effective_request).await;
             drop(permit);
 
             match result {

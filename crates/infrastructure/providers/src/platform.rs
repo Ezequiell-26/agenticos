@@ -1198,7 +1198,6 @@ impl ProviderPlatform {
     pub async fn stream(
         &self,
         request: ModelRequest,
-        usage_recorder: Option<StreamUsageRecorder>,
     ) -> Result<
         std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
         ContractError,
@@ -1769,6 +1768,7 @@ impl AuthenticatedOpenAiProvider {
     pub async fn stream(
         &self,
         request: ModelRequest,
+        usage_recorder: Option<StreamUsageRecorder>,
     ) -> Result<
         std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
         ContractError,

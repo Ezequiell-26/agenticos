@@ -190,6 +190,31 @@ impl BrowserRuntime {
         .await
     }
 
+    /// Wait for an element, URL state, or browser condition supported by the CLI.
+    pub async fn wait(
+        &self,
+        session_id: &str,
+        target: &str,
+    ) -> Result<BrowserActionResult, ContractError> {
+        validate_target(target)?;
+        self.run(session_id, &[String::from("wait"), target.to_string()])
+            .await
+    }
+
+    /// Read text from a target element or locator.
+    pub async fn get_text(
+        &self,
+        session_id: &str,
+        target: &str,
+    ) -> Result<BrowserActionResult, ContractError> {
+        validate_target(target)?;
+        self.run(
+            session_id,
+            &[String::from("get"), String::from("text"), target.to_string()],
+        )
+        .await
+    }
+
     /// Capture a screenshot.
     pub async fn screenshot(
         &self,
@@ -271,6 +296,12 @@ mod tests {
         assert!(validate_url("https://example.com").is_ok());
         assert!(validate_url("file:///etc/passwd").is_err());
         assert!(validate_url("javascript:alert(1)").is_err());
+    }
+
+    #[test]
+    fn validates_wait_and_text_targets() {
+        assert!(validate_target("@e1").is_ok());
+        assert!(validate_target("").is_err());
     }
 
     #[test]

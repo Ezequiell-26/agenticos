@@ -905,4 +905,3 @@ async fn capture_browser_screenshot_artifact(
     let _ = tokio::fs::remove_file(&path).await;
     Ok((result, Some(artifact)))
 }
-

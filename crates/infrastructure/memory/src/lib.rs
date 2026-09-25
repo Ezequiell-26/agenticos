@@ -458,9 +458,14 @@ impl PersistentMemoryStore {
         query: &str,
         limit: usize,
     ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
-        let escaped = escape_like_pattern(query.trim());
+        let query = query.trim();
+        if query.is_empty() {
+            return self.list(namespace, limit).await;
+        }
+
+        let escaped = escape_like_pattern(query);
         let pattern = format!("%{escaped}%");
-        sqlx::query_as::<_, PersistentMemoryRecord>(
+        let candidates = sqlx::query_as::<_, PersistentMemoryRecord>(
             r#"
             SELECT memory_id, namespace, key, value, tags, importance, created_at, expires_at
             FROM memory_records
@@ -472,7 +477,7 @@ impl PersistentMemoryStore {
                     OR tags LIKE ? ESCAPE '\\'
               )
             ORDER BY importance DESC, created_at DESC
-            LIMIT ?
+            LIMIT 500
             "#,
         )
         .bind(namespace)
@@ -480,10 +485,70 @@ impl PersistentMemoryStore {
         .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
-        .bind(limit.clamp(1, 500) as i64)
         .fetch_all(&*self.db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("memory search failed: {error}")))
+        .map_err(|error| ContractError::ParseError(format!("memory search failed: {error}")))?;
+
+        let terms = query
+            .split_whitespace()
+            .map(|term| term.trim_matches(|ch: char| !ch.is_alphanumeric()))
+            .filter(|term| term.len() >= 2)
+            .map(|term| term.to_lowercase())
+            .collect::<Vec<_>>();
+
+        let now = unix_time() as i64;
+        let mut ranked = candidates
+            .into_iter()
+            .map(|record| {
+                let haystack = format!(
+                    "{} {} {}",
+                    record.key.to_lowercase(),
+                    record.value.to_lowercase(),
+                    record.tags.to_lowercase()
+                );
+                let matched_terms = terms
+                    .iter()
+                    .filter(|term| haystack.contains(term.as_str()))
+                    .count();
+                let phrase_bonus = if haystack.contains(&query.to_lowercase()) {
+                    1.0
+                } else {
+                    0.0
+                };
+                let coverage = if terms.is_empty() {
+                    0.0
+                } else {
+                    matched_terms as f64 / terms.len() as f64
+                };
+                let age_hours = ((now - record.created_at).max(0) as f64 / 3600.0).min(720.0);
+                let freshness = 1.0 / (1.0 + age_hours / 24.0);
+                let score = coverage * 0.60
+                    + phrase_bonus * 0.20
+                    + record.importance.clamp(0.0, 1.0) * 0.15
+                    + freshness * 0.05;
+                (score, record)
+            })
+            .collect::<Vec<_>>();
+
+        ranked.sort_by(|(left_score, left), (right_score, right)| {
+            right_score
+                .partial_cmp(left_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    right
+                        .importance
+                        .partial_cmp(&left.importance)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .then_with(|| right.created_at.cmp(&left.created_at))
+                .then_with(|| left.memory_id.cmp(&right.memory_id))
+        });
+
+        Ok(ranked
+            .into_iter()
+            .take(limit.clamp(1, 500))
+            .map(|(_, record)| record)
+            .collect())
     }
 
     /// Delete a record by namespace and key.
@@ -558,6 +623,45 @@ mod persistent_memory_tests {
             1
         );
         assert!(store.get("project:test", "goal").await.unwrap().is_some());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn search_ranks_term_coverage_and_importance() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-memory-rank-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        store
+            .upsert(
+                "project:test",
+                "rust-runtime",
+                "durable scheduler workers and recovery",
+                &["backend".to_string()],
+                0.9,
+                0,
+            )
+            .await
+            .unwrap();
+        store
+            .upsert(
+                "project:test",
+                "rust-notes",
+                "scheduler notes",
+                &["backend".to_string()],
+                0.2,
+                0,
+            )
+            .await
+            .unwrap();
+
+        let results = store
+            .search("project:test", "durable scheduler workers", 2)
+            .await
+            .unwrap();
+        assert_eq!(results.first().map(|record| record.key.as_str()), Some("rust-runtime"));
 
         let _ = std::fs::remove_file(path);
     }

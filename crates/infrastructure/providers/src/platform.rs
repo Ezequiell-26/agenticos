@@ -1142,6 +1142,10 @@ impl ProviderPlatform {
     /// Streaming is available for providers using the OpenAI Chat Completions
     /// protocol. Other provider protocols continue to use the normalized execute
     /// path until protocol-specific streaming adapters are added.
+    /// Stream a routed request across all supported provider protocols.
+    ///
+    /// The transport contract is normalized to text deltas plus a final `[DONE]`
+    /// marker. Initialization failures can fail over before any bytes are exposed.
     pub async fn stream(
         &self,
         request: ModelRequest,
@@ -1150,48 +1154,82 @@ impl ProviderPlatform {
         ContractError,
     > {
         let providers = self.registry.list().await;
-        let primary_provider = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
-            .ok()
-            .filter(|value| !value.trim().is_empty());
+        let requested_provider_ids = request
+            .parameters
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .and_then(|value| value.get("agenticos").cloned())
+            .and_then(|value| value.get("providers").cloned())
+            .and_then(|value| value.as_array().cloned())
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(|value| value.as_str().map(str::to_string))
+                    .filter(|value| !value.is_empty())
+                    .collect::<Vec<_>>()
+            });
+        let allow_discovered = requested_provider_ids.is_none();
 
-        let mut ordered = Vec::with_capacity(providers.len());
-        if let Some(primary) = primary_provider {
-            if let Some(provider) = providers.iter().find(|entry| entry.provider_id == primary) {
-                ordered.push(provider.clone());
+        let mut ordered_ids = Vec::new();
+        if let Some(primary) = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+        {
+            ordered_ids.push(primary);
+        }
+        if let Some(requested) = requested_provider_ids {
+            for provider_id in requested {
+                if !ordered_ids.iter().any(|value| value == &provider_id) {
+                    ordered_ids.push(provider_id);
+                }
+            }
+        } else if allow_discovered {
+            for provider in &providers {
+                if !ordered_ids
+                    .iter()
+                    .any(|value| value == &provider.provider_id)
+                {
+                    ordered_ids.push(provider.provider_id.clone());
+                }
             }
         }
-        for provider in providers {
-            if !ordered
-                .iter()
-                .any(|entry: &ProviderEntry| entry.provider_id == provider.provider_id)
-            {
-                ordered.push(provider);
+
+        let provider_by_id = providers
+            .into_iter()
+            .map(|provider| (provider.provider_id.clone(), provider))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        let mut candidates = Vec::new();
+        for provider_id in ordered_ids {
+            let Some(provider) = provider_by_id.get(&provider_id).cloned() else {
+                continue;
+            };
+            if !allow_discovered && !provider_by_id.contains_key(&provider_id) {
+                continue;
+            }
+            if self.health.is_healthy(&provider.provider_id).await {
+                candidates.insert(0, provider);
+            } else {
+                candidates.push(provider);
             }
         }
 
         let mut last_error = None;
-        for provider in ordered {
-            let effective_model = if request.model == "default" || request.model == "default-model"
-            {
-                provider
-                    .models
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| request.model.clone())
-            } else {
-                request.model.clone()
-            };
+        for provider in candidates {
+            let effective_model =
+                if request.model == "default" || request.model == "default-model" {
+                    provider
+                        .models
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| request.model.clone())
+                } else {
+                    request.model.clone()
+                };
 
             if !provider.models.is_empty()
-                && !provider
-                    .models
-                    .iter()
-                    .any(|model| model == &effective_model)
+                && !provider.models.iter().any(|model| model == &effective_model)
             {
-                continue;
-            }
-
-            if detect_protocol(&provider) != ProviderProtocol::OpenAiChat {
                 continue;
             }
 
@@ -1211,24 +1249,73 @@ impl ProviderPlatform {
                 model: effective_model,
                 ..request.clone()
             };
+            let protocol = detect_protocol(&provider);
 
-            let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
-                ContractError::ParseError("provider concurrency limiter closed".to_string())
-            })?;
-            let adapter = AuthenticatedOpenAiProvider::new(
-                provider.provider_id.clone(),
-                provider.base_url.clone(),
-                credential.map(|value| value.value),
-            )?;
-            match adapter.stream(routed_request).await {
-                Ok(stream) => return Ok(stream),
+            if let Err(error) = self.quotas.consume_request(&provider.provider_id).await {
+                last_error = Some(error);
+                continue;
+            }
+
+            let result = match protocol {
+                ProviderProtocol::OpenAiChat => {
+                    let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
+                        ContractError::ParseError("provider concurrency limiter closed".to_string())
+                    })?;
+                    AuthenticatedOpenAiProvider::new(
+                        provider.provider_id.clone(),
+                        provider.base_url.clone(),
+                        credential.map(|value| value.value),
+                    )?
+                    .stream(routed_request)
+                    .await
+                }
+                ProviderProtocol::OpenAiResponses => {
+                    stream_protocol_request(
+                        provider,
+                        credential.as_ref(),
+                        routed_request,
+                        StreamProtocol::OpenAiResponses,
+                    )
+                    .await
+                }
+                ProviderProtocol::AnthropicMessages => {
+                    stream_protocol_request(
+                        provider,
+                        credential.as_ref(),
+                        routed_request,
+                        StreamProtocol::AnthropicMessages,
+                    )
+                    .await
+                }
+                ProviderProtocol::Gemini => {
+                    stream_protocol_request(
+                        provider,
+                        credential.as_ref(),
+                        routed_request,
+                        StreamProtocol::Gemini,
+                    )
+                    .await
+                }
+            };
+
+            match result {
+                Ok(stream) => {
+                    let _ = self
+                        .update_health(
+                            &provider.provider_id,
+                            HealthStatus::Healthy,
+                            Some("streaming initialized".to_string()),
+                        )
+                        .await;
+                    return Ok(stream);
+                }
                 Err(error) => {
-                    last_error = Some(error);
+                    last_error = Some(error.clone());
                     let _ = self
                         .update_health(
                             &provider.provider_id,
                             HealthStatus::Degraded,
-                            last_error.as_ref().map(ToString::to_string),
+                            Some(error.to_string()),
                         )
                         .await;
                 }
@@ -1966,6 +2053,187 @@ enum ProviderProtocol {
     Gemini,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StreamProtocol {
+    OpenAiResponses,
+    AnthropicMessages,
+    Gemini,
+}
+
+enum StreamItem {
+    Delta(String),
+    Done,
+}
+
+fn parse_stream_event(
+    protocol: StreamProtocol,
+    event: Option<&str>,
+    data: &str,
+) -> Result<Option<StreamItem>, ContractError> {
+    let data = data.trim();
+    if data.is_empty() {
+        return Ok(None);
+    }
+    if data == "[DONE]" {
+        return Ok(Some(StreamItem::Done));
+    }
+
+    let json = serde_json::from_str::<serde_json::Value>(data).map_err(|error| {
+        ContractError::ParseError(format!("invalid {protocol:?} stream chunk: {error}"))
+    })?;
+
+    if let Some(error) = json.get("error") {
+        return Err(ContractError::ParseError(format!(
+            "{protocol:?} stream error: {}",
+            error
+        )));
+    }
+
+    match protocol {
+        StreamProtocol::OpenAiResponses => {
+            let kind = event
+                .or_else(|| json.get("type").and_then(|value| value.as_str()))
+                .unwrap_or_default();
+            if kind == "response.output_text.delta" {
+                return Ok(json
+                    .get("delta")
+                    .and_then(|value| value.as_str())
+                    .filter(|value| !value.is_empty())
+                    .map(|value| StreamItem::Delta(value.to_string())));
+            }
+            if matches!(
+                kind,
+                "response.completed"
+                    | "response.failed"
+                    | "response.incomplete"
+                    | "response.done"
+            ) {
+                return Ok(Some(StreamItem::Done));
+            }
+        }
+        StreamProtocol::AnthropicMessages => {
+            let kind = event
+                .or_else(|| json.get("type").and_then(|value| value.as_str()))
+                .unwrap_or_default();
+            if kind == "content_block_delta" {
+                if let Some(text) = json
+                    .get("delta")
+                    .and_then(|delta| delta.get("text"))
+                    .and_then(|value| value.as_str())
+                    .filter(|value| !value.is_empty())
+                {
+                    return Ok(Some(StreamItem::Delta(text.to_string())));
+                }
+            }
+            if matches!(kind, "message_stop" | "error") {
+                return Ok(Some(StreamItem::Done));
+            }
+        }
+        StreamProtocol::Gemini => {
+            if let Some(text) = json
+                .get("candidates")
+                .and_then(|value| value.as_array())
+                .and_then(|candidates| candidates.first())
+                .and_then(|candidate| candidate.get("content"))
+                .and_then(|content| content.get("parts"))
+                .and_then(|parts| parts.as_array())
+                .and_then(|parts| {
+                    parts.iter().find_map(|part| {
+                        part.get("text").and_then(|value| value.as_str())
+                    })
+                })
+                .filter(|value| !value.is_empty())
+            {
+                return Ok(Some(StreamItem::Delta(text.to_string())));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn stream_sse_response(
+    response: reqwest::Response,
+    provider_id: String,
+    protocol: StreamProtocol,
+) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>> {
+    Box::pin(async_stream::try_stream! {
+        use futures::StreamExt;
+
+        let mut bytes_stream = response.bytes_stream();
+        let mut buffer = String::new();
+        let mut event_name: Option<String> = None;
+        let mut done = false;
+
+        let mut emit_data = |event: Option<&str>, data: &str| -> Result<Option<String>, ContractError> {
+            match parse_stream_event(protocol, event, data)? {
+                Some(StreamItem::Delta(delta)) => Ok(Some(delta)),
+                Some(StreamItem::Done) => {
+                    done = true;
+                    Ok(Some("[DONE]".to_string()))
+                }
+                None => Ok(None),
+            }
+        };
+
+        while let Some(next) = bytes_stream.next().await {
+            let chunk = next.map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider stream transport failed for {provider_id}: {error}"
+                ))
+            })?;
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            while let Some(newline) = buffer.find('\n') {
+                let line = buffer[..newline].trim_end_matches('\r').to_string();
+                buffer.drain(..=newline);
+
+                if line.is_empty() {
+                    event_name = None;
+                    continue;
+                }
+                if let Some(value) = line.strip_prefix("event:") {
+                    event_name = Some(value.trim().to_string());
+                    continue;
+                }
+                if let Some(data) = line.strip_prefix("data:") {
+                    if let Some(value) = emit_data(event_name.as_deref(), data.trim())? {
+                        yield value;
+                        if done {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !buffer.trim().is_empty() {
+            let mut data_lines = Vec::new();
+            let mut event = None;
+            for line in buffer.lines() {
+                let line = line.trim();
+                if let Some(value) = line.strip_prefix("event:") {
+                    event = Some(value.trim().to_string());
+                } else if let Some(value) = line.strip_prefix("data:") {
+                    data_lines.push(value.trim());
+                }
+            }
+            if !data_lines.is_empty() {
+                let data = data_lines.join("\n");
+                if let Some(value) = emit_data(event.as_deref(), &data)? {
+                    yield value;
+                }
+            }
+        }
+
+        if !done {
+            yield "[DONE]".to_string();
+        }
+    })
+}
+
+
+
 fn detect_protocol(provider: &ProviderEntry) -> ProviderProtocol {
     let base = provider.base_url.to_ascii_lowercase();
     let caps = provider
@@ -2264,6 +2532,131 @@ async fn execute_protocol(
             .await
         }
     }
+}
+
+async fn stream_protocol_request(
+    provider: ProviderEntry,
+    credential: Option<&Credential>,
+    mut request: ModelRequest,
+    protocol: StreamProtocol,
+) -> Result<
+    std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
+    ContractError,
+> {
+    let client = shared_http_client();
+    let native_protocol = match protocol {
+        StreamProtocol::OpenAiResponses => ProviderProtocol::OpenAiResponses,
+        StreamProtocol::AnthropicMessages => ProviderProtocol::AnthropicMessages,
+        StreamProtocol::Gemini => ProviderProtocol::Gemini,
+    };
+    request.parameters =
+        normalize_agenticos_chat_parameters(native_protocol, request.parameters.as_deref())?;
+
+    let (url, mut payload, headers) = match protocol {
+        StreamProtocol::OpenAiResponses => {
+            let url = normalize_endpoint(&provider.base_url, "/v1/responses", "/responses");
+            let mut payload = serde_json::json!({
+                "model": request.model,
+                "input": [{
+                    "role": "user",
+                    "content": openai_responses_input_content(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
+                }],
+                "stream": true,
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            (url, payload, vec![])
+        }
+        StreamProtocol::AnthropicMessages => {
+            let url = normalize_endpoint(&provider.base_url, "/v1/messages", "/messages");
+            let mut payload = serde_json::json!({
+                "model": request.model,
+                "max_tokens": 4096,
+                "messages": [{
+                    "role": "user",
+                    "content": anthropic_message_content(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
+                }],
+                "stream": true,
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            (
+                url,
+                payload,
+                vec![("anthropic-version", "2023-06-01")],
+            )
+        }
+        StreamProtocol::Gemini => {
+            let mut url = normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
+            let stream_url = url
+                .as_str()
+                .replace(":generateContent", ":streamGenerateContent");
+            url = reqwest::Url::parse(&stream_url).map_err(|error| {
+                ContractError::ParseError(format!("invalid Gemini streaming endpoint: {error}"))
+            })?;
+            url.query_pairs_mut().append_pair("alt", "sse");
+            let mut payload = serde_json::json!({
+                "contents": [{
+                    "role": "user",
+                    "parts": gemini_message_parts(
+                        &request.input,
+                        request.parameters.as_deref(),
+                    )?,
+                }],
+            });
+            merge_parameters(&mut payload, request.parameters.as_deref())?;
+            (url.to_string(), payload, vec![])
+        }
+    };
+
+    let mut builder = client
+        .post(url)
+        .header("x-request-id", &request.request_id)
+        .json(&payload);
+    for (name, value) in headers {
+        builder = builder.header(name, value);
+    }
+    if let Some(key) = credential.map(|value| value.value.as_str()) {
+        match protocol {
+            StreamProtocol::AnthropicMessages => {
+                builder = builder.header("x-api-key", key);
+            }
+            StreamProtocol::OpenAiResponses => {
+                builder = builder.bearer_auth(key);
+            }
+            StreamProtocol::Gemini => {}
+        }
+    }
+
+    let response = builder.send().await.map_err(|error| {
+        ContractError::ParseError(format!("provider stream request failed: {error}"))
+    })?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "failed to read provider streaming error response".to_string());
+        let mut detail = body;
+        if detail.len() > 4_096 {
+            detail.truncate(4_096);
+            detail.push_str("...");
+        }
+        return Err(ContractError::ParseError(format!(
+            "provider_http_status={}; provider stream returned HTTP {status}: {detail}",
+            status.as_u16()
+        )));
+    }
+
+    Ok(stream_sse_response(
+        response,
+        provider.provider_id,
+        protocol,
+    ))
 }
 
 async fn list_provider_models(
@@ -2850,6 +3243,33 @@ mod tests {
             parameters: Some(serde_json::json!({"max_output_tokens": 654}).to_string()),
         };
         assert_eq!(requested_token_budget(&request), Some(654));
+    }
+
+    #[test]
+    fn stream_event_parsers_normalize_supported_protocols() {
+        let openai = parse_stream_event(
+            StreamProtocol::OpenAiResponses,
+            Some("response.output_text.delta"),
+            r#"{"type":"response.output_text.delta","delta":"hello"}"#,
+        )
+        .unwrap();
+        assert!(matches!(openai, Some(StreamItem::Delta(value)) if value == "hello"));
+
+        let anthropic = parse_stream_event(
+            StreamProtocol::AnthropicMessages,
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"world"}}"#,
+        )
+        .unwrap();
+        assert!(matches!(anthropic, Some(StreamItem::Delta(value)) if value == "world"));
+
+        let done = parse_stream_event(
+            StreamProtocol::OpenAiResponses,
+            Some("response.completed"),
+            r#"{"type":"response.completed"}"#,
+        )
+        .unwrap();
+        assert!(matches!(done, Some(StreamItem::Done)));
     }
 
     #[test]

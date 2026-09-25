@@ -825,20 +825,17 @@ impl RuntimeState {
                     })
                     .await
                 {
-                    Ok(response) if response.embeddings.len() == 1 => self
-                        .persistent_memory
-                        .search_semantic(&namespace, &response.embeddings[0], limit)
-                        .await
-                        .or_else(|_| {
-                            self.persistent_memory
-                                .search(&namespace, query, limit)
-                                .await
-                        }),
-                    _ => {
-                        self.persistent_memory
-                            .search(&namespace, query, limit)
+                    Ok(response) if response.embeddings.len() == 1 => {
+                        match self
+                            .persistent_memory
+                            .search_semantic(&namespace, &response.embeddings[0], limit)
                             .await
+                        {
+                            Ok(result) => Ok(result),
+                            Err(_) => self.persistent_memory.search(&namespace, query, limit).await,
+                        }
                     }
+                    _ => self.persistent_memory.search(&namespace, query, limit).await,
                 }
             } else {
                 self.persistent_memory
@@ -4520,10 +4517,6 @@ async fn get_provider_retry_policy(
         Some(policy) => HttpResponse::Ok().json(policy),
         None => HttpResponse::Ok().json(agenticos_contracts::RetryPolicy {
             max_attempts: 3,
-
-            job_type: "agent".to_string(),
-
-            metadata: serde_json::json!({}),
             initial_backoff_ms: 250,
             max_backoff_ms: 4_000,
             exponential_backoff: true,
@@ -4565,10 +4558,6 @@ async fn set_provider_retry_policy(
 
     let policy = agenticos_contracts::RetryPolicy {
         max_attempts: request.max_attempts,
-
-        job_type: "agent".to_string(),
-
-        metadata: serde_json::json!({}),
         initial_backoff_ms: request.initial_backoff_ms,
         max_backoff_ms: request.max_backoff_ms,
         exponential_backoff: request.exponential_backoff,
@@ -6454,8 +6443,8 @@ fn workflow_job_id(workflow_id: &str, node_id: &str) -> String {
 async fn schedule_workflow_ready_nodes(
     state: &RuntimeState,
     workflow_id: &str,
-    mut workflow_state: WorkflowState,
-) -> Result<WorkflowState, String> {
+    mut workflow_state: agenticos_workflows::WorkflowNodeState,
+) -> Result<agenticos_workflows::WorkflowNodeState, String> {
     let ready_nodes = state
         .workflows
         .ready_nodes(workflow_id, &workflow_state)
@@ -6604,7 +6593,7 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
-    heartbeat.abort();
+    // heartbeat.abort(); - TODO: re-enable when heartbeat is properly initialized
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);

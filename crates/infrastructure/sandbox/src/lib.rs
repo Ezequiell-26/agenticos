@@ -30,6 +30,12 @@ pub struct SandboxPolicy {
     pub max_output_bytes: usize,
     /// Allowed executable names. Empty means policy-managed allow.
     pub allowed_commands: Vec<String>,
+    /// Maximum number of concurrent sandbox processes.
+    pub max_concurrent_processes: usize,
+    /// Whether to clear inherited environment variables before launching.
+    pub clear_environment: bool,
+    /// Environment variables allowed to pass through when clearing the environment.
+    pub preserved_environment: Vec<String>,
 }
 
 impl Default for SandboxPolicy {
@@ -46,6 +52,16 @@ impl Default for SandboxPolicy {
                 "python3".to_string(),
                 "rg".to_string(),
                 "find".to_string(),
+            ],
+            max_concurrent_processes: 4,
+            clear_environment: true,
+            preserved_environment: vec![
+                "PATH".to_string(),
+                "HOME".to_string(),
+                "USERPROFILE".to_string(),
+                "TMPDIR".to_string(),
+                "TEMP".to_string(),
+                "TMP".to_string(),
             ],
         }
     }
@@ -115,6 +131,23 @@ impl ProcessSandbox {
             .unwrap_or(self.policy.max_timeout_ms)
             .min(self.policy.max_timeout_ms);
 
+        let max_concurrent = self.policy.max_concurrent_processes.max(1);
+        loop {
+            let active = self.active_processes.load(Ordering::Acquire);
+            if active >= max_concurrent {
+                return Err(ContractError::ParseError(format!(
+                    "sandbox concurrency limit reached: maximum {max_concurrent} active processes"
+                )));
+            }
+            if self
+                .active_processes
+                .compare_exchange(active, active + 1, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                break;
+            }
+        }
+
         let mut command_builder = Command::new(executable);
         if args.len() > 1 {
             command_builder.args(&args[1..]);
@@ -122,6 +155,14 @@ impl ProcessSandbox {
         command_builder
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        if self.policy.clear_environment {
+            command_builder.env_clear();
+            for key in &self.policy.preserved_environment {
+                if let Ok(value) = std::env::var(key) {
+                    command_builder.env(key, value);
+                }
+            }
+        }
         if let Some(dir) = workdir {
             command_builder.current_dir(dir);
         }
@@ -144,7 +185,7 @@ impl ProcessSandbox {
         let stdout_task = tokio::spawn(read_stream_limited(stdout, remaining.clone()));
         let stderr_task = tokio::spawn(read_stream_limited(stderr, remaining));
 
-        let _active = ActiveProcessGuard::new(self.active_processes.clone());
+        let _active = ActiveProcessGuard::adopted(self.active_processes.clone());
         let started = Instant::now();
         let result = timeout(Duration::from_millis(timeout_ms), child.wait()).await;
         let elapsed = started.elapsed().as_millis() as u64;
@@ -295,8 +336,7 @@ fn reserve_output_bytes(remaining: &AtomicUsize, requested: usize) -> usize {
 struct ActiveProcessGuard(Arc<AtomicUsize>);
 
 impl ActiveProcessGuard {
-    fn new(active_processes: Arc<AtomicUsize>) -> Self {
-        active_processes.fetch_add(1, Ordering::AcqRel);
+    fn adopted(active_processes: Arc<AtomicUsize>) -> Self {
         Self(active_processes)
     }
 }
@@ -385,11 +425,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enforces_process_concurrency_limit() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 5_000,
+            max_output_bytes: 1024,
+            allowed_commands: vec!["sleep".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+        });
+
+        let first = sandbox.clone();
+        let first_task = tokio::spawn(async move {
+            first
+                .execute_command(
+                    "sleep 1",
+                    None,
+                    None,
+                    &["process.execute".to_string()],
+                )
+                .await
+        });
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let second = sandbox
+            .execute_command(
+                "sleep 0",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await;
+        assert!(matches!(second, Err(ContractError::ParseError(_))));
+        let _ = first_task.await;
+    }
+
+    #[tokio::test]
     async fn bounds_retained_output() {
         let sandbox = ProcessSandbox::new(SandboxPolicy {
             max_timeout_ms: 5_000,
             max_output_bytes: 32,
             allowed_commands: vec!["printf".to_string()],
+            max_concurrent_processes: 4,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
         });
         let result = sandbox
             .execute_command(

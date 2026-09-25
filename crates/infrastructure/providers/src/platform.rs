@@ -917,12 +917,13 @@ impl ProviderPlatform {
                 other_candidates.push(provider);
             }
         }
+
         if let Some(preferred) = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
             .ok()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
         {
-            candidates.sort_by_key(|provider| {
+            healthy_candidates.sort_by_key(|provider| {
                 if provider.provider_id == preferred {
                     0
                 } else {

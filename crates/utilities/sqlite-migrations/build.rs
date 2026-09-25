@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 /// Build script for sqlite-migrations crate.
 /// Instructs cargo to rebuild when migration files change.
 fn main() {

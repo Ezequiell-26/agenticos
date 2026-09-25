@@ -35,7 +35,6 @@ pub async fn migrate_pool(pool: &sqlx::SqlitePool) -> Result<(), String> {
     ensure_legacy_columns(pool).await
 }
 
-
 /// Add columns introduced after the original scheduler schema to legacy databases.
 async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
     let additions = [

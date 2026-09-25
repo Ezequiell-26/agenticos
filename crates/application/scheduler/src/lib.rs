@@ -805,6 +805,69 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    #[tokio::test]
+    async fn sqlite_scheduler_reclaims_expired_running_job_after_restart() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-scheduler-recovery-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = JobScheduler::open(&url).await.expect("open scheduler");
+        first
+            .enqueue(JobSpec {
+                job_id: "interrupted-job".into(),
+                run_id: "interrupted-run".into(),
+                task: "recover after worker crash".into(),
+                dependencies: vec![],
+                priority: 10,
+                max_attempts: 3,
+                job_type: default_job_type(),
+                metadata: serde_json::json!({}),
+            })
+            .await
+            .expect("enqueue interrupted job");
+
+        let claimed = first
+            .start_as("interrupted-job", "worker-a".into(), 30)
+            .await
+            .expect("claim interrupted job");
+        assert_eq!(claimed.state, JobState::Running);
+        assert_eq!(claimed.attempts, 1);
+
+        let db = sqlx::SqlitePool::connect(&url)
+            .await
+            .expect("open scheduler test database");
+        sqlx::query(
+            "UPDATE scheduler_jobs
+             SET lease_expires_at = 0
+             WHERE job_id = ?",
+        )
+        .bind("interrupted-job")
+        .execute(&db)
+        .await
+        .expect("expire worker lease");
+        drop(db);
+        drop(first);
+
+        let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
+        let record = recovered.get("interrupted-job").await.expect("recover job");
+        assert_eq!(record.state, JobState::Ready);
+        assert_eq!(record.lease_owner, None);
+        assert_eq!(record.lease_expires_at, 0);
+        assert_eq!(record.attempts, 1);
+
+        let reclaimed = recovered
+            .start_as("interrupted-job", "worker-b".into(), 30)
+            .await
+            .expect("reclaim expired job");
+        assert_eq!(reclaimed.state, JobState::Running);
+        assert_eq!(reclaimed.attempts, 2);
+        assert_eq!(reclaimed.lease_owner.as_deref(), Some("worker-b"));
+
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn scheduler_retry_backoff_is_bounded_and_exponential() {
         assert!(scheduler_retry_backoff_ms(1) <= 4_000);

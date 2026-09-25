@@ -1051,12 +1051,13 @@ impl RuntimeState {
             ),
         }
 
-        let requested_skills = definition
-            .map(|value| value.skills.iter().collect::<std::collections::HashSet<_>>());
+        let requested_skills = definition.map(|value| value.skills.clone());
         for skill in self.skills.iter().cloned() {
             let include = requested_skills
                 .as_ref()
-                .map(|requested| requested.is_empty() || requested.contains(&skill.name))
+                .map(|requested| {
+                    requested.is_empty() || requested.iter().any(|name| name == &skill.name)
+                })
                 .unwrap_or(true);
             if include {
                 agent.add_skill(skill);

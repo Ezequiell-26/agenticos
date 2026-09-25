@@ -1427,14 +1427,16 @@ impl ReactAgent {
                 "Original user request:\n{}\n\nTool observation:\n{}\n\n",
                 input, observation
             );
-            for _ in 0..max_followups {
+            let mut attempts = 0;
+            while attempts < max_followups {
+                attempts += 1;
                 followup_prompt.push_str(
-                    "Use the tool observation to produce the final user-facing answer.                     Return another tool JSON only when another tool call is strictly necessary.",
+                    "Use the tool observation to produce the final user-facing answer. Return another tool JSON only when another tool call is strictly necessary.",
                 );
                 let followup = self
                     .think_inner(
                         model_provider.as_ref(),
-                        current_turn.saturating_add(1),
+                        current_turn.saturating_add(attempts),
                         &followup_prompt,
                         preferred_model.as_deref(),
                         parameters.as_deref(),
@@ -1442,11 +1444,15 @@ impl ReactAgent {
                     .await?;
                 if is_structured_tool_action(&followup) {
                     if followup == thought {
+                        result = followup;
                         break;
                     }
-                    // A second tool request is surfaced to the caller rather than
-                    // recursively executing unbounded actions in one turn.
+                    // Surface an additional tool request without executing it recursively.
                     result = followup;
+                    if attempts < max_followups {
+                        followup_prompt.push_str("\n\nThe previous response requested another tool call. Do not execute it; refine or return the final answer.");
+                        continue;
+                    }
                     break;
                 }
                 result = followup;

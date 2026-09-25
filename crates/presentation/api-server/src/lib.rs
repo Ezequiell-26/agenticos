@@ -714,6 +714,7 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let browser = Arc::new(BrowserRuntime::from_env());
         let skills = Arc::new(Self::load_skills().await);
         let session_cache_capacity =
             runtime_env_usize("AGENTICOS_MAX_CACHED_SESSIONS", 256, 16, 4096);
@@ -932,6 +933,7 @@ impl RuntimeState {
             workspace: workspace.clone(),
             terminal: terminal.clone(),
             cost_ledger,
+            browser,
             skills,
             model,
         })
@@ -6741,10 +6743,6 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/browser/{session_id}/close",
                 web::post().to(browser_close),
-            )
-            .route(
-                "/api/source/github/{owner}/{repo}/file",
-                web::post().to(write_github_source_file),
             )
             .route(
                 "/api/evaluation/cases",

@@ -40,6 +40,9 @@ jobs:
       - name: Verify frontend architecture contract
         run: npm run frontend:architecture
 
+      - name: Verify frontend runtime contract
+        run: npm run frontend:runtime-contract
+
       - name: Install desktop frontend dependencies
         run: npm ci --no-audit --no-fund --prefix crates/presentation/desktop/frontend
 

@@ -290,9 +290,7 @@ impl QuotaTracker {
             }
         }
 
-        let accounted_tokens = state
-            .token_usage
-            .saturating_add(state.reserved_token_usage);
+        let accounted_tokens = state.token_usage.saturating_add(state.reserved_token_usage);
         if let Some(limit) = state.quota.tokens_per_minute {
             let limit = u64::from(limit);
             match token_budget {
@@ -313,9 +311,7 @@ impl QuotaTracker {
 
         state.quota.current_usage = state.quota.current_usage.saturating_add(1);
         let reservation = token_budget.unwrap_or(0);
-        state.reserved_token_usage = state
-            .reserved_token_usage
-            .saturating_add(reservation);
+        state.reserved_token_usage = state.reserved_token_usage.saturating_add(reservation);
         Ok(reservation)
     }
 
@@ -333,9 +329,7 @@ impl QuotaTracker {
             return Ok(());
         };
         Self::refresh_window(state, unix_time());
-        state.reserved_token_usage = state
-            .reserved_token_usage
-            .saturating_sub(reservation);
+        state.reserved_token_usage = state.reserved_token_usage.saturating_sub(reservation);
         Ok(())
     }
 
@@ -364,7 +358,8 @@ impl QuotaTracker {
     /// token ceiling is reached, subsequent requests are blocked until the
     /// active window resets.
     pub async fn record_tokens(&self, provider_id: &str, tokens: u64) -> Result<(), ContractError> {
-        self.record_tokens_with_reservation(provider_id, tokens, 0).await
+        self.record_tokens_with_reservation(provider_id, tokens, 0)
+            .await
     }
 
     /// Reconcile actual token usage with a reservation made before execution.
@@ -555,7 +550,9 @@ impl FallbackManager {
         configs.remove(provider_id);
         for config in configs.values_mut() {
             let before = config.fallback_providers.len();
-            config.fallback_providers.retain(|provider| provider != provider_id);
+            config
+                .fallback_providers
+                .retain(|provider| provider != provider_id);
             if config.fallback_providers.len() != before {
                 affected.push(config.clone());
             }
@@ -1013,7 +1010,10 @@ mod tests {
             tracker.reserve_request("reserved", Some(45)).await.unwrap(),
             45
         );
-        tracker.release_token_reservation("reserved", 45).await.unwrap();
+        tracker
+            .release_token_reservation("reserved", 45)
+            .await
+            .unwrap();
         assert_eq!(tracker.token_usage("reserved").await, Some(55));
     }
 

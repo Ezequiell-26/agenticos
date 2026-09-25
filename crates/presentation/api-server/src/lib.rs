@@ -1611,7 +1611,9 @@ impl RuntimeState {
                 .await
             }
         } else {
-            self.persistent_memory.search(&namespace, query, limit).await
+            self.persistent_memory
+                .search(&namespace, query, limit)
+                .await
         };
 
         match records {

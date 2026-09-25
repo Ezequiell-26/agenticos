@@ -1952,7 +1952,6 @@ impl OutboxStore for SqliteOutboxStore {
         })?;
         Ok(())
     }
-
     async fn mark_failed_by(
         &self,
         entry_id: &str,
@@ -1996,7 +1995,11 @@ impl OutboxStore for SqliteOutboxStore {
                AND claimed_by = ?
                AND claimed_until > ?",
         )
-        .bind(if dead_letter { "dead_letter" } else { "pending" })
+        .bind(if dead_letter {
+            "dead_letter"
+        } else {
+            "pending"
+        })
         .bind(attempts as i64)
         .bind(if dead_letter {
             Some(unix_time() as i64)
@@ -2118,8 +2121,6 @@ impl OutboxStore for InMemoryOutboxStore {
         }
         Ok(())
     }
-
-
     async fn mark_published_by(
         &self,
         entry_id: &str,

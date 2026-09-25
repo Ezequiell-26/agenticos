@@ -7,6 +7,8 @@ edition = "2021"
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
 async-stream = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 futures = { workspace = true }
 agenticos-a2a = { path = "../../infrastructure/a2a" }
 agenticos-artifacts = { path = "../../infrastructure/artifacts" }
@@ -28,6 +30,7 @@ agenticos-projects = { path = "../../infrastructure/projects" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-tools = { path = "../../infrastructure/tools" }
 agenticos-scheduler = { path = "../../application/scheduler" }
+agenticos-source-forge = { path = "../../infrastructure/source-forge" }
 agenticos-security = { path = "../../infrastructure/security" }
 agenticos-workflows = { path = "../../application/workflows" }
 serde = { workspace = true, features = ["derive"] }

@@ -18,6 +18,7 @@ use agenticos_a2a::{
     AgentInterface, AgentSkill, JsonRpcError, JsonRpcRequest, JsonRpcResponse, TaskState, TaskView,
 };
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
+use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_artifacts::{ArtifactRange, ArtifactStore};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
@@ -25,13 +26,13 @@ use agenticos_brain::{
 };
 use agenticos_context::optimize_tool_output;
 use agenticos_contracts::{
-    AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, RunId, RunState,
+    AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, ModelProvider, RunId, RunState,
     Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
-    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, Skill, SqliteEventStore,
+    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, Skill, SqliteEventStore, SqliteIdempotencyStore,
     SqliteMemory, SqliteSnapshotStore,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
@@ -531,7 +532,7 @@ impl AgentTool for TerminalTool {
 /// Default model used by the runtime when no explicit model is supplied.
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct SessionCacheEntry {
     agent: Arc<ReactAgent>,
     last_used_at: u64,
@@ -606,7 +607,27 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let audit = Arc::new(
+            AuditStore::open(&database_url)
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
+        let event_store = Arc::new(
+            SqliteEventStore::new(&database_url)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("event store initialization failed: {error}"))
+                })?,
+        );
+        let snapshot_store = Arc::new(
+            SqliteSnapshotStore::new(&database_url)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("snapshot store initialization failed: {error}"))
+                })?,
+        );
+        let logger = Arc::new(InMemoryLogger::default());
         let capabilities = Arc::new(
             CapabilityManager::open(&database_url)
                 .await
@@ -869,7 +890,7 @@ impl RuntimeState {
                     agenticos_brain::EngineConfig::default(),
                 )
                 .await
-                .map_err(ContractError::ParseError)?,
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
             ),
             metrics: Arc::new(RuntimeMetrics::new()),
             evaluation: Arc::new(
@@ -1087,7 +1108,7 @@ struct CreateRunRequest {
     run_id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct RunResponse {
     run_id: String,
     state: String,
@@ -2260,7 +2281,7 @@ async fn get_artifact_content(
             }
             response.body(bytes)
         }
-        Err(error) => HttpResponse::RequestedRangeNotSatisfiable().json(ErrorResponse {
+        Err(error) => HttpResponse::build(actix_web::http::StatusCode::RANGE_NOT_SATISFIABLE).json(ErrorResponse {
             error,
             code: "ARTIFACT_RANGE_INVALID",
         }),

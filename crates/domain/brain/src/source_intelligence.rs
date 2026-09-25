@@ -5,6 +5,7 @@ use super::{
     ProvenanceEvidence, RepoId,
 };
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -78,7 +79,7 @@ pub struct ApiDiscoverer {
 }
 
 /// Repository metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct RepositoryMetadata {
     #[allow(missing_docs)]
@@ -100,7 +101,7 @@ pub struct RepositoryMetadata {
 }
 
 /// Repository status
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub enum RepositoryStatus {
     #[allow(missing_docs)]
@@ -650,7 +651,7 @@ impl Default for SourceIntelligenceEngine {
 }
 
 /// Repository analysis result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct RepositoryAnalysis {
     #[allow(missing_docs)]

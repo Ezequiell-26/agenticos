@@ -2529,6 +2529,7 @@ fn allows_anonymous_provider(base_url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
     fn gemini_model_catalog_normalizes_resource_names() {
         let body = r#"{

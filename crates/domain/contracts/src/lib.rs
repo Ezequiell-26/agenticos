@@ -598,7 +598,7 @@ pub trait SagaCoordinator: Send + Sync {
 }
 
 /// Provider registry entry.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProviderEntry {
     /// Provider identifier.
     pub provider_id: String,
@@ -645,7 +645,7 @@ pub struct Credential {
 }
 
 /// Health status for a provider.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HealthStatus {
     /// Provider is healthy.
     Healthy,
@@ -658,7 +658,7 @@ pub enum HealthStatus {
 }
 
 /// Health check result.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct HealthCheck {
     /// Provider identifier.
     pub provider_id: String,
@@ -671,7 +671,7 @@ pub struct HealthCheck {
 }
 
 /// Retry policy for provider requests.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RetryPolicy {
     /// Maximum number of retry attempts.
     pub max_attempts: u32,
@@ -684,7 +684,7 @@ pub struct RetryPolicy {
 }
 
 /// Fallback configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FallbackConfig {
     /// Primary provider ID.
     pub primary_provider: String,
@@ -695,7 +695,7 @@ pub struct FallbackConfig {
 }
 
 /// Tool registration entry.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolEntry {
     /// Tool identifier.
     pub tool_id: String,
@@ -712,7 +712,7 @@ pub struct ToolEntry {
 }
 
 /// Tool execution request.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolRequest {
     /// Request identifier.
     pub request_id: String,
@@ -727,7 +727,7 @@ pub struct ToolRequest {
 }
 
 /// Tool execution response.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolResponse {
     /// Request identifier (echoed).
     pub request_id: String,

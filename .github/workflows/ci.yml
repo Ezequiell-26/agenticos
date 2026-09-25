@@ -99,6 +99,23 @@ jobs:
       - name: Test workspace
         run: cargo test -p agenticos-brain --lib
 
+      - name: Download API runtime binary
+        uses: actions/download-artifact@v5
+        with:
+          name: agenticos-api-server-linux-x64
+          path: target/debug
+
+      - name: Make API runtime executable
+        run: chmod +x target/debug/agenticos-api-server
+
+      - name: Upload API runtime binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: agenticos-api-server-linux-x64
+          path: target/debug/agenticos-api-server
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Provider integration tests
         run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture
 

@@ -15,7 +15,9 @@ use tokio::sync::{RwLock, Semaphore};
 pub const OWNER: &str = "agenticos-tools";
 
 pub mod native_tools;
+pub mod secure_service;
 pub use native_tools::{GitWorkspaceTool, SecureCommandTool, TerminalTool, WorkspaceTool};
+pub use secure_service::SecureToolService;
 
 /// In-memory tool registry.
 #[derive(Debug)]

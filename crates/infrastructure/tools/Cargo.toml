@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-sandbox = { path = "../sandbox" }
+agenticos-kernel = { path = "../kernel" }
 agenticos-workspace = { path = "../workspace" }
 agenticos-terminal = { path = "../terminal" }
 agenticos-context = { path = "../context" }

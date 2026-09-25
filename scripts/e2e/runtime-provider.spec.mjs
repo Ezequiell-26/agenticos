@@ -156,12 +156,6 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     })
     await waitForHttp(`${apiUrl}/ready`, api)
 
-    await run('npm', ['run', 'build', '--prefix', frontendDir], {
-      env: {
-        VITE_AGENTICOS_API_URL: apiUrl,
-      },
-    })
-
     preview = startProcess('npm', ['run', 'preview', '--prefix', frontendDir, '--', '--host', '127.0.0.1', '--port', String(frontendPort)], {
       env: { VITE_AGENTICOS_API_URL: apiUrl },
     })

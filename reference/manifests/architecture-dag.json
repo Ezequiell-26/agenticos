@@ -54,6 +54,7 @@
       "math",
       "notifications",
       "rate-limiting",
+      "sqlite-migrations",
       "state-management",
       "streaming",
       "text-search",

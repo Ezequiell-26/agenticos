@@ -44,6 +44,7 @@ members = [
   "crates/utilities/math",
   "crates/utilities/notifications",
   "crates/utilities/rate-limiting",
+  "crates/utilities/sqlite-migrations",
   "crates/utilities/state-management",
   "crates/utilities/streaming",
   "crates/utilities/text-search",
@@ -82,7 +83,7 @@ once_cell = "1.0"
 tokio-util = { version = "0.7", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 ring = "0.17.14"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono", "migrate", "macros"] }
 semver = "1.0"
 serde_yaml = "0.9"
 dotenv = "0.15"

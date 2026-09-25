@@ -220,9 +220,7 @@ impl ProcessSandbox {
                 self.policy.isolation_runner
             )));
         };
-        if self.policy.isolation_runner != "bwrap" && args.len() > 1 {
-            command_builder.args(&args[1..]);
-        } else if self.policy.isolation_runner == "bwrap" && args.len() > 1 {
+        if args.len() > 1 {
             command_builder.args(&args[1..]);
         }
         command_builder

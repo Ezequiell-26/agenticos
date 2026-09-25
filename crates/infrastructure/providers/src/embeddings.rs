@@ -207,4 +207,54 @@ mod tests {
             "http://localhost:8000/v1/embeddings"
         );
     }
+
+    #[tokio::test]
+    async fn executes_against_deterministic_embedding_server() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let (reader, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+            while reader.read_line(&mut line).await.unwrap() > 0 {
+                if line == "\r\n" {
+                    break;
+                }
+                line.clear();
+            }
+            let body = r#"{"data":[{"index":0,"embedding":[0.1,0.2,0.3]},{"index":1,"embedding":[0.4,0.5,0.6]}],"usage":{"total_tokens":12}}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            writer.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let provider = OpenAiCompatibleEmbeddingProvider::new(
+            "local".to_string(),
+            format!("http://{}", address),
+            None,
+        )
+        .unwrap();
+
+        let response = provider
+            .embed(EmbeddingRequest {
+                request_id: "embed-test-1".to_string(),
+                model: "text-embedding-test".to_string(),
+                inputs: vec!["hello".to_string(), "world".to_string()],
+            })
+            .await
+            .unwrap();
+
+        server.await.unwrap();
+
+        assert_eq!(response.embeddings, vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6]]);
+        assert_eq!(response.tokens_used, Some(12));
+        assert_eq!(response.request_id, "embed-test-1");
+    }
 }

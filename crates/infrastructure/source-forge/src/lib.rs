@@ -771,6 +771,30 @@ mod github_source_tests {
         assert!(normalize_github_repo("github.com/a/../b").is_err());
     }
 
+    #[tokio::test]
+    async fn github_write_requires_credential_before_network_access() {
+        let client = GitHubSourceClient {
+            client: reqwest::Client::new(),
+            api_base: "https://api.github.com".to_string(),
+            token: None,
+            max_file_bytes: 1024,
+        };
+
+        let error = client
+            .write_file(
+                "owner/repo",
+                "README.md",
+                "hello",
+                Some("main"),
+                "update readme",
+                None,
+            )
+            .await
+            .expect_err("writes without a token must be rejected");
+
+        assert!(matches!(error, SourceForgeError::AuthenticationRequired));
+    }
+
     #[test]
     fn github_write_payload_is_base64_compatible() {
         let encoded = base64::engine::general_purpose::STANDARD.encode("hello".as_bytes());

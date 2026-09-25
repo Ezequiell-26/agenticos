@@ -5249,6 +5249,19 @@ mod tests {
     }
 
     #[test]
+    fn required_provider_capability_preserves_existing_parameters() {
+        let merged = ReactAgent::merge_required_provider_capability(
+            Some(r#"{"agenticos":{"max_tokens":256}}"#),
+            Some("tools"),
+        )
+        .unwrap()
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&merged).unwrap();
+        assert_eq!(value["agenticos"]["max_tokens"], 256);
+        assert_eq!(value["agenticos"]["required_capabilities"][0], "tools");
+    }
+
+    #[test]
     fn test_react_agent_creation() {
         let agent = ReactAgent::new("You are a helpful assistant.".to_string());
         assert_eq!(agent.identity, "You are a helpful assistant.");

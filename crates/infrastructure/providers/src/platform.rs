@@ -1198,6 +1198,7 @@ impl ProviderPlatform {
     pub async fn stream(
         &self,
         request: ModelRequest,
+        usage_recorder: Option<StreamUsageRecorder>,
     ) -> Result<
         std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
         ContractError,
@@ -1381,7 +1382,9 @@ impl ProviderPlatform {
                             continue;
                         }
                     };
-                    client.stream(routed_request).await
+                    client
+                        .stream(routed_request, Some(usage_recorder.clone()))
+                        .await
                 }
                 ProviderProtocol::OpenAiResponses => {
                     stream_protocol_request(
@@ -1834,6 +1837,7 @@ impl AuthenticatedOpenAiProvider {
             use futures::StreamExt;
 
             let mut buffer = String::new();
+            let mut usage_recorded = false;
             while let Some(next) = bytes_stream.next().await {
                 let chunk = next.map_err(|error| {
                     ContractError::ParseError(format!(
@@ -1863,6 +1867,31 @@ impl AuthenticatedOpenAiProvider {
                             "invalid provider stream chunk for {provider_id}: {error}"
                         ))
                     })?;
+
+                    if !usage_recorded {
+                        if let Some(usage) = json.get("usage") {
+                            let input_tokens = usage
+                                .get("prompt_tokens")
+                                .and_then(|value| value.as_u64())
+                                .unwrap_or(0);
+                            let output_tokens = usage
+                                .get("completion_tokens")
+                                .and_then(|value| value.as_u64())
+                                .unwrap_or(0);
+                            let total_tokens = usage
+                                .get("total_tokens")
+                                .and_then(|value| value.as_u64())
+                                .unwrap_or_else(|| input_tokens.saturating_add(output_tokens));
+                            if total_tokens > 0 {
+                                if let Some(recorder) = &usage_recorder {
+                                    recorder
+                                        .record(input_tokens, output_tokens, total_tokens)
+                                        .await;
+                                }
+                                usage_recorded = true;
+                            }
+                        }
+                    }
                     if let Some(delta) = json
                         .get("choices")
                         .and_then(|value| value.as_array())
@@ -1897,6 +1926,30 @@ impl AuthenticatedOpenAiProvider {
                                 "invalid trailing provider stream chunk for {provider_id}: {error}"
                             ))
                         })?;
+                        if !usage_recorded {
+                            if let Some(usage) = json.get("usage") {
+                                let input_tokens = usage
+                                    .get("prompt_tokens")
+                                    .and_then(|value| value.as_u64())
+                                    .unwrap_or(0);
+                                let output_tokens = usage
+                                    .get("completion_tokens")
+                                    .and_then(|value| value.as_u64())
+                                    .unwrap_or(0);
+                                let total_tokens = usage
+                                    .get("total_tokens")
+                                    .and_then(|value| value.as_u64())
+                                    .unwrap_or_else(|| input_tokens.saturating_add(output_tokens));
+                                if total_tokens > 0 {
+                                    if let Some(recorder) = &usage_recorder {
+                                        recorder
+                                            .record(input_tokens, output_tokens, total_tokens)
+                                            .await;
+                                    }
+                                    usage_recorded = true;
+                                }
+                            }
+                        }
                         if let Some(delta) = json
                             .get("choices")
                             .and_then(|value| value.as_array())

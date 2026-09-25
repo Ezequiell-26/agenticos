@@ -30,6 +30,71 @@ impl AgentState {
     }
 }
 
+/// Send a message to the agent via Tauri command.
+#[tauri::command]
+pub async fn send_agent_message(message: String, session_id: Option<String>) -> Result<AgentResponse, String> {
+    let api_url = "http://127.0.0.1:8080";
+    let user_message = UserMessage {
+        content: message,
+        session_id,
+    };
+    send_message(user_message, api_url).await
+}
+
+/// Get conversation history for a session.
+#[tauri::command]
+pub async fn get_conversation_history(session_id: String) -> Result<Vec<ConversationEntry>, String> {
+    let api_url = "http://127.0.0.1:8080";
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/agent/history/{}", api_url, session_id);
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("API request failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("API returned an error: {}", e))?;
+
+    let entries: Vec<ConversationEntry> = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    Ok(entries)
+}
+
+/// Get backend health status.
+#[tauri::command]
+pub async fn get_backend_health() -> Result<BackendHealth, String> {
+    let api_url = "http://127.0.0.1:8080";
+    let client = reqwest::Client::new();
+    let url = format!("{}/health", api_url);
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("API request failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("API returned an error: {}", e))?;
+
+    let health: BackendHealth = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    Ok(health)
+}
+
+/// Backend health status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackendHealth {
+    pub status: String,
+    pub version: String,
+    pub uptime_seconds: u64,
+}
+
 /// Message from the UI to the agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {

@@ -32,6 +32,11 @@ fn configure_runtime_storage(app: &tauri::App) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![
+            agenticos_desktop::send_agent_message,
+            agenticos_desktop::get_conversation_history,
+            agenticos_desktop::get_backend_health,
+        ])
         .setup(|app| {
             configure_runtime_storage(app).map_err(std::io::Error::other)?;
 

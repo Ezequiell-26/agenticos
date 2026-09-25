@@ -877,14 +877,21 @@ impl ProviderPlatform {
         request: ModelRequest,
     ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
-        let primary_provider = std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+        let primary_provider = match std::env::var("AGENTICOS_PRIMARY_PROVIDER")
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                providers
-                    .first()
-                    .map(|provider| provider.provider_id.clone())
-            });
+        {
+            Some(primary) => Some(primary),
+            None => self
+                .fallbacks
+                .configured_primary_provider()
+                .await
+                .or_else(|| {
+                    providers
+                        .first()
+                        .map(|provider| provider.provider_id.clone())
+                }),
+        };
 
         let mut ordered_ids = Vec::new();
         let mut seen = std::collections::HashSet::new();

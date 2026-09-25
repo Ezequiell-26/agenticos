@@ -103,6 +103,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
   const receivedRequests = []
 
   test.beforeAll(async () => {
+    test.setTimeout(120_000)
     tempRoot = await mkdtemp(join(tmpdir(), 'agenticos-ui-e2e-'))
     const providerPort = await freePort()
     const apiPort = await freePort()

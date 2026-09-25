@@ -1579,11 +1579,32 @@ impl RuntimeState {
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "agenticos".to_string());
         let limit = runtime_env_usize("AGENTICOS_RELEVANT_MEMORY_LIMIT", 8, 1, 24);
-        match self
-            .persistent_memory
-            .search(&namespace, query, limit)
-            .await
-        {
+        let records = if memory_embeddings_enabled() {
+            if let Some(model) = configured_embedding_model() {
+                match self
+                    .provider
+                    .embed(EmbeddingRequest {
+                        request_id: format!("memory-hydrate-{}", uuid::Uuid::new_v4()),
+                        model,
+                        inputs: vec![query.to_string()],
+                    })
+                    .await
+                {
+                    Ok(response) if response.embeddings.len() == 1 => self
+                        .persistent_memory
+                        .search_semantic(&namespace, &response.embeddings[0], limit)
+                        .await
+                        .or_else(|_| self.persistent_memory.search(&namespace, query, limit).await),
+                    _ => self.persistent_memory.search(&namespace, query, limit).await,
+                }
+            } else {
+                self.persistent_memory.search(&namespace, query, limit).await
+            }
+        } else {
+            self.persistent_memory.search(&namespace, query, limit).await
+        };
+
+        match records {
             Ok(records) => {
                 let relevant = records
                     .into_iter()

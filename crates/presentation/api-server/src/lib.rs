@@ -1749,6 +1749,15 @@ struct WriteSourceFileRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct DeleteSourceFileRequest {
+    grant_id: String,
+    path: String,
+    reference: Option<String>,
+    message: String,
+    expected_sha: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct A2aSendMessageParams {
     message: A2aMessage,
 }
@@ -3455,6 +3464,102 @@ async fn write_github_source_file(
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
                 code: "SOURCE_WRITE_FAILED",
+            })
+        }
+    }
+}
+
+async fn delete_github_source_file(
+    path: web::Path<(String, String)>,
+    request: web::Json<DeleteSourceFileRequest>,
+    request_http: HttpRequest,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (owner, repo) = path.into_inner();
+    let repo_id = format!("{owner}/{repo}");
+    let grant_id = request.grant_id.trim();
+    let file_path = request.path.trim();
+    let message = request.message.trim();
+
+    if grant_id.is_empty() || file_path.is_empty() || message.is_empty() || request.expected_sha.trim().is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "grant_id, path, message and expected_sha are required".to_string(),
+            code: "SOURCE_DELETE_REQUEST_INVALID",
+        });
+    }
+
+    let resource = format!("github/{repo_id}/*");
+    match state
+        .capabilities
+        .authorize(
+            grant_id,
+            CapabilityType::Write,
+            &resource,
+            "source.github.delete",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "source.github.delete capability denied".to_string(),
+                code: "SOURCE_DELETE_CAPABILITY_REQUIRED",
+            });
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SOURCE_DELETE_CAPABILITY_CHECK_FAILED",
+            });
+        }
+    }
+
+    match state
+        .source_forge
+        .delete_file(
+            &repo_id,
+            file_path,
+            request.reference.as_deref(),
+            message,
+            &request.expected_sha,
+        )
+        .await
+    {
+        Ok(result) => {
+            if let Err(error) = state
+                .audit
+                .append(AuditEvent::new(
+                    "source-forge",
+                    "source.github.delete",
+                    None,
+                    format!("github/{repo_id}"),
+                    Some(request_correlation_id(&request_http)),
+                    "success",
+                    serde_json::json!({
+                        "path": file_path,
+                        "reference": request.reference,
+                        "commit_sha": result.commit_sha,
+                    }),
+                ))
+                .await
+            {
+                tracing::warn!(%error, "failed to persist GitHub delete audit event");
+            }
+            state.metrics.record_http(false);
+            HttpResponse::Ok().json(result)
+        }
+        Err(agenticos_source_forge::SourceForgeError::Conflict) => {
+            state.metrics.record_http(true);
+            HttpResponse::Conflict().json(ErrorResponse {
+                error: "GitHub file changed since the supplied expected SHA".to_string(),
+                code: "SOURCE_DELETE_CONFLICT",
+            })
+        }
+        Err(error) => {
+            state.metrics.record_http(true);
+            HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SOURCE_DELETE_FAILED",
             })
         }
     }
@@ -7396,6 +7501,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/source/github/{owner}/{repo}/file",
                 web::post().to(write_github_source_file),
+            )
+            .route(
+                "/api/source/github/{owner}/{repo}/file",
+                web::delete().to(delete_github_source_file),
             )
             .route("/api/browser/status", web::get().to(browser_status))
             .route(

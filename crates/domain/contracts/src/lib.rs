@@ -185,7 +185,6 @@ pub trait ToolRuntimePort: Send + Sync + 'static {
     async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError>;
 }
 
-
 /// Durable event storage contract.
 #[async_trait::async_trait]
 pub trait EventStore: Send + Sync {

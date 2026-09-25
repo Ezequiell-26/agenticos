@@ -2502,10 +2502,38 @@ async fn execute_registered_tool(
         });
     }
     if request.grant_id.trim().is_empty() {
-        return HttpResponse::Forbidden().json(ErrorResponse {
-            error: "grant_id is required".to_string(),
-            code: "TOOL_CAPABILITY_REQUIRED",
-        });
+        let required_permission = state
+            .tool_runtime
+            .list()
+            .await
+            .into_iter()
+            .find(|tool| tool.tool_id == request.tool_id)
+            .and_then(|tool| tool.required_permissions.first().cloned())
+            .unwrap_or_else(|| format!("tool.{}", request.tool_id.replace('/', ".")));
+        let approval = match state
+            .capabilities
+            .request_approval(
+                format!("tool-call-{}", request.agent_id),
+                required_permission.clone(),
+                format!("tool/{}", request.tool_id),
+                unix_time().saturating_add(900),
+            )
+            .await
+        {
+            Ok(approval) => approval,
+            Err(error) => {
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "APPROVAL_PERSIST_FAILED",
+                })
+            }
+        };
+        state.metrics.record_http(false);
+        return HttpResponse::Accepted().json(serde_json::json!({
+            "approval_required": true,
+            "approval": approval,
+            "required_permission": required_permission,
+        }));
     }
 
     let parameters = match &request.parameters {
@@ -4875,6 +4903,28 @@ async fn list_approvals(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({"approvals": approvals, "count": approvals.len()}))
 }
 
+fn capability_type_for_action(action: &str) -> CapabilityType {
+    let normalized = action.trim().to_ascii_lowercase();
+    if normalized.starts_with("admin.") {
+        CapabilityType::Admin
+    } else if normalized.starts_with("write.") {
+        CapabilityType::Write
+    } else if normalized.starts_with("read.") {
+        CapabilityType::Read
+    } else {
+        CapabilityType::Execute
+    }
+}
+
+fn approval_grant_expiry(approval: &ApprovalRequest) -> u64 {
+    let now = unix_time();
+    if approval.expires_at == 0 {
+        now.saturating_add(900)
+    } else {
+        approval.expires_at
+    }
+}
+
 async fn create_approval(
     request: web::Json<CreateApprovalRequest>,
     state: web::Data<RuntimeState>,
@@ -4916,7 +4966,30 @@ async fn resolve_approval(
         .resolve_approval(&approval_id, decision.approved)
         .await
     {
-        Ok(approval) => HttpResponse::Ok().json(approval),
+        Ok(approval) if decision.approved => {
+            let grant = CapabilityGrant {
+                capability_type: capability_type_for_action(&approval.action),
+                resource: approval.resource.clone(),
+                permission: approval.action.clone(),
+                expires_at: approval_grant_expiry(&approval),
+                grant_id: format!("grant-{}", approval.approval_id),
+            };
+            match state.capabilities.issue(grant.clone()).await {
+                Ok(grant_id) => HttpResponse::Ok().json(serde_json::json!({
+                    "approval": approval,
+                    "grant": grant,
+                    "grant_id": grant_id,
+                })),
+                Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "APPROVAL_GRANT_ISSUE_FAILED",
+                }),
+            }
+        }
+        Ok(approval) => HttpResponse::Ok().json(serde_json::json!({
+            "approval": approval,
+            "grant_id": null,
+        })),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {
             error: error.to_string(),
             code: "APPROVAL_NOT_FOUND",

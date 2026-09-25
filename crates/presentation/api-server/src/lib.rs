@@ -7296,6 +7296,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::delete().to(delete_github_source_file),
             )
             .route("/api/browser/status", web::get().to(browser_status))
+            .route("/api/sandbox/status", web::get().to(sandbox_status))
             .route(
                 "/api/browser/{session_id}/open",
                 web::post().to(browser_open),
@@ -7358,7 +7359,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::get().to(conversation_search),
             )
             .route("/api/audit", web::get().to(list_audit))
+            .route("/api/capabilities", web::get().to(list_capabilities))
+            .route("/api/capabilities", web::post().to(issue_capability))
+            .route(
+                "/api/capabilities/{grant_id}",
+                web::delete().to(revoke_capability),
+            )
             .route("/api/tools", web::get().to(list_tools))
+            .route("/api/tools/execute", web::post().to(execute_tool))
             .route("/api/projects", web::get().to(list_projects))
             .route("/api/projects", web::post().to(register_project))
             .route(
@@ -7525,6 +7533,11 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/memory", web::get().to(list_memory))
             .route("/api/memory", web::post().to(upsert_memory))
+            .route(
+                "/api/memory/{namespace}/{key}",
+                web::delete().to(delete_memory),
+            )
+            .route("/api/memory/purge", web::post().to(purge_memory))
             .route(
                 "/api/memory/coverage",
                 web::get().to(memory_embedding_coverage),

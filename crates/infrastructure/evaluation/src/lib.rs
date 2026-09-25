@@ -138,7 +138,9 @@ impl EvaluationRegistry {
             .connect(database_url)
             .await
             .map_err(|error| format!("evaluation database connection failed: {error}"))?;
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let case_rows = sqlx::query_as::<_, (String, String)>(
             "SELECT case_id, payload FROM evaluation_cases ORDER BY case_id",

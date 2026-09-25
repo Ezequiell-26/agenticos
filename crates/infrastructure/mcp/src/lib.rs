@@ -177,7 +177,11 @@ impl McpManager {
                 McpError::InvalidConfiguration(format!("MCP database connection failed: {error}"))
             })?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| McpError::InvalidConfiguration(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| {
+                McpError::InvalidConfiguration(format!("sqlite migrations failed: {error}"))
+            })?;
 
         let rows = sqlx::query_as::<_, (String, String, String, i64, Option<i64>)>(
             "SELECT server_id, name, transport, enabled, timeout_ms FROM mcp_servers",

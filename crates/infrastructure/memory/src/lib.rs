@@ -327,7 +327,11 @@ impl PersistentMemoryStore {
                 ContractError::ParseError(format!("memory database connection failed: {error}"))
             })?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("sqlite migrations failed: {error}"))
+            })?;
 
         Ok(Self { db: Arc::new(db) })
     }

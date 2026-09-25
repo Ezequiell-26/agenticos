@@ -60,13 +60,14 @@ When a worker disappears, the lease expires. On restart, expired running runs mo
 
 ## Publication semantics
 
-1. Aggregate mutation commits with the outbox record.
-2. Dispatcher reads pending events.
-3. Publisher sends the event.
-4. Successful publication marks the outbox row published.
-5. A publisher failure releases the claim and leaves the event pending.
+1. Run event writes are persisted in the SQLite event store.
+2. A SQLite trigger creates the matching runtime outbox row in the same transaction.
+3. The background dispatcher atomically claims pending or expired entries.
+4. The destination-aware transport publishes to the in-process runtime bus or an HTTP webhook.
+5. Successful publication clears the claim and marks the entry published.
+6. Failed publication clears the claim, increments the attempt count and returns the entry to the retry path until the configured dead-letter threshold.
 
-Consumers must be idempotent because publication can repeat after a crash between external delivery and markPublished.
+A worker cannot finalize an entry after its lease expires or under another worker's claim. Consumers must still be idempotent because a crash can occur after external delivery and before the durable publish acknowledgement.
 
 ## Idempotency semantics
 

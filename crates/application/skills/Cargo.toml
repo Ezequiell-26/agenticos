@@ -1,0 +1,17 @@
+[package]
+name = "agenticos-skills"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+agenticos-sqlite-migrations = { path = "../../utilities/sqlite-migrations" }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+
+[lints]
+workspace = true

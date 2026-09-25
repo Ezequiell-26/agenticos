@@ -20,10 +20,10 @@ pub use agenticos_context::{ContextBudget, ContextEngine};
 use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
-    OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus,
-    SagaStepStatus, Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot, SnapshotStore,
-    ToolRequest, ToolRuntimePort,
+    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest,
+    ModelResponse, OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator,
+    SagaStatus, SagaStepStatus, Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot,
+    SnapshotStore, ToolRequest, ToolRuntimePort,
 };
 
 // pub use agenticos_sandbox::{ProcessSandbox, SandboxConfig, SandboxFactory};
@@ -720,7 +720,10 @@ impl LeaseStore for InMemoryLeaseStore {
         fencing_token: u64,
         current_time: u64,
     ) -> Result<bool, ContractError> {
-        Ok(InMemoryLeaseStore::is_valid(self, resource_id, owner_id, fencing_token, current_time).await)
+        Ok(
+            InMemoryLeaseStore::is_valid(self, resource_id, owner_id, fencing_token, current_time)
+                .await,
+        )
     }
 
     async fn release(
@@ -731,9 +734,7 @@ impl LeaseStore for InMemoryLeaseStore {
     ) -> Result<(), ContractError> {
         let mut store = self.leases.write().await;
         match store.get(resource_id) {
-            Some(lease)
-                if lease.owner_id == owner_id && lease.fencing_token == fencing_token =>
-            {
+            Some(lease) if lease.owner_id == owner_id && lease.fencing_token == fencing_token => {
                 store.remove(resource_id);
                 Ok(())
             }
@@ -784,7 +785,11 @@ impl SqliteLeaseStore {
         Ok(Self { pool })
     }
 
-    fn validate_inputs(resource_id: &str, owner_id: &str, expires_at: u64) -> Result<(), ContractError> {
+    fn validate_inputs(
+        resource_id: &str,
+        owner_id: &str,
+        expires_at: u64,
+    ) -> Result<(), ContractError> {
         if resource_id.trim().is_empty() || owner_id.trim().is_empty() || expires_at == 0 {
             return Err(ContractError::InvalidId);
         }
@@ -951,14 +956,11 @@ impl LeaseStore for SqliteLeaseStore {
         fencing_token: u64,
         current_time: u64,
     ) -> Result<bool, ContractError> {
-        Ok(self
-            .get(resource_id)
-            .await?
-            .is_some_and(|lease| {
-                lease.owner_id == owner_id
-                    && lease.fencing_token == fencing_token
-                    && lease.expires_at > current_time
-            }))
+        Ok(self.get(resource_id).await?.is_some_and(|lease| {
+            lease.owner_id == owner_id
+                && lease.fencing_token == fencing_token
+                && lease.expires_at > current_time
+        }))
     }
 
     async fn release(
@@ -1326,11 +1328,9 @@ impl KernelRuntime {
             .await?;
         let mut runs = self.runs.write().await;
         if let Some(run) = runs.get_mut(run_id) {
-            if run
-                .lease
-                .as_ref()
-                .is_some_and(|lease| lease.owner_id == owner_id && lease.fencing_token == fencing_token)
-            {
+            if run.lease.as_ref().is_some_and(|lease| {
+                lease.owner_id == owner_id && lease.fencing_token == fencing_token
+            }) {
                 run.clear_lease();
             }
         }

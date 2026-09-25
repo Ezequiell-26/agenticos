@@ -1288,6 +1288,11 @@ impl ProviderPlatform {
                 continue;
             }
 
+            let required_capabilities = required_provider_capabilities(&routed_request);
+            if !provider_supports_required_capabilities(&provider, &required_capabilities) {
+                continue;
+            }
+
             let credential = self
                 .credentials
                 .get_for_provider(&provider.provider_id)
@@ -2293,6 +2298,44 @@ fn stream_sse_response(
 }
 
 
+
+fn required_provider_capabilities(request: &ModelRequest) -> Vec<String> {
+    let Some(raw) = request.parameters.as_deref() else {
+        return Vec::new();
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return Vec::new();
+    };
+    value
+        .get("agenticos")
+        .and_then(|value| value.get("required_capabilities"))
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty())
+                .take(32)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn provider_supports_required_capabilities(
+    provider: &ProviderEntry,
+    required: &[String],
+) -> bool {
+    if required.is_empty() {
+        return true;
+    }
+    let capabilities = provider
+        .capabilities
+        .iter()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    required.iter().all(|required| capabilities.contains(required))
+}
 
 fn detect_protocol(provider: &ProviderEntry) -> ProviderProtocol {
     let base = provider.base_url.to_ascii_lowercase();
@@ -3334,6 +3377,26 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(done, Some(StreamItem::Done)));
+    }
+
+    #[test]
+    fn provider_capability_requirements_are_enforced() {
+        let provider = ProviderEntry {
+            provider_id: "p".to_string(),
+            name: "P".to_string(),
+            base_url: "https://example.com/v1".to_string(),
+            models: vec!["m".to_string()],
+            capabilities: vec!["chat".to_string(), "vision".to_string()],
+        };
+        assert!(provider_supports_required_capabilities(
+            &provider,
+            &["vision".to_string()]
+        ));
+        assert!(!provider_supports_required_capabilities(
+            &provider,
+            &["tools".to_string()]
+        ));
+        assert!(provider_supports_required_capabilities(&provider, &[]));
     }
 
     #[test]

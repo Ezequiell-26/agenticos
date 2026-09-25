@@ -339,6 +339,7 @@ export interface RuntimeServices {
   }
   skills: {
     list(): Promise<RuntimeApiRecord[]>
+    setEnabled(skillId: string, enabled: boolean): Promise<RuntimeApiRecord>
   }
   projects: {
     list(): Promise<RuntimeProject[]>

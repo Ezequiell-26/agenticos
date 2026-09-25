@@ -10,6 +10,7 @@ use agenticos_contracts::{
 };
 use agenticos_kernel::KernelRuntime;
 use agenticos_memory::InMemoryContextManager;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

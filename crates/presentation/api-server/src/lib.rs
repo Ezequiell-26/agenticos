@@ -1300,6 +1300,10 @@ struct ProviderQuotaRequest {
 #[derive(Debug, Deserialize)]
 struct ProviderRetryRequest {
     max_attempts: u32,
+
+    job_type: "agent".to_string(),
+
+    metadata: serde_json::json!({}),
     initial_backoff_ms: u64,
     max_backoff_ms: u64,
     exponential_backoff: bool,
@@ -3054,6 +3058,10 @@ async fn a2a_rpc(
                     dependencies: Vec::new(),
                     priority: 80,
                     max_attempts: 2,
+
+                    job_type: "agent".to_string(),
+
+                    metadata: serde_json::json!({}),
                 })
                 .await
             {
@@ -3821,6 +3829,10 @@ async fn get_provider_retry_policy(
         Some(policy) => HttpResponse::Ok().json(policy),
         None => HttpResponse::Ok().json(agenticos_contracts::RetryPolicy {
             max_attempts: 3,
+
+            job_type: "agent".to_string(),
+
+            metadata: serde_json::json!({}),
             initial_backoff_ms: 250,
             max_backoff_ms: 4_000,
             exponential_backoff: true,
@@ -3862,6 +3874,10 @@ async fn set_provider_retry_policy(
 
     let policy = agenticos_contracts::RetryPolicy {
         max_attempts: request.max_attempts,
+
+        job_type: "agent".to_string(),
+
+        metadata: serde_json::json!({}),
         initial_backoff_ms: request.initial_backoff_ms,
         max_backoff_ms: request.max_backoff_ms,
         exponential_backoff: request.exponential_backoff,
@@ -4239,6 +4255,10 @@ async fn create_run(
                     dependencies: vec![],
                     priority: 100,
                     max_attempts: 3,
+
+                    job_type: "agent".to_string(),
+
+                    metadata: serde_json::json!({}),
                 })
                 .await
             {
@@ -4545,6 +4565,10 @@ async fn spawn_agent(
             dependencies: vec![],
             priority: 75,
             max_attempts: 2,
+
+            job_type: "agent".to_string(),
+
+            metadata: serde_json::json!({}),
         })
         .await
     {

@@ -280,7 +280,7 @@ impl SkillRegistry {
         sqlx::query(
             "INSERT INTO skills (
                 skill_id, name, version, description, content, category, enabled, source, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+             ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
              ON CONFLICT(skill_id) DO UPDATE SET
                 name = excluded.name,
                 version = excluded.version,

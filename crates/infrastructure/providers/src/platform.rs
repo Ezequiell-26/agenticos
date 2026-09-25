@@ -2259,6 +2259,12 @@ enum StreamProtocol {
 
 enum StreamItem {
     Delta(String),
+    DeltaWithUsage {
+        delta: String,
+        input_tokens: u64,
+        output_tokens: u64,
+        total_tokens: u64,
+    },
     Usage {
         input_tokens: u64,
         output_tokens: u64,
@@ -2389,27 +2395,22 @@ fn parse_stream_event(
             }
         }
         StreamProtocol::Gemini => {
-            if let Some(usage) = json.get("usageMetadata") {
-                let total_tokens = usage
-                    .get("totalTokenCount")
-                    .and_then(|value| value.as_u64())
-                    .unwrap_or(0);
-                if total_tokens > 0 {
-                    let input_tokens = usage
+            let usage = json.get("usageMetadata").map(|usage| {
+                (
+                    usage
                         .get("promptTokenCount")
                         .and_then(|value| value.as_u64())
-                        .unwrap_or(0);
-                    let output_tokens = usage
+                        .unwrap_or(0),
+                    usage
                         .get("candidatesTokenCount")
                         .and_then(|value| value.as_u64())
-                        .unwrap_or(0);
-                    return Ok(Some(StreamItem::Usage {
-                        input_tokens,
-                        output_tokens,
-                        total_tokens,
-                    }));
-                }
-            }
+                        .unwrap_or(0),
+                    usage
+                        .get("totalTokenCount")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0),
+                )
+            });
             if let Some(text) = json
                 .get("candidates")
                 .and_then(|value| value.as_array())
@@ -2426,7 +2427,26 @@ fn parse_stream_event(
                 })
                 .filter(|value| !value.is_empty())
             {
+                if let Some((input_tokens, output_tokens, total_tokens)) = usage {
+                    if total_tokens > 0 {
+                        return Ok(Some(StreamItem::DeltaWithUsage {
+                            delta: text.to_string(),
+                            input_tokens,
+                            output_tokens,
+                            total_tokens,
+                        }));
+                    }
+                }
                 return Ok(Some(StreamItem::Delta(text.to_string())));
+            }
+            if let Some((input_tokens, output_tokens, total_tokens)) = usage {
+                if total_tokens > 0 {
+                    return Ok(Some(StreamItem::Usage {
+                        input_tokens,
+                        output_tokens,
+                        total_tokens,
+                    }));
+                }
             }
         }
     }
@@ -2523,6 +2543,17 @@ fn stream_sse_response(
                     if let Some(item) = emit_data(event_name.as_deref(), data.trim())? {
                         match item {
                             StreamItem::Delta(delta) => yield delta,
+                            StreamItem::DeltaWithUsage {
+                                delta,
+                                input_tokens,
+                                output_tokens,
+                                total_tokens,
+                            } => {
+                                usage_input_tokens = usage_input_tokens.max(input_tokens);
+                                usage_output_tokens = usage_output_tokens.max(output_tokens);
+                                usage_total_tokens = usage_total_tokens.max(total_tokens);
+                                yield delta;
+                            }
                             StreamItem::Usage {
                                 input_tokens,
                                 output_tokens,
@@ -2571,6 +2602,17 @@ fn stream_sse_response(
                 if let Some(item) = emit_data(event.as_deref(), &data)? {
                     match item {
                         StreamItem::Delta(delta) => yield delta,
+                        StreamItem::DeltaWithUsage {
+                            delta,
+                            input_tokens,
+                            output_tokens,
+                            total_tokens,
+                        } => {
+                            usage_input_tokens = usage_input_tokens.max(input_tokens);
+                            usage_output_tokens = usage_output_tokens.max(output_tokens);
+                            usage_total_tokens = usage_total_tokens.max(total_tokens);
+                            yield delta;
+                        }
                         StreamItem::Usage {
                             input_tokens,
                             output_tokens,
@@ -3699,6 +3741,20 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(done, Some(StreamItem::Done)));
+    }
+
+    #[test]
+    fn gemini_chunk_preserves_text_and_usage() {
+        let item = parse_stream_event(
+            StreamProtocol::Gemini,
+            None,
+            r#"{"candidates":[{"content":{"parts":[{"text":"hello"}]}}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"totalTokenCount":5}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            item,
+            Some(StreamItem::DeltaWithUsage { delta, total_tokens: 5, .. }) if delta == "hello"
+        ));
     }
 
     #[test]

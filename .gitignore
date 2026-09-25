@@ -11,3 +11,9 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 target/
+
+# Local runtime state
+*.db
+*.db-shm
+*.db-wal
+.agenticos/

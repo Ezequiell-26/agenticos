@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">AgentiCOS</title>
+  <desc id="desc">AgentiCOS application icon</desc>
+  <rect width="64" height="64" rx="14" fill="#0B0D10"/>
+  <path d="M32 10 13 49h9l3.5-8h13L42 49h9L32 10Zm0 13.5 3.3 10h-6.6L32 23.5Z" fill="#FFD700"/>
+</svg>

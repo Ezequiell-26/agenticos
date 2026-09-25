@@ -730,7 +730,7 @@ impl RuntimeState {
                     description: "Execute an allowlisted local process through the sandbox"
                         .to_string(),
                     capabilities: vec!["process".to_string()],
-                    required_permissions: vec![],
+                    required_permissions: vec!["process.execute".to_string()],
                     context_requirements: vec!["capability:process.execute".to_string()],
                 },
                 Arc::new(SecureCommandTool {
@@ -759,7 +759,7 @@ impl RuntimeState {
                         name: name.to_string(),
                         description: name.to_string(),
                         capabilities: vec!["filesystem".to_string()],
-                        required_permissions: vec![],
+                        required_permissions: vec![capability.to_string()],
                         context_requirements: vec![format!("capability:{capability}")],
                     },
                     Arc::new(WorkspaceTool {
@@ -789,7 +789,7 @@ impl RuntimeState {
                         name: name.to_string(),
                         description: name.to_string(),
                         capabilities: vec!["git".to_string()],
-                        required_permissions: vec![],
+                        required_permissions: vec!["git.read".to_string()],
                         context_requirements: vec!["capability:git.read".to_string()],
                     },
                     Arc::new(GitWorkspaceTool {
@@ -818,7 +818,7 @@ impl RuntimeState {
                         name: name.to_string(),
                         description: name.to_string(),
                         capabilities: vec!["terminal".to_string()],
-                        required_permissions: vec![],
+                        required_permissions: vec![capability.to_string()],
                         context_requirements: vec![format!("capability:{capability}")],
                     },
                     Arc::new(TerminalTool {

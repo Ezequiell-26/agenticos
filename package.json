@@ -24,7 +24,8 @@
     "architecture:boundaries": "node scripts/verify-architecture-boundaries.mjs",
     "workspace:inheritance": "node scripts/verify-workspace-inheritance.mjs",
     "dependencies:check": "node scripts/verify-cargo-dependencies.mjs",
-    "provider:coverage": "node scripts/verify-provider-integration-coverage.mjs"
+    "provider:coverage": "node scripts/verify-provider-integration-coverage.mjs",
+    "frontend:runtime-contract": "node scripts/verify-frontend-runtime-contract.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"

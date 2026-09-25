@@ -6401,7 +6401,10 @@ async fn list_memory(
                         .await
                 }
             } else {
-                state.persistent_memory.search(namespace, search, limit).await
+                state
+                    .persistent_memory
+                    .search(namespace, search, limit)
+                    .await
             }
         }
         None => state.persistent_memory.list(namespace, limit).await,

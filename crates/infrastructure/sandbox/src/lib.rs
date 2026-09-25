@@ -147,6 +147,7 @@ impl ProcessSandbox {
                 break;
             }
         }
+        let _active = ActiveProcessGuard::adopted(self.active_processes.clone());
 
         let mut command_builder = Command::new(executable);
         if args.len() > 1 {
@@ -185,7 +186,6 @@ impl ProcessSandbox {
         let stdout_task = tokio::spawn(read_stream_limited(stdout, remaining.clone()));
         let stderr_task = tokio::spawn(read_stream_limited(stderr, remaining));
 
-        let _active = ActiveProcessGuard::adopted(self.active_processes.clone());
         let started = Instant::now();
         let result = timeout(Duration::from_millis(timeout_ms), child.wait()).await;
         let elapsed = started.elapsed().as_millis() as u64;

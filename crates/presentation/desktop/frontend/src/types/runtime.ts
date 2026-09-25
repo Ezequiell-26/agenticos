@@ -207,6 +207,13 @@ export interface RuntimeSearchResult {
   count: number
 }
 
+export interface RuntimeEmbeddingResponse {
+  request_id: string
+  embeddings: number[][]
+  metadata?: string | null
+  tokens_used?: number | null
+}
+
 export interface RuntimeWorkerJob extends RuntimeApiRecord {
   worker_id?: string
 }
@@ -234,6 +241,9 @@ export interface RuntimeServices {
   }
   status: {
     get(): Promise<AgentStatusSnapshot>
+  }
+  embeddings: {
+    create(model: string, inputs: string[], requestId?: string): Promise<RuntimeEmbeddingResponse>
   }
   conversations: {
     history(sessionId: string): Promise<ChatMessage[]>

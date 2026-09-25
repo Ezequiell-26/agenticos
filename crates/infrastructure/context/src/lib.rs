@@ -207,9 +207,7 @@ impl ContextEngine {
         budget: ContextBudget,
         overhead_tokens: u32,
     ) -> ContextPlan {
-        let available_input_tokens = budget
-            .max_input_tokens()
-            .saturating_sub(overhead_tokens);
+        let available_input_tokens = budget.max_input_tokens().saturating_sub(overhead_tokens);
         let effective_budget = ContextBudget {
             context_window_tokens: available_input_tokens
                 .saturating_add(budget.reserved_output_tokens)

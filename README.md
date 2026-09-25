@@ -73,6 +73,22 @@ skills/
 7. For frontend changes, update the frontend changelog in the same operation.
 8. Never commit secrets or provider credentials.
 
+## Browser runtime
+
+AgentiCOS exposes an optional real browser runtime through the external `agent-browser` CLI. The Rust API keeps browser orchestration and capability checks in the backend while the CLI owns the persistent browser session.
+
+Configure:
+
+```bash
+AGENTICOS_BROWSER_COMMAND=agent-browser
+AGENTICOS_BROWSER_TIMEOUT_MS=60000
+AGENTICOS_BROWSER_MAX_OUTPUT_BYTES=2097152
+```
+
+The runtime remains optional at startup. When the CLI is unavailable, `/api/browser/status` reports it as unavailable and the rest of the backend continues to operate.
+
+Browser actions are capability-gated with `browser.use` and scoped to `browser/<session_id>`.
+
 ## Verification
 
 Root checks:

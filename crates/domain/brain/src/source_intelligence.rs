@@ -739,7 +739,7 @@ mod tests {
         let documents = HashMap::from([
             (
                 "README.md".to_string(),
-                "This project uses tokio and MCP for agent orchestration.".to_string(),
+                "This project uses tokio and an mcp-server for agent orchestration.".to_string(),
             ),
             (
                 "src/main.rs".to_string(),

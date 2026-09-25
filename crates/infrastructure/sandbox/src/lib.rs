@@ -38,6 +38,8 @@ pub struct SandboxPolicy {
     pub preserved_environment: Vec<String>,
     /// Optional external isolation runner. Supported values: "process" and "bwrap".
     pub isolation_runner: String,
+    /// Isolation profile. "default" preserves compatibility; "strict" requires bwrap.
+    pub isolation_profile: String,
 }
 
 impl Default for SandboxPolicy {
@@ -70,6 +72,11 @@ impl Default for SandboxPolicy {
                 .map(|value| value.trim().to_ascii_lowercase())
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| "process".to_string()),
+            isolation_profile: std::env::var("AGENTICOS_SANDBOX_PROFILE")
+                .ok()
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "default".to_string()),
         }
     }
 }
@@ -90,6 +97,21 @@ impl ProcessSandbox {
         }
     }
 
+    /// Validate policy compatibility before executing commands.
+    pub fn validate_policy(&self) -> Result<(), ContractError> {
+        match self.policy.isolation_profile.as_str() {
+            "default" => Ok(()),
+            "strict" if self.policy.isolation_runner == "bwrap" => Ok(()),
+            "strict" => Err(ContractError::ParseError(
+                "strict sandbox isolation requires bwrap".to_string(),
+            )),
+            other => Err(ContractError::ParseError(format!(
+                "unsupported sandbox isolation profile '{}'",
+                other
+            ))),
+        }
+    }
+
     /// Execute a command without shell expansion and with a hard wall-clock timeout.
     pub async fn execute_command(
         &self,
@@ -98,6 +120,7 @@ impl ProcessSandbox {
         workdir: Option<&std::path::Path>,
         capabilities: &[String],
     ) -> Result<SandboxResponse, ContractError> {
+        self.validate_policy()?;
         if !capabilities
             .iter()
             .any(|capability| capability == "process.execute")
@@ -178,6 +201,9 @@ impl ProcessSandbox {
                 "--tmpfs",
                 "/tmp",
             ]);
+            if self.policy.isolation_profile == "strict" {
+                wrapped.args(["--new-session", "--cap-drop", "ALL"]);
+            }
             if let Some(dir) = workdir {
                 let dir = dir.to_str().ok_or_else(|| {
                     ContractError::ParseError("sandbox workdir is not UTF-8".to_string())
@@ -451,6 +477,7 @@ mod tests {
             clear_environment: true,
             preserved_environment: vec!["PATH".to_string()],
             isolation_runner: "unknown".to_string(),
+            isolation_profile: "default".to_string(),
         });
         let result = sandbox
             .execute_command(
@@ -502,6 +529,7 @@ mod tests {
             clear_environment: true,
             preserved_environment: vec!["PATH".to_string()],
             isolation_runner: "process".to_string(),
+            isolation_profile: "default".to_string(),
         });
 
         let first = sandbox.clone();
@@ -529,6 +557,7 @@ mod tests {
             clear_environment: true,
             preserved_environment: vec!["PATH".to_string()],
             isolation_runner: "process".to_string(),
+            isolation_profile: "default".to_string(),
         });
         let result = sandbox
             .execute_command(
@@ -541,5 +570,47 @@ mod tests {
             .unwrap();
         assert!(result.success);
         assert!(result.output.len() <= 32);
+    }
+
+    #[test]
+    fn strict_profile_requires_bwrap_and_default_profile_accepts_process() {
+        let strict = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 1_000,
+            max_output_bytes: 1_024,
+            allowed_commands: vec!["git".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
+            isolation_profile: "strict".to_string(),
+        });
+        assert!(strict.validate_policy().is_err());
+
+        let default = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 1_000,
+            max_output_bytes: 1_024,
+            allowed_commands: vec!["git".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
+            isolation_profile: "default".to_string(),
+        });
+        assert!(default.validate_policy().is_ok());
+    }
+
+    #[test]
+    fn unknown_isolation_profile_fails_closed() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 1_000,
+            max_output_bytes: 1_024,
+            allowed_commands: vec!["git".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
+            isolation_profile: "unknown".to_string(),
+        });
+        assert!(sandbox.validate_policy().is_err());
     }
 }

@@ -202,7 +202,8 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
   test('connects the UI to the runtime, provider, response and persisted history', async ({ page }) => {
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('[data-runtime="connected"]')).toBeVisible({ timeout: 30_000 })
+    const shell = page.locator('.app-shell')
+    await expect(shell).toBeVisible({ timeout: 30_000 })
 
     const composer = page.getByRole('textbox', { name: 'Message AgentiCOS' })
     await composer.fill('desktop UI E2E')
@@ -211,13 +212,14 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
       timeout: 30_000,
     })
+    await expect.poll(async () => shell.getAttribute('data-runtime'), { timeout: 10_000 }).toBe('connected')
 
     expect(receivedRequests).toHaveLength(1)
     expect(receivedRequests[0]?.model).toBe('e2e-model')
     expect(receivedRequests[0]?.messages?.[0]?.content).toBe('desktop UI E2E')
 
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(page.locator('[data-runtime="connected"]')).toBeVisible({ timeout: 30_000 })
+    await expect(shell).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
       timeout: 30_000,
     })

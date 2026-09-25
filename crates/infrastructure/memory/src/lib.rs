@@ -367,7 +367,9 @@ impl PersistentMemoryStore {
         .execute(&db)
         .await
         .map_err(|error| {
-            ContractError::ParseError(format!("memory embedding schema initialization failed: {error}"))
+            ContractError::ParseError(format!(
+                "memory embedding schema initialization failed: {error}"
+            ))
         })?;
 
         Ok(Self { db: Arc::new(db) })
@@ -609,7 +611,10 @@ impl PersistentMemoryStore {
         embedding: &[f32],
         limit: usize,
     ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
-        if embedding.is_empty() || embedding.len() > 16_384 || embedding.iter().any(|value| !value.is_finite()) {
+        if embedding.is_empty()
+            || embedding.len() > 16_384
+            || embedding.iter().any(|value| !value.is_finite())
+        {
             return Err(ContractError::ParseError(
                 "invalid query embedding".to_string(),
             ));
@@ -617,7 +622,18 @@ impl PersistentMemoryStore {
 
         let rows = sqlx::query_as::<
             _,
-            (String, String, String, String, f64, String, i64, i64, String, i64),
+            (
+                String,
+                String,
+                String,
+                String,
+                f64,
+                String,
+                i64,
+                i64,
+                String,
+                i64,
+            ),
         >(
             "SELECT
                 m.memory_id, m.namespace, m.key, m.value, m.importance, m.tags,
@@ -633,7 +649,9 @@ impl PersistentMemoryStore {
         .bind(unix_time() as i64)
         .fetch_all(&*self.db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("semantic memory query failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!("semantic memory query failed: {error}"))
+        })?;
 
         let query_norm = embedding
             .iter()
@@ -677,7 +695,9 @@ impl PersistentMemoryStore {
                 Ok(value) => value,
                 Err(_) => continue,
             };
-            if candidate.len() != embedding.len() || candidate.iter().any(|value| !value.is_finite()) {
+            if candidate.len() != embedding.len()
+                || candidate.iter().any(|value| !value.is_finite())
+            {
                 continue;
             }
             let mut dot = 0.0_f64;
@@ -724,7 +744,9 @@ impl PersistentMemoryStore {
         .bind(key)
         .fetch_optional(&*self.db)
         .await
-        .map_err(|error| ContractError::ParseError(format!("memory delete lookup failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory delete lookup failed: {error}"))
+        })?;
 
         let result = sqlx::query("DELETE FROM memory_records WHERE namespace = ? AND key = ?")
             .bind(namespace)

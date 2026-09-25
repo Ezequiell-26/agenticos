@@ -6557,7 +6557,6 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
-    heartbeat.abort();
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
@@ -6727,6 +6726,8 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
             "subagent exceeded wall-clock budget of {timeout_seconds}s"
         ))),
     };
+
+    heartbeat.abort();
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);

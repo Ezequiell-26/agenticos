@@ -47,6 +47,7 @@ use agenticos_projects::{ProjectDefinition, ProjectRegistry};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
+use agenticos_skills::{SkillRecord, SkillRegistry};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
@@ -125,6 +126,7 @@ pub struct RuntimeState {
     terminal: Arc<TerminalManager>,
     cost_ledger: Arc<CostLedger>,
     skills: Arc<Vec<Skill>>,
+    skills_registry: Arc<SkillRegistry>,
     model: String,
 }
 
@@ -269,7 +271,13 @@ impl RuntimeState {
                 .map_err(ContractError::ParseError)?,
         );
         let browser = Arc::new(BrowserRuntime::from_env());
-        let skills = Arc::new(Self::load_skills().await);
+        let skill_root = std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
+        let skills_registry = Arc::new(
+            SkillRegistry::open(&database_url, &skill_root)
+                .await
+                .map_err(ContractError::ParseError)?,
+        );
+        let skills = Arc::new(Self::load_skills(&skills_registry).await);
         let session_cache_capacity =
             runtime_env_usize("AGENTICOS_MAX_CACHED_SESSIONS", 256, 16, 4096);
         let agent_execution_concurrency =
@@ -553,66 +561,31 @@ impl RuntimeState {
             cost_ledger,
             browser,
             skills,
+            skills_registry,
             model,
         })
     }
 
-    async fn load_skills() -> Vec<Skill> {
-        let root = std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
-        let mut directory = match tokio::fs::read_dir(&root).await {
-            Ok(directory) => directory,
+    async fn load_skills(registry: &SkillRegistry) -> Vec<Skill> {
+        let documents = match registry.enabled().await {
+            Ok(documents) => documents,
             Err(error) => {
-                tracing::warn!(%error, root = %root, "skill directory unavailable");
+                tracing::warn!(%error, "failed to load enabled skills from registry");
                 return Vec::new();
             }
         };
 
-        let max_total_bytes = runtime_env_usize(
-            "AGENTICOS_SKILL_TOTAL_BYTES",
-            8 * 1024 * 1024,
-            512 * 1024,
-            64 * 1024 * 1024,
-        );
-        let mut total_bytes = 0usize;
-        let mut skills = Vec::new();
-        while let Ok(Some(entry)) = directory.next_entry().await {
-            if skills.len() >= 128 {
-                break;
-            }
-            let path = entry.path().join("SKILL.md");
-            let metadata = match tokio::fs::metadata(&path).await {
-                Ok(metadata) if metadata.is_file() && metadata.len() <= 512 * 1024 => metadata,
-                _ => continue,
-            };
-            let skill_bytes = metadata.len() as usize;
-            if total_bytes.saturating_add(skill_bytes) > max_total_bytes {
-                tracing::warn!(
-                    root = %root,
-                    limit = max_total_bytes,
-                    "skill loading budget reached; remaining skills loaded lazily"
-                );
-                break;
-            }
-            let content = match tokio::fs::read_to_string(&path).await {
-                Ok(content) => content,
+        documents
+            .into_iter()
+            .take(128)
+            .filter_map(|document| match Skill::from_markdown(&document.content) {
+                Ok(skill) => Some(skill),
                 Err(error) => {
-                    tracing::warn!(%error, path = %path.display(), "failed to read skill");
-                    continue;
+                    tracing::warn!(skill = %document.name, %error, "invalid enabled skill skipped");
+                    None
                 }
-            };
-            total_bytes = total_bytes.saturating_add(skill_bytes);
-            match Skill::from_markdown(&content) {
-                Ok(skill) => skills.push(skill),
-                Err(error) => tracing::warn!(
-                    %error,
-                    path = %path.display(),
-                    "invalid SKILL.md skipped"
-                ),
-            }
-        }
-
-        skills.sort_by(|left, right| left.name.cmp(&right.name));
-        skills
+            })
+            .collect()
     }
 
     async fn session_agent(&self, session_id: &str, model: Option<&str>) -> Arc<ReactAgent> {

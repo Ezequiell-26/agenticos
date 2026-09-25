@@ -41,6 +41,8 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Verification truth
 
+- Final CI verification target: all Rust formatting, compilation and migration-compatibility repairs from the current `main` state.
+
 A capability is not considered verified merely because source code exists.
 
 Verification evidence is tracked per capability/workstream and must include the relevant automated checks. Current newer backend changes require fresh CI evidence; historical green results remain historical evidence only.

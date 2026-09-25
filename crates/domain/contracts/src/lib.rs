@@ -123,6 +123,40 @@ pub trait ModelProvider: Send + Sync + 'static {
     async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError>;
 }
 
+/// Provider-neutral embedding transport.
+#[async_trait::async_trait]
+pub trait EmbeddingProvider: Send + Sync + 'static {
+    /// Provider identifier.
+    fn provider_id(&self) -> &str;
+
+    /// Generate embeddings for one or more inputs.
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResponse, ContractError>;
+}
+
+/// Provider-neutral embedding request.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EmbeddingRequest {
+    /// Request identifier.
+    pub request_id: String,
+    /// Embedding model identifier.
+    pub model: String,
+    /// Input texts.
+    pub inputs: Vec<String>,
+}
+
+/// Provider-neutral embedding response.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EmbeddingResponse {
+    /// Request identifier.
+    pub request_id: String,
+    /// One vector per input, preserving input order.
+    pub embeddings: Vec<Vec<f32>>,
+    /// Provider/model metadata.
+    pub metadata: Option<String>,
+    /// Input tokens consumed when reported by the provider.
+    pub tokens_used: Option<u64>,
+}
+
 /// Model request for execution.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ModelRequest {

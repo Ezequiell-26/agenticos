@@ -7713,17 +7713,16 @@ Test procedure"#;
             .await
             .unwrap();
 
-        assert!(
-            first
-                .lease_valid(
-                    &run_id,
-                    &first_lease.owner_id,
-                    first_lease.fencing_token,
-                    unix_time(),
-                )
-                .await
-                .unwrap()
-        );
+        let first_lease_valid = first
+            .lease_valid(
+                &run_id,
+                &first_lease.owner_id,
+                first_lease.fencing_token,
+                unix_time(),
+            )
+            .await
+            .unwrap();
+        assert!(first_lease_valid);
 
         drop(first);
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -7752,17 +7751,16 @@ Test procedure"#;
             .unwrap();
 
         assert!(second_lease.fencing_token > first_lease.fencing_token);
-        assert!(
-            !second
-                .lease_valid(
-                    &run_id,
-                    &first_lease.owner_id,
-                    first_lease.fencing_token,
-                    unix_time(),
-                )
-                .await
-                .unwrap()
-        );
+        let stale_lease_valid = second
+            .lease_valid(
+                &run_id,
+                &first_lease.owner_id,
+                first_lease.fencing_token,
+                unix_time(),
+            )
+            .await
+            .unwrap();
+        assert!(!stale_lease_valid);
 
         let recovered_with_lease = second.get_or_recover_run(&run_id).await.unwrap();
         assert_eq!(

@@ -23,6 +23,9 @@ Persistence path:
 - Conversation history and FTS5 search.
 - Tool registry read endpoints.
 - Desktop Tauri process starts the API runtime automatically.
+- Runtime lifecycle events are available through authenticated SSE.
+- Browser screenshots are persisted as durable artifacts instead of remaining ephemeral command output.
+- Process tool output is normalized for model context and spilled to ArtifactStore when it exceeds the inline threshold.
 - No API secret is exposed to the React frontend.
 
 ## Environment contract
@@ -34,6 +37,13 @@ Persistence path:
 - `AGENTICOS_DATABASE_URL`
 - `AGENTICOS_BIND_HOST`
 - `AGENTICOS_BIND_PORT`
+- `AGENTICOS_EMBEDDING_MODEL`
+- `AGENTICOS_EMBEDDING_PROVIDER`
+- `AGENTICOS_MEMORY_EMBEDDINGS`
+- `AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS`
+- `AGENTICOS_OUTBOX_LEASE_SECONDS`
+- `AGENTICOS_OUTBOX_HTTP_TIMEOUT_MS`
+- `AGENTICOS_OUTBOX_BROADCAST_CAPACITY`
 
 The provider boundary is intentionally OpenAI-compatible so gateways and compatible providers can be selected without changing the agent core.
 

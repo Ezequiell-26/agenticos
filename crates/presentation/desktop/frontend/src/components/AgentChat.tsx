@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { runtime, RuntimeHttpError } from '../services/runtime';
+import type { ChatMessage } from '../types/runtime';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -6,47 +8,26 @@ interface Message {
   timestamp?: number;
 }
 
-interface AgentResponse {
-  content: string;
-  is_complete: boolean;
-  session_id: string;
-}
-
-interface BackendHealth {
-  status: string;
-  version: string;
-  uptime_seconds: number;
-}
-
-interface HistoryResponse {
-  history: Array<{
-    role: string;
-    content: string;
-    timestamp?: number;
-  }>;
-}
-
-const API_BASE_URL = (import.meta.env.VITE_AGENTICOS_API_URL ?? 'http://127.0.0.1:8080').replace(/\/+$/, '');
-const API_TOKEN = import.meta.env.VITE_AGENTICOS_API_TOKEN as string | undefined;
-
-function headers(): Record<string, string> {
+function toMessage(message: ChatMessage): Message | null {
+  if (message.role !== 'user' && message.role !== 'assistant') return null;
   return {
-    ...(API_TOKEN?.trim() ? { Authorization: `Bearer ${API_TOKEN.trim()}` } : {}),
+    role: message.role,
+    content: message.content,
+    timestamp: message.timestamp,
   };
 }
 
-async function readJson<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(body || `API request failed with ${response.status}`);
+function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof RuntimeHttpError) {
+    return error.message;
   }
-  return response.json() as Promise<T>;
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function AgentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId] = useState(() => `desktop-session-${Date.now()}`);
   const [isLoading, setIsLoading] = useState(false);
   const [backendHealth, setBackendHealth] = useState('checking...');
 
@@ -56,8 +37,7 @@ export default function AgentChat() {
 
   async function checkBackendHealth() {
     try {
-      const response = await fetch(`${API_BASE_URL}/health`, { headers: headers() });
-      const health = await readJson<BackendHealth>(response);
+      const health = await runtime.health.get();
       setBackendHealth(health.status === 'healthy' ? 'healthy' : 'not_ready');
     } catch {
       setBackendHealth('offline');
@@ -66,52 +46,44 @@ export default function AgentChat() {
 
   async function handleSendMessage() {
     const message = input.trim();
-    if (!message) return;
+    if (!message || isLoading) return;
 
-    setMessages((prev) => [...prev, { role: 'user', content: message }]);
+    setMessages((prev) => [...prev, { role: 'user', content: message, timestamp: Date.now() }]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
-        method: 'POST',
-        headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-        }),
-      });
-      const data = await readJson<AgentResponse>(response);
-
-      setSessionId((current) => current ?? data.session_id);
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.content }]);
+      const response = await runtime.chat.sendMessage(sessionId, message);
+      const assistant = toMessage(response);
+      if (!assistant) throw new Error('Runtime returned an invalid assistant message.');
+      setMessages((prev) => [...prev, assistant]);
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'Backend communication failed.';
-      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}` }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Error: ${errorMessage(error, 'Backend communication failed.')}`,
+          timestamp: Date.now(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   }
 
   async function handleLoadHistory() {
-    if (!sessionId) return;
-
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/conversations/${encodeURIComponent(sessionId)}/history`,
-        { headers: headers() },
-      );
-      const data = await readJson<HistoryResponse>(response);
-      setMessages(
-        data.history.map((entry) => ({
-          role: entry.role === 'user' ? 'user' : 'assistant',
-          content: entry.content,
-          timestamp: entry.timestamp,
-        })),
-      );
+      const history = await runtime.conversations.history(sessionId);
+      setMessages(history.map(toMessage).filter((message): message is Message => message !== null));
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'History request failed.';
-      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}` }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Error: ${errorMessage(error, 'History request failed.')}`,
+          timestamp: Date.now(),
+        },
+      ]);
     }
   }
 
@@ -124,17 +96,15 @@ export default function AgentChat() {
             <span className="text-sm text-gray-400">
               Backend: <span className={backendHealth === 'healthy' ? 'text-green-400' : 'text-red-400'}>{backendHealth}</span>
             </span>
-            {sessionId && (
-              <button
-                onClick={() => void handleLoadHistory()}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
-              >
-                Load History
-              </button>
-            )}
+            <button
+              onClick={() => void handleLoadHistory()}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+            >
+              Load History
+            </button>
           </div>
         </div>
-        {sessionId && <p className="text-xs text-gray-500 mt-1">Session: {sessionId}</p>}
+        <p className="text-xs text-gray-500 mt-1">Session: {sessionId}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -144,8 +114,13 @@ export default function AgentChat() {
           </div>
         )}
         {messages.map((msg, index) => (
-          <div key={`${msg.role}-${msg.timestamp ?? index}`} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[70%] p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-100'}`}>
+          <div
+            key={`${msg.role}-${msg.timestamp ?? index}-${index}`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[70%] p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-100'}`}
+            >
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
           </div>

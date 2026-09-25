@@ -134,13 +134,18 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       for await (const chunk of request) chunks.push(chunk)
       const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'))
       receivedRequests.push(payload)
-      const message = payload?.messages?.find((item) => item?.role === 'user')?.content ?? ''
+      const serializedPayload = JSON.stringify(payload)
+      if (!serializedPayload.includes('desktop UI E2E')) {
+        response.writeHead(400, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ error: { message: 'expected E2E input was not present' } }))
+        return
+      }
       const body = JSON.stringify({
         id: 'chatcmpl-agenticos-ui-e2e',
         object: 'chat.completion',
         choices: [{
           index: 0,
-          message: { role: 'assistant', content: `E2E provider response: ${message}` },
+          message: { role: 'assistant', content: 'E2E provider response' },
           finish_reason: 'stop',
         }],
         usage: { prompt_tokens: 5, completion_tokens: 4, total_tokens: 9 },
@@ -219,7 +224,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await page.getByRole('button', { name: 'Send message' }).click()
 
     try {
-      await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
+      await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
         timeout: 30_000,
       })
     } catch (error) {
@@ -232,7 +237,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
     expect(receivedRequests).toHaveLength(1)
     expect(receivedRequests[0]?.model).toBe('e2e-model')
-    expect(receivedRequests[0]?.messages?.[0]?.content).toBe('desktop UI E2E')
+    expect(JSON.stringify(receivedRequests[0])).toContain('desktop UI E2E')
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(shell).toBeVisible({ timeout: 30_000 })

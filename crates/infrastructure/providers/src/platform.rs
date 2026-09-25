@@ -1202,7 +1202,8 @@ impl ProviderPlatform {
             .map(|provider| (provider.provider_id.clone(), provider))
             .collect::<std::collections::HashMap<_, _>>();
 
-        let mut candidates = Vec::new();
+        let mut healthy = Vec::new();
+        let mut other = Vec::new();
         for provider_id in ordered_ids {
             let Some(provider) = provider_by_id.get(&provider_id).cloned() else {
                 continue;
@@ -1211,11 +1212,13 @@ impl ProviderPlatform {
                 continue;
             }
             if self.health.is_healthy(&provider.provider_id).await {
-                candidates.insert(0, provider);
+                healthy.push(provider);
             } else {
-                candidates.push(provider);
+                other.push(provider);
             }
         }
+        healthy.extend(other);
+        let candidates = healthy;
 
         let mut last_error = None;
         for provider in candidates {

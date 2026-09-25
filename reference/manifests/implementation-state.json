@@ -19,13 +19,14 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "cda9b685a8e507ee1172592741f64e9b3405603d",
+    "last_update_commit": "08c3fa8ff1d8d3ece5fb8891c93d83b21fa0b924",
     "next_actions": [
-      "inspect the fresh AgentiCOS CI result and fix any compile, test or clippy regression",
-      "continue durable worker recovery and lease hardening",
-      "finish token-aware usage accounting across agent and streaming paths",
-      "replace preview-only browser/computer surfaces with a real isolated browser runtime",
-      "add optional real embedding provider support without making semantic retrieval provider-dependent"
+      "inspect fresh CI after backend runtime changes and fix compile/test/clippy regressions",
+      "finish durable worker recovery and lease observability",
+      "complete token usage accounting for streaming responses when provider usage is available",
+      "harden optional browser runtime with real artifact capture and session lifecycle",
+      "add optional semantic embeddings behind an explicit embedding provider contract",
+      "replace remaining per-module SQLite schema initialization with centralized migrations"
     ],
     "scope": [
       "capability-driven governance",
@@ -143,7 +144,7 @@
     },
     {
       "id": "a2a",
-      "owner": "infrastructure/protocols",
+      "owner": "infrastructure/a2a + api-server",
       "status": "implemented-unverified"
     },
     {
@@ -170,6 +171,51 @@
       "id": "desktop-api-integration",
       "owner": "api-server/desktop",
       "status": "in_progress"
+    },
+    {
+      "id": "github-write-plane",
+      "owner": "source-forge/api-server",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "sandbox-hardening",
+      "owner": "sandbox/tool-mcp",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "request-correlation",
+      "owner": "api-server/observability",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "token-accounting",
+      "owner": "providers/observability",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "browser-runtime",
+      "owner": "infrastructure/browser + api-server",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "ranked-memory-retrieval",
+      "owner": "memory/api-server",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "durable-retry-backoff",
+      "owner": "scheduler",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "cqrs-run-projection",
+      "owner": "application/execution",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "provider-capability-routing",
+      "owner": "providers/kernel",
+      "status": "implemented-unverified"
     }
   ],
   "verification": {

@@ -314,10 +314,15 @@ pub fn parse_metadata(content: &str) -> Result<SkillMetadata, String> {
     let stripped = content
         .strip_prefix("---")
         .ok_or_else(|| "SKILL.md is missing YAML frontmatter".to_string())?;
-    let end = stripped
+    let body = stripped
+        .strip_prefix("\r\n")
+        .or_else(|| stripped.strip_prefix('\n'))
+        .ok_or_else(|| "SKILL.md frontmatter must start on the next line".to_string())?;
+    let end = body
         .find("\n---")
+        .or_else(|| body.find("\r\n---"))
         .ok_or_else(|| "SKILL.md frontmatter terminator is missing".to_string())?;
-    let yaml = &stripped[1..end];
+    let yaml = &body[..end];
     let frontmatter: serde_yaml::Value =
         serde_yaml::from_str(yaml).map_err(|error| format!("invalid skill YAML: {error}"))?;
 

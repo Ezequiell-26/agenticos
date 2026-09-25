@@ -3164,7 +3164,7 @@ impl ReactAgent {
                     serde_json::json!({"action": action}),
                     session_id.clone(),
                 )
-            .with_turn_id(turn_id.clone().unwrap_or_else(|| "unknown".to_string()));
+                .with_turn_id(turn_id.clone().unwrap_or_else(|| "unknown".to_string()));
 
             // Log tool call start event
             if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
@@ -3357,7 +3357,6 @@ impl ReactAgent {
 
                 return Err(ContractError::ParseError(error_msg));
             }
-        }
             }
         } else {
             // Without a configured tool pipeline, the model output is the final assistant response.

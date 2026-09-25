@@ -48,8 +48,6 @@ pub struct JobSpec {
     pub priority: i32,
     /// Maximum attempts.
     pub max_attempts: u32,
- job_type: default_job_type(),
- metadata: serde_json::json!({}),
     /// Execution class used by the runtime dispatcher.
     #[serde(default = "default_job_type")]
     pub job_type: String,
@@ -218,10 +216,6 @@ impl JobScheduler {
                         dependencies,
                         priority,
                         max_attempts: max_attempts as u32,
-
-                        job_type: default_job_type(),
-
-                        metadata: serde_json::json!({}),
                         job_type: if job_type.trim().is_empty() { default_job_type() } else { job_type },
                         metadata,
                     },

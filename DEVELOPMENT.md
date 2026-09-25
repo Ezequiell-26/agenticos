@@ -44,20 +44,39 @@ rtk git commit -m "message"
 This provides 60-90% token reduction on common operations.
 
 ### Workspace Structure
+The canonical Rust workspace follows:
 ```
 crates/
-├── contracts/       # Domain contracts (zero external dependencies)
-├── kernel/          # Durable runtime kernel
-├── execution/      # CQRS execution layer
-├── providers/       # Model provider integration
-├── tools/           # Tool execution
-├── memory/          # Context and memory
-├── observability/   # Logging and metrics
-├── cli/             # Command-line interface
-└── ...              # Additional crates
+├── domain/
+│   ├── brain/
+│   └── contracts/
+├── application/
+│   ├── agents/
+│   ├── execution/
+│   ├── scheduler/
+│   └── workflows/
+├── infrastructure/
+│   ├── kernel/
+│   ├── providers/
+│   ├── tools/
+│   ├── memory/
+│   ├── context/
+│   ├── security/
+│   ├── sandbox/
+│   ├── terminal/
+│   ├── workspace/
+│   └── ... other concrete runtime adapters
+├── presentation/
+│   ├── api-server/
+│   ├── cli/
+│   ├── desktop/
+│   └── gateway/
+└── utilities/
 ```
 
-### Adding a New Crate
+See `docs/architecture/REPOSITORY-STRUCTURE.md` and `reference/manifests/architecture-dag.json` for the machine-checked ownership model.
+
+### Adding a New Crate/
 1. Add to `Cargo.toml` workspace members
 2. Create `crates/<name>/Cargo.toml`
 3. Create `crates/<name>/src/lib.rs`
@@ -214,12 +233,12 @@ pub fn function() -> Result<()> {
 ```
 
 ### Architecture Documentation
-- [ENHANCED-ARCHITECTURE.md](docs/architecture/ENHANCED-ARCHITECTURE.md)
-- [ADVANCED-ARCHITECTURE.md](docs/architecture/ADVANCED-ARCHITECTURE.md)
-- [TOKEN-OPTIMIZATION.md](docs/architecture/TOKEN-OPTIMIZATION.md)
+- [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md)
+- [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md)
+- [Token Optimization](docs/architecture/TOKEN-OPTIMIZATION.md)
 
 ### ADRs
-Architecture Decision Records are in `doc/adr/`. Create new ADRs for significant architectural decisions:
+Architecture Decision Records are maintained in `docs/adr/` for current architecture decisions and `doc/adr/` for the historical vertical-slice record set. Create new ADRs in `docs/adr/` unless the work specifically extends the historical record set:
 ```bash
 rtk adrs new "decision title"
 ```

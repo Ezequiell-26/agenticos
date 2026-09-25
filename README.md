@@ -9,6 +9,7 @@ AgentiCOS is a Rust-first agent platform built around a central **Brain** that o
 The canonical architecture is documented in:
 
 - [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md)
+- [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md)
 - [Frontend Architecture](docs/architecture/FRONTEND-ARCHITECTURE.md)
 - [Frontend Change Log](docs/architecture/FRONTEND-CHANGELOG.md)
 - [AI Skill Catalog](docs/ai/SKILLS-CATALOG.md)
@@ -49,6 +50,8 @@ crates/
 crates/presentation/desktop/
 ├── src/                 # Tauri/Rust boundary
 └── frontend/            # React/TypeScript/Vite product UI
+
+Supporting repository state lives under `reference/`, `protocols/`, `skills/`, `repos/` and `vendor/`; these are not alternate Rust product roots.
 
 docs/
 ├── architecture/

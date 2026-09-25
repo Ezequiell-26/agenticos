@@ -70,14 +70,13 @@ This shows the overall system status including runtime, kernel, providers, and t
 
 AgentiCOS is built with a layered architecture:
 
-1. **Contracts Layer** - Domain contracts and traits (zero external dependencies)
-2. **Kernel Layer** - Durable runtime with event sourcing and CQRS
-3. **Execution Layer** - Command/query handling and projections
-4. **Provider Layer** - Model provider integration
-5. **Tool Layer** - Tool execution with policy-based approval
-6. **CLI Layer** - Command-line interface
+1. **Domain** - Stable contracts and model-neutral brain abstractions
+2. **Application** - Agent, execution, scheduler and workflow use cases
+3. **Infrastructure** - Durable kernel, providers, tools, memory, security and integrations
+4. **Presentation** - API server, CLI, desktop and gateway surfaces
+5. **Utilities** - Reusable cross-cutting primitives
 
-See [ENHANCED-ARCHITECTURE.md](docs/architecture/ENHANCED-ARCHITECTURE.md) for detailed architecture documentation.
+See [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md) and [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md) for the detailed ownership model.
 
 ## Understanding the Core Concepts
 

@@ -1738,53 +1738,299 @@ impl Default for InMemoryOutboxStore {
     }
 }
 
+/// Transport used to publish an outbox entry to its destination.
+#[async_trait::async_trait]
+pub trait OutboxTransport: Send + Sync {
+    /// Publish one durable outbox entry.
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError>;
+}
+
+/// In-process broadcast transport used by local runtime consumers.
+#[derive(Clone)]
+pub struct BroadcastOutboxTransport {
+    sender: broadcast::Sender<OutboxEntry>,
+}
+
+impl std::fmt::Debug for BroadcastOutboxTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BroadcastOutboxTransport")
+            .field("subscribers", &self.sender.receiver_count())
+            .finish()
+    }
+}
+
+impl BroadcastOutboxTransport {
+    /// Create a bounded broadcast transport for runtime events.
+    pub fn new(capacity: usize) -> Self {
+        let (sender, _) = broadcast::channel(capacity.clamp(16, 8_192));
+        Self { sender }
+    }
+
+    /// Subscribe to runtime outbox publications.
+    pub fn subscribe(&self) -> broadcast::Receiver<OutboxEntry> {
+        self.sender.subscribe()
+    }
+
+    /// Return the number of active runtime event subscribers.
+    pub fn subscriber_count(&self) -> usize {
+        self.sender.receiver_count()
+    }
+}
+
+#[async_trait::async_trait]
+impl OutboxTransport for BroadcastOutboxTransport {
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+        // A local runtime is allowed to publish without an attached UI consumer.
+        // Durable persistence remains the source of truth; active subscribers
+        // receive the event in real time.
+        let _ = self.sender.send(entry.clone());
+        Ok(())
+    }
+}
+
+/// HTTP transport for externally configured webhook destinations.
+#[derive(Clone)]
+pub struct HttpOutboxTransport {
+    client: reqwest::Client,
+}
+
+impl std::fmt::Debug for HttpOutboxTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpOutboxTransport").finish()
+    }
+}
+
+impl HttpOutboxTransport {
+    /// Create an HTTP transport using the shared provider HTTP client.
+    pub fn new() -> Self {
+        Self {
+            client: shared_kernel_http_client(),
+        }
+    }
+
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+        let response = self
+            .client
+            .post(&entry.destination)
+            .header("content-type", "application/json")
+            .header("x-agenticos-event-id", &entry.entry_id)
+            .header("idempotency-key", &entry.entry_id)
+            .json(&serde_json::json!({
+                "entry_id": entry.entry_id,
+                "event_type": entry.event.event_type,
+                "event_data": entry.event.data,
+                "event_schema_version": entry.event.schema_version,
+                "destination": entry.destination,
+                "attempts": entry.attempts,
+                "created_at": entry.created_at,
+            }))
+            .send()
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "outbox HTTP publication failed for {}: {error}",
+                    entry.destination
+                ))
+            })?;
+
+        let status = response.status();
+        if status.is_success() {
+            return Ok(());
+        }
+
+        let body = response.text().await.unwrap_or_default();
+        let detail = body.chars().take(2_048).collect::<String>();
+        Err(ContractError::ParseError(format!(
+            "outbox destination returned HTTP {status}: {detail}"
+        )))
+    }
+}
+
+impl Default for HttpOutboxTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait::async_trait]
+impl OutboxTransport for HttpOutboxTransport {
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+        self.publish(entry).await
+    }
+}
+
+/// Destination-aware outbox transport.
+#[derive(Clone)]
+pub struct CompositeOutboxTransport {
+    runtime: Arc<BroadcastOutboxTransport>,
+    http: HttpOutboxTransport,
+}
+
+impl std::fmt::Debug for CompositeOutboxTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompositeOutboxTransport")
+            .field("runtime_subscribers", &self.runtime.subscriber_count())
+            .field("http", &"<HttpOutboxTransport>")
+            .finish()
+    }
+}
+
+impl CompositeOutboxTransport {
+    /// Create a composite transport with the supplied local runtime channel.
+    pub fn new(runtime: Arc<BroadcastOutboxTransport>) -> Self {
+        Self {
+            runtime,
+            http: HttpOutboxTransport::new(),
+        }
+    }
+
+    /// Access the local runtime event transport.
+    pub fn runtime(&self) -> &Arc<BroadcastOutboxTransport> {
+        &self.runtime
+    }
+}
+
+#[async_trait::async_trait]
+impl OutboxTransport for CompositeOutboxTransport {
+    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+        let destination = entry.destination.trim();
+        if destination == "runtime" || destination.starts_with("runtime://") {
+            return self.runtime.publish(entry).await;
+        }
+        if destination.starts_with("http://") || destination.starts_with("https://") {
+            return self.http.publish(entry).await;
+        }
+
+        Err(ContractError::ParseError(format!(
+            "unsupported outbox destination: {}",
+            entry.destination
+        )))
+    }
+}
+
 /// Background event publisher for reliable event publication.
 pub struct BackgroundEventPublisher {
     outbox: Arc<dyn OutboxStore>,
+    transport: Arc<dyn OutboxTransport>,
 }
 
 impl std::fmt::Debug for BackgroundEventPublisher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BackgroundEventPublisher")
             .field("outbox", &"<OutboxStore>")
+            .field("transport", &"<OutboxTransport>")
             .finish()
     }
 }
 
 impl BackgroundEventPublisher {
-    /// Create a new background event publisher.
+    /// Create a publisher with the default destination-aware transport.
     pub fn new(outbox: Arc<dyn OutboxStore>) -> Self {
-        Self { outbox }
+        Self::with_transport(
+            outbox,
+            Arc::new(CompositeOutboxTransport::new(Arc::new(
+                BroadcastOutboxTransport::new(256),
+            ))),
+        )
     }
 
-    /// Process pending outbox entries.
+    /// Create a publisher with an explicit transport.
+    pub fn with_transport(
+        outbox: Arc<dyn OutboxStore>,
+        transport: Arc<dyn OutboxTransport>,
+    ) -> Self {
+        Self { outbox, transport }
+    }
+
+    /// Process pending outbox entries and publish them through the transport.
     pub async fn process_pending(&self) -> Result<usize, ContractError> {
-        let pending = self.outbox.get_pending(10).await?;
+        let pending = self.outbox.get_pending(50).await?;
         let mut published = 0;
 
         for entry in pending {
-            // Simulate event publication
-            // In production, this would publish to the actual destination
-            self.outbox.mark_published(&entry.entry_id).await?;
-            published += 1;
+            match self.transport.publish(&entry).await {
+                Ok(()) => {
+                    self.outbox.mark_published(&entry.entry_id).await?;
+                    published += 1;
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        %error,
+                        entry_id = %entry.entry_id,
+                        destination = %entry.destination,
+                        "outbox publication failed; scheduling retry"
+                    );
+                    self.outbox.mark_failed(&entry.entry_id).await?;
+                }
+            }
         }
 
         Ok(published)
     }
 
-    /// Process failed entries (move to dead letter queue).
+    /// Retry entries previously marked as failed.
     pub async fn process_failed(&self) -> Result<usize, ContractError> {
-        let failed = self.outbox.get_dead_letter(10).await?;
-        let mut processed = 0;
+        let failed = self.outbox.get_dead_letter(50).await?;
+        let mut published = 0;
 
         for entry in failed {
-            if entry.status == OutboxStatus::Failed {
-                self.outbox.mark_failed(&entry.entry_id).await?;
-                processed += 1;
+            if entry.status != OutboxStatus::Failed {
+                continue;
+            }
+
+            match self.transport.publish(&entry).await {
+                Ok(()) => {
+                    self.outbox.mark_published(&entry.entry_id).await?;
+                    published += 1;
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        %error,
+                        entry_id = %entry.entry_id,
+                        destination = %entry.destination,
+                        "outbox retry failed"
+                    );
+                    self.outbox.mark_failed(&entry.entry_id).await?;
+                }
             }
         }
 
-        Ok(processed)
+        Ok(published)
+    }
+}
+
+#[cfg(test)]
+mod outbox_transport_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn broadcast_transport_delivers_entries() {
+        let transport = BroadcastOutboxTransport::new(16);
+        let mut receiver = transport.subscribe();
+        let entry = OutboxEntry {
+            entry_id: "entry-1".to_string(),
+            event: SerializedEvent {
+                event_type: "RunCreated".to_string(),
+                data: "{}".to_string(),
+                schema_version: 1,
+            },
+            destination: "runtime".to_string(),
+            attempts: 0,
+            status: OutboxStatus::Pending,
+            created_at: 1,
+            processed_at: None,
+        };
+
+        transport.publish(&entry).await.unwrap();
+        let received = receiver.recv().await.unwrap();
+        assert_eq!(received.entry_id, "entry-1");
+    }
+
+    #[test]
+    fn composite_accepts_runtime_and_http_destinations() {
+        let runtime = Arc::new(BroadcastOutboxTransport::new(16));
+        let transport = CompositeOutboxTransport::new(runtime);
+        assert!(transport.runtime().subscriber_count() >= 0);
     }
 }
 

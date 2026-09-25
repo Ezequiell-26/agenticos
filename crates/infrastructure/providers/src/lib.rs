@@ -480,6 +480,21 @@ impl FallbackManager {
         configs.keys().next().cloned()
     }
 
+    /// Remove a provider from every fallback configuration and return the affected configs.
+    pub async fn remove_provider_references(&self, provider_id: &str) -> Vec<FallbackConfig> {
+        let mut configs = self.configs.write().await;
+        let mut affected = Vec::new();
+        configs.remove(provider_id);
+        for config in configs.values_mut() {
+            let before = config.fallback_providers.len();
+            config.fallback_providers.retain(|provider| provider != provider_id);
+            if config.fallback_providers.len() != before {
+                affected.push(config.clone());
+            }
+        }
+        affected
+    }
+
     /// Get the next provider to try from fallback list.
     pub async fn get_next_provider(
         &self,

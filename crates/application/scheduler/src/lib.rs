@@ -16,6 +16,29 @@ fn default_job_type() -> String {
     "agent".to_string()
 }
 
+fn scheduler_retry_backoff_ms(attempt: u32) -> u64 {
+    let initial = std::env::var("AGENTICOS_SCHEDULER_RETRY_INITIAL_BACKOFF_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(250)
+        .min(60_000);
+    let maximum = std::env::var("AGENTICOS_SCHEDULER_RETRY_MAX_BACKOFF_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(4_000)
+        .clamp(initial, 300_000);
+    let exponential = std::env::var("AGENTICOS_SCHEDULER_RETRY_EXPONENTIAL")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(true);
+
+    let backoff = if exponential {
+        initial.saturating_mul(2u64.saturating_pow(attempt.saturating_sub(1)))
+    } else {
+        initial
+    };
+    backoff.min(maximum)
+}
+
 /// Job lifecycle.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JobState {
@@ -73,6 +96,8 @@ pub struct JobRecord {
     pub lease_token: u64,
     /// Lease expiration as Unix seconds.
     pub lease_expires_at: u64,
+    /// Earliest Unix timestamp at which a retry may be claimed.
+    pub next_attempt_at: u64,
 }
 
 /// Dependency-aware scheduler for bounded run jobs.
@@ -116,7 +141,8 @@ impl JobScheduler {
                 metadata TEXT NOT NULL DEFAULT '{}',
                 lease_owner TEXT,
                 lease_token INTEGER NOT NULL DEFAULT 0,
-                lease_expires_at INTEGER NOT NULL DEFAULT 0
+                lease_expires_at INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at INTEGER NOT NULL DEFAULT 0
             )
             "#,
         )
@@ -168,9 +194,17 @@ impl JobScheduler {
             .await
             .map_err(|error| format!("scheduler lease expiry migration failed: {error}"))?;
         }
+        if !has_column("next_attempt_at") {
+            sqlx::query(
+                "ALTER TABLE scheduler_jobs ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
+            )
+            .execute(&db)
+            .await
+            .map_err(|error| format!("scheduler retry timestamp migration failed: {error}"))?;
+        }
 
-        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, String, String, Option<String>, i64, i64)>(
-            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs",
+        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, String, String, Option<String>, i64, i64, i64)>(
+            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at, next_attempt_at FROM scheduler_jobs",
         )
         .fetch_all(&db)
         .await
@@ -192,6 +226,7 @@ impl JobScheduler {
             lease_owner,
             lease_token,
             lease_expires_at,
+            next_attempt_at,
         ) in rows
         {
             let dependencies: Vec<String> =
@@ -233,6 +268,7 @@ impl JobScheduler {
                     lease_owner,
                     lease_token: lease_token.max(0) as u64,
                     lease_expires_at: lease_expires_at.max(0) as u64,
+                    next_attempt_at: next_attempt_at.max(0) as u64,
                 },
             );
         }
@@ -254,8 +290,8 @@ impl JobScheduler {
         sqlx::query(
             r#"
             INSERT INTO scheduler_jobs
-                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at, next_attempt_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(job_id) DO UPDATE SET
                 run_id = excluded.run_id,
                 task = excluded.task,
@@ -267,7 +303,8 @@ impl JobScheduler {
                 last_error = excluded.last_error,
                 lease_owner = excluded.lease_owner,
                 lease_token = excluded.lease_token,
-                lease_expires_at = excluded.lease_expires_at
+                lease_expires_at = excluded.lease_expires_at,
+                next_attempt_at = excluded.next_attempt_at
             "#,
         )
         .bind(&record.spec.job_id)
@@ -284,6 +321,7 @@ impl JobScheduler {
         .bind(record.lease_owner.as_deref())
         .bind(record.lease_token as i64)
         .bind(record.lease_expires_at as i64)
+        .bind(record.next_attempt_at as i64)
         .execute(db.as_ref())
         .await
         .map_err(|error| format!("scheduler persistence failed: {error}"))?;
@@ -363,6 +401,7 @@ impl JobScheduler {
             lease_owner: None,
             lease_token: 0,
             lease_expires_at: 0,
+            next_attempt_at: 0,
         };
         let job_id = record.spec.job_id.clone();
         jobs.insert(job_id.clone(), record.clone());
@@ -381,8 +420,9 @@ impl JobScheduler {
         let mut ready: Vec<JobRecord> = jobs
             .values()
             .filter(|record| {
-                let claimable = matches!(record.state, JobState::Ready | JobState::Pending)
-                    || (record.state == JobState::Running && record.lease_expires_at <= now);
+                let claimable = record.next_attempt_at <= now
+                    && (matches!(record.state, JobState::Ready | JobState::Pending)
+                        || (record.state == JobState::Running && record.lease_expires_at <= now));
                 if !claimable {
                     return false;
                 }
@@ -418,15 +458,15 @@ impl JobScheduler {
 
         let mut jobs = self.jobs.write().await;
         if let Some(db) = &self.db {
-            let row = sqlx::query_as::<_, (String, i64, Option<String>, i64, i64)>(
-                "SELECT state, attempts, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs WHERE job_id = ?",
+            let row = sqlx::query_as::<_, (String, i64, Option<String>, i64, i64, i64)>(
+                "SELECT state, attempts, lease_owner, lease_token, lease_expires_at, next_attempt_at FROM scheduler_jobs WHERE job_id = ?",
             )
             .bind(job_id)
             .fetch_optional(db.as_ref())
             .await
             .map_err(|error| format!("scheduler claim preflight failed: {error}"))?;
 
-            if let Some((state, attempts, lease_owner, lease_token, lease_expires_at)) = row {
+            if let Some((state, attempts, lease_owner, lease_token, lease_expires_at, next_attempt_at)) = row {
                 let now = unix_time();
                 let db_claimable = matches!(state.as_str(), "Ready" | "Pending")
                     || (state == "Running" && lease_expires_at.max(0) as u64 <= now);
@@ -447,6 +487,7 @@ impl JobScheduler {
                     local.lease_owner = lease_owner;
                     local.lease_token = lease_token.max(0) as u64;
                     local.lease_expires_at = lease_expires_at.max(0) as u64;
+                    local.next_attempt_at = next_attempt_at.max(0) as u64;
                 }
             }
         }
@@ -465,6 +506,9 @@ impl JobScheduler {
             .cloned()
             .ok_or_else(|| "job not found".to_string())?;
         let now = unix_time();
+        if previous.next_attempt_at > now {
+            return Err("job retry backoff is still active".to_string());
+        }
         let expired_lease = previous.state == JobState::Running && previous.lease_expires_at <= now;
         if !matches!(previous.state, JobState::Pending | JobState::Ready) && !expired_lease {
             return Err(format!("job cannot start from state {:?}", previous.state));
@@ -493,7 +537,7 @@ impl JobScheduler {
 
         if let Some(db) = &self.db {
             let result = sqlx::query(
-                "UPDATE scheduler_jobs SET state = 'Running', attempts = ?, lease_owner = ?, lease_token = ?, lease_expires_at = ?, last_error = NULL WHERE job_id = ? AND (state IN ('Ready', 'Pending') OR (state = 'Running' AND lease_expires_at <= ?)) AND attempts < ?",
+                "UPDATE scheduler_jobs SET state = 'Running', attempts = ?, lease_owner = ?, lease_token = ?, lease_expires_at = ?, next_attempt_at = 0, last_error = NULL WHERE job_id = ? AND (state IN ('Ready', 'Pending') OR (state = 'Running' AND lease_expires_at <= ?)) AND attempts < ?",
             )
             .bind(next_attempt as i64)
             .bind(&owner_id)
@@ -517,6 +561,7 @@ impl JobScheduler {
         result.lease_owner = Some(owner_id);
         result.lease_token = lease_token;
         result.lease_expires_at = lease_expires_at;
+        result.next_attempt_at = 0;
         jobs.insert(job_id.to_string(), result.clone());
         Ok(result)
     }
@@ -635,20 +680,27 @@ impl JobScheduler {
         } else {
             JobState::Failed
         };
+        let next_attempt_at = if !success && next_state == JobState::Ready {
+            unix_time().saturating_add(scheduler_retry_backoff_ms(previous.attempts))
+        } else {
+            0
+        };
 
         let mut result = previous.clone();
         result.state = next_state;
         result.last_error = error;
         result.lease_owner = None;
         result.lease_expires_at = 0;
+        result.next_attempt_at = next_attempt_at;
 
         if let Some(db) = &self.db {
             let current_owner = previous.lease_owner.as_deref().unwrap_or("");
             let expected_token = lease_token.unwrap_or(previous.lease_token);
-            let sql = "UPDATE scheduler_jobs SET state = ?, last_error = ?, lease_owner = NULL, lease_expires_at = 0 WHERE job_id = ? AND state = 'Running' AND lease_owner = ? AND lease_token = ?";
+            let sql = "UPDATE scheduler_jobs SET state = ?, last_error = ?, lease_owner = NULL, lease_expires_at = 0, next_attempt_at = ? WHERE job_id = ? AND state = 'Running' AND lease_owner = ? AND lease_token = ?";
             let updated = sqlx::query(sql)
                 .bind(format!("{:?}", result.state))
                 .bind(result.last_error.as_deref())
+                .bind(result.next_attempt_at as i64)
                 .bind(job_id)
                 .bind(current_owner)
                 .bind(expected_token as i64)
@@ -812,6 +864,16 @@ mod tests {
         assert_eq!(record.attempts, 1);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn scheduler_retry_backoff_is_bounded_and_exponential() {
+        assert!(scheduler_retry_backoff_ms(1) <= 4_000);
+        assert!(scheduler_retry_backoff_ms(2) >= scheduler_retry_backoff_ms(1));
+        assert_eq!(
+            scheduler_retry_backoff_ms(20),
+            4_000
+        );
     }
 
     #[tokio::test]

@@ -8,7 +8,6 @@ license.workspace = true
 agenticos-sqlite-migrations = { path = "../../utilities/sqlite-migrations" }
 chrono = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }

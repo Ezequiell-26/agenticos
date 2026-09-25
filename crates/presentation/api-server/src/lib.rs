@@ -3253,6 +3253,39 @@ async fn browser_status(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+async fn browser_audit_event(
+    state: &RuntimeState,
+    request_id: &str,
+    operation: &str,
+    session_id: &str,
+    success: bool,
+) {
+    if let Err(error) = state
+        .audit
+        .append(AuditEvent::new(
+            "browser",
+            operation,
+            None,
+            format!("browser/{session_id}"),
+            Some(request_id.to_string()),
+            if success { "success" } else { "failure" },
+            serde_json::json!({
+                "action": operation,
+                "session_id": session_id,
+                "surface": "http",
+            }),
+        ))
+        .await
+    {
+        tracing::warn!(
+            %error,
+            operation,
+            session_id,
+            "failed to persist browser HTTP audit event"
+        );
+    }
+}
+
 async fn browser_open(
     path: web::Path<String>,
     request: web::Json<BrowserOpenRequest>,
@@ -3263,11 +3296,17 @@ async fn browser_open(
         return response;
     }
     match state.browser.open(&session_id, request.url.trim()).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "open", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "open", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_OPEN_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3281,11 +3320,17 @@ async fn browser_snapshot(
         return response;
     }
     match state.browser.snapshot(&session_id).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "snapshot", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "snapshot", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_SNAPSHOT_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3299,11 +3344,17 @@ async fn browser_click(
         return response;
     }
     match state.browser.click(&session_id, request.target.trim()).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "click", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "click", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_CLICK_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3321,11 +3372,17 @@ async fn browser_fill(
         .fill(&session_id, request.target.trim(), &request.text)
         .await
     {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "fill", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "fill", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_FILL_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3339,11 +3396,17 @@ async fn browser_wait(
         return response;
     }
     match state.browser.wait(&session_id, request.target.trim()).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "wait", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "wait", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_WAIT_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3361,11 +3424,17 @@ async fn browser_get_text(
         .get_text(&session_id, request.target.trim())
         .await
     {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "get_text", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "get_text", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_GET_TEXT_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3379,11 +3448,17 @@ async fn browser_screenshot(
         return response;
     }
     match state.browser.screenshot(&session_id).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "screenshot", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "screenshot", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_SCREENSHOT_FAILED",
-        }),
+        })
+        },
     }
 }
 
@@ -3397,11 +3472,17 @@ async fn browser_close(
         return response;
     }
     match state.browser.close(&session_id).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+        Ok(result) => {
+            browser_audit_event(&state, "http", "close", &session_id, result.success).await;
+            HttpResponse::Ok().json(result)
+        },
+        Err(error) => {
+            browser_audit_event(&state, "http", "close", &session_id, false).await;
+            HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_CLOSE_FAILED",
-        }),
+        })
+        },
     }
 }
 

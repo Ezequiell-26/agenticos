@@ -1066,6 +1066,7 @@ struct A2aTaskParams {
     id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 struct A2aErrorBody {
     code: i32,
@@ -2879,6 +2880,7 @@ async fn delete_github_source_file(
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn authorize_browser(
     state: &RuntimeState,
     session_id: &str,
@@ -5951,6 +5953,7 @@ fn capability_admin_token_allowed(configured: Option<&str>, supplied: &str) -> b
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn authorize_capability_admin(request: &HttpRequest) -> Result<(), HttpResponse> {
     let configured = std::env::var("AGENTICOS_CAPABILITY_ADMIN_TOKEN").ok();
     let supplied = request
@@ -6526,10 +6529,7 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         }
     };
 
-    if matches!(
-        workflow_state.nodes.get(&node_id),
-        Some(WorkflowNodeState::Ready)
-    ) {
+    if let Some(WorkflowNodeState::Ready) = workflow_state.nodes.get(&node_id) {
         if state
             .workflows
             .transition_node(
@@ -6613,10 +6613,10 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
                     .kernel
                     .transition_run(&run_id, RunState::Running, run.version)
                     .await;
-            } else if !success && !final_attempt && run.state == RunState::Admitted {
+            } else if !success && !final_attempt && run.state == RunState::Running {
                 let _ = state
                     .kernel
-                    .transition_run(&run_id, RunState::Running, run.version)
+                    .transition_run(&run_id, RunState::Waiting, run.version)
                     .await;
             }
             if final_attempt {
@@ -7094,7 +7094,7 @@ struct AuthConfig {
 }
 
 async fn request_id_middleware(
-    mut req: ServiceRequest,
+    req: ServiceRequest,
     next: Next<impl actix_web::body::MessageBody + 'static>,
 ) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
     let request_id = req
@@ -7226,6 +7226,7 @@ fn unix_time() -> u64 {
         .as_secs()
 }
 
+/// Start the AgentiCOS HTTP server with configured bind and worker settings.
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");

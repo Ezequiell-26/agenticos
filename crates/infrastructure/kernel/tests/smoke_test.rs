@@ -11,7 +11,7 @@ use agenticos_contracts::{
     SagaStepType,
 };
 use agenticos_kernel::{
-    BackgroundEventPublisher, HttpModelProvider, InMemoryCapabilityIssuer, InMemoryConfig,
+    BackgroundEventPublisher, InMemoryCapabilityIssuer, InMemoryConfig,
     InMemoryEventStore, InMemoryFeatureFlagStore, InMemoryLogger, InMemoryOutboxStore,
     InMemorySagaCoordinator, InMemorySnapshotStore, KernelRuntime, SqliteEventStore,
     SqliteSnapshotStore, TestClock, TestIdGenerator,

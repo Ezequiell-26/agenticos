@@ -466,6 +466,42 @@ impl ReactAgent {
         inner.static_system_prompt = None;
     }
 
+    /// Get the skills catalog for testing.
+    #[cfg(test)]
+    pub fn get_skills_catalog_len(&self) -> usize {
+        self.inner.lock().unwrap().skills_catalog.len()
+    }
+
+    /// Get memory_md for testing.
+    #[cfg(test)]
+    pub fn get_memory_md(&self) -> String {
+        self.inner.lock().unwrap().memory_md.clone()
+    }
+
+    /// Get user_md for testing.
+    #[cfg(test)]
+    pub fn get_user_md(&self) -> String {
+        self.inner.lock().unwrap().user_md.clone()
+    }
+
+    /// Get session_id for testing.
+    #[cfg(test)]
+    pub fn get_session_id(&self) -> String {
+        self.inner.lock().unwrap().session_id.clone()
+    }
+
+    /// Get memory for testing.
+    #[cfg(test)]
+    pub fn get_memory(&self) -> Option<Arc<SqliteMemory>> {
+        self.inner.lock().unwrap().memory.clone()
+    }
+
+    /// Get tool_executor for testing.
+    #[cfg(test)]
+    pub fn get_tool_executor(&self) -> Option<ToolExecutor> {
+        self.inner.lock().unwrap().tool_executor.clone()
+    }
+
     /// Build system prompt from a cached static section plus budgeted conversation history.
     pub async fn build_system_prompt(&self) -> String {
         self.build_system_prompt_with_input(None).await
@@ -1663,7 +1699,7 @@ impl Skill {
     }
 
     /// Extract a section from markdown content.
-    fn extract_section(content: &str, section_name: &str) -> String {
+    pub fn extract_section(content: &str, section_name: &str) -> String {
         let section_header = format!("## {}", section_name);
         if let Some(start) = content.find(&section_header) {
             let start = start + section_header.len();
@@ -1678,7 +1714,7 @@ impl Skill {
     }
 
     /// Extract a list section from markdown content.
-    fn extract_list_section(content: &str, section_name: &str) -> Vec<String> {
+    pub fn extract_list_section(content: &str, section_name: &str) -> Vec<String> {
         let section = Self::extract_section(content, section_name);
         section
             .lines()

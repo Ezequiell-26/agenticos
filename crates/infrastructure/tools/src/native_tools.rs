@@ -744,6 +744,7 @@ impl AgentTool for BrowserTool {
             return Err(ContractError::MissingCapability);
         }
 
+        let mut screenshot_artifact = None;
         let result = match self.operation {
             "browser.open" => {
                 let args =
@@ -802,7 +803,7 @@ impl AgentTool for BrowserTool {
                     &session_id,
                 )
                 .await?;
-                screenshot_artifact = artifact;
+                screenshot_artifact = Some(artifact);
                 result
             }
             "browser.close" => self.browser.close(&session_id).await?,

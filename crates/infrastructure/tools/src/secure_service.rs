@@ -9,8 +9,8 @@ use std::sync::Arc;
 /// Capability-gated tool execution service.
 #[derive(Clone)]
 pub struct SecureToolService {
-    capabilities: Arc<agenticos_security::CapabilityManager>,
-    sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
+    capabilities: Arc<dyn agenticos_contracts::CapabilityIssuer>,
+    sandbox: Arc<dyn agenticos_sandbox::Sandbox>,
     pipeline: Arc<agenticos_kernel::ToolExecutionPipeline>,
 }
 
@@ -106,8 +106,8 @@ impl SecureToolService {
 
     /// Construct a secure tool service with a policy hook.
     pub fn new(
-        capabilities: Arc<agenticos_security::CapabilityManager>,
-        sandbox: Arc<agenticos_sandbox::ProcessSandbox>,
+        capabilities: Arc<dyn agenticos_contracts::CapabilityIssuer>,
+        sandbox: Arc<dyn agenticos_sandbox::Sandbox>,
     ) -> Self {
         let pipeline = agenticos_kernel::ToolExecutionPipeline::new().add_pre_hook(Arc::new(
             agenticos_kernel::PermissionPolicyHook::new().allow_tool("process.execute".to_string()),
@@ -147,10 +147,31 @@ mod tests {
     use super::*;
     use agenticos_contracts::CapabilityIssuer;
 
+    /// Simple in-memory sandbox for testing.
+    struct InMemorySandbox;
+
+    impl InMemorySandbox {
+        fn new() -> Self {
+            Self
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl agenticos_contracts::Sandbox for InMemorySandbox {
+        async fn execute(&self, _request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
+            Ok(SandboxResponse {
+                status: SandboxStatus::Success,
+                output: "test output".to_string(),
+                error: None,
+                usage: ResourceUsage::default(),
+            })
+        }
+    }
+
     #[tokio::test]
     async fn command_requires_execute_grant() {
-        let capabilities = Arc::new(CapabilityManager::new());
-        let sandbox = Arc::new(ProcessSandbox::default());
+        let capabilities = Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+        let sandbox: Arc<dyn agenticos_contracts::Sandbox> = Arc::new(InMemorySandbox::new());
         let service = SecureToolService::new(capabilities, sandbox);
 
         let result = service
@@ -161,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn command_executes_with_grant() {
-        let capabilities = Arc::new(CapabilityManager::new());
+        let capabilities = Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
         capabilities
             .issue(agenticos_contracts::CapabilityGrant {
                 capability_type: agenticos_contracts::CapabilityType::Execute,
@@ -173,7 +194,7 @@ mod tests {
             .await
             .unwrap();
 
-        let sandbox = Arc::new(ProcessSandbox::default());
+        let sandbox: Arc<dyn agenticos_contracts::Sandbox> = Arc::new(InMemorySandbox::new());
         let service = SecureToolService::new(capabilities, sandbox);
 
         let result = service

@@ -3341,9 +3341,8 @@ mod tests {
         };
         agent.add_skill(skill1);
         agent.add_skill(skill2);
-        // Skills catalog is now interior mutable, verify via inner lock
-        let inner = agent.inner.lock().unwrap();
-        assert_eq!(inner.skills_catalog.len(), 2);
+        // Skills catalog is now interior mutable, verify via public getter
+        assert_eq!(agent.get_skills_catalog_len(), 2);
     }
 
     #[test]
@@ -3351,10 +3350,9 @@ mod tests {
         let agent = ReactAgent::new("Test agent".to_string());
         agent.set_memory_md("Test memory content".to_string());
         agent.set_user_md("Test user preferences".to_string());
-        // Memory fields are now interior mutable, verify via inner lock
-        let inner = agent.inner.lock().unwrap();
-        assert_eq!(inner.memory_md, "Test memory content");
-        assert_eq!(inner.user_md, "Test user preferences");
+        // Memory fields are now interior mutable, verify via public getters
+        assert_eq!(agent.get_memory_md(), "Test memory content");
+        assert_eq!(agent.get_user_md(), "Test user preferences");
     }
 
     #[test]
@@ -3617,8 +3615,8 @@ Test procedure"#;
             agent.set_session_id("test-session".to_string());
 
             // Verify memory is set
-            assert!(agent.inner.lock().unwrap().memory.is_some());
-            assert_eq!(agent.inner.lock().unwrap().session_id, "test-session");
+            assert!(agent.get_memory().is_some());
+            assert_eq!(agent.get_session_id(), "test-session");
         });
     }
 
@@ -3636,7 +3634,7 @@ Test procedure"#;
             assert!(context.is_empty());
 
             // Add some conversation history
-            if let Some(memory) = agent.inner.lock().unwrap().memory.as_ref() {
+            if let Some(memory) = agent.get_memory().as_ref() {
                 memory
                     .store_message("msg-1", "test-session", "user", "Hello")
                     .await
@@ -3668,7 +3666,7 @@ Test procedure"#;
             assert!(result.is_err());
 
             // Verify messages were stored in memory despite LLM failure
-            let memory = agent.inner.lock().unwrap().memory.clone();
+            let memory = agent.get_memory();
             if let Some(memory) = memory.as_ref() {
                 let history = memory
                     .get_session_history("test-session", 10)
@@ -3690,7 +3688,7 @@ Test procedure"#;
             agent.set_session_id("test-session".to_string());
 
             // Add some conversation history
-            if let Some(memory) = agent.inner.lock().unwrap().memory.as_ref() {
+            if let Some(memory) = agent.get_memory().as_ref() {
                 memory
                     .store_message("msg-1", "test-session", "user", "Hello")
                     .await
@@ -3784,7 +3782,7 @@ Test procedure"#;
         let agent = ReactAgent::new("Test agent".to_string());
         agent.set_tool_executor(executor);
 
-        assert!(agent.inner.lock().unwrap().tool_executor.is_some());
+        assert!(agent.get_tool_executor().is_some());
     }
 
     #[test]

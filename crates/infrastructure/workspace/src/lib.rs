@@ -7,11 +7,15 @@ use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
 use tokio::fs;
 
+/// Default maximum number of bytes returned by a workspace read.
 pub const DEFAULT_MAX_READ_BYTES: usize = 8 * 1024 * 1024;
+/// Default maximum number of bytes accepted by a workspace write.
 pub const DEFAULT_MAX_WRITE_BYTES: usize = 8 * 1024 * 1024;
+/// Default maximum number of entries returned by a directory listing.
 pub const DEFAULT_MAX_LIST_ENTRIES: usize = 2_000;
 
 #[derive(Clone, Debug)]
+/// Confined filesystem facade rooted at a configured workspace directory.
 pub struct WorkspaceFs {
     root: PathBuf,
     max_read_bytes: usize,
@@ -21,23 +25,34 @@ pub struct WorkspaceFs {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// One text-search match within the workspace.
 pub struct WorkspaceSearchMatch {
+    /// Workspace-relative file path.
     pub path: String,
+    /// One-based source line number.
     pub line: usize,
+    /// One-based column number within the matching line.
     pub column: usize,
+    /// Short source preview around the match.
     pub preview: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Metadata describing one workspace directory entry.
 pub struct WorkspaceEntry {
+    /// Workspace-relative entry path.
     pub path: String,
+    /// Whether the entry is a directory.
     pub directory: bool,
+    /// Whether the entry is a regular file.
     pub file: bool,
+    /// File size in bytes when the entry is a regular file.
     pub size_bytes: Option<u64>,
 }
 
 impl WorkspaceFs {
+    /// Open a workspace rooted at `root` with explicit safety limits.
     pub async fn open(
         root: impl Into<PathBuf>,
         max_read_bytes: usize,
@@ -59,6 +74,7 @@ impl WorkspaceFs {
         })
     }
 
+    /// Open a workspace using `AGENTICOS_WORKSPACE_*` environment settings.
     pub async fn from_env() -> Result<Self, String> {
         let root = std::env::var("AGENTICOS_WORKSPACE_ROOT").unwrap_or_else(|_| ".".to_string());
         let max_read_bytes = std::env::var("AGENTICOS_WORKSPACE_MAX_READ_BYTES")
@@ -131,6 +147,7 @@ impl WorkspaceFs {
         ))
     }
 
+    /// Read a UTF-8 text file from the configured workspace.
     pub async fn read_text(&self, relative: &str) -> Result<String, String> {
         let path = self.existing_path(relative).await?;
         let metadata = fs::metadata(&path)
@@ -174,6 +191,7 @@ impl WorkspaceFs {
         self.write_text(relative, &updated).await
     }
 
+    /// Atomically replace a UTF-8 text file in the configured workspace.
     pub async fn write_text(&self, relative: &str, content: &str) -> Result<(), String> {
         if content.len() > self.max_write_bytes {
             return Err("workspace write exceeds configured size limit".to_string());
@@ -193,6 +211,7 @@ impl WorkspaceFs {
         Ok(())
     }
 
+    /// List entries in a workspace directory, subject to the configured limit.
     pub async fn list(&self, relative: &str) -> Result<Vec<WorkspaceEntry>, String> {
         let path = self.existing_path(relative).await?;
         let metadata = fs::metadata(&path)
@@ -351,6 +370,7 @@ impl WorkspaceFs {
         Ok(matches)
     }
 
+    /// Return the canonical root directory for this workspace.
     pub fn root(&self) -> &Path {
         &self.root
     }

@@ -21,8 +21,8 @@ use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
     LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, OutboxEntry,
-    OutboxStatus, OutboxStore, RunId, RunState, Sandbox, SandboxRequest, Saga, SagaCoordinator,
-    SagaStatus, SagaStepStatus, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest,
+    OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStepStatus,
+    Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest,
     ToolRuntimePort,
 };
 
@@ -79,7 +79,9 @@ pub mod provider_adapters {
 
     impl ProviderRegistry {
         /// Create an empty provider registry.
-        pub fn new() -> Self { Self::default() }
+        pub fn new() -> Self {
+            Self::default()
+        }
 
         /// Register a provider ID.
         pub fn register(&self, provider_id: impl Into<String>) {

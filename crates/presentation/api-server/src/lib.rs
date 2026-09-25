@@ -6347,14 +6347,25 @@ async fn list_memory(
                             {
                                 Ok(records) if !records.is_empty() => Ok(records),
                                 Ok(_) | Err(_) => {
-                                    state.persistent_memory.search(namespace, search, limit).await
+                                    state
+                                        .persistent_memory
+                                        .search(namespace, search, limit)
+                                        .await
                                 }
                             }
                         }
-                        _ => state.persistent_memory.search(namespace, search, limit).await,
+                        _ => {
+                            state
+                                .persistent_memory
+                                .search(namespace, search, limit)
+                                .await
+                        },
                     }
                 } else {
-                    state.persistent_memory.search(namespace, search, limit).await
+                    state
+                        .persistent_memory
+                        .search(namespace, search, limit)
+                        .await
                 }
             } else {
                 state.persistent_memory.search(namespace, search, limit).await
@@ -6502,7 +6513,12 @@ async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
 fn memory_embeddings_enabled() -> bool {
     std::env::var("AGENTICOS_MEMORY_EMBEDDINGS")
         .ok()
-        .is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .is_some_and(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
 }
 
 fn configured_embedding_model() -> Option<String> {
@@ -7265,10 +7281,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
 
     let heartbeat_scheduler = state.scheduler.clone();
     let heartbeat_job_id = started_job.spec.job_id.clone();
-    let heartbeat_owner = started_job
-        .lease_owner
-        .clone()
-        .unwrap_or(worker_id);
+    let heartbeat_owner = started_job.lease_owner.clone().unwrap_or(worker_id);
     let heartbeat_token = started_job.lease_token;
     let heartbeat = tokio::spawn(async move {
         loop {

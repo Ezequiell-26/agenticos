@@ -1113,7 +1113,6 @@ struct SetSkillEnabledRequest {
     enabled: bool,
 }
 
-
 #[derive(Debug, Deserialize)]
 struct RegisterMcpRequest {
     server: McpServerDefinition,

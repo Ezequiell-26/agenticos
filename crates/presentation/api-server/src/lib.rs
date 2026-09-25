@@ -34,8 +34,8 @@ use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     InMemoryConfig, InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill,
-    SqliteEventStore, SqliteIdempotencyStore, SqliteMemory, SqliteSnapshotStore,
-    ToolExecutionPipeline,
+    SqliteEventStore, SqliteIdempotencyStore, SqliteMemory, SqliteOutboxStore,
+    SqliteSnapshotStore, ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
@@ -918,13 +918,15 @@ impl RuntimeState {
                 .await
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
-        let kernel = Arc::new(KernelRuntime::new(
+        let outbox = Arc::new(SqliteOutboxStore::open(&database_url).await?);
+        let kernel = Arc::new(KernelRuntime::new_with_outbox(
             event_store,
             snapshot_store,
             logger,
             config,
             capabilities.clone(),
             Arc::new(CapabilityRegistry::default()),
+            outbox,
         ));
 
         let provider = Arc::new(ProviderPlatform::open_from_env(&database_url).await?);

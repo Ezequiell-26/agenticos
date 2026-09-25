@@ -354,6 +354,53 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    #[test]
+    fn replay_evaluation_is_repeatable_for_identical_input() {
+        let evaluator = ReplayEvaluator::new();
+        let case = case();
+        let first = evaluator.evaluate(&case, "HELLO agent").unwrap();
+        let second = evaluator.evaluate(&case, "HELLO agent").unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.score, 1.0);
+    }
+
+    #[tokio::test]
+    async fn registry_replacement_changes_future_evaluations_without_losing_identity() {
+        let registry = EvaluationRegistry::new();
+        registry.register(case()).await.unwrap();
+        registry.evaluate("basic", "hello agent").await.unwrap();
+
+        let replacement = EvaluationCase {
+            case_id: "basic".to_string(),
+            objective: "new objective".to_string(),
+            required_fragments: vec!["replacement".to_string()],
+            max_output_chars: Some(100),
+        };
+        registry.register(replacement).await.unwrap();
+
+        let result = registry.evaluate("basic", "replacement").await.unwrap();
+        assert!(result.passed);
+        assert_eq!(result.case_id, "basic");
+        assert_eq!(result.total_fragments, 1);
+    }
+
+    #[test]
+    fn replay_evaluator_treats_empty_requirements_as_a_valid_full_pass() {
+        let case = EvaluationCase {
+            case_id: "empty".to_string(),
+            objective: "noop".to_string(),
+            required_fragments: Vec::new(),
+            max_output_chars: None,
+        };
+
+        let result = ReplayEvaluator::new().evaluate(&case, "").unwrap();
+        assert!(result.passed);
+        assert_eq!(result.score, 1.0);
+        assert_eq!(result.matched_fragments, 0);
+        assert_eq!(result.total_fragments, 0);
+    }
+
     #[tokio::test]
     async fn registry_evaluates_and_keeps_latest_result() {
         let registry = EvaluationRegistry::new();

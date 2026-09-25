@@ -256,7 +256,7 @@ function parseRuntimeSseEvent(block: string): RuntimeEvent | null {
 }
 
 function parseSseEvent(block: string): RuntimeStreamEvent | null {
-  const lines = block.split(/\\r?\\n/)
+  const lines = block.split(/\r?\n/)
   let eventType = 'message'
   const dataLines: string[] = []
   for (const line of lines) {
@@ -265,7 +265,7 @@ function parseSseEvent(block: string): RuntimeStreamEvent | null {
   }
   if (dataLines.length === 0) return null
 
-  const raw = dataLines.join('\\n')
+  const raw = dataLines.join('\n')
   try {
     const data = JSON.parse(raw) as RuntimeApiRecord
     if (eventType === 'done' || data.done === true) return {

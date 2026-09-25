@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "active",
-  "purpose": "Explicit machine-readable register of concrete runtime gaps discovered during architecture audit. These are not production-complete until the authorized integration slice verifies them.",
+  "purpose": "Tracked audit gaps whose original implementation evidence has been superseded by the current architecture. Capabilities remain unverified until fresh integration evidence closes each item.",
   "baseline_commit": "bc9b21324b072cc5df068a47d7bf1571399f6304",
   "development_model": "capability-driven-continuous",
   "gaps": [
@@ -10,58 +10,59 @@
       "owner_crate": "crates/execution",
       "contract": "agent-engine",
       "evidence": [
-        "crates/execution/src/lib.rs: BasicAgentEngine::start_run ignores objective",
-        "crates/execution/src/lib.rs: BasicAgentEngine::start_run and resume_run do not invoke ModelProvider"
+        "crates/application/execution/src/lib.rs: BasicAgentEngine::start_run persists the objective into runtime state/context",
+        "crates/application/execution/src/lib.rs: resume_run invokes ModelProvider and transitions durable run state"
       ],
       "required_behavior": "A Run must deterministically cross the AgentEngine -> ModelProvider boundary and preserve request/response identity.",
-      "status": "open"
+      "status": "implemented-unverified"
     },
     {
       "id": "provider-real-http-transport",
       "owner_crate": "crates/providers",
       "contract": "model-provider",
       "evidence": [
-        "crates/providers/src/lib.rs: HttpModelProvider owns reqwest client/base_url but execute returns a simulated response without an HTTP request"
+        "crates/infrastructure/providers/src/platform.rs: ProviderPlatform execute_routed dispatches through execute_protocol over real HTTP transports",
+        "crates/infrastructure/providers/tests/provider_plane_integration.rs: deterministic local HTTP servers verify successful transport and non-success responses"
       ],
       "required_behavior": "Provider transport must make a real bounded request through the adapter, normalize failures and remain testable with deterministic integration fixtures.",
-      "status": "open"
+      "status": "implemented-unverified"
     },
     {
       "id": "tool-capability-validation",
       "owner_crate": "crates/tools",
       "contract": "tool",
       "evidence": [
-        "crates/tools/src/lib.rs: BasicPolicyEngine::evaluate only checks that grant_id is non-empty when permissions are required",
-        "crates/tools/src/lib.rs: check_capability returns true for any non-empty capability"
+        "crates/infrastructure/tools/src/lib.rs: BasicPolicyEngine delegates protected-tool authorization to CapabilityManager",
+        "crates/infrastructure/security/src/lib.rs: CapabilityManager.authorize validates grant existence, expiry, capability type, resource scope and permission"
       ],
       "required_behavior": "Authorization must validate an issued capability grant, its principal/scope, requested capability and expiry.",
-      "status": "open"
+      "status": "implemented-unverified"
     },
     {
       "id": "durable-context-memory",
       "owner_crate": "crates/memory",
       "contract": "memory",
       "evidence": [
-        "crates/memory/src/lib.rs: InMemoryContextManager stores all context in process memory",
-        "crates/memory/src/lib.rs: InMemoryMemoryStore stores all memory entries in process memory"
+        "crates/infrastructure/memory/src/lib.rs: PersistentMemoryStore provides SQLite-backed durable memory/retrieval",
+        "crates/infrastructure/kernel/src/lib.rs: SqliteMemory persists session history and context state"
       ],
       "required_behavior": "Context and memory must have a persistence adapter and restart/recovery tests behind the existing storage contract.",
-      "status": "open"
+      "status": "implemented-unverified"
     },
     {
       "id": "durable-run-registry",
       "owner_crate": "crates/execution",
       "contract": "run",
       "evidence": [
-        "crates/execution/src/lib.rs: BasicAgentEngine stores known runs in an in-memory Vec<RunId>",
-        "crates/execution/src/lib.rs: resume_run rejects a run not present in that Vec"
+        "crates/application/execution/src/lib.rs: BasicAgentEngine resume/recovery uses KernelRuntime::get_or_recover_run",
+        "crates/infrastructure/kernel/src/lib.rs: KernelRuntime reconstructs durable runs from persistent event/snapshot state"
       ],
       "required_behavior": "Run ownership/recovery must derive from durable kernel state rather than a process-local registry.",
-      "status": "open"
+      "status": "implemented-unverified"
     }
   ],
   "verification_policy": {
-    "close_only_after": "The affected capability's contract, integration, persistence/security requirements and verification evidence are complete.",
+    "close_only_after": "Fresh CI and capability-specific integration evidence confirm the affected contract, integration, persistence/security requirements and recovery semantics.",
     "production_complete_definition": "Feature completion requires user reachability, contract connection, persistence where appropriate, security, observability, failure tolerance, tests and documentation."
   }
 }

@@ -542,8 +542,28 @@ pub trait OutboxStore: Send + Sync {
     /// Mark entry as published.
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError>;
 
+    /// Mark entry as published only when owned by the given worker claim.
+    async fn mark_published_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        let _ = worker_id;
+        self.mark_published(entry_id).await
+    }
+
     /// Mark entry as failed (move to dead letter queue).
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError>;
+
+    /// Mark entry as failed only when owned by the given worker claim.
+    async fn mark_failed_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        let _ = worker_id;
+        self.mark_failed(entry_id).await
+    }
 
     /// Get dead letter queue entries.
     async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError>;

@@ -131,10 +131,7 @@ pub fn run() {
 }
 
 /// Send a message to the agent via backend API.
-pub async fn send_message(
-    message: UserMessage,
-    api_url: &str,
-) -> Result<AgentResponse, String> {
+pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentResponse, String> {
     let client = reqwest::Client::new();
     let url = format!("{}/api/agent/chat", api_url.trim_end_matches('/'));
 

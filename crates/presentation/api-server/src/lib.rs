@@ -836,14 +836,14 @@ impl RuntimeState {
                                 self.persistent_memory
                                     .search(&namespace, query, limit)
                                     .await
-                            },
+                            }
                         }
                     }
                     _ => {
                         self.persistent_memory
                             .search(&namespace, query, limit)
                             .await
-                    },
+                    }
                 }
             } else {
                 self.persistent_memory

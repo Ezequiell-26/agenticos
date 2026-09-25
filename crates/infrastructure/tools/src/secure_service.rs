@@ -89,7 +89,9 @@ impl SecureToolService {
                             agenticos_kernel::ToolExecutionResult::success(response.output)
                         }
                         Ok(response) => agenticos_kernel::ToolExecutionResult::failure(
-                            response.error.unwrap_or_else(|| "process execution failed".to_string()),
+                            response
+                                .error
+                                .unwrap_or_else(|| "process execution failed".to_string()),
                         ),
                         Err(error) => {
                             agenticos_kernel::ToolExecutionResult::failure(error.to_string())

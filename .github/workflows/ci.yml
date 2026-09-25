@@ -145,6 +145,11 @@ jobs:
       - name: Build API runtime binary
         run: cargo build -p agenticos-api-server
 
+      - name: Build desktop frontend for E2E
+        run: npm run build --prefix crates/presentation/desktop/frontend
+        env:
+          VITE_AGENTICOS_API_URL: http://127.0.0.1:8080
+
       - name: Install E2E runner
         run: npm install --no-package-lock --prefix scripts/e2e --no-audit --no-fund @playwright/test@1.63.0
 

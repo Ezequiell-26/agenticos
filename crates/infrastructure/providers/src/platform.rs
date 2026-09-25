@@ -1534,7 +1534,7 @@ impl ProviderPlatform {
                 }
                 ProviderProtocol::OpenAiResponses => {
                     stream_protocol_request(
-                        provider,
+                        provider.clone(),
                         credential.as_ref(),
                         routed_request.clone(),
                         StreamProtocol::OpenAiResponses,
@@ -1544,7 +1544,7 @@ impl ProviderPlatform {
                 }
                 ProviderProtocol::AnthropicMessages => {
                     stream_protocol_request(
-                        provider,
+                        provider.clone(),
                         credential.as_ref(),
                         routed_request.clone(),
                         StreamProtocol::AnthropicMessages,
@@ -1554,7 +1554,7 @@ impl ProviderPlatform {
                 }
                 ProviderProtocol::Gemini => {
                     stream_protocol_request(
-                        provider,
+                        provider.clone(),
                         credential.as_ref(),
                         routed_request.clone(),
                         StreamProtocol::Gemini,
@@ -2714,9 +2714,7 @@ fn stream_sse_response(
                                             )
                                             .await;
                                     }
-                                    usage_recorded = true;
                                 }
-                                done = true;
                                 yield "[DONE]".to_string();
                                 return;
                             }

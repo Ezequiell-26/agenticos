@@ -1772,7 +1772,7 @@ async fn list_workspace(
     let path = query.path.trim();
     if path.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace path is required".to_string(),
+                error: "workspace path is required".to_string(),
             code: "WORKSPACE_PATH_REQUIRED",
         });
     }
@@ -1822,7 +1822,7 @@ async fn search_workspace(
     let path = query.path.as_deref().unwrap_or(".");
     if query.q.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace search query is required".to_string(),
+                error: "workspace search query is required".to_string(),
             code: "WORKSPACE_SEARCH_QUERY_REQUIRED",
         });
     }
@@ -1877,7 +1877,7 @@ async fn read_workspace_file(
     let path = query.path.trim();
     if path.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace path is required".to_string(),
+                error: "workspace path is required".to_string(),
             code: "WORKSPACE_PATH_REQUIRED",
         });
     }
@@ -1926,7 +1926,7 @@ async fn write_workspace_file(
 ) -> impl Responder {
     if request.path.trim().is_empty() || request.content.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace path and content are required".to_string(),
+                error: "workspace path and content are required".to_string(),
             code: "WORKSPACE_WRITE_INVALID",
         });
     }
@@ -1979,13 +1979,13 @@ async fn patch_workspace_file(
 ) -> impl Responder {
     if request.path.trim().is_empty() || request.expected.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace path and expected patch fragment are required".to_string(),
+                error: "workspace path and expected patch fragment are required".to_string(),
             code: "WORKSPACE_PATCH_INVALID",
         });
     }
     if request.replacement.len() > 8 * 1024 * 1024 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "workspace replacement exceeds supported size".to_string(),
+                error: "workspace replacement exceeds supported size".to_string(),
             code: "WORKSPACE_PATCH_TOO_LARGE",
         });
     }
@@ -2047,7 +2047,7 @@ async fn register_project(
         // Root project is always valid for the configured workspace.
     } else if let Err(error) = state.workspace.list(&request.project.path).await {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: format!("project path is not a readable workspace directory: {error}"),
+                error: format!("project path is not a readable workspace directory: {error}"),
             code: "PROJECT_PATH_INVALID",
         });
     }
@@ -2160,7 +2160,7 @@ async fn create_terminal(
 ) -> impl Responder {
     if request.command.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "terminal command is required".to_string(),
+                error: "terminal command is required".to_string(),
             code: "TERMINAL_COMMAND_REQUIRED",
         });
     }
@@ -2775,7 +2775,7 @@ async fn execute_registered_tool(
 ) -> impl Responder {
     if request.tool_id.trim().is_empty() || request.agent_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "tool_id and agent_id are required".to_string(),
+                error: "tool_id and agent_id are required".to_string(),
             code: "INVALID_TOOL_REQUEST",
         });
     }
@@ -2885,7 +2885,7 @@ async fn register_mcp_server(
     match state.mcp.register(request.server.clone()).await {
         Ok(()) => HttpResponse::Created().json(request.server.clone()),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "MCP_REGISTRATION_FAILED",
         }),
     }
@@ -2942,7 +2942,7 @@ async fn list_mcp_tools(
             "count": tools.len(),
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "MCP_TOOL_DISCOVERY_FAILED",
         }),
     }
@@ -3015,7 +3015,7 @@ async fn call_mcp_tool(
             }))
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
         }),
     }
@@ -3027,7 +3027,7 @@ async fn analyze_github_repository(
 ) -> impl Responder {
     if request.source.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "source is required".to_string(),
+                error: "source is required".to_string(),
             code: "SOURCE_INVALID",
         });
     }
@@ -3054,7 +3054,7 @@ async fn analyze_github_repository(
     };
     if let Err(error) = state.source_intelligence.register_metadata(metadata).await {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "SOURCE_METADATA_REJECTED",
         });
     }
@@ -3089,7 +3089,7 @@ async fn analyze_github_repository(
             "analysis": analysis,
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "SOURCE_ANALYSIS_FAILED",
         }),
     }
@@ -3101,14 +3101,14 @@ async fn inspect_github_repository(
 ) -> impl Responder {
     if request.source.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "source is required".to_string(),
+                error: "source is required".to_string(),
             code: "SOURCE_INVALID",
         });
     }
     match state.source_forge.inspect_repository(&request.source).await {
         Ok(info) => HttpResponse::Ok().json(info),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "SOURCE_INSPECTION_FAILED",
         }),
     }
@@ -3128,7 +3128,7 @@ async fn fetch_github_source_file(
     {
         Ok(file) => HttpResponse::Ok().json(file),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "SOURCE_FILE_FETCH_FAILED",
         }),
     }
@@ -3137,6 +3137,7 @@ async fn fetch_github_source_file(
 async fn write_github_source_file(
     path: web::Path<(String, String)>,
     request: web::Json<WriteSourceFileRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let (owner, repo) = path.into_inner();
@@ -3147,13 +3148,13 @@ async fn write_github_source_file(
 
     if grant_id.is_empty() || file_path.is_empty() || message.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "grant_id, path and message are required".to_string(),
+                error: "grant_id, path and message are required".to_string(),
             code: "SOURCE_WRITE_REQUEST_INVALID",
         });
     }
     if request.content.len() > 16 * 1024 * 1024 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "source content exceeds the supported size limit".to_string(),
+                error: "source content exceeds the supported size limit".to_string(),
             code: "SOURCE_WRITE_TOO_LARGE",
         });
     }
@@ -3197,10 +3198,43 @@ async fn write_github_source_file(
         .await
     {
         Ok(result) => {
+            let correlation_id = request_correlation_id(&request_http);
+            if let Err(error) = state
+                .audit
+                .append(AuditEvent::new(
+                    "source-forge",
+                    "source.github.write",
+                    None,
+                    format!("github/{repo_id}"),
+                    Some(correlation_id),
+                    "success",
+                    serde_json::json!({
+                        "path": file_path,
+                        "reference": request.reference,
+                        "commit_sha": result.commit_sha,
+                    }),
+                ))
+                .await
+            {
+                tracing::warn!(%error, "failed to persist GitHub write audit event");
+            }
             state.metrics.record_http(false);
             HttpResponse::Ok().json(result)
         }
         Err(agenticos_source_forge::SourceForgeError::Conflict) => {
+            let correlation_id = request_correlation_id(&request_http);
+            let _ = state
+                .audit
+                .append(AuditEvent::new(
+                    "source-forge",
+                    "source.github.write",
+                    None,
+                    format!("github/{repo_id}"),
+                    Some(correlation_id),
+                    "conflict",
+                    serde_json::json!({"path": file_path}),
+                ))
+                .await;
             state.metrics.record_http(true);
             HttpResponse::Conflict().json(ErrorResponse {
                 error: "GitHub file changed since the supplied expected SHA".to_string(),
@@ -3208,6 +3242,19 @@ async fn write_github_source_file(
             })
         }
         Err(error) => {
+            let correlation_id = request_correlation_id(&request_http);
+            let _ = state
+                .audit
+                .append(AuditEvent::new(
+                    "source-forge",
+                    "source.github.write",
+                    None,
+                    format!("github/{repo_id}"),
+                    Some(correlation_id),
+                    "failure",
+                    serde_json::json!({"path": file_path}),
+                ))
+                .await;
             state.metrics.record_http(true);
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
@@ -3224,7 +3271,7 @@ async fn authorize_browser(
 ) -> Result<(), HttpResponse> {
     if grant_id.trim().is_empty() {
         return Err(HttpResponse::BadRequest().json(ErrorResponse {
-            error: "grant_id is required".to_string(),
+                error: "grant_id is required".to_string(),
             code: "BROWSER_GRANT_REQUIRED",
         }));
     }
@@ -3306,15 +3353,29 @@ async fn browser_open(
     }
     match state.browser.open(&session_id, request.url.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "open", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "open",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "open", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "open",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_OPEN_FAILED",
-        })
+            })
         },
     }
 }
@@ -3331,15 +3392,29 @@ async fn browser_snapshot(
     }
     match state.browser.snapshot(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "snapshot", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "snapshot",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "snapshot", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "snapshot",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_SNAPSHOT_FAILED",
-        })
+            })
         },
     }
 }
@@ -3356,15 +3431,29 @@ async fn browser_click(
     }
     match state.browser.click(&session_id, request.target.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "click", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "click",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "click", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "click",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_CLICK_FAILED",
-        })
+            })
         },
     }
 }
@@ -3385,15 +3474,29 @@ async fn browser_fill(
         .await
     {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "fill", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "fill",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "fill", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "fill",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_FILL_FAILED",
-        })
+            })
         },
     }
 }
@@ -3410,15 +3513,29 @@ async fn browser_wait(
     }
     match state.browser.wait(&session_id, request.target.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "wait", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "wait",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "wait", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "wait",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_WAIT_FAILED",
-        })
+            })
         },
     }
 }
@@ -3439,15 +3556,29 @@ async fn browser_get_text(
         .await
     {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "get_text", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "get_text",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "get_text", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "get_text",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_GET_TEXT_FAILED",
-        })
+            })
         },
     }
 }
@@ -3464,15 +3595,29 @@ async fn browser_screenshot(
     }
     match state.browser.screenshot(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "screenshot", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "screenshot",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "screenshot", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "screenshot",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_SCREENSHOT_FAILED",
-        })
+            })
         },
     }
 }
@@ -3489,15 +3634,29 @@ async fn browser_close(
     }
     match state.browser.close(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "close", &session_id, result.success).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "close",
+                &session_id,
+                result.success,
+            )
+            .await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, &request_correlation_id(&request_http), "close", &session_id, false).await;
+            browser_audit_event(
+                &state,
+                &request_correlation_id(&request_http),
+                "close",
+                &session_id,
+                false,
+            )
+            .await;
             HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "BROWSER_CLOSE_FAILED",
-        })
+            })
         },
     }
 }
@@ -3530,7 +3689,7 @@ async fn run_evaluation_case(
 ) -> impl Responder {
     if request.output.len() > 2_000_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "evaluation output exceeds the supported limit".to_string(),
+                error: "evaluation output exceeds the supported limit".to_string(),
             code: "EVALUATION_OUTPUT_TOO_LARGE",
         });
     }
@@ -3930,14 +4089,14 @@ async fn stream_model_execute(
     if model.is_empty() || input.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model and input are required".to_string(),
+                error: "model and input are required".to_string(),
             code: "INVALID_MODEL_REQUEST",
         });
     }
     if model.len() > 256 || input.len() > 1_000_000 {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model request exceeds supported limits".to_string(),
+                error: "model request exceeds supported limits".to_string(),
             code: "MODEL_REQUEST_TOO_LARGE",
         });
     }
@@ -4036,14 +4195,14 @@ async fn direct_model_execute(
     if model.is_empty() || input.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model and input are required".to_string(),
+                error: "model and input are required".to_string(),
             code: "INVALID_MODEL_REQUEST",
         });
     }
     if model.len() > 256 || input.len() > 1_000_000 {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model request exceeds supported limits".to_string(),
+                error: "model request exceeds supported limits".to_string(),
             code: "MODEL_REQUEST_TOO_LARGE",
         });
     }
@@ -4054,7 +4213,7 @@ async fn direct_model_execute(
     {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model parameters exceed supported limits".to_string(),
+                error: "model parameters exceed supported limits".to_string(),
             code: "MODEL_PARAMETERS_TOO_LARGE",
         });
     }
@@ -4116,7 +4275,7 @@ async fn agent_chat(
     if message.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "message must not be empty".to_string(),
+                error: "message must not be empty".to_string(),
             code: "INVALID_MESSAGE",
         });
     }
@@ -4159,7 +4318,7 @@ async fn agent_chat(
     if requested_model.is_some_and(|model| model.len() > 256) {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "model exceeds supported limits".to_string(),
+                error: "model exceeds supported limits".to_string(),
             code: "MODEL_ID_TOO_LARGE",
         });
     }
@@ -4400,7 +4559,7 @@ async fn conversation_search(
     let q = query.q.trim();
     if q.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "q must not be empty".to_string(),
+                error: "q must not be empty".to_string(),
             code: "INVALID_QUERY",
         });
     }
@@ -4438,7 +4597,7 @@ async fn refresh_provider_models(
             "count": models.len(),
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PROVIDER_MODEL_REFRESH_FAILED",
         }),
     }
@@ -4536,7 +4695,7 @@ async fn set_provider_quota(
     match state.provider.set_quota(quota.clone()).await {
         Ok(()) => HttpResponse::Ok().json(quota),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PROVIDER_QUOTA_UPDATE_FAILED",
         }),
     }
@@ -4596,13 +4755,13 @@ async fn set_provider_retry_policy(
 
     if request.max_attempts == 0 || request.max_attempts > 20 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "max_attempts must be between 1 and 20".to_string(),
+                error: "max_attempts must be between 1 and 20".to_string(),
             code: "INVALID_RETRY_POLICY",
         });
     }
     if request.max_backoff_ms < request.initial_backoff_ms {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "max_backoff_ms must be >= initial_backoff_ms".to_string(),
+                error: "max_backoff_ms must be >= initial_backoff_ms".to_string(),
             code: "INVALID_RETRY_POLICY",
         });
     }
@@ -4625,7 +4784,7 @@ async fn set_provider_retry_policy(
     {
         Ok(()) => HttpResponse::Ok().json(policy),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PROVIDER_RETRY_UPDATE_FAILED",
         }),
     }
@@ -4728,7 +4887,7 @@ async fn set_provider_fallback(
             auto_failover: config.auto_failover,
         }),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PROVIDER_FALLBACK_UPDATE_FAILED",
         }),
     }
@@ -4741,7 +4900,7 @@ async fn register_provider(
     let provider_id = request.provider_id.trim();
     if provider_id.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "provider_id must not be empty".to_string(),
+                error: "provider_id must not be empty".to_string(),
             code: "INVALID_PROVIDER_ID",
         });
     }
@@ -4751,7 +4910,7 @@ async fn register_provider(
         .is_some_and(|key| key.len() > 4_096)
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "api_key exceeds supported limits".to_string(),
+                error: "api_key exceeds supported limits".to_string(),
             code: "PROVIDER_KEY_TOO_LARGE",
         });
     }
@@ -4778,7 +4937,7 @@ async fn register_provider(
             HttpResponse::Created().json(provider)
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PROVIDER_REGISTRATION_FAILED",
         }),
     }
@@ -4843,7 +5002,7 @@ async fn create_run(
     let objective = request.objective.trim();
     if objective.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "objective must not be empty".to_string(),
+                error: "objective must not be empty".to_string(),
             code: "INVALID_OBJECTIVE",
         });
     }
@@ -5181,13 +5340,13 @@ async fn spawn_agent(
     let objective = request.objective.trim();
     if objective.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "objective is required for a child agent".to_string(),
+                error: "objective is required for a child agent".to_string(),
             code: "SUBAGENT_OBJECTIVE_REQUIRED",
         });
     }
     if objective.len() > 100_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "subagent objective exceeds supported limits".to_string(),
+                error: "subagent objective exceeds supported limits".to_string(),
             code: "SUBAGENT_OBJECTIVE_TOO_LARGE",
         });
     }
@@ -5548,7 +5707,7 @@ async fn create_plan(
             }))
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "PLAN_GENERATION_FAILED",
         }),
     }
@@ -5599,7 +5758,7 @@ async fn create_approval(
         || request.resource.trim().is_empty()
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "run_id, action and resource are required".to_string(),
+                error: "run_id, action and resource are required".to_string(),
             code: "INVALID_APPROVAL",
         });
     }
@@ -5669,7 +5828,7 @@ async fn list_memory(
     let namespace = query.namespace.trim();
     if namespace.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "namespace must not be empty".to_string(),
+                error: "namespace must not be empty".to_string(),
             code: "INVALID_MEMORY_NAMESPACE",
         });
     }
@@ -5711,19 +5870,19 @@ async fn upsert_memory(
     let key = request.key.trim();
     if namespace.is_empty() || key.is_empty() || request.value.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "namespace, key and value are required".to_string(),
+                error: "namespace, key and value are required".to_string(),
             code: "INVALID_MEMORY",
         });
     }
     if namespace.len() > 256 || key.len() > 512 || request.value.len() > 1_000_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "memory field exceeds supported limits".to_string(),
+                error: "memory field exceeds supported limits".to_string(),
             code: "MEMORY_TOO_LARGE",
         });
     }
     if request.tags.as_ref().is_some_and(|tags| tags.len() > 64) {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "too many memory tags".to_string(),
+                error: "too many memory tags".to_string(),
             code: "MEMORY_TAG_LIMIT",
         });
     }
@@ -5732,13 +5891,13 @@ async fn upsert_memory(
         .is_some_and(|importance| !importance.is_finite())
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "importance must be a finite number".to_string(),
+                error: "importance must be a finite number".to_string(),
             code: "INVALID_MEMORY_IMPORTANCE",
         });
     }
     if request.expires_at.is_some_and(|expires_at| expires_at < 0) {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "expires_at must not be negative".to_string(),
+                error: "expires_at must not be negative".to_string(),
             code: "INVALID_MEMORY_EXPIRY",
         });
     }
@@ -5819,13 +5978,13 @@ async fn issue_capability(
     let grant_id = request.grant_id.trim();
     if resource.is_empty() || permission.is_empty() || grant_id.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "resource, permission and grant_id are required".to_string(),
+                error: "resource, permission and grant_id are required".to_string(),
             code: "INVALID_CAPABILITY",
         });
     }
     if grant_id.len() > 256 || resource.len() > 512 || permission.len() > 128 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "capability fields exceed supported limits".to_string(),
+                error: "capability fields exceed supported limits".to_string(),
             code: "CAPABILITY_TOO_LARGE",
         });
     }
@@ -5861,7 +6020,7 @@ async fn issue_capability(
             "expires_at": grant.expires_at,
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-            error: error.to_string(),
+                error: error.to_string(),
             code: "CAPABILITY_ISSUE_FAILED",
         }),
     }
@@ -5886,7 +6045,7 @@ async fn execute_tool(
 ) -> impl Responder {
     if request.command.trim().is_empty() || request.session_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "session_id and command are required".to_string(),
+                error: "session_id and command are required".to_string(),
             code: "INVALID_TOOL_REQUEST",
         });
     }
@@ -5918,7 +6077,7 @@ async fn worker_claim(
     let worker_id = request.worker_id.trim();
     if worker_id.is_empty() || worker_id.len() > 256 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "worker_id must be 1..=256 characters".to_string(),
+                error: "worker_id must be 1..=256 characters".to_string(),
             code: "WORKER_ID_INVALID",
         });
     }
@@ -5977,7 +6136,7 @@ async fn worker_complete(
 ) -> impl Responder {
     if request.worker_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "worker_id is required".to_string(),
+                error: "worker_id is required".to_string(),
             code: "WORKER_ID_INVALID",
         });
     }

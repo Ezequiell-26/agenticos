@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["process", "time"] }
+tokio = { workspace = true, features = ["process", "time", "sync"] }
 
 [lints]
 workspace = true

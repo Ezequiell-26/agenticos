@@ -1,4 +1,4 @@
-import { test, expect } from 'playwright/test'
+import { test, expect } from '@playwright/test'
 import { createServer } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

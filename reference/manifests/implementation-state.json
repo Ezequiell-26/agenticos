@@ -19,13 +19,13 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "1d08cd1a4378aa7bdbf161ba290b34cc9b7bcd78",
+    "last_update_commit": "d11fe6e23369ced48c7e8544d6f09b92095bfc76",
     "next_actions": [
       "verify the latest full CI run and promote only with fresh automated evidence",
-      "centralize remaining SQLite schemas into versioned migrations",
-      "complete semantic-memory retrieval evaluation and backfill strategy",
-      "expand durable worker restart recovery beyond scheduler jobs and run leases",
-      "expand runtime end-to-end tests for desktop, subagents, workflows and MCP"
+      "expand durable worker end-to-end recovery beyond scheduler jobs and run leases",
+      "expand runtime end-to-end tests for desktop, subagents, workflows, MCP and skills",
+      "strengthen sandbox isolation profiles and resource enforcement",
+      "complete evaluation/replay coverage and regression fixtures"
     ],
     "scope": [
       "capability-driven governance",
@@ -275,6 +275,11 @@
       "id": "run-level-leases",
       "owner": "kernel + execution + api-server",
       "status": "implemented-unverified"
+    },
+    {
+      "id": "skill-registry",
+      "owner": "application/skills + api-server + desktop",
+      "status": "implemented-unverified"
     }
   ],
   "verification": {
@@ -294,11 +299,10 @@
     "ci_pending": true
   },
   "backlog": [
-    "centralize remaining SQLite schemas into versioned migrations",
-    "semantic-memory retrieval evaluation and backfill",
-    "stronger sandbox isolation profiles",
+    "strengthen sandbox isolation profiles",
     "evaluation and replay coverage",
-    "durable worker restart recovery and end-to-end lease fencing tests"
+    "durable worker restart recovery and end-to-end lease fencing tests",
+    "runtime integration coverage for desktop, subagents, workflows, MCP and skills"
   ],
   "migration": {
     "from_schema": 1,

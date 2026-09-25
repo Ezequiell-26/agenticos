@@ -175,6 +175,17 @@ pub trait AgentTool: Send + Sync + 'static {
     async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError>;
 }
 
+/// Runtime boundary used by the agent kernel to execute registered tools.
+#[async_trait::async_trait]
+pub trait ToolRuntimePort: Send + Sync + 'static {
+    /// List tool metadata visible to the agent runtime.
+    async fn list_tools(&self) -> Result<Vec<ToolEntry>, ContractError>;
+
+    /// Execute a tool through the runtime policy/capability plane.
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError>;
+}
+
+
 /// Durable event storage contract.
 #[async_trait::async_trait]
 pub trait EventStore: Send + Sync {

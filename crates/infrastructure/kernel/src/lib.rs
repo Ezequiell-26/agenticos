@@ -23,7 +23,7 @@ use agenticos_contracts::{
     LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
     OutboxEntry, OutboxStatus, OutboxStore, ResourceUsage, RunId, RunState, Saga, SagaCoordinator,
     SagaStatus, SagaStep, SagaStepStatus, SagaStepType, Sandbox, SandboxRequest, SandboxResponse,
-    SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore,
+    SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest, ToolRuntimePort,
 };
 
 // pub use agenticos_sandbox::{ProcessSandbox, SandboxConfig, SandboxFactory};
@@ -2038,8 +2038,12 @@ struct ReactAgentInner {
     memory: Option<Arc<SqliteMemory>>,
     /// Current session ID
     session_id: String,
-    /// Tool executor for real tool execution
+    /// Tool executor for legacy action compatibility.
     tool_executor: Option<ToolExecutor>,
+    /// Capability-gated runtime for native and MCP tool execution.
+    tool_runtime: Option<Arc<dyn ToolRuntimePort>>,
+    /// Default short-lived grant used for safe agent tool calls.
+    tool_grant_id: Option<String>,
     /// Optional checkpoint store for state persistence
     checkpoint_store: Option<Arc<dyn EventStore>>,
     /// Optional planner for task decomposition
@@ -2090,6 +2094,8 @@ impl ReactAgent {
                 memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
+                tool_runtime: None,
+                tool_grant_id: None,
                 checkpoint_store: None,
                 planner: None,
                 current_plan: None,
@@ -2129,6 +2135,8 @@ impl ReactAgent {
                 memory: None,
                 session_id: uuid::Uuid::new_v4().to_string(),
                 tool_executor: None,
+                tool_runtime: None,
+                tool_grant_id: None,
                 checkpoint_store: None,
                 planner: None,
                 current_plan: None,
@@ -2201,6 +2209,16 @@ impl ReactAgent {
     /// Set the tool executor for real tool execution.
     pub fn set_tool_executor(&self, executor: ToolExecutor) {
         self.inner.lock().unwrap().tool_executor = Some(executor);
+    }
+
+    /// Set the capability-gated runtime for structured agent tool calls.
+    pub fn set_tool_runtime(&self, runtime: Arc<dyn ToolRuntimePort>) {
+        self.inner.lock().unwrap().tool_runtime = Some(runtime);
+    }
+
+    /// Set the short-lived capability grant used for agent tool calls.
+    pub fn set_tool_grant_id(&self, grant_id: String) {
+        self.inner.lock().unwrap().tool_grant_id = Some(grant_id);
     }
 
     /// Set the checkpoint store for state persistence.
@@ -2431,6 +2449,8 @@ impl ReactAgent {
             prompt.push_str("## Instructions\n");
             prompt.push_str("Use ReAct pattern: Thought → Action → Observation → repeat.\n");
             prompt.push_str("Be concise and precise.\n");
+            prompt.push_str("When a tool is needed, emit ONLY JSON in the form {\"tool\":\"tool.id\",\"arguments\":{...}}.\n");
+            prompt.push_str("Never invent tool IDs; use only the registered tool IDs supplied by the runtime.\n");
 
             let cached = Arc::<str>::from(prompt);
             let mut inner = self.inner.lock().unwrap();
@@ -2447,6 +2467,35 @@ impl ReactAgent {
         };
 
         let mut prompt = static_prompt.to_string();
+
+        let tool_runtime = {
+            let inner = self.inner.lock().unwrap();
+            inner.tool_runtime.clone()
+        };
+        if let Some(runtime) = tool_runtime {
+            if let Ok(tools) = runtime.list_tools().await {
+                if !tools.is_empty() {
+                    prompt.push_str("\n## Available Tools\n");
+                    let max_tools = std::env::var("AGENTICOS_MAX_PROMPT_TOOLS")
+                        .ok()
+                        .and_then(|value| value.parse::<usize>().ok())
+                        .unwrap_or(64)
+                        .clamp(1, 256);
+                    for tool in tools.into_iter().take(max_tools) {
+                        prompt.push_str("- ");
+                        prompt.push_str(&tool.tool_id);
+                        prompt.push_str(": ");
+                        prompt.push_str(&tool.description);
+                        if !tool.context_requirements.is_empty() {
+                            prompt.push_str(" [");
+                            prompt.push_str(&tool.context_requirements.join(", "));
+                            prompt.push(']');
+                        }
+                        prompt.push('\n');
+                    }
+                }
+            }
+        }
 
         if let Some(memory) = memory {
             let history_limit = std::env::var("AGENTICOS_MEMORY_HISTORY_LIMIT")
@@ -2633,19 +2682,70 @@ impl ReactAgent {
 
     /// Execute action step (tool call).
     pub async fn act(&self, action: &str) -> Result<String, ContractError> {
-        let executor = {
+        let (executor, runtime, grant_id) = {
             let inner = self.inner.lock().unwrap();
-            inner.tool_executor.clone()
+            (
+                inner.tool_executor.clone(),
+                inner.tool_runtime.clone(),
+                inner.tool_grant_id.clone(),
+            )
         };
-        self.act_inner(executor.as_ref(), action).await
+        self.act_inner(
+            executor.as_ref(),
+            runtime.as_ref(),
+            grant_id.as_deref(),
+            action,
+        )
+        .await
     }
 
     /// Inner act method taking reference to executor.
     async fn act_inner(
         &self,
         executor: Option<&ToolExecutor>,
+        tool_runtime: Option<&Arc<dyn ToolRuntimePort>>,
+        default_grant_id: Option<&str>,
         action: &str,
     ) -> Result<String, ContractError> {
+        if let Some(runtime) = tool_runtime {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(action) {
+                let tool_id = value
+                    .get("tool")
+                    .or_else(|| value.get("tool_id"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty());
+                if let Some(tool_id) = tool_id {
+                    let arguments = value
+                        .get("arguments")
+                        .or_else(|| value.get("parameters"))
+                        .cloned()
+                        .unwrap_or_else(|| serde_json::json!({}));
+                    let grant_id = value
+                        .get("grant_id")
+                        .and_then(serde_json::Value::as_str)
+                        .or(default_grant_id)
+                        .unwrap_or_default()
+                        .to_string();
+                    let request = ToolRequest {
+                        request_id: format!("tool-{}", uuid::Uuid::new_v4()),
+                        tool_id: tool_id.to_string(),
+                        parameters: arguments.to_string(),
+                        agent_id: self.identity.clone(),
+                        grant_id,
+                    };
+                    let response = runtime.execute(request).await?;
+                    if response.success {
+                        return Ok(response.result);
+                    }
+                    return Err(ContractError::ParseError(
+                        response
+                            .error
+                            .unwrap_or_else(|| "tool execution failed".to_string()),
+                    ));
+                }
+            }
+        }
         if let Some(executor) = executor {
             // Parse action to determine tool type
             // Format: "tool_name:args" or simple command
@@ -2892,6 +2992,8 @@ impl ReactAgent {
             planner,
             current_plan,
             tool_executor,
+            tool_runtime,
+            tool_grant_id,
             checkpoint_store,
             supervisor,
             sandbox,
@@ -2911,6 +3013,8 @@ impl ReactAgent {
                 inner.planner.clone(),
                 inner.current_plan.clone(),
                 inner.tool_executor.clone(),
+                inner.tool_runtime.clone(),
+                inner.tool_grant_id.clone(),
                 inner.checkpoint_store.clone(),
                 inner.supervisor.clone(),
                 inner.sandbox.clone(),
@@ -3067,6 +3171,8 @@ impl ReactAgent {
             let executor = |ctx: ToolExecutionContext| async move {
                 self.act_inner(
                     tool_executor.as_ref(),
+                    tool_runtime.as_ref(),
+                    tool_grant_id.as_deref(),
                     &ctx.args["action"].as_str().unwrap_or(""),
                 )
                 .await

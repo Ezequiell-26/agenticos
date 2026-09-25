@@ -59,6 +59,22 @@ use tokio::sync::{RwLock, Semaphore};
 
 /// Default local SQLite URL.
 const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
+#[derive(Clone)]
+struct RuntimeToolBridge {
+    runtime: Arc<ToolRuntime>,
+}
+
+#[async_trait::async_trait]
+impl agenticos_contracts::ToolRuntimePort for RuntimeToolBridge {
+    async fn list_tools(&self) -> Result<Vec<ToolEntry>, ContractError> {
+        Ok(self.runtime.list().await)
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        self.runtime.execute(request).await
+    }
+}
+
 /// Native tool adapter for capability-gated process execution.
 #[derive(Clone, Debug)]
 struct SecureCommandTool {
@@ -995,6 +1011,20 @@ impl RuntimeState {
         }
         agent.set_memory(self.memory.clone());
         agent.set_model_provider(self.provider.clone());
+        agent.set_tool_runtime(Arc::new(RuntimeToolBridge {
+            runtime: self.tool_runtime.clone(),
+        }));
+        let grant_id = format!("agent-read-{}", uuid::Uuid::new_v4());
+        self.capabilities
+            .issue(CapabilityGrant {
+                capability_type: CapabilityType::Read,
+                resource: "tool/*".to_string(),
+                permission: "*".to_string(),
+                expires_at: unix_time().saturating_add(3600),
+                grant_id: grant_id.clone(),
+            })
+            .await?;
+        agent.set_tool_grant_id(grant_id);
         for skill in self.skills.iter().cloned() {
             agent.add_skill(skill);
         }

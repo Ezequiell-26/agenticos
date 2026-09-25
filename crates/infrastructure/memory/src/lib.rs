@@ -1002,20 +1002,15 @@ mod persistent_memory_tests {
 
     #[tokio::test]
     async fn embedding_coverage_reports_missing_records() {
-        let path = std::env::temp_dir()
-            .join(format!("agenticos-memory-coverage-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-coverage-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = PersistentMemoryStore::new(&url).await.unwrap();
 
         let record = store
-            .upsert(
-                "project:coverage",
-                "record",
-                "semantic memory",
-                &[],
-                0.8,
-                0,
-            )
+            .upsert("project:coverage", "record", "semantic memory", &[], 0.8, 0)
             .await
             .unwrap();
 
@@ -1024,7 +1019,10 @@ mod persistent_memory_tests {
         assert_eq!(coverage.embedded_records, 0);
         assert_eq!(coverage.missing_records, 1);
 
-        store.set_embedding(&record.memory_id, &[1.0, 0.0, 0.0]).await.unwrap();
+        store
+            .set_embedding(&record.memory_id, &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
         let coverage = store.embedding_coverage("project:coverage").await.unwrap();
         assert_eq!(coverage.embedded_records, 1);
         assert_eq!(coverage.missing_records, 0);
@@ -1046,30 +1044,22 @@ mod persistent_memory_tests {
         let store = PersistentMemoryStore::new(&url).await.unwrap();
 
         let first = store
-            .upsert(
-                "project:eval",
-                "rust",
-                "durable rust runtime",
-                &[],
-                0.9,
-                0,
-            )
+            .upsert("project:eval", "rust", "durable rust runtime", &[], 0.9, 0)
             .await
             .unwrap();
         let second = store
-            .upsert(
-                "project:eval",
-                "python",
-                "python scripting",
-                &[],
-                0.5,
-                0,
-            )
+            .upsert("project:eval", "python", "python scripting", &[], 0.5, 0)
             .await
             .unwrap();
 
-        store.set_embedding(&first.memory_id, &[1.0, 0.0]).await.unwrap();
-        store.set_embedding(&second.memory_id, &[0.0, 1.0]).await.unwrap();
+        store
+            .set_embedding(&first.memory_id, &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .set_embedding(&second.memory_id, &[0.0, 1.0])
+            .await
+            .unwrap();
 
         let report = store
             .evaluate_semantic_retrieval(

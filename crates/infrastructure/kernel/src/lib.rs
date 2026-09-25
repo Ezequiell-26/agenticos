@@ -1869,12 +1869,101 @@ impl SqliteOutboxStore {
             .map_err(|error| {
                 ContractError::ParseError(format!("outbox database connection failed: {error}"))
             })?;
+
         agenticos_sqlite_migrations::migrate_pool(&pool)
             .await
             .map_err(|error| {
                 ContractError::ParseError(format!("sqlite migrations failed: {error}"))
             })?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS outbox_entries (
+                entry_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                event_data TEXT NOT NULL,
+                event_schema_version INTEGER NOT NULL,
+                destination TEXT NOT NULL,
+                attempts INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                processed_at INTEGER,
+                claimed_by TEXT,
+                claimed_until INTEGER
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox schema initialization failed: {error}"))
+        })?;
+
+        for (column, definition) in [("claimed_by", "TEXT"), ("claimed_until", "INTEGER")] {
+            let exists: Option<String> = sqlx::query_scalar(
+                "SELECT name FROM pragma_table_info('outbox_entries') WHERE name = ?",
+            )
+            .bind(column)
+            .fetch_optional(&pool)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("outbox schema inspection failed: {error}"))
+            })?;
+            if exists.is_none() {
+                let statement =
+                    format!("ALTER TABLE outbox_entries ADD COLUMN {column} {definition}");
+                sqlx::query(&statement)
+                    .execute(&pool)
+                    .await
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "outbox schema migration failed for {column}: {error}"
+                        ))
+                    })?;
+            }
+        }
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_outbox_claims
+             ON outbox_entries(status, claimed_until, created_at, entry_id)",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox index initialization failed: {error}"))
+        })?;
+
+        Ok(Self {
+            pool: Arc::new(pool),
+        })
+    }
+
+    fn status_name(status: OutboxStatus) -> &'static str {
+        match status {
+            OutboxStatus::Pending => "pending",
+            OutboxStatus::Processing => "processing",
+            OutboxStatus::Published => "published",
+            OutboxStatus::Failed => "failed",
+            OutboxStatus::DeadLetter => "dead_letter",
+        }
+    }
+
+    fn parse_status(status: &str) -> Result<OutboxStatus, ContractError> {
+        match status {
+            "pending" => Ok(OutboxStatus::Pending),
+            "processing" => Ok(OutboxStatus::Processing),
+            "published" => Ok(OutboxStatus::Published),
+            "failed" => Ok(OutboxStatus::Failed),
+            "dead_letter" => Ok(OutboxStatus::DeadLetter),
+            other => Err(ContractError::ParseError(format!(
+                "unknown outbox status {other}"
+            ))),
+        }
+    }
+
+    async fn load_entries(
+        &self,
+        where_clause: &str,
+        limit: usize,
+    ) -> Result<Vec<OutboxEntry>, ContractError> {
         let query = format!(
             "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"
         );

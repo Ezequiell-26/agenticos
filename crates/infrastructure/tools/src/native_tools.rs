@@ -466,7 +466,6 @@ impl AgentTool for TerminalTool {
             return Err(ContractError::MissingCapability);
         }
 
-        let mut screenshot_artifact: Option<ArtifactRecord> = None;
         let result = match self.operation {
             "terminal.open" => {
                 let args =

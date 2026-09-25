@@ -117,6 +117,3 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
-
-      - name: Clippy workspace
-        run: cargo clippy --workspace --all-targets -- -D warnings

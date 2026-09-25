@@ -724,6 +724,13 @@ impl Default for JobScheduler {
     }
 }
 
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1134,11 +1141,4 @@ mod tests {
         scheduler.complete("a", true, None).await.unwrap();
         assert_eq!(scheduler.next_ready(10).await[0].spec.job_id, "b");
     }
-}
-
-fn unix_time() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0)
 }

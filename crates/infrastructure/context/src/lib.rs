@@ -342,7 +342,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn prepare_with_overhead_reserves_prompt_tokens() {
         let engine = ContextEngine::new();
         let budget = ContextBudget {
@@ -363,6 +362,7 @@ mod tests {
         assert_eq!(plan.dropped_tokens, 50);
     }
 
+    #[test]
     fn prepare_keeps_recent_turns_and_system_messages() {
         let engine = ContextEngine::new();
         let budget = ContextBudget {

@@ -650,6 +650,8 @@ pub struct KernelRuntime {
     pub capability_issuer: Arc<dyn CapabilityIssuer>,
     /// Brain capability registry for dynamic capability management.
     pub capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
+    /// Outbox used for reliable downstream event publication.
+    pub outbox: Arc<dyn OutboxStore>,
 }
 
 impl std::fmt::Debug for KernelRuntime {
@@ -662,19 +664,21 @@ impl std::fmt::Debug for KernelRuntime {
             .field("config", &"<ConfigLayer>")
             .field("capability_issuer", &"<CapabilityIssuer>")
             .field("capability_registry", &"<CapabilityRegistry>")
+            .field("outbox", &"<OutboxStore>")
             .finish()
     }
 }
 
 impl KernelRuntime {
-    /// Create a new kernel runtime with given stores and components.
-    pub fn new(
+    /// Create a kernel runtime with an explicit outbox implementation.
+    pub fn new_with_outbox(
         event_store: Arc<dyn EventStore>,
         snapshot_store: Arc<dyn SnapshotStore>,
         logger: Arc<dyn Logger>,
         config: Arc<RwLock<dyn ConfigLayer>>,
         capability_issuer: Arc<dyn CapabilityIssuer>,
         capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
+        outbox: Arc<dyn OutboxStore>,
     ) -> Self {
         Self {
             event_store,
@@ -684,7 +688,28 @@ impl KernelRuntime {
             config,
             capability_issuer,
             capability_registry,
+            outbox,
         }
+    }
+
+    /// Create a new kernel runtime with default components.
+    pub fn new(
+        event_store: Arc<dyn EventStore>,
+        snapshot_store: Arc<dyn SnapshotStore>,
+        logger: Arc<RwLock<dyn Logger>>,
+        config: Arc<RwLock<dyn ConfigLayer>>,
+        capability_issuer: Arc<dyn CapabilityIssuer>,
+        capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
+    ) -> Self {
+        Self::new_with_outbox(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+            capability_registry,
+            Arc::new(InMemoryOutboxStore::new()),
+        )
     }
 
     /// Create a minimal kernel runtime with default components.
@@ -700,6 +725,29 @@ impl KernelRuntime {
             Arc::new(InMemoryCapabilityIssuer::new()),
             Arc::new(agenticos_brain::CapabilityRegistry::default()),
         )
+    }
+
+    async fn enqueue_outbox_event(
+        &self,
+        event: SerializedEvent,
+        destination: &str,
+    ) {
+        let entry = OutboxEntry {
+            entry_id: format!("outbox-{}", uuid::Uuid::new_v4()),
+            event,
+            destination: destination.to_string(),
+            attempts: 0,
+            status: OutboxStatus::Pending,
+            created_at: chrono::Utc::now().timestamp().max(0) as u64,
+            processed_at: None,
+        };
+        if let Err(error) = self.outbox.add(entry).await {
+            tracing::warn!(
+                %error,
+                destination,
+                "failed to enqueue kernel event in outbox"
+            );
+        }
     }
 
     /// Create a new run and persist its creation event.
@@ -729,7 +777,10 @@ impl KernelRuntime {
         };
 
         let stream_id = format!("run:{}", run_id.as_str());
-        self.event_store.append(&stream_id, 0, vec![event]).await?;
+        self.event_store
+            .append(&stream_id, 0, vec![event.clone()])
+            .await?;
+        self.enqueue_outbox_event(event, "runtime").await;
 
         // Increment version after successful persistence
         run.version = 1;
@@ -783,8 +834,9 @@ impl KernelRuntime {
 
         let stream_id = format!("run:{}", run_id.as_str());
         self.event_store
-            .append(&stream_id, previous.version, vec![event])
+            .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
+        self.enqueue_outbox_event(event, "runtime").await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
@@ -857,8 +909,9 @@ impl KernelRuntime {
 
         let stream_id = format!("run:{}", run_id.as_str());
         self.event_store
-            .append(&stream_id, previous.version, vec![event])
+            .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
+        self.enqueue_outbox_event(event, "runtime").await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())

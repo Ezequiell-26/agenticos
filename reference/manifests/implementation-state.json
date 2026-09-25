@@ -19,14 +19,14 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "4c57fca55e42eb39735cd38afb0c1351ec9eae8d",
+    "last_update_commit": "40a851651ec65c2f4ed0edeed0056b87bc12c732",
     "next_actions": [
-      "inspect the fresh CI result for the complete backend hardening set",
-      "complete streaming usage accounting when provider usage trailers are available",
-      "finish real browser artifact capture/session lifecycle",
-      "add optional semantic embeddings behind a provider-neutral contract",
-      "centralize remaining SQLite schema initialization into migrations",
-      "promote capabilities to verified only with CI/runtime evidence"
+      "inspect CI 2209 and resolve any compile, test or clippy regression",
+      "add real runtime evidence for browser sessions and artifact capture",
+      "centralize remaining SQLite schema initialization behind versioned migrations",
+      "add provider-neutral embedding contract and an optional real embedding adapter",
+      "connect durable outbox to a real delivery transport before enabling background draining",
+      "promote only capabilities with CI/runtime evidence to verified"
     ],
     "scope": [
       "capability-driven governance",
@@ -220,6 +220,21 @@
     {
       "id": "lease-recovery",
       "owner": "application/scheduler",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "streaming-token-accounting",
+      "owner": "infrastructure/providers + observability",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "durable-outbox",
+      "owner": "kernel",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "capability-admin-gate",
+      "owner": "api-server/security",
       "status": "implemented-unverified"
     }
   ],

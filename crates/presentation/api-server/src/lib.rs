@@ -167,6 +167,10 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
+        let source_forge = Arc::new(
+            GitHubSourceClient::from_env()
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(
             |error| {
@@ -545,10 +549,7 @@ impl RuntimeState {
                     .await
                     .map_err(|error| ContractError::ParseError(error.to_string()))?,
             ),
-            source_forge: Arc::new(
-                GitHubSourceClient::from_env()
-                    .map_err(|error| ContractError::ParseError(error.to_string()))?,
-            ),
+            source_forge: source_forge.clone(),
             a2a_tasks: Arc::new(
                 A2aTaskStore::open(&database_url)
                     .await

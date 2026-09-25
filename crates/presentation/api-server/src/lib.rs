@@ -552,6 +552,7 @@ impl AgentTool for TerminalTool {
 struct BrowserTool {
     browser: Arc<BrowserRuntime>,
     capabilities: Arc<CapabilityManager>,
+    audit: Arc<AuditStore>,
     operation: &'static str,
 }
 
@@ -645,6 +646,26 @@ impl AgentTool for BrowserTool {
             "browser.close" => self.browser.close(&session_id).await?,
             _ => return Err(ContractError::MissingCapability),
         };
+
+        let audit_outcome = if result.success { "success" } else { "failure" };
+        if let Err(error) = self
+            .audit
+            .append(AuditEvent::new(
+                "browser",
+                self.operation,
+                Some(request.agent_id.clone()),
+                format!("browser/{}", session_id),
+                Some(request.request_id.clone()),
+                audit_outcome,
+                serde_json::json!({
+                    "action": self.operation,
+                    "session_id": session_id,
+                }),
+            ))
+            .await
+        {
+            tracing::warn!(%error, operation = self.operation, "failed to persist browser audit event");
+        }
 
         Ok(ToolResponse {
             request_id: request.request_id,
@@ -916,6 +937,7 @@ impl RuntimeState {
                     Arc::new(BrowserTool {
                         browser: browser.clone(),
                         capabilities: capabilities.clone(),
+                        audit: audit.clone(),
                         operation: tool_id,
                     }),
                 )

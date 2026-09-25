@@ -39,7 +39,7 @@ The repository has one canonical Rust workspace layout:
 crates/<layer>/<crate>/Cargo.toml
 ```
 
-The current workspace contains 40 registered crates across the canonical layers. Nested crate manifests, legacy root crates, duplicate adapter crates and secondary desktop applications are not part of the product tree and are blocked by the architecture gate.
+The current workspace contains 49 registered first-party crates across the canonical layers. Every crate under `crates/` is an explicit workspace member and must be listed in `reference/manifests/architecture-dag.json`. Nested crate manifests and undeclared legacy roots are blocked by the architecture gate.
 
 The canonical desktop product lives only at `crates/presentation/desktop/`; its frontend lives at `crates/presentation/desktop/frontend/`. Historical implementations remain in Git history and must be reintroduced only through a fresh, evidence-backed reconciliation.
 
@@ -140,9 +140,9 @@ OmniRoute and FreeLLMAPI are references for relevant gateway optimization patter
 
 AgentiCOS uses a small microkernel with pluggable domains around it.
 
-The kernel owns lifecycle, stable IDs, correlation, cancellation, event transport, contract/version negotiation, persistence boundaries, plugin lifecycle, capability primitives, policy hooks and normalized error/recovery semantics.
+The kernel owns durable runtime lifecycle, stable IDs, correlation, cancellation, event transport, contract/version negotiation, persistence boundaries, capability/policy hooks and normalized recovery semantics. Agent orchestration is kept in `crates/infrastructure/kernel/src/agent_core.rs` only as an explicit decomposition seam during the migration to the application layer.
 
-Feature domains must remain replaceable. The kernel never depends on a specific provider, UI, browser implementation or storage vendor.
+Provider transport and multi-provider policy are owned by `crates/infrastructure/providers/`. The kernel no longer carries a second provider router/adapter/quota implementation.
 
 ## Primary object model
 
@@ -238,3 +238,8 @@ The machine-readable implementation manifest is authoritative for progression. `
 An AI agent must read the current state before changing code, work only inside the current step scope, resolve reference evidence before non-trivial implementation, preserve existing code/data/history by default, record exact verification evidence, and leave exactly one next authorized step.
 
 Contradictory project state is a blocking operational failure. The model must not guess which source is correct.
+
+
+## Current repository ownership
+
+The machine-checked repository structure is documented in `docs/architecture/REPOSITORY-STRUCTURE.md`. That document describes the implemented tree; planned capabilities such as application skills, plugins and a dedicated router are not treated as implemented crates until they exist and are verified.

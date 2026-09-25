@@ -25,7 +25,7 @@ application
     ↓
 domain
     ↑
-infrastructure implements domain/application ports
+infrastructure provides concrete runtime adapters and persistence
     ↑
 utilities are reusable implementation primitives
 ```
@@ -33,49 +33,94 @@ utilities are reusable implementation primitives
 Canonical ownership:
 
 ```
+
 crates/
+
 ├── domain/
-│   ├── contracts/          # Stable public/internal contracts
-│   └── brain/              # Brain abstractions and policy-level intelligence
+
+│   ├── brain/
+
+│   └── contracts/
+
 │
+
 ├── application/
+
 │   ├── agents/
+
 │   ├── execution/
+
 │   ├── scheduler/
-│   ├── workflows/
-│   ├── projects/
-│   └── skills/
+
+│   └── workflows/
+
 │
+
 ├── infrastructure/
-│   ├── kernel/
-│   ├── runtime/
-│   ├── providers/
-│   ├── tools/
-│   ├── mcp/
-│   ├── memory/
-│   ├── context/
-│   ├── protocols/
-│   ├── source-forge/
-│   ├── observability/
-│   ├── evaluation/
-│   ├── security/
-│   ├── sandbox/
-│   ├── adapters/
+
+│   ├── a2a/                # Agent-to-agent interoperability
+
+│   ├── adapters/           # Compatibility facade
+
 │   ├── artifacts/
-│   ├── plugins/
-│   └── router/
+
+│   ├── browser/
+
+│   ├── channels/
+
+│   ├── context/
+
+│   ├── evaluation/
+
+│   ├── kernel/             # Durable runtime lifecycle
+
+│   ├── mcp/
+
+│   ├── memory/
+
+│   ├── observability/
+
+│   ├── projects/
+
+│   ├── protocols/
+
+│   ├── providers/          # Canonical provider transport/routing plane
+
+│   ├── runtime/
+
+│   ├── sandbox/
+
+│   ├── security/
+
+│   ├── source-forge/
+
+│   ├── terminal/
+
+│   ├── tools/
+
+│   └── workspace/
+
 │
+
 ├── presentation/
+
+│   ├── api-server/
+
 │   ├── cli/
-│   ├── gateway/
+
 │   ├── desktop/
-│   └── api-server/
+
+│   └── gateway/
+
 │
+
 └── utilities/
-    └── cross-cutting reusable infrastructure
+
+    └── 18 reusable cross-cutting crates
+
 ```
 
-The exact workspace may temporarily contain fewer target crates. A planned crate is not treated as implemented until it exists, is registered and is verified.
+These are the implemented ownership boundaries. Planned crates are tracked separately in `reference/manifests/architecture-dag.json`; a planned capability is not treated as implemented until its crate exists, is registered and is verified.
 
 ## 3. Brain contract
 

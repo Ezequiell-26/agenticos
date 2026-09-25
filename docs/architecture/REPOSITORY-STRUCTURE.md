@@ -1,124 +1,35 @@
-# AgentiCOS Repository Structure
+# AgentiCOS — Repository Structure
 
-This document is the canonical map of the repository tree. It describes the implemented structure on the current `main` branch; historical layouts are archived separately.
+## Purpose
 
-## 1. Canonical Rust workspace
+This file is the human-readable counterpart to `reference/manifests/architecture-dag.json`. Cargo membership, filesystem layout and the architecture manifest are intentionally kept in lockstep by `scripts/verify-architecture-boundaries.mjs`.
 
-All Rust crates use exactly this manifest shape:
+## Implemented layers
 
-    crates/<layer>/<crate>/Cargo.toml
+| Layer | Implemented crates | Responsibility |
+|---|---|---|
+| Domain | `brain`, `contracts` | Stable contracts, policy-level intelligence and model/tool-neutral abstractions. |
+| Application | `agents`, `execution`, `scheduler`, `workflows` | User-facing use cases, execution orchestration, scheduling and workflows. |
+| Infrastructure | `a2a`, `adapters`, `artifacts`, `browser`, `channels`, `context`, `evaluation`, `kernel`, `mcp`, `memory`, `observability`, `projects`, `protocols`, `providers`, `runtime`, `sandbox`, `security`, `source-forge`, `terminal`, `tools`, `workspace` | Concrete transports, persistence, runtime services, security, tools and integrations. |
+| Presentation | `api-server`, `cli`, `desktop`, `gateway` | HTTP, CLI and desktop delivery surfaces. |
+| Utilities | 18 cross-cutting crates | Reusable primitives that do not own product/domain behavior. |
 
-There are 40 registered workspace crates plus the repository-root workspace manifest.
+## Important boundaries
 
-### Domain
-- `crates/domain/contracts`
-- `crates/domain/brain`
+`infrastructure/kernel` is a durable runtime boundary. `infrastructure/providers` is the canonical model/provider plane. `application/execution` owns reusable capability-gated native tool adapters so presentation surfaces do not implement tool behavior themselves.
 
-### Application
-- `crates/application/agents`
-- `crates/application/execution`
-- `crates/application/scheduler`
-- `crates/application/workflows`
+`crates/infrastructure/kernel/src/agent_core.rs` is a transitional internal module extracted from the historical kernel monolith. It makes the agent implementation boundary explicit without pretending that the application-layer migration is already complete.
 
-### Infrastructure
-- `crates/infrastructure/adapters`
-- `crates/infrastructure/evaluation`
-- `crates/infrastructure/kernel`
-- `crates/infrastructure/memory`
-- `crates/infrastructure/observability`
-- `crates/infrastructure/protocols`
-- `crates/infrastructure/providers`
-- `crates/infrastructure/runtime`
-- `crates/infrastructure/sandbox`
-- `crates/infrastructure/security`
-- `crates/infrastructure/source-forge`
-- `crates/infrastructure/tools`
+The root TypeScript tree under `src/` remains a transitional architecture/CLI prototype and is not the Rust product runtime. It must not become an undeclared production dependency.
 
-### Presentation
-- `crates/presentation/api-server`
-- `crates/presentation/cli`
-- `crates/presentation/desktop`
-- `crates/presentation/gateway`
+## Planned, not implemented
 
-### Utilities
-- `crates/utilities/async-utils`
-- `crates/utilities/cache`
-- `crates/utilities/compression`
-- `crates/utilities/concurrency-stress`
-- `crates/utilities/configuration`
-- `crates/utilities/crypto`
-- `crates/utilities/event-bus`
-- `crates/utilities/file-watcher`
-- `crates/utilities/http-client`
-- `crates/utilities/math`
-- `crates/utilities/notifications`
-- `crates/utilities/rate-limiting`
-- `crates/utilities/state-management`
-- `crates/utilities/streaming`
-- `crates/utilities/text-search`
-- `crates/utilities/time-utils`
-- `crates/utilities/vector-database`
-- `crates/utilities/websockets`
+The architecture manifest currently records `application/skills` and `infrastructure/plugins` / `infrastructure/router` as planned seams. Their absence from the implemented tree is intentional.
 
-## 2. Desktop product surface
+## Rules for future changes
 
-The desktop application has one authoritative home: `crates/presentation/desktop/`.
-The frontend lives at `crates/presentation/desktop/frontend/`.
-The frontend is React + TypeScript + Vite and remains presentation-only; runtime ownership remains in Rust.
-There is no second legacy desktop application under `crates/interface/`.
-
-## 3. Frontend organization
-
-    crates/presentation/desktop/frontend/
-    ├── src/
-    │   ├── components/     # shell, shared interaction and compatibility surfaces
-    │   ├── features/       # isolated product capabilities
-    │   ├── services/       # typed runtime boundary
-    │   ├── types/          # UI-facing runtime types
-    │   ├── navigation.ts   # centralized feature registry
-    │   ├── App.tsx         # desktop composition root
-    │   ├── main.tsx        # bootstrap + error boundary
-    │   ├── index.css       # primary design system
-    │   └── workspace-enhancements.css
-    ├── package.json
-    ├── package-lock.json
-    ├── vite.config.ts
-    └── tsconfig*.json
-
-Preview/local UI state must stay visually distinct from live runtime telemetry.
-
-## 4. Verification and control plane
-
-- `reference/PROJECT-STATE.md` — current human-readable state.
-- `reference/manifests/implementation-state.json` — authoritative sequential state machine.
-- `reference/manifests/architecture-dag.json` — layer/dependency rules.
-- `reference/manifests/agent-continuity.json` — AI change-control contract.
-- `reference/journal/agent-operations.jsonl` — append-only operation history.
-- `scripts/verify-project-consistency.mjs` — project-state gate.
-- `scripts/verify-agent-continuity.mjs` — journal/continuity gate.
-- `scripts/verify-architecture-boundaries.mjs` — workspace ownership, layer and manifest-shape gate.
-- `scripts/verify-frontend-architecture.mjs` — frontend structure/route/service-boundary gate.
-
-## 5. Contracts, references and docs
-
-- `contracts/` — versioned AgentiCOS contracts.
-- `protocols/schemas/` — cross-boundary schemas.
-- `reference/manifests/` — machine-readable architecture and source metadata.
-- `vendor/` — controlled source snapshots and manifests.
-- `docs/architecture/` — current architecture documentation.
-- `docs/adr/` — architectural decisions.
-- `docs/archive/architecture/` — superseded proposals and historical structure analyses.
-
-## 6. Structural invariants
-
-The architecture gate enforces:
-
-1. exactly one Cargo workspace manifest per registered crate;
-2. no nested Cargo manifests inside a crate;
-3. every crate manifest is registered in the root workspace;
-4. no legacy `crates/interface` tree;
-5. no legacy flat-root crates duplicated under canonical owners;
-6. presentation code does not become part of the Brain/runtime;
-7. frontend leaf components do not bypass runtime transport boundaries.
-
-Historical source remains recoverable through Git history and documented evidence; it is not kept as duplicate live code.
+1. Add a real crate before adding it to the implemented architecture list.
+2. Every crate under `crates/` must be an explicit workspace member.
+3. Move behavior toward its owning layer instead of introducing another compatibility implementation.
+4. Keep transport and presentation code out of domain and application contracts.
+5. Preserve rollback and journal evidence for destructive moves.

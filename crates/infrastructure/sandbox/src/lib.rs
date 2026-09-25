@@ -36,6 +36,8 @@ pub struct SandboxPolicy {
     pub clear_environment: bool,
     /// Environment variables allowed to pass through when clearing the environment.
     pub preserved_environment: Vec<String>,
+    /// Optional external isolation runner. Supported values: "process" and "bwrap".
+    pub isolation_runner: String,
 }
 
 impl Default for SandboxPolicy {
@@ -63,6 +65,11 @@ impl Default for SandboxPolicy {
                 "TEMP".to_string(),
                 "TMP".to_string(),
             ],
+            isolation_runner: std::env::var("AGENTICOS_SANDBOX_RUNNER")
+                .ok()
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "process".to_string()),
         }
     }
 }
@@ -149,8 +156,48 @@ impl ProcessSandbox {
         }
         let _active = ActiveProcessGuard::adopted(self.active_processes.clone());
 
-        let mut command_builder = Command::new(executable);
-        if args.len() > 1 {
+        let mut command_builder = if self.policy.isolation_runner == "bwrap" {
+            let runner = if cfg!(target_os = "windows") {
+                return Err(ContractError::ParseError(
+                    "bwrap isolation is not supported on Windows".to_string(),
+                ));
+            } else {
+                "bwrap"
+            };
+            let mut wrapped = Command::new(runner);
+            wrapped
+                .args([
+                    "--die-with-parent",
+                    "--unshare-all",
+                    "--ro-bind",
+                    "/",
+                    "/",
+                    "--proc",
+                    "/proc",
+                    "--dev",
+                    "/dev",
+                    "--tmpfs",
+                    "/tmp",
+                ]);
+            if let Some(dir) = workdir {
+                let dir = dir
+                    .to_str()
+                    .ok_or_else(|| ContractError::ParseError("sandbox workdir is not UTF-8".to_string()))?;
+                wrapped.args(["--bind", dir, dir, "--chdir", dir]);
+            }
+            wrapped.arg("--").arg(executable);
+            wrapped
+        } else if self.policy.isolation_runner == "process" {
+            Command::new(executable)
+        } else {
+            return Err(ContractError::ParseError(format!(
+                "unsupported sandbox isolation runner '{}'",
+                self.policy.isolation_runner
+            )));
+        };
+        if self.policy.isolation_runner != "bwrap" && args.len() > 1 {
+            command_builder.args(&args[1..]);
+        } else if self.policy.isolation_runner == "bwrap" && args.len() > 1 {
             command_builder.args(&args[1..]);
         }
         command_builder
@@ -396,6 +443,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_unknown_isolation_runner() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 1_000,
+            max_output_bytes: 1024,
+            allowed_commands: vec!["git".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "unknown".to_string(),
+        });
+        let result = sandbox
+            .execute_command(
+                "git --version",
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await;
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
+    }
+
+    #[tokio::test]
     async fn rejects_shell_control_operators() {
         let sandbox = ProcessSandbox::default();
         let result = sandbox
@@ -433,6 +502,7 @@ mod tests {
             max_concurrent_processes: 1,
             clear_environment: true,
             preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
         });
 
         let first = sandbox.clone();

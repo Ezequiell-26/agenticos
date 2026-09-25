@@ -26,9 +26,40 @@ use agenticos_brain::{
 use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityType, ContractError, EmbeddingRequest, RunId, RunState, Sandbox,
-    SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest, ModelProvider,
+    RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
+
+/// Get current Unix timestamp in seconds.
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+/// Read usize from environment with fallback and bounds.
+fn runtime_env_usize(key: &str, default: usize, min: usize, max: usize) -> usize {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+/// Read u64 from environment with fallback and bounds.
+fn runtime_env_u64(key: &str, default: u64, min: u64, max: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+/// Get agent execution concurrency limit from environment.
+fn agent_execution_concurrency_limit() -> usize {
+    runtime_env_usize("AGENTICOS_AGENT_EXECUTION_CONCURRENCY", 4, 1, 16)
+}
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
@@ -116,6 +147,7 @@ pub struct RuntimeState {
     reasoning: Arc<ReasoningEngine>,
     source_intelligence: Arc<agenticos_brain::SourceIntelligenceEngine>,
     metrics: Arc<RuntimeMetrics>,
+    bind_port: u16,
     evaluation: Arc<EvaluationRegistry>,
     idempotency: Arc<SqliteIdempotencyStore>,
     source_forge: Arc<GitHubSourceClient>,

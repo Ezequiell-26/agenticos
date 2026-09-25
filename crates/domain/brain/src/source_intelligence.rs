@@ -736,13 +736,27 @@ mod tests {
             .await
             .unwrap();
 
-        let analysis = engine.analyze("user/repo").await.unwrap();
+        let documents = HashMap::from([
+            (
+                "README.md".to_string(),
+                "This project uses tokio and MCP for agent orchestration.".to_string(),
+            ),
+            (
+                "src/main.rs".to_string(),
+                "async fn main() { let _ = reqwest::Client::new(); }".to_string(),
+            ),
+        ]);
+        let analysis = engine
+            .analyze_documents("user/repo", &documents)
+            .await
+            .unwrap();
         let capabilities = engine
             .register_capabilities("user/repo", "abc123".to_string(), &analysis)
-            .await;
-        assert!(capabilities.is_ok());
-        let caps = capabilities.unwrap();
-        assert!(!caps.is_empty());
+            .await
+            .unwrap();
+        assert!(capabilities.iter().any(|cap| cap.name == "http-client"));
+        assert!(capabilities.iter().any(|cap| cap.name == "async-runtime"));
+        assert!(capabilities.iter().any(|cap| cap.name == "mcp"));
     }
 
     #[tokio::test]
@@ -790,7 +804,16 @@ mod tests {
         };
         let engine = SourceIntelligenceEngine::new(config);
         engine
-            .discover("https://github.com/user/repo")
+            .register_metadata(RepositoryMetadata {
+                repo_id: "user/repo".to_string(),
+                url: "https://github.com/user/repo".to_string(),
+                default_branch: "main".to_string(),
+                last_indexed: Utc::now(),
+                license: Some("MIT".to_string()),
+                language: Some("Rust".to_string()),
+                stars: 0,
+                status: RepositoryStatus::Discovered,
+            })
             .await
             .unwrap();
 

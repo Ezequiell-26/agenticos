@@ -4907,17 +4907,6 @@ async fn agent_chat(
         }
     };
     if let Err(error) = state
-        .kernel
-        .transition_run(&run_id, RunState::Running, admitted.version)
-        .await
-    {
-        state.metrics.record_http(true);
-        return HttpResponse::Conflict().json(ErrorResponse {
-            error: error.to_string(),
-            code: "CHAT_RUN_START_FAILED",
-        });
-    }
-    if let Err(error) = state
         .memory
         .store_message(
             &format!("{}-objective", run_id.as_str()),
@@ -4953,6 +4942,68 @@ async fn agent_chat(
             code: "AGENT_CAPACITY_UNAVAILABLE",
         });
     }
+    let lease_seconds = std::env::var("AGENTICOS_RUN_LEASE_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(300)
+        .clamp(10, 3600);
+    let owner_id = format!("api-chat:{}:{}", session_id, run_id.as_str());
+    let lease = match state
+        .kernel
+        .acquire_lease(
+            &run_id,
+            owner_id.clone(),
+            unix_time().saturating_add(lease_seconds),
+        )
+        .await
+    {
+        Ok(lease) => lease,
+        Err(error) => {
+            state.metrics.record_http(true);
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_LEASE_UNAVAILABLE",
+            });
+        }
+    };
+
+    let admitted = match state.kernel.get_or_recover_run(&run_id).await {
+        Ok(run) => run,
+        Err(error) => {
+            let _ = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await;
+            state.metrics.record_http(true);
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_STATE_FAILED",
+            });
+        }
+    };
+    if let Err(error) = state
+        .kernel
+        .transition_run(&run_id, RunState::Running, admitted.version)
+        .await
+    {
+        let _ = state
+            .kernel
+            .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+            .await;
+        state.metrics.record_http(true);
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CHAT_RUN_START_FAILED",
+        });
+    }
+
+    let heartbeat_interval_seconds = (lease_seconds / 3).clamp(1, 60);
+    let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(
+        heartbeat_interval_seconds,
+    ));
+    heartbeat.tick().await;
+
+    let mut lease_lost = false;
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
 
@@ -4962,6 +5013,23 @@ async fn agent_chat(
     let execution_result = loop {
         tokio::select! {
             result = &mut execution => break result,
+            _ = heartbeat.tick() => {
+                let renewed_until = unix_time().saturating_add(lease_seconds);
+                if state
+                    .kernel
+                    .renew_lease(
+                        &run_id,
+                        &lease.owner_id,
+                        lease.fencing_token,
+                        renewed_until,
+                    )
+                    .await
+                    .is_err()
+                {
+                    lease_lost = true;
+                    break Err(ContractError::ParseError("run lease lost".to_string()));
+                }
+            }
             _ = tokio::time::sleep(std::time::Duration::from_millis(75)) => {
                 match state.kernel.get_or_recover_run(&run_id).await {
                     Ok(run) if run.state == RunState::Cancelling || run.cancellation.is_cancelled() => {
@@ -4997,15 +5065,41 @@ async fn agent_chat(
                     code: "RUN_CANCELLED",
                 });
             }
+            if lease_lost {
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await;
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "run lease was lost before completion".to_string(),
+                    code: "CHAT_RUN_LEASE_LOST",
+                });
+            }
             if let Err(error) = state
                 .kernel
                 .transition_run(&run_id, RunState::Completed, current.version)
                 .await
             {
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await;
                 state.metrics.record_http(true);
                 return HttpResponse::Conflict().json(ErrorResponse {
                     error: error.to_string(),
                     code: "CHAT_RUN_COMPLETE_FAILED",
+                });
+            }
+            if let Err(error) = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await
+            {
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "CHAT_RUN_LEASE_RELEASE_FAILED",
                 });
             }
             state.metrics.record_http(false);
@@ -5033,17 +5127,27 @@ async fn agent_chat(
                         .kernel
                         .transition_run(&run_id, RunState::Cancelled, current.version)
                         .await;
+                    let _ = state
+                        .kernel
+                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                        .await;
                     state.metrics.record_http(true);
                     return HttpResponse::Conflict().json(ErrorResponse {
                         error: "run was cancelled".to_string(),
                         code: "RUN_CANCELLED",
                     });
                 }
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, current.version)
-                    .await;
+                if !lease_lost {
+                    let _ = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Failed, current.version)
+                        .await;
+                }
             }
+            let _ = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await;
             state.metrics.record_http(true);
             state
                 .metrics

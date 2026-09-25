@@ -7587,7 +7587,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::post().to(backfill_memory_embeddings),
             )
     })
-    .bind(("127.0.0.1", state.bind_port))
+    .bind((host.as_str(), port))
     .map_err(|error| std::io::Error::other(error.to_string()))?
     .run()
     .await

@@ -1928,7 +1928,7 @@ impl OutboxStore for SqliteOutboxStore {
 #[derive(Debug)]
 pub struct InMemoryOutboxStore {
     entries: Arc<RwLock<HashMap<String, OutboxEntry>>>,
-    claims: Arc<RwLock<HashMap<String, (String, u64)>>,
+    claims: Arc<RwLock<HashMap<String, (String, u64)>>>,
 }
 
 impl InMemoryOutboxStore {

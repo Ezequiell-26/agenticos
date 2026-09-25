@@ -210,6 +210,16 @@ impl SubagentManager {
         definitions
     }
 
+    /// Return one registered agent definition.
+    pub async fn definition(&self, agent_id: &str) -> Option<AgentDefinition> {
+        self.definitions.read().await.get(agent_id).cloned()
+    }
+
+    /// Return one persisted child run.
+    pub async fn child(&self, child_run_id: &str) -> Option<ChildRun> {
+        self.children.read().await.get(child_run_id).cloned()
+    }
+
     /// Spawn a bounded child run.
     pub async fn spawn_child(
         &self,

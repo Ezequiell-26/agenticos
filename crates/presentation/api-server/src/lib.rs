@@ -1074,6 +1074,7 @@ struct ChatRequest {
     session_id: Option<String>,
     model: Option<String>,
     parameters: Option<serde_json::Value>,
+    run_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1090,6 +1091,7 @@ struct ChatResponse {
     agent: String,
     session_id: String,
     model: String,
+    run_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -3350,6 +3352,24 @@ async fn agent_chat(
         .clone()
         .filter(|id| !id.trim().is_empty())
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let run_id = match RunId::new(
+        request
+            .run_id
+            .clone()
+            .filter(|id| !id.trim().is_empty())
+            .unwrap_or_else(|| format!("chat-{}", uuid::Uuid::new_v4())),
+    ) {
+        Ok(id) => id,
+        Err(error) => {
+            state.metrics.record_http(true);
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "INVALID_RUN_ID",
+            });
+        }
+    };
+
     let requested_model = request
         .model
         .as_deref()
@@ -3386,6 +3406,72 @@ async fn agent_chat(
     }
 
     let agent = state.session_agent(&session_id, requested_model).await;
+
+    let created_run = match state.kernel.create_run(run_id.clone()).await {
+        Ok(run) => run,
+        Err(error) => {
+            state.metrics.record_http(true);
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_CREATE_FAILED",
+            });
+        }
+    };
+    if let Err(error) = state
+        .kernel
+        .transition_run(&run_id, RunState::Admitted, created_run.version)
+        .await
+    {
+        state.metrics.record_http(true);
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CHAT_RUN_ADMISSION_FAILED",
+        });
+    }
+    let admitted = match state.kernel.get_or_recover_run(&run_id).await {
+        Ok(run) => run,
+        Err(error) => {
+            state.metrics.record_http(true);
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_STATE_FAILED",
+            });
+        }
+    };
+    if let Err(error) = state
+        .kernel
+        .transition_run(&run_id, RunState::Running, admitted.version)
+        .await
+    {
+        state.metrics.record_http(true);
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CHAT_RUN_START_FAILED",
+        });
+    }
+    if let Err(error) = state
+        .memory
+        .store_message(
+            &format!("{}-objective", run_id.as_str()),
+            run_id.as_str(),
+            "objective",
+            message,
+        )
+        .await
+    {
+        if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            let _ = state
+                .kernel
+                .transition_run(&run_id, RunState::Failed, current.version)
+                .await;
+        }
+        state.metrics.record_http(true);
+        return HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CHAT_RUN_OBJECTIVE_PERSIST_FAILED",
+        });
+    }
+
     let _agent_permit = state
         .agent_execution_concurrency
         .acquire()
@@ -3402,11 +3488,58 @@ async fn agent_chat(
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
 
-    match agent
-        .execute_turn_with_parameters(message, provider_parameters)
-        .await
-    {
+    let execution = agent.execute_turn_with_parameters(message, provider_parameters);
+    tokio::pin!(execution);
+
+    let execution_result = loop {
+        tokio::select! {
+            result = &mut execution => break result,
+            _ = tokio::time::sleep(std::time::Duration::from_millis(75)) => {
+                match state.kernel.get_or_recover_run(&run_id).await {
+                    Ok(run) if run.state == RunState::Cancelling || run.cancellation.is_cancelled() => {
+                        break Err(ContractError::ParseError("run was cancelled".to_string()));
+                    }
+                    Ok(_) => {}
+                    Err(error) => break Err(error),
+                }
+            }
+        }
+    };
+
+    match execution_result {
         Ok(response) => {
+            let current = match state.kernel.get_or_recover_run(&run_id).await {
+                Ok(run) => run,
+                Err(error) => {
+                    state.metrics.record_http(true);
+                    return HttpResponse::InternalServerError().json(ErrorResponse {
+                        error: error.to_string(),
+                        code: "CHAT_RUN_STATE_FAILED",
+                    });
+                }
+            };
+            if current.state == RunState::Cancelling || current.cancellation.is_cancelled() {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Cancelled, current.version)
+                    .await;
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "run was cancelled".to_string(),
+                    code: "RUN_CANCELLED",
+                });
+            }
+            if let Err(error) = state
+                .kernel
+                .transition_run(&run_id, RunState::Completed, current.version)
+                .await
+            {
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "CHAT_RUN_COMPLETE_FAILED",
+                });
+            }
             state.metrics.record_http(false);
             state
                 .metrics
@@ -3416,10 +3549,33 @@ async fn agent_chat(
                 agent: agent.name().to_string(),
                 session_id,
                 model: requested_model.unwrap_or(state.model.as_str()).to_string(),
+                run_id: run_id.as_str().to_string(),
             })
         }
         Err(error) => {
             state.metrics.record_provider(true);
+            state.metrics.record_http(true);
+            state
+                .metrics
+                .record_llm_latency(started_at.elapsed().as_millis() as u64);
+            let current = state.kernel.get_or_recover_run(&run_id).await.ok();
+            if let Some(current) = current {
+                if current.state == RunState::Cancelling || current.cancellation.is_cancelled() {
+                    let _ = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Cancelled, current.version)
+                        .await;
+                    state.metrics.record_http(true);
+                    return HttpResponse::Conflict().json(ErrorResponse {
+                        error: "run was cancelled".to_string(),
+                        code: "RUN_CANCELLED",
+                    });
+                }
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Failed, current.version)
+                    .await;
+            }
             state.metrics.record_http(true);
             state
                 .metrics

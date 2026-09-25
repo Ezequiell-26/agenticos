@@ -920,18 +920,16 @@ impl ProviderPlatform {
         healthy_candidates.extend(other_candidates);
         let candidates = healthy_candidates;
 
-        let preferred_provider = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
+        if let Some(preferred) = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
             .ok()
             .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        if let Some(preferred) = preferred_provider.as_deref() {
+            .filter(|value| !value.is_empty())
+        {
             candidates.sort_by_key(|provider| {
                 if provider.provider_id == preferred {
                     0
-                } else if self.health.is_healthy_sync(&provider.provider_id) {
-                    1
                 } else {
-                    2
+                    1
                 }
             });
         }

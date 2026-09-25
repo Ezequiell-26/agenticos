@@ -729,12 +729,12 @@ impl KernelRuntime {
 
     async fn enqueue_outbox_event(
         &self,
+        entry_id: String,
         event: SerializedEvent,
         destination: &str,
     ) {
         let entry = OutboxEntry {
-            entry_id: format!("outbox-{}", uuid::Uuid::new_v4()),
-            event,
+            entry_id, event,
             destination: destination.to_string(),
             attempts: 0,
             status: OutboxStatus::Pending,
@@ -780,7 +780,13 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, 0, vec![event.clone()])
             .await?;
-        self.enqueue_outbox_event(event, "runtime").await;
+        self
+            .enqueue_outbox_event(
+                format!("runtime:run:{}:created:v1", run_id.as_str()),
+                event,
+                "runtime",
+            )
+            .await;
 
         // Increment version after successful persistence
         run.version = 1;
@@ -836,7 +842,13 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
-        self.enqueue_outbox_event(event, "runtime").await;
+        self
+            .enqueue_outbox_event(
+                format!("runtime:run:{}:state:v{}", run_id.as_str(), updated.version),
+                event,
+                "runtime",
+            )
+            .await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
@@ -911,7 +923,17 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
-        self.enqueue_outbox_event(event, "runtime").await;
+        self
+            .enqueue_outbox_event(
+                format!(
+                    "runtime:run:{}:cancel:v{}",
+                    run_id.as_str(),
+                    updated.version
+                ),
+                event,
+                "runtime",
+            )
+            .await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())

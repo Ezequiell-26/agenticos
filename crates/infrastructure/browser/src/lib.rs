@@ -129,7 +129,7 @@ impl BrowserRuntime {
         let mut text = String::from_utf8_lossy(&output.stdout).to_string();
         if !output.stderr.is_empty() {
             if !text.is_empty() {
-                text.push('\\n');
+                text.push('\n');
             }
             text.push_str(&String::from_utf8_lossy(&output.stderr));
         }

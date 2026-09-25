@@ -11,8 +11,8 @@ use agenticos_observability::{
     audit::{AuditEvent, AuditStore},
     metrics::RuntimeMetrics,
 };
-use agenticos_source_forge::GitHubSourceClient;
 use agenticos_security::CapabilityManager;
+use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
 use agenticos_workspace::WorkspaceFs;
 use serde::Deserialize;

@@ -106,7 +106,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     test.setTimeout(120_000)
     tempRoot = await mkdtemp(join(tmpdir(), 'agenticos-ui-e2e-'))
     const providerPort = await freePort()
-    const apiPort = await freePort()
+    const apiPort = 8080
     const frontendPort = await freePort()
 
     provider = createServer(async (request, response) => {
@@ -154,7 +154,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     })
     await new Promise((resolvePromise) => provider.listen(providerPort, '127.0.0.1', resolvePromise))
 
-    apiUrl = `http://127.0.0.1:${apiPort}`
+    apiUrl = 'http://127.0.0.1:8080'
     const projectPath = '.'
     api = startProcess(apiBinary, [], {
       AGENTICOS_BIND_HOST: '127.0.0.1',

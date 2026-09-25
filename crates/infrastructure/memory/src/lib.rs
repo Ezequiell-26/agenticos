@@ -309,6 +309,41 @@ pub struct PersistentMemoryRecord {
     pub expires_at: i64,
 }
 
+/// Embedding coverage for a namespace.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MemoryEmbeddingCoverage {
+    /// Namespace covered by the report.
+    pub namespace: String,
+    /// Total live records in the namespace.
+    pub total_records: u64,
+    /// Live records with a usable embedding.
+    pub embedded_records: u64,
+    /// Live records without an embedding.
+    pub missing_records: u64,
+}
+
+/// One offline semantic retrieval evaluation case.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SemanticRetrievalCase {
+    /// Query embedding.
+    pub query_embedding: Vec<f32>,
+    /// Memory IDs considered relevant for the query.
+    pub relevant_memory_ids: Vec<String>,
+}
+
+/// Aggregate retrieval metrics for a set of semantic queries.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SemanticRetrievalReport {
+    /// Number of evaluated queries.
+    pub evaluated_queries: u64,
+    /// Queries where the first result was relevant.
+    pub hit_at_1: u64,
+    /// Queries where at least one of the top-k results was relevant.
+    pub hit_at_k: u64,
+    /// Mean reciprocal rank across evaluated queries.
+    pub mean_reciprocal_rank: f64,
+}
+
 /// SQLite-backed long-term memory store.
 #[derive(Debug, Clone)]
 pub struct PersistentMemoryStore {
@@ -696,6 +731,137 @@ impl PersistentMemoryStore {
             .collect())
     }
 
+    /// Report embedding coverage for a namespace.
+    pub async fn embedding_coverage(
+        &self,
+        namespace: &str,
+    ) -> Result<MemoryEmbeddingCoverage, ContractError> {
+        let row = sqlx::query_as::<_, (i64, i64)>(
+            "SELECT
+                COUNT(*) AS total_records,
+                COUNT(e.memory_id) AS embedded_records
+             FROM memory_records m
+             LEFT JOIN memory_embeddings e ON e.memory_id = m.memory_id
+             WHERE m.namespace = ?
+               AND (m.expires_at = 0 OR m.expires_at > ?)",
+        )
+        .bind(namespace)
+        .bind(unix_time() as i64)
+        .fetch_one(&*self.db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory embedding coverage failed: {error}"))
+        })?;
+
+        let total_records = row.0.max(0) as u64;
+        let embedded_records = row.1.max(0) as u64;
+        Ok(MemoryEmbeddingCoverage {
+            namespace: namespace.to_string(),
+            total_records,
+            embedded_records: embedded_records.min(total_records),
+            missing_records: total_records.saturating_sub(embedded_records),
+        })
+    }
+
+    /// Load live records that still need embeddings.
+    pub async fn records_missing_embeddings(
+        &self,
+        namespace: &str,
+        limit: usize,
+    ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
+        sqlx::query_as::<_, PersistentMemoryRecord>(
+            "SELECT
+                m.memory_id, m.namespace, m.key, m.value, m.tags, m.importance,
+                m.created_at, m.expires_at
+             FROM memory_records m
+             LEFT JOIN memory_embeddings e ON e.memory_id = m.memory_id
+             WHERE m.namespace = ?
+               AND e.memory_id IS NULL
+               AND (m.expires_at = 0 OR m.expires_at > ?)
+             ORDER BY m.importance DESC, m.created_at DESC
+             LIMIT ?",
+        )
+        .bind(namespace)
+        .bind(unix_time() as i64)
+        .bind(limit.clamp(1, 500) as i64)
+        .fetch_all(&*self.db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory embedding backfill query failed: {error}"))
+        })
+    }
+
+    /// Evaluate semantic retrieval against known relevant memory IDs.
+    pub async fn evaluate_semantic_retrieval(
+        &self,
+        namespace: &str,
+        cases: &[SemanticRetrievalCase],
+        limit: usize,
+    ) -> Result<SemanticRetrievalReport, ContractError> {
+        if cases.is_empty() {
+            return Ok(SemanticRetrievalReport {
+                evaluated_queries: 0,
+                hit_at_1: 0,
+                hit_at_k: 0,
+                mean_reciprocal_rank: 0.0,
+            });
+        }
+
+        let k = limit.clamp(1, 100);
+        let mut hit_at_1 = 0_u64;
+        let mut hit_at_k = 0_u64;
+        let mut reciprocal_rank_sum = 0.0_f64;
+
+        for case in cases {
+            if case.relevant_memory_ids.is_empty() {
+                continue;
+            }
+            let relevant = case
+                .relevant_memory_ids
+                .iter()
+                .map(String::as_str)
+                .collect::<std::collections::HashSet<_>>();
+            let results = self
+                .search_semantic(namespace, &case.query_embedding, k)
+                .await?;
+
+            if results
+                .first()
+                .map(|record| relevant.contains(record.memory_id.as_str()))
+                .unwrap_or(false)
+            {
+                hit_at_1 += 1;
+            }
+
+            let mut reciprocal_rank = 0.0_f64;
+            for (index, record) in results.iter().enumerate() {
+                if relevant.contains(record.memory_id.as_str()) {
+                    hit_at_k += 1;
+                    reciprocal_rank = 1.0 / (index as f64 + 1.0);
+                    break;
+                }
+            }
+            reciprocal_rank_sum += reciprocal_rank;
+        }
+
+        let evaluated_queries = cases
+            .iter()
+            .filter(|case| !case.relevant_memory_ids.is_empty())
+            .count() as u64;
+        let mean_reciprocal_rank = if evaluated_queries == 0 {
+            0.0
+        } else {
+            reciprocal_rank_sum / evaluated_queries as f64
+        };
+
+        Ok(SemanticRetrievalReport {
+            evaluated_queries,
+            hit_at_1,
+            hit_at_k,
+            mean_reciprocal_rank,
+        })
+    }
+
     /// Delete a record by namespace and key.
     pub async fn delete(&self, namespace: &str, key: &str) -> Result<bool, ContractError> {
         let memory_id = sqlx::query_scalar::<_, String>(
@@ -830,6 +996,97 @@ mod persistent_memory_tests {
             results.first().map(|record| record.key.as_str()),
             Some("rust-runtime")
         );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn embedding_coverage_reports_missing_records() {
+        let path = std::env::temp_dir()
+            .join(format!("agenticos-memory-coverage-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let record = store
+            .upsert(
+                "project:coverage",
+                "record",
+                "semantic memory",
+                &[],
+                0.8,
+                0,
+            )
+            .await
+            .unwrap();
+
+        let coverage = store.embedding_coverage("project:coverage").await.unwrap();
+        assert_eq!(coverage.total_records, 1);
+        assert_eq!(coverage.embedded_records, 0);
+        assert_eq!(coverage.missing_records, 1);
+
+        store.set_embedding(&record.memory_id, &[1.0, 0.0, 0.0]).await.unwrap();
+        let coverage = store.embedding_coverage("project:coverage").await.unwrap();
+        assert_eq!(coverage.embedded_records, 1);
+        assert_eq!(coverage.missing_records, 0);
+
+        let missing = store
+            .records_missing_embeddings("project:coverage", 10)
+            .await
+            .unwrap();
+        assert!(missing.is_empty());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn semantic_retrieval_evaluation_reports_hits() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-memory-eval-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let first = store
+            .upsert(
+                "project:eval",
+                "rust",
+                "durable rust runtime",
+                &[],
+                0.9,
+                0,
+            )
+            .await
+            .unwrap();
+        let second = store
+            .upsert(
+                "project:eval",
+                "python",
+                "python scripting",
+                &[],
+                0.5,
+                0,
+            )
+            .await
+            .unwrap();
+
+        store.set_embedding(&first.memory_id, &[1.0, 0.0]).await.unwrap();
+        store.set_embedding(&second.memory_id, &[0.0, 1.0]).await.unwrap();
+
+        let report = store
+            .evaluate_semantic_retrieval(
+                "project:eval",
+                &[SemanticRetrievalCase {
+                    query_embedding: vec![1.0, 0.0],
+                    relevant_memory_ids: vec![first.memory_id.clone()],
+                }],
+                2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(report.evaluated_queries, 1);
+        assert_eq!(report.hit_at_1, 1);
+        assert_eq!(report.hit_at_k, 1);
+        assert_eq!(report.mean_reciprocal_rank, 1.0);
 
         let _ = std::fs::remove_file(path);
     }

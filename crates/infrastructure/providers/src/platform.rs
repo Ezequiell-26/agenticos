@@ -917,9 +917,6 @@ impl ProviderPlatform {
                 other_candidates.push(provider);
             }
         }
-        healthy_candidates.extend(other_candidates);
-        let candidates = healthy_candidates;
-
         if let Some(preferred) = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
             .ok()
             .map(|value| value.trim().to_string())
@@ -933,6 +930,9 @@ impl ProviderPlatform {
                 }
             });
         }
+
+        healthy_candidates.extend(other_candidates);
+        let candidates = healthy_candidates;
 
         let mut last_error = None;
         for provider in candidates {

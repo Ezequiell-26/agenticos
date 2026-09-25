@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+//! AgentiCOS API server binary entry point.
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt::init();

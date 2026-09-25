@@ -127,59 +127,6 @@ impl JobScheduler {
 
         agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
-        let columns =
-            sqlx::query_as::<_, (String,)>("SELECT name FROM pragma_table_info('scheduler_jobs')")
-                .fetch_all(&db)
-                .await
-                .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
-        let has_column = |name: &str| columns.iter().any(|(column,)| column == name);
-        if !has_column("job_type") {
-            sqlx::query(
-                "ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("scheduler job type migration failed: {error}"))?;
-        }
-        if !has_column("metadata") {
-            sqlx::query(
-                "ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("scheduler metadata migration failed: {error}"))?;
-        }
-        if !has_column("lease_owner") {
-            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT")
-                .execute(&db)
-                .await
-                .map_err(|error| format!("scheduler lease owner migration failed: {error}"))?;
-        }
-        if !has_column("lease_token") {
-            sqlx::query(
-                "ALTER TABLE scheduler_jobs ADD COLUMN lease_token INTEGER NOT NULL DEFAULT 0",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("scheduler lease token migration failed: {error}"))?;
-        }
-        if !has_column("lease_expires_at") {
-            sqlx::query(
-                "ALTER TABLE scheduler_jobs ADD COLUMN lease_expires_at INTEGER NOT NULL DEFAULT 0",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("scheduler lease expiry migration failed: {error}"))?;
-        }
-        if !has_column("next_attempt_at") {
-            sqlx::query(
-                "ALTER TABLE scheduler_jobs ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("scheduler retry timestamp migration failed: {error}"))?;
-        }
-
         let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, String, String, Option<String>, i64, i64, i64)>(
             "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at, next_attempt_at FROM scheduler_jobs",
         )

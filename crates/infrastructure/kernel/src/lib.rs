@@ -1863,30 +1863,6 @@ impl SqliteOutboxStore {
             })?;
         agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
 
-        for (column, definition) in [("claimed_by", "TEXT"), ("claimed_until", "INTEGER")] {
-            let exists: Option<String> = sqlx::query_scalar(
-                "SELECT name FROM pragma_table_info('outbox_entries') WHERE name = ?",
-            )
-            .bind(column)
-            .fetch_optional(&pool)
-            .await
-            .map_err(|error| {
-                ContractError::ParseError(format!("outbox schema inspection failed: {error}"))
-            })?;
-            if exists.is_none() {
-                let statement =
-                    format!("ALTER TABLE outbox_entries ADD COLUMN {column} {definition}");
-                sqlx::query(&statement)
-                    .execute(&pool)
-                    .await
-                    .map_err(|error| {
-                        ContractError::ParseError(format!(
-                            "outbox schema migration failed for {column}: {error}"
-                        ))
-                    })?;
-            }
-        }
-
         let query = format!(
             "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"
         );

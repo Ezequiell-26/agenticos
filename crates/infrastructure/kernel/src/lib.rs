@@ -86,7 +86,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 
 fn unix_time() -> u64 {
     SystemTime::now()
@@ -1779,7 +1779,7 @@ impl BroadcastOutboxTransport {
 
 #[async_trait::async_trait]
 impl OutboxTransport for BroadcastOutboxTransport {
-    async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
+    async fn publish_http(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
         // A local runtime is allowed to publish without an attached UI consumer.
         // Durable persistence remains the source of truth; active subscribers
         // receive the event in real time.
@@ -1863,7 +1863,7 @@ impl Default for HttpOutboxTransport {
 #[async_trait::async_trait]
 impl OutboxTransport for HttpOutboxTransport {
     async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
-        self.publish(entry).await
+        self.publish_http(entry).await
     }
 }
 

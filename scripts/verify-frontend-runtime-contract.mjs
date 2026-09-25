@@ -26,14 +26,7 @@ const frontendPaths = new Set([
 ].map((match) => match[1]).map(normalizeRoute))
 
 const missing = [...frontendPaths]
-  .filter((path) => {
-    if (apiRoutes.has(path)) return false
-    if (path.endsWith('*')) {
-      const prefix = path.slice(0, -1)
-      return ![...apiRoutes].some((route) => route.startsWith(prefix))
-    }
-    return true
-  })
+  .filter((path) => ![...apiRoutes].some((route) => routeMatches(route, path)))
   .sort()
 
 if (missing.length > 0) {

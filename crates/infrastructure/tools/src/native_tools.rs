@@ -4,6 +4,12 @@
 //! Capability-gated native tools owned by the infrastructure tool layer.
 
 use agenticos_artifacts::{ArtifactRecord, ArtifactStore};
+use agenticos_browser::{BrowserActionResult, BrowserRuntime};
+use agenticos_observability::{
+    audit::{AuditEvent, AuditStore},
+    metrics::RuntimeMetrics,
+};
+use agenticos_source_forge::GitHubSourceClient;
 use agenticos_context::optimize_tool_output;
 use agenticos_contracts::{AgentTool, CapabilityType, ContractError, ToolRequest, ToolResponse};
 use agenticos_security::CapabilityManager;
@@ -535,12 +541,12 @@ impl AgentTool for TerminalTool {
 }
 
 #[derive(Clone, Debug)]
-struct GitHubSourceTool {
-    source_forge: Arc<GitHubSourceClient>,
-    capabilities: Arc<CapabilityManager>,
-    audit: Arc<AuditStore>,
-    metrics: Arc<RuntimeMetrics>,
-    operation: &'static str,
+pub struct GitHubSourceTool {
+    pub source_forge: Arc<GitHubSourceClient>,
+    pub capabilities: Arc<CapabilityManager>,
+    pub audit: Arc<AuditStore>,
+    pub metrics: Arc<RuntimeMetrics>,
+    pub operation: &'static str,
 }
 
 #[async_trait::async_trait]
@@ -680,13 +686,13 @@ impl AgentTool for GitHubSourceTool {
 }
 
 #[derive(Clone, Debug)]
-struct BrowserTool {
-    browser: Arc<BrowserRuntime>,
-    capabilities: Arc<CapabilityManager>,
-    audit: Arc<AuditStore>,
-    metrics: Arc<RuntimeMetrics>,
-    artifacts: Arc<ArtifactStore>,
-    operation: &'static str,
+pub struct BrowserTool {
+    pub browser: Arc<BrowserRuntime>,
+    pub capabilities: Arc<CapabilityManager>,
+    pub audit: Arc<AuditStore>,
+    pub metrics: Arc<RuntimeMetrics>,
+    pub artifacts: Arc<ArtifactStore>,
+    pub operation: &'static str,
 }
 
 #[async_trait::async_trait]
@@ -850,3 +856,54 @@ impl AgentTool for BrowserTool {
         })
     }
 }
+
+async fn capture_browser_screenshot_artifact(
+    browser: &BrowserRuntime,
+    artifacts: &ArtifactStore,
+    session_id: &str,
+) -> Result<(BrowserActionResult, Option<ArtifactRecord>), ContractError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "agenticos-browser-screenshot-{}-{}.png",
+        std::process::id(),
+        nonce
+    ));
+
+    let result = browser.screenshot_to(session_id, &path).await?;
+    if !result.success {
+        let _ = tokio::fs::remove_file(&path).await;
+        return Ok((result, None));
+    }
+
+    let bytes = tokio::fs::read(&path).await.map_err(|error| {
+        ContractError::ParseError(format!("browser screenshot read failed: {error}"))
+    })?;
+    let artifact = artifacts
+        .put_bytes(
+            None,
+            "browser-screenshot",
+            "image/png",
+            &bytes,
+            None,
+            false,
+            serde_json::json!({
+                "tool": "browser.screenshot",
+                "session_id": session_id,
+            }),
+        )
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!(
+                "browser screenshot artifact persistence failed: {error}"
+            ))
+        })?;
+
+    let _ = tokio::fs::remove_file(&path).await;
+    Ok((result, Some(artifact)))
+}
+

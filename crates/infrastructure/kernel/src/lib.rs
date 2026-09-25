@@ -88,6 +88,27 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, RwLock};
 
+fn validate_outbox_worker_id(worker_id: &str) -> Result<(), ContractError> {
+    let valid = !worker_id.trim().is_empty()
+        && worker_id.len() <= 128
+        && worker_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte));
+    if valid {
+        Ok(())
+    } else {
+        Err(ContractError::InvalidId)
+    }
+}
+
+fn outbox_lease_seconds() -> u64 {
+    std::env::var("AGENTICOS_OUTBOX_LEASE_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(120)
+        .clamp(5, 3_600)
+}
+
 fn unix_time() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1547,7 +1568,9 @@ impl SqliteOutboxStore {
                 attempts INTEGER NOT NULL,
                 status TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
-                processed_at INTEGER
+                processed_at INTEGER,
+                claimed_by TEXT,
+                claimed_until INTEGER
             )
             "#,
         )
@@ -1555,6 +1578,39 @@ impl SqliteOutboxStore {
         .await
         .map_err(|error| {
             ContractError::ParseError(format!("outbox schema initialization failed: {error}"))
+        })?;
+
+        for (column, definition) in [("claimed_by", "TEXT"), ("claimed_until", "INTEGER")] {
+            let exists: Option<String> = sqlx::query_scalar(
+                "SELECT name FROM pragma_table_info('outbox_entries') WHERE name = ?",
+            )
+            .bind(column)
+            .fetch_optional(&pool)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("outbox schema inspection failed: {error}"))
+            })?;
+            if exists.is_none() {
+                let statement = format!("ALTER TABLE outbox_entries ADD COLUMN {column} {definition}");
+                sqlx::query(&statement)
+                    .execute(&pool)
+                    .await
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "outbox schema migration failed for {column}: {error}"
+                        ))
+                    })?;
+            }
+        }
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_outbox_claims
+             ON outbox_entries(status, claimed_until, created_at, entry_id)",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox index initialization failed: {error}"))
         })?;
 
         Ok(Self {
@@ -1671,13 +1727,139 @@ impl OutboxStore for SqliteOutboxStore {
     }
 
     async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
-        self.load_entries("status IN ('pending', 'processing')", limit)
+        self.load_entries("status = 'pending'", limit).await
+    }
+
+    async fn claim_pending(
+        &self,
+        worker_id: &str,
+        limit: usize,
+        lease_seconds: u64,
+    ) -> Result<Vec<OutboxEntry>, ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let limit = limit.clamp(1, 500);
+        let lease_seconds = lease_seconds.clamp(5, 3_600);
+        let now = unix_time();
+        let claimed_until = now.saturating_add(lease_seconds);
+
+        let mut tx = self.pool.begin().await.map_err(|error| {
+            ContractError::ParseError(format!("outbox claim transaction failed: {error}"))
+        })?;
+
+        let ids = sqlx::query_scalar::<_, String>(
+            "SELECT entry_id
+             FROM outbox_entries
+             WHERE status = 'pending'
+                OR (status = 'processing' AND (claimed_until IS NULL OR claimed_until <= ?))
+             ORDER BY created_at ASC, entry_id ASC
+             LIMIT ?",
+        )
+        .bind(now as i64)
+        .bind(limit as i64)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox claim selection failed: {error}"))
+        })?;
+
+        let mut claimed = Vec::with_capacity(ids.len());
+        for entry_id in ids {
+            let updated = sqlx::query(
+                "UPDATE outbox_entries
+                 SET status = 'processing', claimed_by = ?, claimed_until = ?
+                 WHERE entry_id = ?
+                   AND (
+                     status = 'pending'
+                     OR (status = 'processing' AND (claimed_until IS NULL OR claimed_until <= ?))
+                   )",
+            )
+            .bind(worker_id)
+            .bind(claimed_until as i64)
+            .bind(&entry_id)
+            .bind(now as i64)
+            .execute(&mut *tx)
             .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("outbox claim update failed: {error}"))
+            })?;
+
+            if updated.rows_affected() != 1 {
+                continue;
+            }
+
+            let row = sqlx::query_as::<
+                _,
+                (
+                    String,
+                    String,
+                    String,
+                    i64,
+                    String,
+                    i64,
+                    String,
+                    i64,
+                    Option<i64>,
+                ),
+            >(
+                "SELECT entry_id, event_type, event_data, event_schema_version, destination,
+                        attempts, status, created_at, processed_at
+                 FROM outbox_entries
+                 WHERE entry_id = ?",
+            )
+            .bind(&entry_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "outbox claimed row lookup failed: {error}"
+                ))
+            })?;
+
+            if let Some((
+                entry_id,
+                event_type,
+                event_data,
+                schema_version,
+                destination,
+                attempts,
+                status,
+                created_at,
+                processed_at,
+            )) = row
+            {
+                claimed.push(OutboxEntry {
+                    entry_id,
+                    event: SerializedEvent {
+                        event_type,
+                        data: event_data,
+                        schema_version: schema_version.max(0) as u16,
+                    },
+                    destination,
+                    attempts: attempts.max(0) as u32,
+                    status: Self::parse_status(&status)?,
+                    created_at: created_at.max(0) as u64,
+                    processed_at: processed_at.map(|value| value.max(0) as u64),
+                });
+            }
+        }
+
+        tx.commit().await.map_err(|error| {
+            ContractError::ParseError(format!(
+                "outbox claim transaction commit failed: {error}"
+            ))
+        })?;
+
+        Ok(claimed)
     }
 
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
         let updated = sqlx::query(
-            "UPDATE outbox_entries SET status = 'published', processed_at = ? WHERE entry_id = ?",
+            "UPDATE outbox_entries
+             SET status = 'published',
+                 processed_at = ?,
+                 claimed_by = NULL,
+                 claimed_until = NULL
+             WHERE entry_id = ?",
         )
         .bind(unix_time() as i64)
         .bind(entry_id)
@@ -1712,7 +1894,13 @@ impl OutboxStore for SqliteOutboxStore {
         let dead_letter = attempts >= max_attempts;
 
         sqlx::query(
-            "UPDATE outbox_entries SET status = ?, attempts = ?, processed_at = ? WHERE entry_id = ?",
+            "UPDATE outbox_entries
+             SET status = ?,
+                 attempts = ?,
+                 processed_at = ?,
+                 claimed_by = NULL,
+                 claimed_until = NULL
+             WHERE entry_id = ?",
         )
         .bind(if dead_letter { "dead_letter" } else { "pending" })
         .bind(attempts as i64)
@@ -1740,6 +1928,7 @@ impl OutboxStore for SqliteOutboxStore {
 #[derive(Debug)]
 pub struct InMemoryOutboxStore {
     entries: Arc<RwLock<HashMap<String, OutboxEntry>>>,
+    claims: Arc<RwLock<HashMap<String, (String, u64)>>,
 }
 
 impl InMemoryOutboxStore {
@@ -1747,6 +1936,7 @@ impl InMemoryOutboxStore {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(HashMap::new())),
+            claims: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
@@ -1769,10 +1959,56 @@ impl OutboxStore for InMemoryOutboxStore {
             .collect())
     }
 
+    async fn claim_pending(
+        &self,
+        worker_id: &str,
+        limit: usize,
+        lease_seconds: u64,
+    ) -> Result<Vec<OutboxEntry>, ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let limit = limit.clamp(1, 500);
+        let now = unix_time();
+        let until = now.saturating_add(lease_seconds.clamp(5, 3_600));
+        let mut entries = self.entries.write().await;
+        let mut claims = self.claims.write().await;
+
+        let mut candidates = entries
+            .values()
+            .filter(|entry| {
+                if entry.status == OutboxStatus::Pending {
+                    return true;
+                }
+                if entry.status != OutboxStatus::Processing {
+                    return false;
+                }
+                !claims
+                    .get(&entry.entry_id)
+                    .is_some_and(|(_, claimed_until)| *claimed_until > now)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        candidates.sort_by(|left, right| {
+            left.created_at
+                .cmp(&right.created_at)
+                .then_with(|| left.entry_id.cmp(&right.entry_id))
+        });
+
+        let mut result = Vec::with_capacity(limit.min(candidates.len()));
+        for mut entry in candidates.into_iter().take(limit) {
+            entry.status = OutboxStatus::Processing;
+            claims.insert(entry.entry_id.clone(), (worker_id.to_string(), until));
+            entries.insert(entry.entry_id.clone(), entry.clone());
+            result.push(entry);
+        }
+        Ok(result)
+    }
+
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
         let mut entries = self.entries.write().await;
         if let Some(entry) = entries.get_mut(entry_id) {
             entry.status = OutboxStatus::Published;
+            self.claims.write().await.remove(entry_id);
             entry.processed_at = Some(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -1787,6 +2023,7 @@ impl OutboxStore for InMemoryOutboxStore {
         let mut entries = self.entries.write().await;
         if let Some(entry) = entries.get_mut(entry_id) {
             entry.status = OutboxStatus::Failed;
+            self.claims.write().await.remove(entry_id);
             entry.processed_at = Some(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -2028,7 +2265,11 @@ impl BackgroundEventPublisher {
 
     /// Process pending outbox entries and publish them through the transport.
     pub async fn process_pending(&self) -> Result<usize, ContractError> {
-        let pending = self.outbox.get_pending(50).await?;
+        let worker_id = format!("outbox-publisher-{}", uuid::Uuid::new_v4());
+        let pending = self
+            .outbox
+            .claim_pending(&worker_id, 50, outbox_lease_seconds())
+            .await?;
         let mut published = 0;
 
         for entry in pending {
@@ -2117,6 +2358,38 @@ mod event_outbox_atomicity_tests {
         assert_eq!(pending[0].destination, "runtime");
 
         let _ = std::fs::remove_file(path);
+    }
+}
+
+#[cfg(test)]
+mod outbox_claim_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn concurrent_in_memory_claims_are_exclusive() {
+        let store = Arc::new(InMemoryOutboxStore::new());
+        store
+            .add(OutboxEntry {
+                entry_id: "claim-test".to_string(),
+                event: SerializedEvent {
+                    event_type: "Test".to_string(),
+                    data: "{}".to_string(),
+                    schema_version: 1,
+                },
+                destination: "runtime".to_string(),
+                attempts: 0,
+                status: OutboxStatus::Pending,
+                created_at: 1,
+                processed_at: None,
+            })
+            .await
+            .unwrap();
+
+        let first = store.claim_pending("worker-a", 10, 120).await.unwrap();
+        let second = store.claim_pending("worker-b", 10, 120).await.unwrap();
+
+        assert_eq!(first.len(), 1);
+        assert!(second.is_empty());
     }
 }
 

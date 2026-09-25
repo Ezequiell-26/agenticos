@@ -471,6 +471,15 @@ impl FallbackManager {
         configs.get(primary_provider).cloned()
     }
 
+    /// Return the configured primary provider when exactly one failover policy exists.
+    pub async fn configured_primary_provider(&self) -> Option<String> {
+        let configs = self.configs.read().await;
+        if configs.len() != 1 {
+            return None;
+        }
+        configs.keys().next().cloned()
+    }
+
     /// Get the next provider to try from fallback list.
     pub async fn get_next_provider(
         &self,

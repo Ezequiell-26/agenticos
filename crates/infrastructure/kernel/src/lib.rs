@@ -909,10 +909,10 @@ impl KernelRuntime {
         Ok(runs)
     }
 
-    /// Acquire a lease for a run.
+    /// Acquire a process-local lease for a run.
     ///
-    /// Lease ownership is intentionally process-local until a dedicated
-    /// durable lease event is introduced; run lifecycle state remains durable.
+    /// Scheduler job leases provide durable worker ownership; this run-level
+    /// lease is currently kept in the runtime state and is not persisted.
     pub async fn acquire_lease(
         &self,
         run_id: &RunId,

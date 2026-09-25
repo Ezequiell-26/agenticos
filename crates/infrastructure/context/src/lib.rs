@@ -200,6 +200,27 @@ impl ContextEngine {
         Self
     }
 
+    /// Select a deterministic suffix after reserving tokens for surrounding prompt content.
+    pub fn prepare_with_overhead(
+        &self,
+        messages: &[Message],
+        budget: ContextBudget,
+        overhead_tokens: u32,
+    ) -> ContextPlan {
+        let available_input_tokens = budget
+            .max_input_tokens()
+            .saturating_sub(overhead_tokens);
+        let effective_budget = ContextBudget {
+            context_window_tokens: available_input_tokens
+                .saturating_add(budget.reserved_output_tokens)
+                .saturating_add(budget.safety_margin_tokens),
+            reserved_output_tokens: budget.reserved_output_tokens,
+            safety_margin_tokens: budget.safety_margin_tokens,
+            min_recent_messages: budget.min_recent_messages,
+        };
+        self.prepare(messages, effective_budget)
+    }
+
     /// Select a deterministic suffix while preserving system messages and recent turns.
     pub fn prepare(&self, messages: &[Message], budget: ContextBudget) -> ContextPlan {
         let limit = budget.max_input_tokens();
@@ -323,6 +344,27 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn prepare_with_overhead_reserves_prompt_tokens() {
+        let engine = ContextEngine::new();
+        let budget = ContextBudget {
+            context_window_tokens: 100,
+            reserved_output_tokens: 10,
+            safety_margin_tokens: 10,
+            min_recent_messages: 1,
+        };
+        let messages = vec![
+            message("a", "user", 50),
+            message("b", "assistant", 30),
+            message("c", "user", 20),
+        ];
+
+        let plan = engine.prepare_with_overhead(&messages, budget, 30);
+        assert!(plan.trimmed);
+        assert_eq!(plan.messages.len(), 2);
+        assert_eq!(plan.dropped_tokens, 50);
+    }
+
     fn prepare_keeps_recent_turns_and_system_messages() {
         let engine = ContextEngine::new();
         let budget = ContextBudget {

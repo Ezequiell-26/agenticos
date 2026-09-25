@@ -35,6 +35,7 @@ pub struct BrowserRuntime {
     command: String,
     timeout: Duration,
     max_output_bytes: usize,
+    concurrency: std::sync::Arc<Semaphore>,
 }
 
 impl Default for BrowserRuntime {
@@ -56,6 +57,11 @@ impl BrowserRuntime {
             .and_then(|value| value.parse::<usize>().ok())
             .unwrap_or(2 * 1024 * 1024)
             .clamp(4_096, 16 * 1024 * 1024);
+        let max_concurrency = std::env::var("AGENTICOS_BROWSER_MAX_CONCURRENCY")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(4)
+            .clamp(1, 32);
 
         Self {
             command: std::env::var("AGENTICOS_BROWSER_COMMAND")
@@ -64,6 +70,7 @@ impl BrowserRuntime {
                 .unwrap_or_else(|| "agent-browser".to_string()),
             timeout: Duration::from_millis(timeout_ms),
             max_output_bytes,
+            concurrency: std::sync::Arc::new(Semaphore::new(max_concurrency)),
         }
     }
 
@@ -93,6 +100,10 @@ impl BrowserRuntime {
                 "agent-browser CLI is not available".to_string(),
             ));
         }
+
+        let _permit = self.concurrency.acquire().await.map_err(|_| {
+            ContractError::ParseError("browser concurrency limiter is closed".to_string())
+        })?;
 
         let action = args.join(" ");
         let mut command = Command::new(&self.command);

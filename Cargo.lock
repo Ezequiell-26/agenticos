@@ -207,15 +207,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "agenticos-adapters"
+name = "agenticos-a2a"
 version = "0.1.0"
 dependencies = [
- "agenticos-contracts",
- "async-trait",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-adapters"
+version = "0.1.0"
+dependencies = [
+ "agenticos-providers",
 ]
 
 [[package]]
@@ -223,6 +230,12 @@ name = "agenticos-agents"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -230,17 +243,72 @@ name = "agenticos-api-server"
 version = "0.1.0"
 dependencies = [
  "actix-cors",
- "agenticos-browser",
  "actix-web",
+ "agenticos-a2a",
+ "agenticos-agents",
+ "agenticos-artifacts",
+ "agenticos-brain",
+ "agenticos-browser",
+ "agenticos-channels",
+ "agenticos-context",
  "agenticos-contracts",
+ "agenticos-evaluation",
+ "agenticos-execution",
  "agenticos-kernel",
+ "agenticos-mcp",
+ "agenticos-memory",
+ "agenticos-observability",
+ "agenticos-projects",
+ "agenticos-providers",
+ "agenticos-sandbox",
+ "agenticos-scheduler",
+ "agenticos-security",
+ "agenticos-skills",
+ "agenticos-source-forge",
+ "agenticos-terminal",
+ "agenticos-tools",
+ "agenticos-workflows",
+ "agenticos-workspace",
+ "async-stream",
  "async-trait",
- "reqwest 0.12.28",
+ "chrono",
+ "futures",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-artifacts"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "chrono",
+ "ring",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-brain"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "async-trait",
+ "chrono",
+ "semver",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
  "uuid",
 ]
 
@@ -254,16 +322,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "agenticos-brain"
+name = "agenticos-channels"
 version = "0.1.0"
 dependencies = [
- "agenticos-contracts",
- "async-trait",
+ "agenticos-sqlite-migrations",
  "chrono",
- "semver",
  "serde",
  "serde_json",
- "thiserror 2.0.20",
+ "sqlx",
  "tokio",
  "uuid",
 ]
@@ -283,6 +349,15 @@ dependencies = [
  "anyhow",
  "clap",
  "tokio",
+]
+
+[[package]]
+name = "agenticos-context"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -315,6 +390,12 @@ name = "agenticos-evaluation"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -343,20 +424,36 @@ name = "agenticos-kernel"
 version = "0.1.0"
 dependencies = [
  "agenticos-brain",
+ "agenticos-context",
  "agenticos-contracts",
- "agenticos-sandbox",
+ "agenticos-sqlite-migrations",
  "async-stream",
  "async-trait",
  "chrono",
  "dotenv",
  "futures",
  "rand 0.8.8",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
  "serde_yaml",
  "sqlx",
  "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-mcp"
+version = "0.1.0"
+dependencies = [
+ "agenticos-context",
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -365,10 +462,13 @@ name = "agenticos-memory"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
  "async-trait",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -376,9 +476,24 @@ name = "agenticos-observability"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "serde",
+ "serde_json",
+ "sqlx",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-projects"
+version = "0.1.0"
+dependencies = [
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
  "uuid",
 ]
 
@@ -398,11 +513,18 @@ name = "agenticos-providers"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-observability",
+ "async-stream",
  "async-trait",
+ "futures",
  "reqwest 0.12.28",
+ "ring",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -418,13 +540,22 @@ name = "agenticos-sandbox"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "async-trait",
+ "serde",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "agenticos-scheduler"
 version = "0.1.0"
 dependencies = [
- "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -432,6 +563,26 @@ name = "agenticos-security"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "agenticos-skills"
+version = "0.1.0"
+dependencies = [
+ "agenticos-sqlite-migrations",
+ "chrono",
+ "serde",
+ "serde_yaml",
+ "sqlx",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -440,19 +591,46 @@ version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
  "async-trait",
- "base64",
- "reqwest",
+ "base64 0.22.1",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "tokio",
+]
+
+[[package]]
+name = "agenticos-sqlite-migrations"
+version = "0.1.0"
+dependencies = [
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
+name = "agenticos-terminal"
+version = "0.1.0"
+dependencies = [
+ "agenticos-sqlite-migrations",
+ "serde",
+ "sqlx",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "agenticos-tools"
 version = "0.1.0"
 dependencies = [
+ "agenticos-artifacts",
+ "agenticos-context",
  "agenticos-contracts",
+ "agenticos-kernel",
+ "agenticos-mcp",
+ "agenticos-sandbox",
+ "agenticos-security",
+ "agenticos-terminal",
+ "agenticos-workspace",
  "async-trait",
  "serde",
  "serde_json",
@@ -464,6 +642,20 @@ name = "agenticos-workflows"
 version = "0.1.0"
 dependencies = [
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
+name = "agenticos-workspace"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -4040,6 +4232,7 @@ dependencies = [
  "bytes",
  "encoding_rs",
  "futures-core",
+ "futures-util",
  "h2 0.4.19",
  "http 1.5.0",
  "http-body",
@@ -4061,12 +4254,14 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower",
  "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams 0.4.2",
  "web-sys",
 ]
 
@@ -4100,7 +4295,7 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-streams",
+ "wasm-streams 0.5.0",
  "web-sys",
 ]
 
@@ -4173,6 +4368,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "once_cell",
+ "ring",
  "rustls-pki-types",
  "rustls-webpki",
  "subtle",
@@ -4769,6 +4965,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "percent-encoding",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
@@ -4778,6 +4975,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -6181,6 +6379,19 @@ dependencies = [
 
 [[package]]
 name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "wasm-streams"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d1ec4f6517c9e11ae630e200b2b65d193279042e28edd4a2cda233e46670bbb"
@@ -6256,6 +6467,24 @@ dependencies = [
  "pkg-config",
  "soup3-sys",
  "system-deps",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
+dependencies = [
+ "webpki-roots 1.0.9",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]

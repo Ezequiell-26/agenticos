@@ -457,6 +457,12 @@ pub enum SourceForgeError {
     /// The requested source file exceeded the configured bound.
     #[error("source file exceeds the configured size limit")]
     TooLarge,
+    /// Authentication required.
+    #[error("authentication required")]
+    AuthenticationRequired,
+    /// Conflict error.
+    #[error("conflict")]
+    Conflict,
 }
 
 /// Bounded GitHub source inspector.

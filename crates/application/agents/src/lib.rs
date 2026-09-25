@@ -290,15 +290,16 @@ mod tests {
         manager
             .register(AgentDefinition {
                 agent_id: "reviewer".to_string(),
-                name: "Reviewer".to_string(),
-                description: "test reviewer".to_string(),
-                system_prompt: "review".to_string(),
+                role: "Reviewer".to_string(),
+                capabilities: Vec::new(),
+                providers: Vec::new(),
                 skills: Vec::new(),
+                sandbox_profile: "default".to_string(),
                 budget: AgentBudget {
                     max_tool_calls: 4,
                     max_tokens: 500,
                     max_depth: 2,
-                    max_duration_seconds: 30,
+                    max_wall_seconds: 30,
                 },
             })
             .await
@@ -321,15 +322,16 @@ mod tests {
         manager
             .register(AgentDefinition {
                 agent_id: "bounded".to_string(),
-                name: "Bounded".to_string(),
-                description: "test".to_string(),
-                system_prompt: "test".to_string(),
+                role: "Bounded".to_string(),
+                capabilities: Vec::new(),
+                providers: Vec::new(),
                 skills: Vec::new(),
+                sandbox_profile: "default".to_string(),
                 budget: AgentBudget {
                     max_tool_calls: 1,
                     max_tokens: 1,
                     max_depth: 1,
-                    max_duration_seconds: 1,
+                    max_wall_seconds: 1,
                 },
             })
             .await
@@ -350,10 +352,11 @@ mod tests {
         first
             .register(AgentDefinition {
                 agent_id: "persistent".to_string(),
-                name: "Persistent".to_string(),
-                description: "test".to_string(),
-                system_prompt: "test".to_string(),
+                role: "Persistent".to_string(),
+                capabilities: Vec::new(),
+                providers: Vec::new(),
                 skills: Vec::new(),
+                sandbox_profile: "default".to_string(),
                 budget: AgentBudget::default(),
             })
             .await

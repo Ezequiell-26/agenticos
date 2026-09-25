@@ -111,7 +111,9 @@ impl TerminalManager {
             .await
             .map_err(|error| format!("terminal database connection failed: {error}"))?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         sqlx::query(
             "UPDATE terminal_sessions

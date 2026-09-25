@@ -77,7 +77,11 @@ impl CapabilityManager {
                 ContractError::ParseError(format!("security database connection failed: {error}"))
             })?;
 
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("sqlite migrations failed: {error}"))
+            })?;
 
         let grant_rows = sqlx::query_as::<_, (String, String)>(
             "SELECT grant_id, payload FROM capability_grants",

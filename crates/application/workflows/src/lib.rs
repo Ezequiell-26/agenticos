@@ -83,7 +83,9 @@ impl WorkflowEngine {
             .connect(database_url)
             .await
             .map_err(|error| format!("workflow database connection failed: {error}"))?;
-        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url)
+            .await
+            .map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let definitions = sqlx::query_as::<_, (String, String)>(
             "SELECT workflow_id, payload FROM workflow_definitions",

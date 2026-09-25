@@ -228,7 +228,7 @@ function normalizeAgentState(value: unknown): AgentStatusSnapshot['state'] {
 }
 
 function parseRuntimeSseEvent(block: string): RuntimeEvent | null {
-  const lines = block.split(/\\r?\\n/)
+  const lines = block.split(/\r?\n/)
   let eventType = 'runtime'
   const dataLines: string[] = []
   for (const line of lines) {
@@ -237,7 +237,7 @@ function parseRuntimeSseEvent(block: string): RuntimeEvent | null {
   }
   if (dataLines.length === 0) return null
 
-  const raw = dataLines.join('\\n')
+  const raw = dataLines.join('\n')
   try {
     const data = JSON.parse(raw) as RuntimeApiRecord
     return {
@@ -316,7 +316,7 @@ export class AgenticosRuntime implements RuntimeServices {
                 const { value, done } = await reader.read()
                 if (done) break
                 buffer += decoder.decode(value, { stream: true })
-                const blocks = buffer.split(/\\r?\\n\\r?\\n/)
+                const blocks = buffer.split(/\r?\n\r?\n/)
                 buffer = blocks.pop() ?? ''
                 for (const block of blocks) {
                   const event = parseRuntimeSseEvent(block)

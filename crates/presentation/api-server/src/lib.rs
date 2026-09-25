@@ -26,8 +26,8 @@ use agenticos_brain::{
 use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityType, ContractError, EmbeddingRequest, RunId, RunState, Sandbox,
-    SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest, ModelProvider,
+    RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_kernel::{

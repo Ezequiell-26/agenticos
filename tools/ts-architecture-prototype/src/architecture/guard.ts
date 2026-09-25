@@ -2,11 +2,12 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { AgentiCOSError } from "./errors.js";
 
+const PROTOTYPE_ROOT = "tools/ts-architecture-prototype/";
 const COMPOSITION_ROOTS = new Set([
-  "src/cli.ts",
-  "src/forge-cli.ts",
-  "src/architecture-cli.ts",
-  "src/index.ts",
+  PROTOTYPE_ROOT + "src/cli.ts",
+  PROTOTYPE_ROOT + "src/forge-cli.ts",
+  PROTOTYPE_ROOT + "src/architecture-cli.ts",
+  PROTOTYPE_ROOT + "src/index.ts",
 ]);
 
 const LAYER_RULES: ReadonlyArray<{
@@ -14,19 +15,19 @@ const LAYER_RULES: ReadonlyArray<{
   readonly forbidden: readonly RegExp[];
 }> = [
   {
-    prefix: "src/architecture/",
+    prefix: PROTOTYPE_ROOT + "src/architecture/",
     forbidden: [/^(?:\.\.\/)+kernel(?:\/|$)/, /^(?:\.\.\/)+providers(?:\/|$)/, /^(?:\.\.\/)+forge(?:\/|$)/],
   },
   {
-    prefix: "src/kernel/",
+    prefix: PROTOTYPE_ROOT + "src/kernel/",
     forbidden: [/^(?:\.\.\/)+providers(?:\/|$)/, /^(?:\.\.\/)+forge(?:\/|$)/],
   },
   {
-    prefix: "src/providers/",
+    prefix: PROTOTYPE_ROOT + "src/providers/",
     forbidden: [/^(?:\.\.\/)+kernel(?:\/|$)/, /^(?:\.\.\/)+forge(?:\/|$)/],
   },
   {
-    prefix: "src/forge/",
+    prefix: PROTOTYPE_ROOT + "src/forge/",
     forbidden: [/^(?:\.\.\/)+kernel(?:\/|$)/, /^(?:\.\.\/)+providers(?:\/|$)/],
   },
 ];
@@ -52,13 +53,13 @@ export interface GuardIssue {
 
 export async function scanArchitecture(root = process.cwd()): Promise<readonly GuardIssue[]> {
   const issues: GuardIssue[] = [];
-  const sourceRoot = path.join(root, "src");
+  const sourceRoot = path.join(root, PROTOTYPE_ROOT, "src");
 
   for (const file of await walk(sourceRoot)) {
     if (!file.endsWith(".ts")) continue;
 
     const relative = path.relative(root, file).replaceAll(path.sep, "/");
-    if (relative === "src/architecture/guard.ts") continue;
+    if (relative === PROTOTYPE_ROOT + "src/architecture/guard.ts") continue;
 
     const content = await readFile(file, "utf8");
     const isCompositionRoot = COMPOSITION_ROOTS.has(relative);

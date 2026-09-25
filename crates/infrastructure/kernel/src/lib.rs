@@ -2675,11 +2675,28 @@ impl ReactAgent {
     ) -> Result<String, ContractError> {
         if let Some(provider) = model_provider {
             let system_prompt = self.build_system_prompt().await;
+            let tool_runtime = {
+                let inner = self.inner.lock().unwrap();
+                inner.tool_runtime.clone()
+            };
+            let request_parameters = if let Some(tool_runtime) = tool_runtime {
+                let tools_available = tool_runtime
+                    .list_tools()
+                    .await
+                    .map(|tools| !tools.is_empty())
+                    .unwrap_or(false);
+                merge_required_provider_capability(
+                    parameters,
+                    tools_available.then_some("tools"),
+                )?
+            } else {
+                parameters.map(ToOwned::to_owned)
+            };
             let request = ModelRequest {
                 request_id: format!("think-{}", current_turn),
                 model: preferred_model.unwrap_or("default").to_string(),
                 input: format!("{}\n\nUser: {}", system_prompt, input),
-                parameters: parameters.map(ToOwned::to_owned),
+                parameters: request_parameters,
             };
 
             match provider.execute(request).await {
@@ -2689,6 +2706,58 @@ impl ReactAgent {
         } else {
             Err(ContractError::MissingCapability)
         }
+    }
+
+    fn merge_required_provider_capability(
+        parameters: Option<&str>,
+        capability: Option<&str>,
+    ) -> Result<Option<String>, ContractError> {
+        let Some(capability) = capability else {
+            return Ok(parameters.map(ToOwned::to_owned));
+        };
+        let mut value = parameters
+            .map(serde_json::from_str::<serde_json::Value>)
+            .transpose()
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "provider parameters must be valid JSON: {error}"
+                ))
+            })?
+            .unwrap_or_else(|| serde_json::json!({}));
+
+        if !value.is_object() {
+            return Err(ContractError::ParseError(
+                "provider parameters must be a JSON object".to_string(),
+            ));
+        }
+        if value.get("agenticos").and_then(serde_json::Value::as_object).is_none() {
+            value["agenticos"] = serde_json::json!({});
+        }
+
+        let mut capabilities = value["agenticos"]["required_capabilities"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+            .filter(|item| !item.trim().is_empty())
+            .collect::<Vec<_>>();
+
+        if !capabilities
+            .iter()
+            .any(|item| item.eq_ignore_ascii_case(capability))
+        {
+            capabilities.push(capability.to_string());
+        }
+        capabilities.truncate(32);
+        value["agenticos"]["required_capabilities"] = serde_json::Value::Array(
+            capabilities
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        );
+
+        Ok(Some(value.to_string()))
     }
 
     /// Execute action step (tool call).

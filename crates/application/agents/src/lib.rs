@@ -279,3 +279,99 @@ impl Default for SubagentManager {
         Self::new(16)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn child_run_inherits_bounded_budget_and_parent_lineage() {
+        let manager = SubagentManager::new(2);
+        manager
+            .register(AgentDefinition {
+                agent_id: "reviewer".to_string(),
+                name: "Reviewer".to_string(),
+                description: "test reviewer".to_string(),
+                system_prompt: "review".to_string(),
+                skills: Vec::new(),
+                budget: AgentBudget {
+                    max_tool_calls: 4,
+                    max_tokens: 500,
+                    max_depth: 2,
+                    max_duration_seconds: 30,
+                },
+            })
+            .await
+            .unwrap();
+
+        let child = manager
+            .spawn_child("reviewer", "parent-run", 0)
+            .await
+            .unwrap();
+
+        assert_eq!(child.parent_run_id, "parent-run");
+        assert_eq!(child.depth, 1);
+        assert_eq!(child.budget.max_tool_calls, 4);
+        assert_eq!(child.budget.max_tokens, 500);
+    }
+
+    #[tokio::test]
+    async fn child_creation_enforces_count_and_depth_limits() {
+        let manager = SubagentManager::new(1);
+        manager
+            .register(AgentDefinition {
+                agent_id: "bounded".to_string(),
+                name: "Bounded".to_string(),
+                description: "test".to_string(),
+                system_prompt: "test".to_string(),
+                skills: Vec::new(),
+                budget: AgentBudget {
+                    max_tool_calls: 1,
+                    max_tokens: 1,
+                    max_depth: 1,
+                    max_duration_seconds: 1,
+                },
+            })
+            .await
+            .unwrap();
+
+        manager
+            .spawn_child("bounded", "parent", 0)
+            .await
+            .unwrap();
+        assert!(manager.spawn_child("bounded", "parent", 0).await.is_err());
+        assert!(manager.spawn_child("bounded", "another", 1).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn persisted_child_runs_survive_manager_restart() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-subagents-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = SubagentManager::open(&url, 4).await.unwrap();
+        first
+            .register(AgentDefinition {
+                agent_id: "persistent".to_string(),
+                name: "Persistent".to_string(),
+                description: "test".to_string(),
+                system_prompt: "test".to_string(),
+                skills: Vec::new(),
+                budget: AgentBudget::default(),
+            })
+            .await
+            .unwrap();
+        let child = first.spawn_child("persistent", "parent", 0).await.unwrap();
+        drop(first);
+
+        let reopened = SubagentManager::open(&url, 4).await.unwrap();
+        let recovered = reopened.child(&child.child_run_id).await.unwrap();
+        assert_eq!(recovered.parent_run_id, "parent");
+        assert_eq!(recovered.agent_id, "persistent");
+
+        let _ = std::fs::remove_file(path);
+    }
+}

@@ -4,8 +4,8 @@
 //! model/provider adapters boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    ContractError, Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry,
-    ModelProvider, ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
+    ContractError, Credential, EmbeddingProvider, FallbackConfig, HealthCheck, HealthStatus,
+    ModelEntry, ModelProvider, ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -14,6 +14,9 @@ use tokio::sync::RwLock;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-providers";
+
+pub mod embeddings;
+pub use embeddings::OpenAiCompatibleEmbeddingProvider;
 
 /// In-memory provider registry.
 #[derive(Debug)]

@@ -69,13 +69,30 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
 
   const current = liveSkills.find((skill) => skill.name === selected) ?? liveSkills[0]
 
-  function toggle(name: string) {
+  async function toggle(name: string) {
+    const nextEnabled = !enabled.has(name)
     setEnabled((state) => {
       const next = new Set(state)
-      next.has(name) ? next.delete(name) : next.add(name)
+      nextEnabled ? next.add(name) : next.delete(name)
       return next
     })
-    onAction(runtimeSyncing ? name + ' skill toggled locally' : name + ' skill selection updated locally; runtime has no skill mutation endpoint yet')
+
+    try {
+      const updated = await runtime.skills.setEnabled(name, nextEnabled)
+      setLiveSkills((skills) => skills.map((skill) => (
+        skill.name === name
+          ? { ...skill, installed: nextEnabled, updated: typeof updated.updated_at === 'string' ? updated.updated_at : skill.updated }
+          : skill
+      )))
+      onAction(name + (nextEnabled ? ' skill enabled' : ' skill disabled'))
+    } catch (error) {
+      setEnabled((state) => {
+        const next = new Set(state)
+        nextEnabled ? next.delete(name) : next.add(name)
+        return next
+      })
+      onAction(name + ' skill update failed')
+    }
   }
 
   return (

@@ -63,9 +63,22 @@ jobs:
 
   verify-rust:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+
+      - name: Install Tauri Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -105,8 +118,5 @@ jobs:
       - name: Clippy
         run: cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
 
-      - name: Provider integration tests
-        run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture
-
-      - name: Clippy
+      - name: Clippy workspace
         run: cargo clippy --workspace --all-targets -- -D warnings

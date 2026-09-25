@@ -1,21 +1,82 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "status": "canonical-structure",
   "layers": {
-    "domain": ["contracts", "brain"],
-    "application": ["agents", "execution", "scheduler", "workflows", "projects", "skills"],
-    "infrastructure": [
-      "kernel", "runtime", "providers", "tools", "mcp", "memory", "context",
-      "protocols", "source-forge", "observability", "evaluation", "security",
-      "sandbox", "adapters", "artifacts", "plugins", "router"
+    "domain": [
+      "brain",
+      "contracts"
     ],
-    "presentation": ["cli", "gateway", "desktop", "api-server"],
-    "utilities": ["reusable cross-cutting crates"]
+    "application": [
+      "agents",
+      "execution",
+      "scheduler",
+      "workflows"
+    ],
+    "infrastructure": [
+      "a2a",
+      "adapters",
+      "artifacts",
+      "browser",
+      "channels",
+      "context",
+      "evaluation",
+      "kernel",
+      "mcp",
+      "memory",
+      "observability",
+      "projects",
+      "protocols",
+      "providers",
+      "runtime",
+      "sandbox",
+      "security",
+      "source-forge",
+      "terminal",
+      "tools",
+      "workspace"
+    ],
+    "presentation": [
+      "api-server",
+      "cli",
+      "desktop",
+      "gateway"
+    ],
+    "utilities": [
+      "async-utils",
+      "cache",
+      "compression",
+      "concurrency-stress",
+      "configuration",
+      "crypto",
+      "event-bus",
+      "file-watcher",
+      "http-client",
+      "math",
+      "notifications",
+      "rate-limiting",
+      "state-management",
+      "streaming",
+      "text-search",
+      "time-utils",
+      "vector-database",
+      "websockets"
+    ]
+  },
+  "planned_crates": {
+    "application": [
+      "skills"
+    ],
+    "infrastructure": [
+      "plugins",
+      "router"
+    ]
   },
   "workspace_rules": {
     "one_manifest_per_crate": true,
     "manifest_shape": "crates/<layer>/<crate>/Cargo.toml",
     "one_first_party_owner_per_package": true,
+    "all_crates_explicit_workspace_members": true,
+    "layer_manifest_must_match_workspace": true,
     "domain_cannot_depend_on_application": true,
     "domain_cannot_depend_on_infrastructure": true,
     "domain_cannot_depend_on_presentation": true,
@@ -26,6 +87,8 @@
   },
   "runtime_rules": {
     "brain_never_depends_on_concrete_provider_tool_mcp_or_surface": true,
+    "kernel_owns_durable_runtime_lifecycle_only": true,
+    "provider_transport_is_owned_by_infrastructure_providers": true,
     "rust_is_canonical_runtime": true,
     "frontend_is_product_surface": true
   },

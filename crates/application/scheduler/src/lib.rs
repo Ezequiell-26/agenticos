@@ -807,6 +807,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sqlite_scheduler_persists_execution_metadata() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-scheduler-meta-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = JobScheduler::open(&url).await.expect("open scheduler");
+        first
+            .enqueue(JobSpec {
+                job_id: "workflow-meta".into(),
+                run_id: "workflow-run".into(),
+                task: "workflow task".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 2,
+                job_type: "workflow_node".into(),
+                metadata: serde_json::json!({
+                    "workflow_id": "wf",
+                    "node_id": "node-a",
+                }),
+            })
+            .await
+            .expect("enqueue metadata job");
+        drop(first);
+
+        let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
+        let record = recovered.get("workflow-meta").await.expect("recover metadata job");
+        assert_eq!(record.spec.job_type, "workflow_node");
+        assert_eq!(record.spec.metadata["workflow_id"], "wf");
+        assert_eq!(record.spec.metadata["node_id"], "node-a");
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn cancelling_running_job_is_terminal() {
         let scheduler = JobScheduler::new();
         scheduler

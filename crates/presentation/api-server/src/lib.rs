@@ -7537,3 +7537,4 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .map_err(|error| std::io::Error::other(error.to_string()))?
         .run()
         .await
+}

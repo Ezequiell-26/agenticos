@@ -1803,9 +1803,17 @@ impl std::fmt::Debug for HttpOutboxTransport {
 impl HttpOutboxTransport {
     /// Create an HTTP transport using the shared provider HTTP client.
     pub fn new() -> Self {
-        Self {
-            client: shared_kernel_http_client(),
-        }
+        let timeout_ms = std::env::var("AGENTICOS_OUTBOX_HTTP_TIMEOUT_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(30_000)
+            .clamp(1_000, 300_000);
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
+        Self { client }
     }
 
     async fn publish(&self, entry: &OutboxEntry) -> Result<(), ContractError> {
@@ -2030,7 +2038,7 @@ mod outbox_transport_tests {
     fn composite_accepts_runtime_and_http_destinations() {
         let runtime = Arc::new(BroadcastOutboxTransport::new(16));
         let transport = CompositeOutboxTransport::new(runtime);
-        assert!(transport.runtime().subscriber_count() >= 0);
+        assert_eq!(transport.runtime().subscriber_count(), 0);
     }
 }
 

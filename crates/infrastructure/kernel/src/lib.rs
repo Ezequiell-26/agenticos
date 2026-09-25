@@ -109,6 +109,10 @@ fn outbox_lease_seconds() -> u64 {
         .clamp(5, 3_600)
 }
 
+fn estimate_prompt_tokens(input: &str) -> u32 {
+    ((input.chars().count() as u32).saturating_add(3) / 4).max(1)
+}
+
 fn unix_time() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -3482,6 +3486,10 @@ impl ReactAgent {
 
     /// Build system prompt from a cached static section plus budgeted conversation history.
     pub async fn build_system_prompt(&self) -> String {
+        self.build_system_prompt_with_input(None).await
+    }
+
+    async fn build_system_prompt_with_input(&self, input: Option<&str>) -> String {
         let cached_static = {
             let inner = self.inner.lock().unwrap();
             inner.static_system_prompt.clone()
@@ -3623,13 +3631,20 @@ impl ReactAgent {
                         .and_then(|value| value.parse::<u32>().ok())
                         .unwrap_or(2048)
                         .min(context_window.saturating_sub(1));
+                    let safety_margin = context_window / 20;
                     let budget = ContextBudget {
                         context_window_tokens: context_window,
                         reserved_output_tokens: reserved_output,
-                        safety_margin_tokens: context_window / 20,
+                        safety_margin_tokens: safety_margin,
                         min_recent_messages: 10,
                     };
-                    let plan = ContextEngine::new().prepare(&messages, budget);
+                    let prompt_overhead_tokens = estimate_prompt_tokens(&prompt)
+                        .saturating_add(input.map(estimate_prompt_tokens).unwrap_or(0));
+                    let plan = ContextEngine::new().prepare_with_overhead(
+                        &messages,
+                        budget,
+                        prompt_overhead_tokens,
+                    );
                     if !plan.messages.is_empty() {
                         prompt.push_str("## Conversation History (Recent)\n");
                         for msg in plan.messages {
@@ -3688,7 +3703,7 @@ impl ReactAgent {
             .ok_or(ContractError::MissingCapability)?;
 
         // Build system prompt
-        let system_prompt = self.build_system_prompt().await;
+        let system_prompt = self.build_system_prompt_with_input(Some(input)).await;
 
         // Create request
         let request = ChatCompletionRequest {
@@ -3753,7 +3768,7 @@ impl ReactAgent {
         parameters: Option<&str>,
     ) -> Result<String, ContractError> {
         if let Some(provider) = model_provider {
-            let system_prompt = self.build_system_prompt().await;
+            let system_prompt = self.build_system_prompt_with_input(Some(input)).await;
             let request = ModelRequest {
                 request_id: format!("think-{}", current_turn),
                 model: preferred_model.unwrap_or("default").to_string(),

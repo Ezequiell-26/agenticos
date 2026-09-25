@@ -615,6 +615,11 @@ export class AgenticosRuntime implements RuntimeServices {
 
   readonly skills = {
     list: async () => unwrapArray(await this.transport.get<RuntimeApiRecord>('/api/skills'), 'skills'),
+    setEnabled: async (skillId: string, enabled: boolean) =>
+      this.transport.post<RuntimeApiRecord>(
+        `/api/skills/${encodeURIComponent(skillId)}/enabled`,
+        { enabled },
+      ),
   }
 
   readonly projects = {

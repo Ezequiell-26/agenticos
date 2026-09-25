@@ -6255,6 +6255,30 @@ async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
     }
 }
 
+fn authorize_capability_admin(request: &HttpRequest) -> Result<(), HttpResponse> {
+    let configured = std::env::var("AGENTICOS_CAPABILITY_ADMIN_TOKEN")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let Some(expected) = configured else {
+        return Ok(());
+    };
+
+    let supplied = request
+        .headers()
+        .get("x-agenticos-admin-token")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .unwrap_or_default();
+    if supplied == expected {
+        Ok(())
+    } else {
+        Err(HttpResponse::Forbidden().json(ErrorResponse {
+            error: "administrative capability token required".to_string(),
+            code: "CAPABILITY_ADMIN_AUTH_REQUIRED",
+        }))
+    }
+}
+
 async fn list_capabilities(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "grants": state.capabilities.list_grants().await,
@@ -6263,8 +6287,12 @@ async fn list_capabilities(state: web::Data<RuntimeState>) -> impl Responder {
 
 async fn issue_capability(
     request: web::Json<CreateCapabilityRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
+    if let Err(response) = authorize_capability_admin(&request_http) {
+        return response;
+    }
     let capability_type = match request.capability_type.trim().to_ascii_lowercase().as_str() {
         "read" => CapabilityType::Read,
         "write" => CapabilityType::Write,
@@ -6333,8 +6361,12 @@ async fn issue_capability(
 
 async fn revoke_capability(
     grant_id: web::Path<String>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
+    if let Err(response) = authorize_capability_admin(&request_http) {
+        return response;
+    }
     match state.capabilities.revoke(&grant_id).await {
         Ok(()) => HttpResponse::NoContent().finish(),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {

@@ -52,8 +52,8 @@ use agenticos_skills::SkillRegistry;
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
 use agenticos_tools::{
-    BasicPolicyEngine, GitWorkspaceTool, SecureCommandTool, SecureToolService, TerminalTool,
-    ToolRegistry, ToolRuntime, WorkspaceTool,
+    BasicPolicyEngine, BrowserTool, GitHubSourceTool, GitWorkspaceTool, SecureCommandTool,
+    SecureToolService, TerminalTool, ToolRegistry, ToolRuntime, WorkspaceTool,
 };
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;

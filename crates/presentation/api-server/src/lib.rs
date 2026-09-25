@@ -3478,12 +3478,10 @@ async fn set_skill_enabled(
         .await
     {
         Ok(skill) => HttpResponse::Ok().json(skill),
-        Err(error) if error.contains("not found") => {
-            HttpResponse::NotFound().json(ErrorResponse {
-                error,
-                code: "SKILL_NOT_FOUND",
-            })
-        }
+        Err(error) if error.contains("not found") => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "SKILL_NOT_FOUND",
+        }),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error,
             code: "SKILL_UPDATE_FAILED",

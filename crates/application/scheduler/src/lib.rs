@@ -131,14 +131,18 @@ impl JobScheduler {
                 .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
         let has_column = |name: &str| columns.iter().any(|(column,)| column == name);
         if !has_column("job_type") {
-            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'")
-                .execute(&db)
+            sqlx::query(
+                "ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'",
+            )
+            .execute(&db)
                 .await
                 .map_err(|error| format!("scheduler job type migration failed: {error}"))?;
         }
         if !has_column("metadata") {
-            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
-                .execute(&db)
+            sqlx::query(
+                "ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
+            )
+            .execute(&db)
                 .await
                 .map_err(|error| format!("scheduler metadata migration failed: {error}"))?;
         }
@@ -216,7 +220,11 @@ impl JobScheduler {
                         dependencies,
                         priority,
                         max_attempts: max_attempts as u32,
-                        job_type: if job_type.trim().is_empty() { default_job_type() } else { job_type },
+                        job_type: if job_type.trim().is_empty() {
+                            default_job_type()
+                        } else {
+                            job_type
+                        },
                         metadata,
                     },
                     state,
@@ -808,8 +816,10 @@ mod tests {
 
     #[tokio::test]
     async fn sqlite_scheduler_persists_execution_metadata() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-scheduler-meta-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-scheduler-meta-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = JobScheduler::open(&url).await.expect("open scheduler");
@@ -832,7 +842,10 @@ mod tests {
         drop(first);
 
         let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
-        let record = recovered.get("workflow-meta").await.expect("recover metadata job");
+        let record = recovered
+            .get("workflow-meta")
+            .await
+            .expect("recover metadata job");
         assert_eq!(record.spec.job_type, "workflow_node");
         assert_eq!(record.spec.metadata["workflow_id"], "wf");
         assert_eq!(record.spec.metadata["node_id"], "node-a");

@@ -5,12 +5,16 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-artifacts = { path = "../../infrastructure/artifacts" }
 agenticos-brain = { path = "../../domain/brain" }
+agenticos-context = { path = "../../infrastructure/context" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-security = { path = "../../infrastructure/security" }
+agenticos-terminal = { path = "../../infrastructure/terminal" }
+agenticos-workspace = { path = "../../infrastructure/workspace" }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 serde = { workspace = true, features = ["derive"] }

@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
+use tracing::Instrument;
 
 #[derive(Debug, Clone, Serialize)]
 /// Public provider status without secrets.
@@ -1063,12 +1064,22 @@ impl ProviderPlatform {
                     }
                 };
 
+                let protocol = detect_protocol(&provider);
+                let provider_id = provider.provider_id.clone();
+                let request_id = routed_request.request_id.clone();
                 let protocol_result = execute_protocol(
-                    detect_protocol(&provider),
+                    protocol,
                     &provider,
                     credential.as_ref(),
                     routed_request.clone(),
                 )
+                .instrument(tracing::info_span!(
+                    "provider_request",
+                    request_id = %request_id,
+                    provider = %provider_id,
+                    protocol = ?protocol,
+                    attempt = attempt + 1
+                ))
                 .await;
                 drop(_network_permit);
 

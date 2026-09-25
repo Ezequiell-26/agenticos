@@ -19,11 +19,11 @@ use agenticos_a2a::{
 };
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_artifacts::{ArtifactRange, ArtifactRecord, ArtifactStore};
-use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
 };
+use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_context::optimize_tool_output;
 use agenticos_contracts::{
@@ -586,9 +586,12 @@ impl AgentTool for GitHubSourceTool {
 
         let (repo, path, result) = match self.operation {
             "source.github.write" => {
-                let args = serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid source.github.write arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid source.github.write arguments: {error}"
+                        ))
+                    })?;
                 let resource = format!("github/{}/*", args.repo);
                 if !self
                     .capabilities
@@ -614,14 +617,20 @@ impl AgentTool for GitHubSourceTool {
                     )
                     .await
                     .map_err(|error| ContractError::ParseError(error.to_string()))?;
-                (args.repo, args.path, serde_json::to_value(result).map_err(|error| {
-                    ContractError::ParseError(error.to_string())
-                })?)
+                (
+                    args.repo,
+                    args.path,
+                    serde_json::to_value(result)
+                        .map_err(|error| ContractError::ParseError(error.to_string()))?,
+                )
             }
             "source.github.delete" => {
-                let args = serde_json::from_str::<DeleteArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid source.github.delete arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<DeleteArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid source.github.delete arguments: {error}"
+                        ))
+                    })?;
                 let resource = format!("github/{}/*", args.repo);
                 if !self
                     .capabilities
@@ -646,9 +655,12 @@ impl AgentTool for GitHubSourceTool {
                     )
                     .await
                     .map_err(|error| ContractError::ParseError(error.to_string()))?;
-                (args.repo, args.path, serde_json::to_value(result).map_err(|error| {
-                    ContractError::ParseError(error.to_string())
-                })?)
+                (
+                    args.repo,
+                    args.path,
+                    serde_json::to_value(result)
+                        .map_err(|error| ContractError::ParseError(error.to_string()))?,
+                )
             }
             _ => return Err(ContractError::MissingCapability),
         };
@@ -745,47 +757,65 @@ impl AgentTool for BrowserTool {
 
         let result = match self.operation {
             "browser.open" => {
-                let args = serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid browser.open arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<OpenArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid browser.open arguments: {error}"
+                        ))
+                    })?;
                 self.browser.open(&args.session_id, &args.url).await?
             }
-            "browser.snapshot" => {
-                self.browser.snapshot(&session_id).await?
-            }
+            "browser.snapshot" => self.browser.snapshot(&session_id).await?,
             "browser.click" => {
-                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid browser.click arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid browser.click arguments: {error}"
+                        ))
+                    })?;
                 self.browser.click(&args.session_id, &args.target).await?
             }
             "browser.fill" => {
-                let args = serde_json::from_str::<FillArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid browser.fill arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<FillArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid browser.fill arguments: {error}"
+                        ))
+                    })?;
                 self.browser
                     .fill(&args.session_id, &args.target, &args.text)
                     .await?
             }
             "browser.wait" => {
-                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid browser.wait arguments: {error}"))
-                })?;
+                let args =
+                    serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid browser.wait arguments: {error}"
+                        ))
+                    })?;
                 self.browser.wait(&args.session_id, &args.target).await?
             }
             "browser.get_text" => {
-                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
-                    ContractError::ParseError(format!("invalid browser.get_text arguments: {error}"))
-                })?;
-                self.browser.get_text(&args.session_id, &args.target).await?
+                let args =
+                    serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "invalid browser.get_text arguments: {error}"
+                        ))
+                    })?;
+                self.browser
+                    .get_text(&args.session_id, &args.target)
+                    .await?
             }
             "browser.screenshot" => {
-                let (result, artifact) =
-                    capture_browser_screenshot_artifact(&self.browser, &self.artifacts, &session_id)
-                        .await?;
+                let (result, artifact) = capture_browser_screenshot_artifact(
+                    &self.browser,
+                    &self.artifacts,
+                    &session_id,
+                )
+                .await?;
                 screenshot_artifact = artifact;
                 result
-            },
+            }
             "browser.close" => self.browser.close(&session_id).await?,
             _ => return Err(ContractError::MissingCapability),
         };
@@ -811,8 +841,8 @@ impl AgentTool for BrowserTool {
             tracing::warn!(%error, operation = self.operation, "failed to persist browser audit event");
         }
 
-        let mut result_json =
-            serde_json::to_value(&result).map_err(|error| ContractError::ParseError(error.to_string()))?;
+        let mut result_json = serde_json::to_value(&result)
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
         if let Some(artifact) = screenshot_artifact {
             if let Some(object) = result_json.as_object_mut() {
                 object.insert(
@@ -1633,13 +1663,7 @@ async fn record_model_usage(
 
     if let Err(error) = state
         .cost_ledger
-        .record(
-            request_id,
-            provider_id,
-            model_id,
-            tokens,
-            unix_time(),
-        )
+        .record(request_id, provider_id, model_id, tokens, unix_time())
         .await
     {
         tracing::warn!(
@@ -1772,8 +1796,6 @@ struct BrowserTextRequest {
     grant_id: String,
     target: String,
 }
-
-
 
 #[derive(Debug, Deserialize)]
 struct WriteSourceFileRequest {
@@ -2014,7 +2036,7 @@ async fn list_workspace(
     let path = query.path.trim();
     if path.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace path is required".to_string(),
+            error: "workspace path is required".to_string(),
             code: "WORKSPACE_PATH_REQUIRED",
         });
     }
@@ -2064,7 +2086,7 @@ async fn search_workspace(
     let path = query.path.as_deref().unwrap_or(".");
     if query.q.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace search query is required".to_string(),
+            error: "workspace search query is required".to_string(),
             code: "WORKSPACE_SEARCH_QUERY_REQUIRED",
         });
     }
@@ -2119,7 +2141,7 @@ async fn read_workspace_file(
     let path = query.path.trim();
     if path.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace path is required".to_string(),
+            error: "workspace path is required".to_string(),
             code: "WORKSPACE_PATH_REQUIRED",
         });
     }
@@ -2168,7 +2190,7 @@ async fn write_workspace_file(
 ) -> impl Responder {
     if request.path.trim().is_empty() || request.content.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace path and content are required".to_string(),
+            error: "workspace path and content are required".to_string(),
             code: "WORKSPACE_WRITE_INVALID",
         });
     }
@@ -2221,13 +2243,13 @@ async fn patch_workspace_file(
 ) -> impl Responder {
     if request.path.trim().is_empty() || request.expected.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace path and expected patch fragment are required".to_string(),
+            error: "workspace path and expected patch fragment are required".to_string(),
             code: "WORKSPACE_PATCH_INVALID",
         });
     }
     if request.replacement.len() > 8 * 1024 * 1024 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "workspace replacement exceeds supported size".to_string(),
+            error: "workspace replacement exceeds supported size".to_string(),
             code: "WORKSPACE_PATCH_TOO_LARGE",
         });
     }
@@ -2289,7 +2311,7 @@ async fn register_project(
         // Root project is always valid for the configured workspace.
     } else if let Err(error) = state.workspace.list(&request.project.path).await {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("project path is not a readable workspace directory: {error}"),
+            error: format!("project path is not a readable workspace directory: {error}"),
             code: "PROJECT_PATH_INVALID",
         });
     }
@@ -2402,7 +2424,7 @@ async fn create_terminal(
 ) -> impl Responder {
     if request.command.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "terminal command is required".to_string(),
+            error: "terminal command is required".to_string(),
             code: "TERMINAL_COMMAND_REQUIRED",
         });
     }
@@ -3017,7 +3039,7 @@ async fn execute_registered_tool(
 ) -> impl Responder {
     if request.tool_id.trim().is_empty() || request.agent_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "tool_id and agent_id are required".to_string(),
+            error: "tool_id and agent_id are required".to_string(),
             code: "INVALID_TOOL_REQUEST",
         });
     }
@@ -3127,7 +3149,7 @@ async fn register_mcp_server(
     match state.mcp.register(request.server.clone()).await {
         Ok(()) => HttpResponse::Created().json(request.server.clone()),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "MCP_REGISTRATION_FAILED",
         }),
     }
@@ -3184,7 +3206,7 @@ async fn list_mcp_tools(
             "count": tools.len(),
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "MCP_TOOL_DISCOVERY_FAILED",
         }),
     }
@@ -3257,7 +3279,7 @@ async fn call_mcp_tool(
             }))
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "MCP_TOOL_CALL_FAILED",
         }),
     }
@@ -3269,7 +3291,7 @@ async fn analyze_github_repository(
 ) -> impl Responder {
     if request.source.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "source is required".to_string(),
+            error: "source is required".to_string(),
             code: "SOURCE_INVALID",
         });
     }
@@ -3296,7 +3318,7 @@ async fn analyze_github_repository(
     };
     if let Err(error) = state.source_intelligence.register_metadata(metadata).await {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "SOURCE_METADATA_REJECTED",
         });
     }
@@ -3331,7 +3353,7 @@ async fn analyze_github_repository(
             "analysis": analysis,
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "SOURCE_ANALYSIS_FAILED",
         }),
     }
@@ -3343,14 +3365,14 @@ async fn inspect_github_repository(
 ) -> impl Responder {
     if request.source.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "source is required".to_string(),
+            error: "source is required".to_string(),
             code: "SOURCE_INVALID",
         });
     }
     match state.source_forge.inspect_repository(&request.source).await {
         Ok(info) => HttpResponse::Ok().json(info),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "SOURCE_INSPECTION_FAILED",
         }),
     }
@@ -3370,7 +3392,7 @@ async fn fetch_github_source_file(
     {
         Ok(file) => HttpResponse::Ok().json(file),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "SOURCE_FILE_FETCH_FAILED",
         }),
     }
@@ -3390,13 +3412,13 @@ async fn write_github_source_file(
 
     if grant_id.is_empty() || file_path.is_empty() || message.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "grant_id, path and message are required".to_string(),
+            error: "grant_id, path and message are required".to_string(),
             code: "SOURCE_WRITE_REQUEST_INVALID",
         });
     }
     if request.content.len() > 16 * 1024 * 1024 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "source content exceeds the supported size limit".to_string(),
+            error: "source content exceeds the supported size limit".to_string(),
             code: "SOURCE_WRITE_TOO_LARGE",
         });
     }
@@ -3518,7 +3540,11 @@ async fn delete_github_source_file(
     let file_path = request.path.trim();
     let message = request.message.trim();
 
-    if grant_id.is_empty() || file_path.is_empty() || message.is_empty() || request.expected_sha.trim().is_empty() {
+    if grant_id.is_empty()
+        || file_path.is_empty()
+        || message.is_empty()
+        || request.expected_sha.trim().is_empty()
+    {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "grant_id, path, message and expected_sha are required".to_string(),
             code: "SOURCE_DELETE_REQUEST_INVALID",
@@ -3609,14 +3635,19 @@ async fn authorize_browser(
 ) -> Result<(), HttpResponse> {
     if grant_id.trim().is_empty() {
         return Err(HttpResponse::BadRequest().json(ErrorResponse {
-                error: "grant_id is required".to_string(),
+            error: "grant_id is required".to_string(),
             code: "BROWSER_GRANT_REQUIRED",
         }));
     }
     let resource = format!("browser/{session_id}");
     match state
         .capabilities
-        .authorize(grant_id.trim(), CapabilityType::Execute, &resource, "browser.use")
+        .authorize(
+            grant_id.trim(),
+            CapabilityType::Execute,
+            &resource,
+            "browser.use",
+        )
         .await
     {
         Ok(true) => Ok(()),
@@ -3700,7 +3731,7 @@ async fn browser_open(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3712,9 +3743,9 @@ async fn browser_open(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_OPEN_FAILED",
+                code: "BROWSER_OPEN_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3739,7 +3770,7 @@ async fn browser_snapshot(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3751,9 +3782,9 @@ async fn browser_snapshot(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_SNAPSHOT_FAILED",
+                code: "BROWSER_SNAPSHOT_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3767,7 +3798,11 @@ async fn browser_click(
     if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
         return response;
     }
-    match state.browser.click(&session_id, request.target.trim()).await {
+    match state
+        .browser
+        .click(&session_id, request.target.trim())
+        .await
+    {
         Ok(result) => {
             browser_audit_event(
                 &state,
@@ -3778,7 +3813,7 @@ async fn browser_click(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3790,9 +3825,9 @@ async fn browser_click(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_CLICK_FAILED",
+                code: "BROWSER_CLICK_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3821,7 +3856,7 @@ async fn browser_fill(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3833,9 +3868,9 @@ async fn browser_fill(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_FILL_FAILED",
+                code: "BROWSER_FILL_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3860,7 +3895,7 @@ async fn browser_wait(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3872,9 +3907,9 @@ async fn browser_wait(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_WAIT_FAILED",
+                code: "BROWSER_WAIT_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3903,7 +3938,7 @@ async fn browser_get_text(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -3915,9 +3950,9 @@ async fn browser_get_text(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_GET_TEXT_FAILED",
+                code: "BROWSER_GET_TEXT_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -3980,7 +4015,8 @@ async fn browser_screenshot(
             )
             .await;
 
-            let mut payload = serde_json::to_value(result).unwrap_or_else(|_| serde_json::json!({}));
+            let mut payload =
+                serde_json::to_value(result).unwrap_or_else(|_| serde_json::json!({}));
             if let Some(artifact) = artifact {
                 if let Some(object) = payload.as_object_mut() {
                     object.insert(
@@ -3990,7 +4026,7 @@ async fn browser_screenshot(
                 }
             }
             HttpResponse::Ok().json(payload)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -4002,9 +4038,9 @@ async fn browser_screenshot(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_SCREENSHOT_FAILED",
+                code: "BROWSER_SCREENSHOT_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -4029,7 +4065,7 @@ async fn browser_close(
             )
             .await;
             HttpResponse::Ok().json(result)
-        },
+        }
         Err(error) => {
             browser_audit_event(
                 &state,
@@ -4041,9 +4077,9 @@ async fn browser_close(
             .await;
             HttpResponse::BadRequest().json(ErrorResponse {
                 error: error.to_string(),
-            code: "BROWSER_CLOSE_FAILED",
+                code: "BROWSER_CLOSE_FAILED",
             })
-        },
+        }
     }
 }
 
@@ -4075,7 +4111,7 @@ async fn run_evaluation_case(
 ) -> impl Responder {
     if request.output.len() > 2_000_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "evaluation output exceeds the supported limit".to_string(),
+            error: "evaluation output exceeds the supported limit".to_string(),
             code: "EVALUATION_OUTPUT_TOO_LARGE",
         });
     }
@@ -4475,14 +4511,14 @@ async fn stream_model_execute(
     if model.is_empty() || input.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model and input are required".to_string(),
+            error: "model and input are required".to_string(),
             code: "INVALID_MODEL_REQUEST",
         });
     }
     if model.len() > 256 || input.len() > 1_000_000 {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model request exceeds supported limits".to_string(),
+            error: "model request exceeds supported limits".to_string(),
             code: "MODEL_REQUEST_TOO_LARGE",
         });
     }
@@ -4581,14 +4617,14 @@ async fn direct_model_execute(
     if model.is_empty() || input.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model and input are required".to_string(),
+            error: "model and input are required".to_string(),
             code: "INVALID_MODEL_REQUEST",
         });
     }
     if model.len() > 256 || input.len() > 1_000_000 {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model request exceeds supported limits".to_string(),
+            error: "model request exceeds supported limits".to_string(),
             code: "MODEL_REQUEST_TOO_LARGE",
         });
     }
@@ -4599,7 +4635,7 @@ async fn direct_model_execute(
     {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model parameters exceed supported limits".to_string(),
+            error: "model parameters exceed supported limits".to_string(),
             code: "MODEL_PARAMETERS_TOO_LARGE",
         });
     }
@@ -4661,7 +4697,7 @@ async fn agent_chat(
     if message.is_empty() {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "message must not be empty".to_string(),
+            error: "message must not be empty".to_string(),
             code: "INVALID_MESSAGE",
         });
     }
@@ -4704,7 +4740,7 @@ async fn agent_chat(
     if requested_model.is_some_and(|model| model.len() > 256) {
         state.metrics.record_http(true);
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "model exceeds supported limits".to_string(),
+            error: "model exceeds supported limits".to_string(),
             code: "MODEL_ID_TOO_LARGE",
         });
     }
@@ -4947,7 +4983,7 @@ async fn conversation_search(
     let q = query.q.trim();
     if q.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "q must not be empty".to_string(),
+            error: "q must not be empty".to_string(),
             code: "INVALID_QUERY",
         });
     }
@@ -4985,7 +5021,7 @@ async fn refresh_provider_models(
             "count": models.len(),
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PROVIDER_MODEL_REFRESH_FAILED",
         }),
     }
@@ -5083,7 +5119,7 @@ async fn set_provider_quota(
     match state.provider.set_quota(quota.clone()).await {
         Ok(()) => HttpResponse::Ok().json(quota),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PROVIDER_QUOTA_UPDATE_FAILED",
         }),
     }
@@ -5143,13 +5179,13 @@ async fn set_provider_retry_policy(
 
     if request.max_attempts == 0 || request.max_attempts > 20 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "max_attempts must be between 1 and 20".to_string(),
+            error: "max_attempts must be between 1 and 20".to_string(),
             code: "INVALID_RETRY_POLICY",
         });
     }
     if request.max_backoff_ms < request.initial_backoff_ms {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "max_backoff_ms must be >= initial_backoff_ms".to_string(),
+            error: "max_backoff_ms must be >= initial_backoff_ms".to_string(),
             code: "INVALID_RETRY_POLICY",
         });
     }
@@ -5172,7 +5208,7 @@ async fn set_provider_retry_policy(
     {
         Ok(()) => HttpResponse::Ok().json(policy),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PROVIDER_RETRY_UPDATE_FAILED",
         }),
     }
@@ -5275,7 +5311,7 @@ async fn set_provider_fallback(
             auto_failover: config.auto_failover,
         }),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PROVIDER_FALLBACK_UPDATE_FAILED",
         }),
     }
@@ -5288,7 +5324,7 @@ async fn register_provider(
     let provider_id = request.provider_id.trim();
     if provider_id.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "provider_id must not be empty".to_string(),
+            error: "provider_id must not be empty".to_string(),
             code: "INVALID_PROVIDER_ID",
         });
     }
@@ -5298,7 +5334,7 @@ async fn register_provider(
         .is_some_and(|key| key.len() > 4_096)
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "api_key exceeds supported limits".to_string(),
+            error: "api_key exceeds supported limits".to_string(),
             code: "PROVIDER_KEY_TOO_LARGE",
         });
     }
@@ -5325,7 +5361,7 @@ async fn register_provider(
             HttpResponse::Created().json(provider)
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PROVIDER_REGISTRATION_FAILED",
         }),
     }
@@ -5390,7 +5426,7 @@ async fn create_run(
     let objective = request.objective.trim();
     if objective.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "objective must not be empty".to_string(),
+            error: "objective must not be empty".to_string(),
             code: "INVALID_OBJECTIVE",
         });
     }
@@ -5728,13 +5764,13 @@ async fn spawn_agent(
     let objective = request.objective.trim();
     if objective.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "objective is required for a child agent".to_string(),
+            error: "objective is required for a child agent".to_string(),
             code: "SUBAGENT_OBJECTIVE_REQUIRED",
         });
     }
     if objective.len() > 100_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "subagent objective exceeds supported limits".to_string(),
+            error: "subagent objective exceeds supported limits".to_string(),
             code: "SUBAGENT_OBJECTIVE_TOO_LARGE",
         });
     }
@@ -6095,7 +6131,7 @@ async fn create_plan(
             }))
         }
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "PLAN_GENERATION_FAILED",
         }),
     }
@@ -6146,7 +6182,7 @@ async fn create_approval(
         || request.resource.trim().is_empty()
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "run_id, action and resource are required".to_string(),
+            error: "run_id, action and resource are required".to_string(),
             code: "INVALID_APPROVAL",
         });
     }
@@ -6216,7 +6252,7 @@ async fn list_memory(
     let namespace = query.namespace.trim();
     if namespace.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "namespace must not be empty".to_string(),
+            error: "namespace must not be empty".to_string(),
             code: "INVALID_MEMORY_NAMESPACE",
         });
     }
@@ -6258,19 +6294,19 @@ async fn upsert_memory(
     let key = request.key.trim();
     if namespace.is_empty() || key.is_empty() || request.value.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "namespace, key and value are required".to_string(),
+            error: "namespace, key and value are required".to_string(),
             code: "INVALID_MEMORY",
         });
     }
     if namespace.len() > 256 || key.len() > 512 || request.value.len() > 1_000_000 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "memory field exceeds supported limits".to_string(),
+            error: "memory field exceeds supported limits".to_string(),
             code: "MEMORY_TOO_LARGE",
         });
     }
     if request.tags.as_ref().is_some_and(|tags| tags.len() > 64) {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "too many memory tags".to_string(),
+            error: "too many memory tags".to_string(),
             code: "MEMORY_TAG_LIMIT",
         });
     }
@@ -6279,13 +6315,13 @@ async fn upsert_memory(
         .is_some_and(|importance| !importance.is_finite())
     {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "importance must be a finite number".to_string(),
+            error: "importance must be a finite number".to_string(),
             code: "INVALID_MEMORY_IMPORTANCE",
         });
     }
     if request.expires_at.is_some_and(|expires_at| expires_at < 0) {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "expires_at must not be negative".to_string(),
+            error: "expires_at must not be negative".to_string(),
             code: "INVALID_MEMORY_EXPIRY",
         });
     }
@@ -6407,13 +6443,13 @@ async fn issue_capability(
     let grant_id = request.grant_id.trim();
     if resource.is_empty() || permission.is_empty() || grant_id.is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "resource, permission and grant_id are required".to_string(),
+            error: "resource, permission and grant_id are required".to_string(),
             code: "INVALID_CAPABILITY",
         });
     }
     if grant_id.len() > 256 || resource.len() > 512 || permission.len() > 128 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "capability fields exceed supported limits".to_string(),
+            error: "capability fields exceed supported limits".to_string(),
             code: "CAPABILITY_TOO_LARGE",
         });
     }
@@ -6449,7 +6485,7 @@ async fn issue_capability(
             "expires_at": grant.expires_at,
         })),
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
-                error: error.to_string(),
+            error: error.to_string(),
             code: "CAPABILITY_ISSUE_FAILED",
         }),
     }
@@ -6478,7 +6514,7 @@ async fn execute_tool(
 ) -> impl Responder {
     if request.command.trim().is_empty() || request.session_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "session_id and command are required".to_string(),
+            error: "session_id and command are required".to_string(),
             code: "INVALID_TOOL_REQUEST",
         });
     }
@@ -6510,7 +6546,7 @@ async fn worker_claim(
     let worker_id = request.worker_id.trim();
     if worker_id.is_empty() || worker_id.len() > 256 {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "worker_id must be 1..=256 characters".to_string(),
+            error: "worker_id must be 1..=256 characters".to_string(),
             code: "WORKER_ID_INVALID",
         });
     }
@@ -6569,7 +6605,7 @@ async fn worker_complete(
 ) -> impl Responder {
     if request.worker_id.trim().is_empty() {
         return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "worker_id is required".to_string(),
+            error: "worker_id is required".to_string(),
             code: "WORKER_ID_INVALID",
         });
     }
@@ -7492,9 +7528,7 @@ async fn request_id_middleware(
     Ok(response)
 }
 
-async fn runtime_event_stream(
-    state: web::Data<RuntimeState>,
-) -> HttpResponse {
+async fn runtime_event_stream(state: web::Data<RuntimeState>) -> HttpResponse {
     let mut receiver = state.outbox_transport.subscribe();
     let stream = async_stream::stream! {
         let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(15));
@@ -7602,14 +7636,11 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     });
 
     let outbox_publisher = state.outbox_publisher.clone();
-    let outbox_interval_ms = runtime_env_u64(
-        "AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS",
-        1_000,
-        100,
-        60_000,
-    );
+    let outbox_interval_ms =
+        runtime_env_u64("AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS", 1_000, 100, 60_000);
     tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(outbox_interval_ms));
+        let mut ticker =
+            tokio::time::interval(std::time::Duration::from_millis(outbox_interval_ms));
         loop {
             ticker.tick().await;
             if let Err(error) = outbox_publisher.process_pending().await {

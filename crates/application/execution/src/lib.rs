@@ -477,7 +477,8 @@ mod tests {
         projection
             .update(agenticos_contracts::SerializedEvent {
                 event_type: "RunStateChanged".to_string(),
-                data: r#"{"run_id":"run-projection","from":"Created","to":"Running","version":2}"#.to_string(),
+                data: r#"{"run_id":"run-projection","from":"Created","to":"Running","version":2}"#
+                    .to_string(),
                 schema_version: 1,
             })
             .await

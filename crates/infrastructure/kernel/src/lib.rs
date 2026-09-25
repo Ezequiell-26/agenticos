@@ -734,7 +734,8 @@ impl KernelRuntime {
         destination: &str,
     ) {
         let entry = OutboxEntry {
-            entry_id, event,
+            entry_id,
+            event,
             destination: destination.to_string(),
             attempts: 0,
             status: OutboxStatus::Pending,
@@ -780,13 +781,12 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, 0, vec![event.clone()])
             .await?;
-        self
-            .enqueue_outbox_event(
-                format!("runtime:run:{}:created:v1", run_id.as_str()),
-                event,
-                "runtime",
-            )
-            .await;
+        self.enqueue_outbox_event(
+            format!("runtime:run:{}:created:v1", run_id.as_str()),
+            event,
+            "runtime",
+        )
+        .await;
 
         // Increment version after successful persistence
         run.version = 1;
@@ -842,13 +842,12 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
-        self
-            .enqueue_outbox_event(
-                format!("runtime:run:{}:state:v{}", run_id.as_str(), updated.version),
-                event,
-                "runtime",
-            )
-            .await;
+        self.enqueue_outbox_event(
+            format!("runtime:run:{}:state:v{}", run_id.as_str(), updated.version),
+            event,
+            "runtime",
+        )
+        .await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
@@ -923,17 +922,16 @@ impl KernelRuntime {
         self.event_store
             .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
-        self
-            .enqueue_outbox_event(
-                format!(
-                    "runtime:run:{}:cancel:v{}",
-                    run_id.as_str(),
-                    updated.version
-                ),
-                event,
-                "runtime",
-            )
-            .await;
+        self.enqueue_outbox_event(
+            format!(
+                "runtime:run:{}:cancel:v{}",
+                run_id.as_str(),
+                updated.version
+            ),
+            event,
+            "runtime",
+        )
+        .await;
 
         self.runs.write().await.insert(run_id.clone(), updated);
         Ok(())
@@ -1509,9 +1507,13 @@ impl SqliteOutboxStore {
         )
         .execute(&pool)
         .await
-        .map_err(|error| ContractError::ParseError(format!("outbox schema initialization failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox schema initialization failed: {error}"))
+        })?;
 
-        Ok(Self { pool: Arc::new(pool) })
+        Ok(Self {
+            pool: Arc::new(pool),
+        })
     }
 
     fn status_name(status: OutboxStatus) -> &'static str {
@@ -1545,28 +1547,53 @@ impl SqliteOutboxStore {
         let query = format!(
             "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"
         );
-        let rows = sqlx::query_as::<_, (String, String, String, i64, String, i64, String, i64, Option<i64>)>(&query)
-            .bind(limit.clamp(1, 500) as i64)
-            .fetch_all(self.pool.as_ref())
-            .await
-            .map_err(|error| ContractError::ParseError(format!("outbox query failed: {error}")))?;
+        let rows = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                i64,
+                String,
+                i64,
+                String,
+                i64,
+                Option<i64>,
+            ),
+        >(&query)
+        .bind(limit.clamp(1, 500) as i64)
+        .fetch_all(self.pool.as_ref())
+        .await
+        .map_err(|error| ContractError::ParseError(format!("outbox query failed: {error}")))?;
 
         rows.into_iter()
-            .map(|(entry_id, event_type, event_data, schema_version, destination, attempts, status, created_at, processed_at)| {
-                Ok(OutboxEntry {
+            .map(
+                |(
                     entry_id,
-                    event: SerializedEvent {
-                        event_type,
-                        data: event_data,
-                        schema_version: schema_version.max(0) as u16,
-                    },
+                    event_type,
+                    event_data,
+                    schema_version,
                     destination,
-                    attempts: attempts.max(0) as u32,
-                    status: Self::parse_status(&status)?,
-                    created_at: created_at.max(0) as u64,
-                    processed_at: processed_at.map(|value| value.max(0) as u64),
-                })
-            })
+                    attempts,
+                    status,
+                    created_at,
+                    processed_at,
+                )| {
+                    Ok(OutboxEntry {
+                        entry_id,
+                        event: SerializedEvent {
+                            event_type,
+                            data: event_data,
+                            schema_version: schema_version.max(0) as u16,
+                        },
+                        destination,
+                        attempts: attempts.max(0) as u32,
+                        status: Self::parse_status(&status)?,
+                        created_at: created_at.max(0) as u64,
+                        processed_at: processed_at.map(|value| value.max(0) as u64),
+                    })
+                },
+            )
             .collect()
     }
 }
@@ -1598,7 +1625,8 @@ impl OutboxStore for SqliteOutboxStore {
     }
 
     async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
-        self.load_entries("status IN ('pending', 'processing')", limit).await
+        self.load_entries("status IN ('pending', 'processing')", limit)
+            .await
     }
 
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
@@ -1609,7 +1637,9 @@ impl OutboxStore for SqliteOutboxStore {
         .bind(entry_id)
         .execute(self.pool.as_ref())
         .await
-        .map_err(|error| ContractError::ParseError(format!("outbox publish update failed: {error}")))?;
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox publish update failed: {error}"))
+        })?;
         if updated.rows_affected() == 0 {
             return Err(ContractError::MissingCapability);
         }
@@ -1617,16 +1647,15 @@ impl OutboxStore for SqliteOutboxStore {
     }
 
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
-        let current_attempts = sqlx::query_scalar::<_, i64>(
-            "SELECT attempts FROM outbox_entries WHERE entry_id = ?",
-        )
-        .bind(entry_id)
-        .fetch_optional(self.pool.as_ref())
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("outbox failure lookup failed: {error}"))
-        })?
-        .ok_or(ContractError::MissingCapability)?;
+        let current_attempts =
+            sqlx::query_scalar::<_, i64>("SELECT attempts FROM outbox_entries WHERE entry_id = ?")
+                .bind(entry_id)
+                .fetch_optional(self.pool.as_ref())
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("outbox failure lookup failed: {error}"))
+                })?
+                .ok_or(ContractError::MissingCapability)?;
 
         let max_attempts = std::env::var("AGENTICOS_OUTBOX_MAX_ATTEMPTS")
             .ok()
@@ -1656,7 +1685,8 @@ impl OutboxStore for SqliteOutboxStore {
     }
 
     async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
-        self.load_entries("status IN ('failed', 'dead_letter')", limit).await
+        self.load_entries("status IN ('failed', 'dead_letter')", limit)
+            .await
     }
 }
 
@@ -3680,89 +3710,13 @@ impl ReactAgent {
                 )
                 .with_turn_id(turn_id.clone().unwrap_or_else(|| "unknown".to_string()));
 
-            // Log tool call start event
-            if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
-                log.append(SessionEvent::ToolCallStart {
-                    tool_id: "react_action".to_string(),
-                    step_id: SessionEvent::generate_id("step"),
-                    tool_name: "react_action".to_string(),
-                    args: serde_json::json!({"action": action}),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs(),
-                });
-            }
-
-            let executor = |ctx: ToolExecutionContext| async move {
-                self.act_inner(
-                    tool_executor.as_ref(),
-                    tool_runtime.as_ref(),
-                    tool_grant_id.as_deref(),
-                    &ctx.args["action"].as_str().unwrap_or(""),
-                )
-                .await
-                .map(|o| ToolExecutionResult::success(o))
-                .unwrap_or_else(|e| ToolExecutionResult::failure(e.to_string()))
-            };
-
-            let result = pipeline.execute(context, executor).await;
-
-            // Log tool call result event
-            if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
-                log.append(SessionEvent::ToolCallResult {
-                    tool_id: "react_action".to_string(),
-                    step_id: SessionEvent::generate_id("step"),
-                    success: result.success,
-                    output: result.output.clone(),
-                    error: result.error.clone(),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs(),
-                });
-            }
-
-            // Update SOUL memory with successful tool execution
-            if result.success {
-                let new_memory = format!(
-                    "Successfully executed tool: {}. Result: {}",
-                    action,
-                    result.output.as_ref().unwrap_or(&"completed".to_string())
-                );
-                let _ = self.update_soul_memory(new_memory).await;
-
-                // If this was a complex task, crystallize it as a skill
-                if action.len() > 50 && result.success {
-                    let skill = SkillEntry {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        name: format!("Skill from turn {}", current_turn),
-                        description: format!("Automatically crystallized from: {}", action),
-                        created_at: chrono::Utc::now(),
-                        usage_count: 1,
-                        success_rate: 1.0,
-                        origin_task: action.clone(),
-                    };
-                    let _ = self.add_skill_to_soul(skill).await;
-                }
-            }
-
-            if result.success {
-                // Record success and reset circuit breaker
-                let mut inner = self.inner.lock().unwrap();
-                inner.recovery_state.record_success();
-                result.output.unwrap_or("Execution completed".to_string())
-            } else {
-                // Log error event
-                let error_msg = result
-                    .error
-                    .clone()
-                    .unwrap_or("Tool execution failed".to_string());
+                // Log tool call start event
                 if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
-                    log.append(SessionEvent::Error {
-                        error_id: SessionEvent::generate_id("error"),
-                        context: "tool_execution".to_string(),
-                        message: error_msg.clone(),
+                    log.append(SessionEvent::ToolCallStart {
+                        tool_id: "react_action".to_string(),
+                        step_id: SessionEvent::generate_id("step"),
+                        tool_name: "react_action".to_string(),
+                        args: serde_json::json!({"action": action}),
                         timestamp: SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap_or_default()
@@ -3770,98 +3724,28 @@ impl ReactAgent {
                     });
                 }
 
-                // Integrate recovery logic without holding a synchronous mutex across awaits.
-                let recovery_id = SessionEvent::generate_id("recovery");
-
-                // Log recovery start.
-                if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
-                    log.append(SessionEvent::RecoveryStart {
-                        recovery_id: recovery_id.clone(),
-                        turn_id: tid.clone(),
-                        context: "tool_execution".to_string(),
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs(),
-                    });
-                }
-
-                let (circuit_breaker_open, failure_triggered, retry) = {
-                    let mut inner = self.inner.lock().unwrap();
-                    if inner.recovery_state.is_circuit_breaker_open() {
-                        (true, false, None)
-                    } else if !inner.recovery_state.record_failure(error_msg.clone()) {
-                        (false, true, None)
-                    } else if inner.recovery_state.increment_retry() {
-                        (
-                            false,
-                            false,
-                            Some((
-                                inner.recovery_state.retry_count,
-                                inner.recovery_state.calculate_backoff_ms(),
-                            )),
-                        )
-                    } else {
-                        (false, false, None)
-                    }
+                let executor = |ctx: ToolExecutionContext| async move {
+                    self.act_inner(
+                        tool_executor.as_ref(),
+                        tool_runtime.as_ref(),
+                        tool_grant_id.as_deref(),
+                        &ctx.args["action"].as_str().unwrap_or(""),
+                    )
+                    .await
+                    .map(|o| ToolExecutionResult::success(o))
+                    .unwrap_or_else(|e| ToolExecutionResult::failure(e.to_string()))
                 };
 
-                if circuit_breaker_open {
-                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
-                        log.append(SessionEvent::RecoveryEnd {
-                            recovery_id,
-                            turn_id: tid.clone(),
-                            success: false,
-                            timestamp: SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs(),
-                        });
-                    }
-                    return Err(ContractError::ParseError(
-                        "Circuit breaker is open, tool execution blocked".to_string(),
-                    ));
-                }
+                let result = pipeline.execute(context, executor).await;
 
-                if failure_triggered {
-                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
-                        log.append(SessionEvent::RecoveryEnd {
-                            recovery_id,
-                            turn_id: tid.clone(),
-                            success: false,
-                            timestamp: SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs(),
-                        });
-                    }
-                    return Err(ContractError::ParseError(
-                        "Circuit breaker triggered by consecutive failures".to_string(),
-                    ));
-                }
-
-                if let Some((attempt_number, backoff_ms)) = retry {
-                    if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
-                        log.append(SessionEvent::RecoveryAttempt {
-                            recovery_id: recovery_id.clone(),
-                            attempt_number,
-                            action: format!("retry_tool_execution: {}", action),
-                            timestamp: SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs(),
-                        });
-                    }
-
-                    // Exponential backoff before the next attempt.
-                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-                }
-
-                if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
-                    log.append(SessionEvent::RecoveryEnd {
-                        recovery_id,
-                        turn_id: tid.clone(),
-                        success: false,
+                // Log tool call result event
+                if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                    log.append(SessionEvent::ToolCallResult {
+                        tool_id: "react_action".to_string(),
+                        step_id: SessionEvent::generate_id("step"),
+                        success: result.success,
+                        output: result.output.clone(),
+                        error: result.error.clone(),
                         timestamp: SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap_or_default()
@@ -3869,8 +3753,154 @@ impl ReactAgent {
                     });
                 }
 
-                return Err(ContractError::ParseError(error_msg));
-            }
+                // Update SOUL memory with successful tool execution
+                if result.success {
+                    let new_memory = format!(
+                        "Successfully executed tool: {}. Result: {}",
+                        action,
+                        result.output.as_ref().unwrap_or(&"completed".to_string())
+                    );
+                    let _ = self.update_soul_memory(new_memory).await;
+
+                    // If this was a complex task, crystallize it as a skill
+                    if action.len() > 50 && result.success {
+                        let skill = SkillEntry {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            name: format!("Skill from turn {}", current_turn),
+                            description: format!("Automatically crystallized from: {}", action),
+                            created_at: chrono::Utc::now(),
+                            usage_count: 1,
+                            success_rate: 1.0,
+                            origin_task: action.clone(),
+                        };
+                        let _ = self.add_skill_to_soul(skill).await;
+                    }
+                }
+
+                if result.success {
+                    // Record success and reset circuit breaker
+                    let mut inner = self.inner.lock().unwrap();
+                    inner.recovery_state.record_success();
+                    result.output.unwrap_or("Execution completed".to_string())
+                } else {
+                    // Log error event
+                    let error_msg = result
+                        .error
+                        .clone()
+                        .unwrap_or("Tool execution failed".to_string());
+                    if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::Error {
+                            error_id: SessionEvent::generate_id("error"),
+                            context: "tool_execution".to_string(),
+                            message: error_msg.clone(),
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+
+                    // Integrate recovery logic without holding a synchronous mutex across awaits.
+                    let recovery_id = SessionEvent::generate_id("recovery");
+
+                    // Log recovery start.
+                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::RecoveryStart {
+                            recovery_id: recovery_id.clone(),
+                            turn_id: tid.clone(),
+                            context: "tool_execution".to_string(),
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+
+                    let (circuit_breaker_open, failure_triggered, retry) = {
+                        let mut inner = self.inner.lock().unwrap();
+                        if inner.recovery_state.is_circuit_breaker_open() {
+                            (true, false, None)
+                        } else if !inner.recovery_state.record_failure(error_msg.clone()) {
+                            (false, true, None)
+                        } else if inner.recovery_state.increment_retry() {
+                            (
+                                false,
+                                false,
+                                Some((
+                                    inner.recovery_state.retry_count,
+                                    inner.recovery_state.calculate_backoff_ms(),
+                                )),
+                            )
+                        } else {
+                            (false, false, None)
+                        }
+                    };
+
+                    if circuit_breaker_open {
+                        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                            log.append(SessionEvent::RecoveryEnd {
+                                recovery_id,
+                                turn_id: tid.clone(),
+                                success: false,
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs(),
+                            });
+                        }
+                        return Err(ContractError::ParseError(
+                            "Circuit breaker is open, tool execution blocked".to_string(),
+                        ));
+                    }
+
+                    if failure_triggered {
+                        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                            log.append(SessionEvent::RecoveryEnd {
+                                recovery_id,
+                                turn_id: tid.clone(),
+                                success: false,
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs(),
+                            });
+                        }
+                        return Err(ContractError::ParseError(
+                            "Circuit breaker triggered by consecutive failures".to_string(),
+                        ));
+                    }
+
+                    if let Some((attempt_number, backoff_ms)) = retry {
+                        if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                            log.append(SessionEvent::RecoveryAttempt {
+                                recovery_id: recovery_id.clone(),
+                                attempt_number,
+                                action: format!("retry_tool_execution: {}", action),
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs(),
+                            });
+                        }
+
+                        // Exponential backoff before the next attempt.
+                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    }
+
+                    if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+                        log.append(SessionEvent::RecoveryEnd {
+                            recovery_id,
+                            turn_id: tid.clone(),
+                            success: false,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+
+                    return Err(ContractError::ParseError(error_msg));
+                }
             }
         } else {
             // Without a configured tool pipeline, the model output is the final assistant response.
@@ -5666,9 +5696,15 @@ impl Default for LLMConfig {
 
 #[test]
 fn structured_tool_action_detection_accepts_tool_json_only() {
-    assert!(is_structured_tool_action(r#"{"tool":"fs.read","arguments":{"path":"README.md"}}"#));
-    assert!(is_structured_tool_action(r#"{"tool_id":"git.status","arguments":{}}"#));
-    assert!(!is_structured_tool_action("This is a normal assistant answer."));
+    assert!(is_structured_tool_action(
+        r#"{"tool":"fs.read","arguments":{"path":"README.md"}}"#
+    ));
+    assert!(is_structured_tool_action(
+        r#"{"tool_id":"git.status","arguments":{}}"#
+    ));
+    assert!(!is_structured_tool_action(
+        "This is a normal assistant answer."
+    ));
     assert!(!is_structured_tool_action(r#"{"tool":"","arguments":{}}"#));
 }
 
@@ -5692,7 +5728,6 @@ mod tests {
     fn test_runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Runtime::new().unwrap()
     }
-
 
     #[test]
     fn test_react_agent_creation() {

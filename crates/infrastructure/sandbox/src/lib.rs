@@ -165,24 +165,23 @@ impl ProcessSandbox {
                 "bwrap"
             };
             let mut wrapped = Command::new(runner);
-            wrapped
-                .args([
-                    "--die-with-parent",
-                    "--unshare-all",
-                    "--ro-bind",
-                    "/",
-                    "/",
-                    "--proc",
-                    "/proc",
-                    "--dev",
-                    "/dev",
-                    "--tmpfs",
-                    "/tmp",
-                ]);
+            wrapped.args([
+                "--die-with-parent",
+                "--unshare-all",
+                "--ro-bind",
+                "/",
+                "/",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--tmpfs",
+                "/tmp",
+            ]);
             if let Some(dir) = workdir {
-                let dir = dir
-                    .to_str()
-                    .ok_or_else(|| ContractError::ParseError("sandbox workdir is not UTF-8".to_string()))?;
+                let dir = dir.to_str().ok_or_else(|| {
+                    ContractError::ParseError("sandbox workdir is not UTF-8".to_string())
+                })?;
                 wrapped.args(["--bind", dir, dir, "--chdir", dir]);
             }
             wrapped.arg("--").arg(executable);
@@ -508,23 +507,13 @@ mod tests {
         let first = sandbox.clone();
         let first_task = tokio::spawn(async move {
             first
-                .execute_command(
-                    "sleep 1",
-                    None,
-                    None,
-                    &["process.execute".to_string()],
-                )
+                .execute_command("sleep 1", None, None, &["process.execute".to_string()])
                 .await
         });
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         let second = sandbox
-            .execute_command(
-                "sleep 0",
-                None,
-                None,
-                &["process.execute".to_string()],
-            )
+            .execute_command("sleep 0", None, None, &["process.execute".to_string()])
             .await;
         assert!(matches!(second, Err(ContractError::ParseError(_))));
         let _ = first_task.await;

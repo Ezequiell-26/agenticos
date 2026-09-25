@@ -624,7 +624,10 @@ impl GitHubSourceClient {
             }
             body["branch"] = serde_json::Value::String(reference.to_string());
         }
-        if let Some(sha) = expected_sha.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(sha) = expected_sha
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             if sha.len() > 128 || sha.contains(['\r', '\n']) {
                 return Err(SourceForgeError::InvalidSource(
                     "invalid expected file SHA".to_string(),
@@ -635,10 +638,7 @@ impl GitHubSourceClient {
 
         let response = self
             .client
-            .put(format!(
-                "{}/repos/{repo_id}/contents/{path}",
-                self.api_base
-            ))
+            .put(format!("{}/repos/{repo_id}/contents/{path}", self.api_base))
             .bearer_auth(token)
             .header("Accept", "application/vnd.github+json")
             .json(&body)
@@ -718,7 +718,10 @@ impl GitHubSourceClient {
                 "commit message must contain 1-512 characters".to_string(),
             ));
         }
-        if expected_sha.is_empty() || expected_sha.len() > 128 || expected_sha.contains(['\r', '\n']) {
+        if expected_sha.is_empty()
+            || expected_sha.len() > 128
+            || expected_sha.contains(['\r', '\n'])
+        {
             return Err(SourceForgeError::InvalidSource(
                 "invalid expected file SHA".to_string(),
             ));

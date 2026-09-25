@@ -159,11 +159,8 @@ impl BrowserRuntime {
 
     /// Capture an interactive browser snapshot.
     pub async fn snapshot(&self, session_id: &str) -> Result<BrowserActionResult, ContractError> {
-        self.run(
-            session_id,
-            &[String::from("snapshot"), String::from("-i")],
-        )
-        .await
+        self.run(session_id, &[String::from("snapshot"), String::from("-i")])
+            .await
     }
 
     /// Click an element reference.
@@ -192,11 +189,7 @@ impl BrowserRuntime {
         }
         self.run(
             session_id,
-            &[
-                String::from("fill"),
-                target.to_string(),
-                text.to_string(),
-            ],
+            &[String::from("fill"), target.to_string(), text.to_string()],
         )
         .await
     }
@@ -221,16 +214,17 @@ impl BrowserRuntime {
         validate_target(target)?;
         self.run(
             session_id,
-            &[String::from("get"), String::from("text"), target.to_string()],
+            &[
+                String::from("get"),
+                String::from("text"),
+                target.to_string(),
+            ],
         )
         .await
     }
 
     /// Capture a screenshot.
-    pub async fn screenshot(
-        &self,
-        session_id: &str,
-    ) -> Result<BrowserActionResult, ContractError> {
+    pub async fn screenshot(&self, session_id: &str) -> Result<BrowserActionResult, ContractError> {
         self.run(session_id, &[String::from("screenshot")]).await
     }
 
@@ -278,7 +272,10 @@ fn validate_args(args: &[String]) -> Result<(), ContractError> {
             "browser action must contain 1..=8 arguments".to_string(),
         ));
     }
-    if args.iter().any(|arg| arg.len() > 64 * 1024 || arg.contains(['\r', '\n'])) {
+    if args
+        .iter()
+        .any(|arg| arg.len() > 64 * 1024 || arg.contains(['\r', '\n']))
+    {
         return Err(ContractError::ParseError(
             "browser action contains an invalid argument".to_string(),
         ));
@@ -289,9 +286,9 @@ fn validate_args(args: &[String]) -> Result<(), ContractError> {
 fn validate_url(url: &str) -> Result<(), ContractError> {
     let url = url.trim();
     if url.len() > 2048
-        || !url
-            .split_once(':')
-            .is_some_and(|(scheme, _)| matches!(scheme.to_ascii_lowercase().as_str(), "http" | "https"))
+        || !url.split_once(':').is_some_and(|(scheme, _)| {
+            matches!(scheme.to_ascii_lowercase().as_str(), "http" | "https")
+        })
     {
         return Err(ContractError::ParseError(
             "browser navigation requires an http or https URL".to_string(),
@@ -311,7 +308,8 @@ fn validate_target(target: &str) -> Result<(), ContractError> {
 
 fn validate_output_path(path: &Path) -> Result<(), ContractError> {
     let value = path.to_string_lossy();
-    if value.is_empty() || value.len() > 4096 || value.contains(['\r', '\n']) || !path.is_absolute() {
+    if value.is_empty() || value.len() > 4096 || value.contains(['\r', '\n']) || !path.is_absolute()
+    {
         return Err(ContractError::ParseError(
             "browser screenshot output path must be absolute and valid".to_string(),
         ));

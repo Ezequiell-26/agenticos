@@ -908,17 +908,17 @@ impl ProviderPlatform {
                 .ok()
                 .filter(|value| !value.trim().is_empty())
             {
-            Some(primary) => Some(primary),
-            None => self
-                .fallbacks
-                .configured_primary_provider()
-                .await
-                .or_else(|| {
-                    providers
-                        .first()
-                        .map(|provider| provider.provider_id.clone())
-                }),
-            } 
+                Some(primary) => Some(primary),
+                None => self
+                    .fallbacks
+                    .configured_primary_provider()
+                    .await
+                    .or_else(|| {
+                        providers
+                            .first()
+                            .map(|provider| provider.provider_id.clone())
+                    }),
+            }
         };
 
         let mut ordered_ids = Vec::new();
@@ -974,8 +974,8 @@ impl ProviderPlatform {
 
         let mut last_error = None;
         for provider in healthy {
-            let effective_model =
-                if request.model == "default" || request.model == "default-model" {
+            let effective_model = if request.model == "default" || request.model == "default-model"
+            {
                 provider
                     .models
                     .first()
@@ -1046,10 +1046,7 @@ impl ProviderPlatform {
                         );
                         if let Err(release_error) = self
                             .quotas
-                            .release_token_reservation(
-                                &provider.provider_id,
-                                token_reservation,
-                            )
+                            .release_token_reservation(&provider.provider_id, token_reservation)
                             .await
                         {
                             tracing::warn!(
@@ -1121,10 +1118,7 @@ impl ProviderPlatform {
                             }
                         } else if let Err(error) = self
                             .quotas
-                            .release_token_reservation(
-                                &provider.provider_id,
-                                token_reservation,
-                            )
+                            .release_token_reservation(&provider.provider_id, token_reservation)
                             .await
                         {
                             tracing::warn!(
@@ -1338,10 +1332,7 @@ impl ProviderPlatform {
                         Err(_) => {
                             if let Err(release_error) = self
                                 .quotas
-                                .release_token_reservation(
-                                    &provider.provider_id,
-                                    token_reservation,
-                                )
+                                .release_token_reservation(&provider.provider_id, token_reservation)
                                 .await
                             {
                                 tracing::warn!(
@@ -1365,10 +1356,7 @@ impl ProviderPlatform {
                         Err(error) => {
                             if let Err(release_error) = self
                                 .quotas
-                                .release_token_reservation(
-                                    &provider.provider_id,
-                                    token_reservation,
-                                )
+                                .release_token_reservation(&provider.provider_id, token_reservation)
                                 .await
                             {
                                 tracing::warn!(
@@ -2338,10 +2326,7 @@ fn parse_stream_event(
             }
             if matches!(
                 kind,
-                "response.completed"
-                    | "response.failed"
-                    | "response.incomplete"
-                    | "response.done"
+                "response.completed" | "response.failed" | "response.incomplete" | "response.done"
             ) {
                 return Ok(Some(StreamItem::Done));
             }
@@ -2361,10 +2346,7 @@ fn parse_stream_event(
                 }
             }
             if kind == "message_start" {
-                if let Some(usage) = json
-                    .get("message")
-                    .and_then(|value| value.get("usage"))
-                {
+                if let Some(usage) = json.get("message").and_then(|value| value.get("usage")) {
                     return Ok(Some(StreamItem::Usage {
                         input_tokens: usage
                             .get("input_tokens")
@@ -2421,9 +2403,7 @@ fn parse_stream_event(
                 .and_then(|parts| {
                     parts
                         .iter()
-                        .find_map(|part| {
-                        part.get("text").and_then(|value| value.as_str())
-                    })
+                        .find_map(|part| part.get("text").and_then(|value| value.as_str()))
                 })
                 .filter(|value| !value.is_empty())
             {
@@ -2659,8 +2639,6 @@ fn stream_sse_response(
     })
 }
 
-
-
 fn required_provider_capabilities(request: &ModelRequest) -> Vec<String> {
     let Some(raw) = request.parameters.as_deref() else {
         return Vec::new();
@@ -2684,10 +2662,7 @@ fn required_provider_capabilities(request: &ModelRequest) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn provider_supports_required_capabilities(
-    provider: &ProviderEntry,
-    required: &[String],
-) -> bool {
+fn provider_supports_required_capabilities(provider: &ProviderEntry, required: &[String]) -> bool {
     if required.is_empty() {
         return true;
     }
@@ -2696,7 +2671,9 @@ fn provider_supports_required_capabilities(
         .iter()
         .map(|value| value.trim().to_ascii_lowercase())
         .collect::<std::collections::HashSet<_>>();
-    required.iter().all(|required| capabilities.contains(required))
+    required
+        .iter()
+        .all(|required| capabilities.contains(required))
 }
 
 fn detect_protocol(provider: &ProviderEntry) -> ProviderProtocol {
@@ -3050,18 +3027,11 @@ async fn stream_protocol_request(
                 "stream": true,
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
-            (
-                url,
-                payload,
-                vec![("anthropic-version", "2023-06-01")],
-            )
+            (url, payload, vec![("anthropic-version", "2023-06-01")])
         }
         StreamProtocol::Gemini => {
-            let mut url = normalize_gemini_endpoint(
-                &provider.base_url,
-                &request.model,
-                credential,
-            )?;
+            let mut url =
+                normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
             let stream_url = url
                 .as_str()
                 .replace(":generateContent", ":streamGenerateContent");
@@ -3701,9 +3671,7 @@ mod tests {
             request_id: "budget-test".to_string(),
             model: "model".to_string(),
             input: "hello".to_string(),
-            parameters: Some(
-                serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string(),
-            ),
+            parameters: Some(serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string()),
         };
         assert_eq!(requested_token_budget(&request), Some(321));
 
@@ -3767,7 +3735,11 @@ mod tests {
         .unwrap();
         assert!(matches!(
             openai,
-            Some(StreamItem::Usage { input_tokens: 10, output_tokens: 7, total_tokens: 17 })
+            Some(StreamItem::Usage {
+                input_tokens: 10,
+                output_tokens: 7,
+                total_tokens: 17
+            })
         ));
 
         let anthropic_start = parse_stream_event(
@@ -3778,7 +3750,11 @@ mod tests {
         .unwrap();
         assert!(matches!(
             anthropic_start,
-            Some(StreamItem::Usage { input_tokens: 12, output_tokens: 0, total_tokens: 0 })
+            Some(StreamItem::Usage {
+                input_tokens: 12,
+                output_tokens: 0,
+                total_tokens: 0
+            })
         ));
 
         let anthropic_delta = parse_stream_event(
@@ -3789,7 +3765,11 @@ mod tests {
         .unwrap();
         assert!(matches!(
             anthropic_delta,
-            Some(StreamItem::Usage { input_tokens: 0, output_tokens: 8, total_tokens: 0 })
+            Some(StreamItem::Usage {
+                input_tokens: 0,
+                output_tokens: 8,
+                total_tokens: 0
+            })
         ));
 
         let gemini = parse_stream_event(
@@ -3800,7 +3780,11 @@ mod tests {
         .unwrap();
         assert!(matches!(
             gemini,
-            Some(StreamItem::Usage { input_tokens: 20, output_tokens: 9, total_tokens: 29 })
+            Some(StreamItem::Usage {
+                input_tokens: 20,
+                output_tokens: 9,
+                total_tokens: 29
+            })
         ));
     }
 

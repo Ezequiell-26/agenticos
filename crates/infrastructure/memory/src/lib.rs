@@ -661,7 +661,10 @@ mod persistent_memory_tests {
             .search("project:test", "durable scheduler workers", 2)
             .await
             .unwrap();
-        assert_eq!(results.first().map(|record| record.key.as_str()), Some("rust-runtime"));
+        assert_eq!(
+            results.first().map(|record| record.key.as_str()),
+            Some("rust-runtime")
+        );
 
         let _ = std::fs::remove_file(path);
     }

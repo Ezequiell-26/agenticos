@@ -374,9 +374,7 @@ impl QuotaTracker {
             .get_mut(provider_id)
             .ok_or(ContractError::MissingCapability)?;
         Self::refresh_window(state, unix_time());
-        state.reserved_token_usage = state
-            .reserved_token_usage
-            .saturating_sub(reservation);
+        state.reserved_token_usage = state.reserved_token_usage.saturating_sub(reservation);
         state.token_usage = state.token_usage.saturating_add(tokens);
         Ok(())
     }

@@ -161,16 +161,16 @@ impl JobScheduler {
                 "ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'",
             )
             .execute(&db)
-                .await
-                .map_err(|error| format!("scheduler job type migration failed: {error}"))?;
+            .await
+            .map_err(|error| format!("scheduler job type migration failed: {error}"))?;
         }
         if !has_column("metadata") {
             sqlx::query(
                 "ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
             )
             .execute(&db)
-                .await
-                .map_err(|error| format!("scheduler metadata migration failed: {error}"))?;
+            .await
+            .map_err(|error| format!("scheduler metadata migration failed: {error}"))?;
         }
         if !has_column("lease_owner") {
             sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT")
@@ -266,11 +266,7 @@ impl JobScheduler {
                     state,
                     attempts: attempts.max(0) as u32,
                     last_error,
-                    lease_owner: if lease_expired {
-                        None
-                    } else {
-                        lease_owner
-                    },
+                    lease_owner: if lease_expired { None } else { lease_owner },
                     lease_token: lease_token.max(0) as u64,
                     lease_expires_at: if lease_expired {
                         0
@@ -475,7 +471,15 @@ impl JobScheduler {
             .await
             .map_err(|error| format!("scheduler claim preflight failed: {error}"))?;
 
-            if let Some((state, attempts, lease_owner, lease_token, lease_expires_at, next_attempt_at)) = row {
+            if let Some((
+                state,
+                attempts,
+                lease_owner,
+                lease_token,
+                lease_expires_at,
+                next_attempt_at,
+            )) = row
+            {
                 let now = unix_time();
                 let db_claimable = matches!(state.as_str(), "Ready" | "Pending")
                     || (state == "Running" && lease_expires_at.max(0) as u64 <= now);
@@ -879,16 +883,15 @@ mod tests {
     fn scheduler_retry_backoff_is_bounded_and_exponential() {
         assert!(scheduler_retry_backoff_ms(1) <= 4_000);
         assert!(scheduler_retry_backoff_ms(2) >= scheduler_retry_backoff_ms(1));
-        assert_eq!(
-            scheduler_retry_backoff_ms(20),
-            4_000
-        );
+        assert_eq!(scheduler_retry_backoff_ms(20), 4_000);
     }
 
     #[tokio::test]
     async fn sqlite_scheduler_persists_retry_backoff_state() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-scheduler-retry-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-scheduler-retry-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let first = JobScheduler::open(&url).await.expect("open scheduler");

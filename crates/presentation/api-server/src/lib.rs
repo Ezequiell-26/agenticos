@@ -6328,10 +6328,37 @@ async fn list_memory(
         .filter(|value| !value.is_empty())
     {
         Some(search) => {
-            state
-                .persistent_memory
-                .search(namespace, search, limit)
-                .await
+            if memory_embeddings_enabled() {
+                if let Some(model) = configured_embedding_model() {
+                    match state
+                        .provider
+                        .embed(EmbeddingRequest {
+                            request_id: format!("memory-search-{}", uuid::Uuid::new_v4()),
+                            model,
+                            inputs: vec![search.to_string()],
+                        })
+                        .await
+                    {
+                        Ok(response) if response.embeddings.len() == 1 => {
+                            match state
+                                .persistent_memory
+                                .search_semantic(namespace, &response.embeddings[0], limit)
+                                .await
+                            {
+                                Ok(records) if !records.is_empty() => Ok(records),
+                                Ok(_) | Err(_) => {
+                                    state.persistent_memory.search(namespace, search, limit).await
+                                }
+                            }
+                        }
+                        _ => state.persistent_memory.search(namespace, search, limit).await,
+                    }
+                } else {
+                    state.persistent_memory.search(namespace, search, limit).await
+                }
+            } else {
+                state.persistent_memory.search(namespace, search, limit).await
+            }
         }
         None => state.persistent_memory.list(namespace, limit).await,
     };
@@ -6401,7 +6428,42 @@ async fn upsert_memory(
         )
         .await
     {
-        Ok(record) => HttpResponse::Ok().json(record),
+        Ok(record) => {
+            if memory_embeddings_enabled() {
+                if let Some(model) = configured_embedding_model() {
+                    match state
+                        .provider
+                        .embed(EmbeddingRequest {
+                            request_id: format!("memory-write-{}", uuid::Uuid::new_v4()),
+                            model,
+                            inputs: vec![format!("{}: {}", key, request.value)],
+                        })
+                        .await
+                    {
+                        Ok(response) if response.embeddings.len() == 1 => {
+                            if let Err(error) = state
+                                .persistent_memory
+                                .set_embedding(&record.memory_id, &response.embeddings[0])
+                                .await
+                            {
+                                tracing::warn!(
+                                    memory_id = %record.memory_id,
+                                    %error,
+                                    "failed to persist memory embedding"
+                                );
+                            }
+                        }
+                        Ok(_) | Err(_) => {
+                            tracing::debug!(
+                                memory_id = %record.memory_id,
+                                "memory embedding generation unavailable; keeping lexical memory record"
+                            );
+                        }
+                    }
+                }
+            }
+            HttpResponse::Ok().json(record)
+        },
         Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
             error: error.to_string(),
             code: "MEMORY_WRITE_FAILED",
@@ -6435,6 +6497,19 @@ async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
             code: "MEMORY_PURGE_FAILED",
         }),
     }
+}
+
+fn memory_embeddings_enabled() -> bool {
+    std::env::var("AGENTICOS_MEMORY_EMBEDDINGS")
+        .ok()
+        .is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+}
+
+fn configured_embedding_model() -> Option<String> {
+    std::env::var("AGENTICOS_EMBEDDING_MODEL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty() && value.len() <= 256)
 }
 
 fn capability_admin_token_allowed(configured: Option<&str>, supplied: &str) -> bool {

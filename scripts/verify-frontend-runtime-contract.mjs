@@ -48,7 +48,7 @@ console.log(
 
 function normalizeRoute(path) {
   return path
-    .split('?', 1)[0]
+    .replace(/\?(?=[A-Za-z_][A-Za-z0-9_-]*=).*/, '')
     .replace(/\$\{[^}]+\}/g, '*')
     .replace(/\{[^}]+\}/g, '*')
     .replace(/\/$/, '')

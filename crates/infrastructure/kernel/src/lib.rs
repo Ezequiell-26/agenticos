@@ -1874,11 +1874,7 @@ impl OutboxStore for SqliteOutboxStore {
         }
         Ok(())
     }
-    async fn mark_published_by(
-        &self,
-        entry_id: &str,
-        worker_id: &str,
-    ) -> Result<(), ContractError> {
+    async fn mark_published_by(&self, entry_id: &str, worker_id: &str) -> Result<(), ContractError> {
         validate_outbox_worker_id(worker_id)?;
         let updated = sqlx::query(
             "UPDATE outbox_entries
@@ -1952,11 +1948,7 @@ impl OutboxStore for SqliteOutboxStore {
         })?;
         Ok(())
     }
-    async fn mark_failed_by(
-        &self,
-        entry_id: &str,
-        worker_id: &str,
-    ) -> Result<(), ContractError> {
+    async fn mark_failed_by(&self, entry_id: &str, worker_id: &str) -> Result<(), ContractError> {
         validate_outbox_worker_id(worker_id)?;
         let current_attempts = sqlx::query_scalar::<_, i64>(
             "SELECT attempts FROM outbox_entries
@@ -2161,12 +2153,7 @@ impl OutboxStore for InMemoryOutboxStore {
         Ok(())
     }
 
-
-    async fn mark_failed_by(
-        &self,
-        entry_id: &str,
-        worker_id: &str,
-    ) -> Result<(), ContractError> {
+    async fn mark_failed_by(&self, entry_id: &str, worker_id: &str) -> Result<(), ContractError> {
         validate_outbox_worker_id(worker_id)?;
         let mut claims = self.claims.write().await;
         let owns_claim = claims

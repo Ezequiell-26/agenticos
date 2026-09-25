@@ -47,8 +47,8 @@ use agenticos_projects::{ProjectDefinition, ProjectRegistry};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
-use agenticos_skills::SkillRegistry;
 use agenticos_security::{ApprovalRequest, CapabilityManager};
+use agenticos_skills::SkillRegistry;
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
 use agenticos_tools::{
@@ -270,7 +270,8 @@ impl RuntimeState {
                 .map_err(ContractError::ParseError)?,
         );
         let browser = Arc::new(BrowserRuntime::from_env());
-        let skill_root = std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
+        let skill_root =
+            std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
         let skills_registry = Arc::new(
             SkillRegistry::open(&database_url, &skill_root)
                 .await
@@ -7532,9 +7533,9 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 "/api/memory/backfill",
                 web::post().to(backfill_memory_embeddings),
             )
-        })
-        .bind(("127.0.0.1", state.bind_port))
-        .map_err(|error| std::io::Error::other(error.to_string()))?
-        .run()
-        .await
+    })
+    .bind(("127.0.0.1", state.bind_port))
+    .map_err(|error| std::io::Error::other(error.to_string()))?
+    .run()
+    .await
 }

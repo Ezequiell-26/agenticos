@@ -1777,13 +1777,15 @@ fn hex_decode(value: &str) -> Result<Vec<u8>, ContractError> {
         }
     }
     let bytes = value.as_bytes();
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         return Err(ContractError::ParseError(
             "encrypted provider secret is malformed".to_string(),
         ));
     }
     let mut decoded = Vec::with_capacity(bytes.len() / 2);
-    for pair in bytes.chunks_exact(2) {
+    let (pairs, remainder) = bytes.as_chunks::<2>();
+    debug_assert!(remainder.is_empty());
+    for pair in pairs {
         let hi = nibble(pair[0]).ok_or_else(|| {
             ContractError::ParseError("encrypted provider secret is malformed".to_string())
         })?;

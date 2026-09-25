@@ -696,6 +696,103 @@ impl GitHubSourceClient {
         })
     }
 
+    /// Delete a file from a GitHub repository using an expected blob SHA.
+    pub async fn delete_file(
+        &self,
+        repo: &str,
+        path: &str,
+        reference: Option<&str>,
+        message: &str,
+        expected_sha: &str,
+    ) -> Result<GitHubWriteResult, SourceForgeError> {
+        let token = self
+            .token
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or(SourceForgeError::AuthenticationRequired)?;
+
+        let repo_id = normalize_github_repo(repo)?;
+        let path = normalize_source_path(path)?;
+        let message = message.trim();
+        let expected_sha = expected_sha.trim();
+        if message.is_empty() || message.len() > 512 {
+            return Err(SourceForgeError::InvalidSource(
+                "commit message must contain 1-512 characters".to_string(),
+            ));
+        }
+        if expected_sha.is_empty() || expected_sha.len() > 128 || expected_sha.contains(['\r', '\n']) {
+            return Err(SourceForgeError::InvalidSource(
+                "invalid expected file SHA".to_string(),
+            ));
+        }
+
+        let mut url = format!("{}/repos/{repo_id}/contents/{path}", self.api_base);
+        if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
+            if reference.len() > 256 || reference.contains(['\r', '\n']) {
+                return Err(SourceForgeError::InvalidSource(
+                    "invalid Git reference".to_string(),
+                ));
+            }
+            url.push_str(&format!("?ref={}", urlencoding::encode(reference)));
+        }
+
+        let mut body = serde_json::json!({
+            "message": message,
+            "sha": expected_sha,
+        });
+        if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
+            body["branch"] = serde_json::Value::String(reference.to_string());
+        }
+
+        let response = self
+            .client
+            .delete(&url)
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github+json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        let status = response.status();
+        let response_body = response
+            .text()
+            .await
+            .map_err(|error| SourceForgeError::Request(error.to_string()))?;
+        if status.as_u16() == 409 || status.as_u16() == 422 && response_body.contains("sha") {
+            return Err(SourceForgeError::Conflict);
+        }
+        if !status.is_success() {
+            let mut message = response_body;
+            if message.len() > 1024 {
+                message.truncate(1024);
+            }
+            return Err(SourceForgeError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+
+        #[derive(Deserialize)]
+        struct CommitPayload {
+            sha: String,
+        }
+        #[derive(Deserialize)]
+        struct DeletePayload {
+            commit: CommitPayload,
+        }
+        let payload = serde_json::from_str::<DeletePayload>(&response_body)
+            .map_err(|error| SourceForgeError::Decode(error.to_string()))?;
+
+        Ok(GitHubWriteResult {
+            repo_id,
+            path,
+            reference: reference.unwrap_or("default").to_string(),
+            file_sha: String::new(),
+            commit_sha: payload.commit.sha,
+            url: None,
+        })
+    }
+
     fn request(&self, path: String) -> reqwest::RequestBuilder {
         let mut request = self.client.get(format!("{}{}", self.api_base, path));
         if let Some(token) = &self.token {

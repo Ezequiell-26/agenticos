@@ -5354,6 +5354,64 @@ async fn worker_complete(
         });
     }
 
+    if job.spec.job_type == "workflow_node" {
+        let workflow_id = job.spec.metadata.get("workflow_id").and_then(|value| value.as_str()).unwrap_or_default();
+        let node_id = job.spec.metadata.get("node_id").and_then(|value| value.as_str()).unwrap_or_default();
+        if !workflow_id.is_empty() && !node_id.is_empty() {
+            if let Ok(mut workflow_state) = state.workflows.initial_state(workflow_id).await {
+                if workflow_state.nodes.get(node_id) == Some(&WorkflowNodeState::Ready) {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Running,
+                    ).await;
+                }
+                let final_attempt = request.success || job.attempts >= job.spec.max_attempts.max(1);
+                if request.success {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Succeeded,
+                    ).await;
+                    let _ = schedule_workflow_ready_nodes(&state, workflow_id, workflow_state).await;
+                } else if final_attempt {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Failed,
+                    ).await;
+                }
+            }
+        }
+    } else if job.spec.job_type == "subagent" {
+        let child_run_id = job.spec.metadata
+            .get("child_run_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or(job.spec.run_id.as_str());
+        if let Ok(child_run_id) = RunId::new(child_run_id.to_string()) {
+            if let Ok(current) = state.kernel.get_or_recover_run(&child_run_id).await {
+                let final_attempt = request.success || job.attempts >= job.spec.max_attempts.max(1);
+                if request.success && current.state == RunState::Admitted {
+                    let _ = state.kernel.transition_run(&child_run_id, RunState::Running, current.version).await;
+                } else if !request.success && !final_attempt && current.state == RunState::Running {
+                    let _ = state.kernel.transition_run(&child_run_id, RunState::Waiting, current.version).await;
+                }
+                if final_attempt {
+                    if let Ok(current) = state.kernel.get_or_recover_run(&child_run_id).await {
+                        let _ = state.kernel.transition_run(
+                            &child_run_id,
+                            if request.success { RunState::Completed } else { RunState::Failed },
+                            current.version,
+                        ).await;
+                    }
+                }
+            }
+        }
+    }
+
     let Ok(run_id) = RunId::new(job.spec.run_id.clone()) else {
         return HttpResponse::InternalServerError().json(ErrorResponse {
             error: "job run_id is invalid".to_string(),

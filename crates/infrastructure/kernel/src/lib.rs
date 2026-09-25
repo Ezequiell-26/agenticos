@@ -1874,7 +1874,11 @@ impl OutboxStore for SqliteOutboxStore {
         }
         Ok(())
     }
-    async fn mark_published_by(&self, entry_id: &str, worker_id: &str) -> Result<(), ContractError> {
+    async fn mark_published_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
         validate_outbox_worker_id(worker_id)?;
         let updated = sqlx::query(
             "UPDATE outbox_entries

@@ -1323,6 +1323,14 @@ impl ProviderPlatform {
                 }
             };
 
+            let usage_recorder = StreamUsageRecorder {
+                ledger: self.cost_ledger.clone(),
+                quotas: self.quotas.clone(),
+                provider_id: provider.provider_id.clone(),
+                model_id: routed_request.model.clone(),
+                request_id: routed_request.request_id.clone(),
+            };
+
             let result = match protocol {
                 ProviderProtocol::OpenAiChat => {
                     let _network_permit = match self.network_concurrency.acquire().await {
@@ -1381,6 +1389,7 @@ impl ProviderPlatform {
                         credential.as_ref(),
                         routed_request,
                         StreamProtocol::OpenAiResponses,
+                        Some(usage_recorder.clone()),
                     )
                     .await
                 }
@@ -1390,6 +1399,7 @@ impl ProviderPlatform {
                         credential.as_ref(),
                         routed_request,
                         StreamProtocol::AnthropicMessages,
+                        Some(usage_recorder.clone()),
                     )
                     .await
                 }
@@ -1399,6 +1409,7 @@ impl ProviderPlatform {
                         credential.as_ref(),
                         routed_request,
                         StreamProtocol::Gemini,
+                        Some(usage_recorder.clone()),
                     )
                     .await
                 }
@@ -2195,6 +2206,11 @@ enum StreamProtocol {
 
 enum StreamItem {
     Delta(String),
+    Usage {
+        input_tokens: u64,
+        output_tokens: u64,
+        total_tokens: u64,
+    },
     Done,
 }
 
@@ -2234,6 +2250,33 @@ fn parse_stream_event(
                     .filter(|value| !value.is_empty())
                     .map(|value| StreamItem::Delta(value.to_string())));
             }
+            if kind == "response.completed" {
+                let usage = json
+                    .get("response")
+                    .and_then(|value| value.get("usage"))
+                    .or_else(|| json.get("usage"));
+                if let Some(usage) = usage {
+                    let input_tokens = usage
+                        .get("input_tokens")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    let output_tokens = usage
+                        .get("output_tokens")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    let total_tokens = usage
+                        .get("total_tokens")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or_else(|| input_tokens.saturating_add(output_tokens));
+                    if total_tokens > 0 {
+                        return Ok(Some(StreamItem::Usage {
+                            input_tokens,
+                            output_tokens,
+                            total_tokens,
+                        }));
+                    }
+                }
+            }
             if matches!(
                 kind,
                 "response.completed"
@@ -2258,11 +2301,62 @@ fn parse_stream_event(
                     return Ok(Some(StreamItem::Delta(text.to_string())));
                 }
             }
+            if kind == "message_start" {
+                if let Some(usage) = json
+                    .get("message")
+                    .and_then(|value| value.get("usage"))
+                {
+                    return Ok(Some(StreamItem::Usage {
+                        input_tokens: usage
+                            .get("input_tokens")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0),
+                        output_tokens: usage
+                            .get("output_tokens")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0),
+                        total_tokens: 0,
+                    }));
+                }
+            }
+            if kind == "message_delta" {
+                if let Some(usage) = json.get("usage") {
+                    return Ok(Some(StreamItem::Usage {
+                        input_tokens: 0,
+                        output_tokens: usage
+                            .get("output_tokens")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0),
+                        total_tokens: 0,
+                    }));
+                }
+            }
             if matches!(kind, "message_stop" | "error") {
                 return Ok(Some(StreamItem::Done));
             }
         }
         StreamProtocol::Gemini => {
+            if let Some(usage) = json.get("usageMetadata") {
+                let total_tokens = usage
+                    .get("totalTokenCount")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or(0);
+                if total_tokens > 0 {
+                    let input_tokens = usage
+                        .get("promptTokenCount")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    let output_tokens = usage
+                        .get("candidatesTokenCount")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0);
+                    return Ok(Some(StreamItem::Usage {
+                        input_tokens,
+                        output_tokens,
+                        total_tokens,
+                    }));
+                }
+            }
             if let Some(text) = json
                 .get("candidates")
                 .and_then(|value| value.as_array())
@@ -2287,10 +2381,51 @@ fn parse_stream_event(
     Ok(None)
 }
 
+#[derive(Clone)]
+struct StreamUsageRecorder {
+    ledger: Option<Arc<agenticos_observability::cost::CostLedger>>,
+    quotas: Arc<QuotaTracker>,
+    provider_id: String,
+    model_id: String,
+    request_id: String,
+}
+
+impl StreamUsageRecorder {
+    async fn record(&self, input_tokens: u64, output_tokens: u64, total_tokens: u64) {
+        let total = if total_tokens > 0 {
+            total_tokens
+        } else {
+            input_tokens.saturating_add(output_tokens)
+        };
+        if total == 0 {
+            return;
+        }
+
+        if let Err(error) = self.quotas.record_tokens(&self.provider_id, total).await {
+            tracing::warn!(provider = %self.provider_id, %error, "failed to record streaming quota usage");
+        }
+        if let Some(ledger) = &self.ledger {
+            if let Err(error) = ledger
+                .record(
+                    &self.request_id,
+                    &self.provider_id,
+                    &self.model_id,
+                    total,
+                    unix_time(),
+                )
+                .await
+            {
+                tracing::warn!(provider = %self.provider_id, %error, "failed to persist streaming usage");
+            }
+        }
+    }
+}
+
 fn stream_sse_response(
     response: reqwest::Response,
     provider_id: String,
     protocol: StreamProtocol,
+    usage_recorder: Option<StreamUsageRecorder>,
 ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>> {
     Box::pin(async_stream::try_stream! {
         use futures::StreamExt;
@@ -2299,14 +2434,14 @@ fn stream_sse_response(
         let mut buffer = String::new();
         let mut event_name: Option<String> = None;
         let mut done = false;
+        let mut usage_input_tokens = 0u64;
+        let mut usage_output_tokens = 0u64;
+        let mut usage_total_tokens = 0u64;
+        let mut usage_recorded = false;
 
-        let mut emit_data = |event: Option<&str>, data: &str| -> Result<Option<String>, ContractError> {
+        let mut emit_data = |event: Option<&str>, data: &str| -> Result<Option<StreamItem>, ContractError> {
             match parse_stream_event(protocol, event, data)? {
-                Some(StreamItem::Delta(delta)) => Ok(Some(delta)),
-                Some(StreamItem::Done) => {
-                    done = true;
-                    Ok(Some("[DONE]".to_string()))
-                }
+                Some(item) => Ok(Some(item)),
                 None => Ok(None),
             }
         };
@@ -2332,10 +2467,35 @@ fn stream_sse_response(
                     continue;
                 }
                 if let Some(data) = line.strip_prefix("data:") {
-                    if let Some(value) = emit_data(event_name.as_deref(), data.trim())? {
-                        yield value;
-                        if done {
-                            return;
+                    if let Some(item) = emit_data(event_name.as_deref(), data.trim())? {
+                        match item {
+                            StreamItem::Delta(delta) => yield delta,
+                            StreamItem::Usage {
+                                input_tokens,
+                                output_tokens,
+                                total_tokens,
+                            } => {
+                                usage_input_tokens = usage_input_tokens.max(input_tokens);
+                                usage_output_tokens = usage_output_tokens.max(output_tokens);
+                                usage_total_tokens = usage_total_tokens.max(total_tokens);
+                            }
+                            StreamItem::Done => {
+                                if !usage_recorded {
+                                    if let Some(recorder) = &usage_recorder {
+                                        recorder
+                                            .record(
+                                                usage_input_tokens,
+                                                usage_output_tokens,
+                                                usage_total_tokens,
+                                            )
+                                            .await;
+                                    }
+                                    usage_recorded = true;
+                                }
+                                done = true;
+                                yield "[DONE]".to_string();
+                                return;
+                            }
                         }
                     }
                 }
@@ -2355,12 +2515,49 @@ fn stream_sse_response(
             }
             if !data_lines.is_empty() {
                 let data = data_lines.join("\n");
-                if let Some(value) = emit_data(event.as_deref(), &data)? {
-                    yield value;
+                if let Some(item) = emit_data(event.as_deref(), &data)? {
+                    match item {
+                        StreamItem::Delta(delta) => yield delta,
+                        StreamItem::Usage {
+                            input_tokens,
+                            output_tokens,
+                            total_tokens,
+                        } => {
+                            usage_input_tokens = usage_input_tokens.max(input_tokens);
+                            usage_output_tokens = usage_output_tokens.max(output_tokens);
+                            usage_total_tokens = usage_total_tokens.max(total_tokens);
+                        }
+                        StreamItem::Done => {
+                            if !usage_recorded {
+                                if let Some(recorder) = &usage_recorder {
+                                    recorder
+                                        .record(
+                                            usage_input_tokens,
+                                            usage_output_tokens,
+                                            usage_total_tokens,
+                                        )
+                                        .await;
+                                }
+                                usage_recorded = true;
+                            }
+                            done = true;
+                        }
+                    }
                 }
             }
         }
 
+        if !usage_recorded {
+            if let Some(recorder) = &usage_recorder {
+                recorder
+                    .record(
+                        usage_input_tokens,
+                        usage_output_tokens,
+                        usage_total_tokens,
+                    )
+                    .await;
+            }
+        }
         if !done {
             yield "[DONE]".to_string();
         }
@@ -2712,6 +2909,7 @@ async fn stream_protocol_request(
     credential: Option<&Credential>,
     mut request: ModelRequest,
     protocol: StreamProtocol,
+    usage_recorder: Option<StreamUsageRecorder>,
 ) -> Result<
     std::pin::Pin<Box<dyn futures::Stream<Item = Result<String, ContractError>> + Send>>,
     ContractError,
@@ -2833,6 +3031,7 @@ async fn stream_protocol_request(
         response,
         provider.provider_id,
         protocol,
+        usage_recorder,
     ))
 }
 

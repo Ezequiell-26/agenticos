@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-sqlite-migrations = { path = "../../utilities/sqlite-migrations" }
 chrono = { workspace = true }
 agenticos-contracts = { path = "../../domain/contracts" }
 ring = { workspace = true }

@@ -866,6 +866,7 @@ impl std::fmt::Debug for SecureToolService {
 
 impl SecureToolService {
     /// Execute a command with explicit resource/permission scope and working directory.
+    #[allow(clippy::too_many_arguments)]
     pub async fn execute_scoped(
         &self,
         session_id: &str,

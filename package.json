@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "architecture:check": "tsx tools/ts-architecture-prototype/src/architecture-cli.ts",
     "test": "node --import tsx --test \"tools/ts-architecture-prototype/test/*.test.ts\"",
-    "verify": "npm run continuity:verify && npm run state:verify && npm run check && npm run test && npm run frontend:architecture && npm run provider:coverage",
+    "verify": "npm run continuity:verify && npm run state:verify && npm run check && npm run test && npm run frontend:architecture && npm run frontend:runtime-contract && npm run provider:coverage",
     "dev": "tsx tools/ts-architecture-prototype/src/cli.ts",
     "providers": "tsx tools/ts-architecture-prototype/src/cli.ts providers",
     "models": "tsx tools/ts-architecture-prototype/src/cli.ts models",

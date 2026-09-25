@@ -41,9 +41,20 @@ console.log(
 
 function normalizeRoute(path) {
   return path
-    .replace(/\$\{[^}]+\}/g, '*')
+    .split('?')[0]
+    .replace(/\$\{[^}]*\}/g, '*')
+    .replace(/\$\{[^}]*$/g, '*')
     .replace(/\{[^}]+\}/g, '*')
-    .replace(/\?(?=\*|[A-Za-z_][A-Za-z0-9_-]*=).*/, '')
     .replace(/\/$/, '')
     .replace(/\/{2,}/g, '/')
+}
+
+function routeMatches(route, candidate) {
+  const routeSegments = route.split('/')
+  const candidateSegments = candidate.split('/')
+  if (routeSegments.length !== candidateSegments.length) return false
+  return routeSegments.every((segment, index) => {
+    if (segment === '*') return candidateSegments[index].length > 0
+    return segment === candidateSegments[index]
+  })
 }

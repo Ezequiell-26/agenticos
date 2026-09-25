@@ -33,9 +33,10 @@ use agenticos_contracts::{
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
-    InMemoryConfig, InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill,
-    SqliteEventStore, SqliteIdempotencyStore, SqliteMemory, SqliteOutboxStore,
-    SqliteSnapshotStore, ToolExecutionPipeline,
+    BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
+    InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill, SqliteEventStore,
+    SqliteIdempotencyStore, SqliteMemory, SqliteOutboxStore, SqliteSnapshotStore,
+    ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
@@ -840,6 +841,8 @@ pub struct RuntimeState {
     audit: Arc<AuditStore>,
     provider: Arc<ProviderPlatform>,
     kernel: Arc<KernelRuntime>,
+    outbox_transport: Arc<BroadcastOutboxTransport>,
+    outbox_publisher: Arc<BackgroundEventPublisher>,
     subagents: Arc<SubagentManager>,
     scheduler: Arc<JobScheduler>,
     workflows: Arc<WorkflowEngine>,
@@ -919,6 +922,16 @@ impl RuntimeState {
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
         let outbox = Arc::new(SqliteOutboxStore::open(&database_url).await?);
+        let outbox_transport = Arc::new(BroadcastOutboxTransport::new(runtime_env_usize(
+            "AGENTICOS_OUTBOX_BROADCAST_CAPACITY",
+            1024,
+            16,
+            8_192,
+        )));
+        let outbox_publisher = Arc::new(BackgroundEventPublisher::with_transport(
+            outbox.clone(),
+            Arc::new(CompositeOutboxTransport::new(outbox_transport.clone())),
+        ));
         let kernel = Arc::new(KernelRuntime::new_with_outbox(
             event_store,
             snapshot_store,
@@ -1216,6 +1229,8 @@ impl RuntimeState {
             audit,
             provider,
             kernel,
+            outbox_transport,
+            outbox_publisher,
             subagents,
             scheduler: Arc::new(
                 JobScheduler::open(&database_url)
@@ -7409,6 +7424,50 @@ async fn request_id_middleware(
     Ok(response)
 }
 
+async fn runtime_event_stream(
+    state: web::Data<RuntimeState>,
+) -> HttpResponse {
+    let mut receiver = state.outbox_transport.subscribe();
+    let stream = async_stream::stream! {
+        let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(15));
+        loop {
+            tokio::select! {
+                event = receiver.recv() => {
+                    match event {
+                        Ok(entry) => {
+                            let payload = serde_json::json!({
+                                "entry_id": entry.entry_id,
+                                "event_type": entry.event.event_type,
+                                "event_data": entry.event.data,
+                                "event_schema_version": entry.event.schema_version,
+                                "destination": entry.destination,
+                                "attempts": entry.attempts,
+                                "created_at": entry.created_at,
+                            });
+                            let encoded = serde_json::to_string(&payload)
+                                .unwrap_or_else(|_| "{}".to_string());
+                            yield Ok::<web::Bytes, Error>(
+                                web::Bytes::from(format!("event: runtime\ndata: {encoded}\n\n"))
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                _ = heartbeat.tick() => {
+                    yield Ok::<web::Bytes, Error>(web::Bytes::from(": heartbeat\n\n"));
+                }
+            }
+        }
+    };
+
+    HttpResponse::Ok()
+        .insert_header(("Content-Type", "text/event-stream; charset=utf-8"))
+        .insert_header(("Cache-Control", "no-cache, no-transform"))
+        .insert_header(("Connection", "keep-alive"))
+        .streaming(stream)
+}
+
 async fn api_auth_middleware(
     config: web::Data<AuthConfig>,
     req: ServiceRequest,
@@ -7474,6 +7533,26 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         scheduler_worker(worker_state).await;
     });
 
+    let outbox_publisher = state.outbox_publisher.clone();
+    let outbox_interval_ms = runtime_env_u64(
+        "AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS",
+        1_000,
+        100,
+        60_000,
+    );
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(outbox_interval_ms));
+        loop {
+            ticker.tick().await;
+            if let Err(error) = outbox_publisher.process_pending().await {
+                tracing::warn!(%error, "durable outbox publication cycle failed");
+            }
+            if let Err(error) = outbox_publisher.process_failed().await {
+                tracing::warn!(%error, "durable outbox retry cycle failed");
+            }
+        }
+    });
+
     let data = web::Data::new(state);
     let cors_origins: Vec<String> = std::env::var("AGENTICOS_CORS_ORIGINS")
         .unwrap_or_default()
@@ -7519,6 +7598,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/a2a", web::post().to(a2a_rpc))
             .route("/ready", web::get().to(readiness_check))
+            .route("/api/events/stream", web::get().to(runtime_event_stream))
             .route("/api/workers/claim", web::post().to(worker_claim))
             .route(
                 "/api/workers/jobs/{job_id}/heartbeat",

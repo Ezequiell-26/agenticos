@@ -74,7 +74,7 @@ fn spawn_http_response_server_with_status(
     let address = listener.local_addr().expect("read local address");
 
     let handle = thread::spawn(move || {
-        let Some(mut stream = accept_with_deadline(
+        let Some(mut stream) = accept_with_deadline(
             &listener,
             std::time::Instant::now() + std::time::Duration::from_secs(10),
         ) else {
@@ -112,7 +112,7 @@ fn spawn_authenticated_models_server(
         .expect("read auth model server address");
 
     let handle = thread::spawn(move || {
-        let Some(mut stream = accept_with_deadline(
+        let Some(mut stream) = accept_with_deadline(
             &listener,
             std::time::Instant::now() + std::time::Duration::from_secs(10),
         ) else {

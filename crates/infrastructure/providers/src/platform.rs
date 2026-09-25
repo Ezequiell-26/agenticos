@@ -1509,7 +1509,7 @@ impl ProviderPlatform {
                     let client = match AuthenticatedOpenAiProvider::new(
                         provider.provider_id.clone(),
                         provider.base_url.clone(),
-                        credential.map(|value| value.value),
+                        credential.as_ref().map(|value| value.value.clone()),
                     ) {
                         Ok(client) => client,
                         Err(error) => {

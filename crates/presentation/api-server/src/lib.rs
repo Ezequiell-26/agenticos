@@ -32,8 +32,9 @@ use agenticos_contracts::{
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
-    InMemoryConfig, InMemoryLogger, KernelRuntime, ReactAgent, Skill, SqliteEventStore,
-    SqliteIdempotencyStore, SqliteMemory, SqliteSnapshotStore,
+    InMemoryConfig, InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill,
+    SqliteEventStore, SqliteIdempotencyStore, SqliteMemory, SqliteSnapshotStore,
+    ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::PersistentMemoryStore;
@@ -1031,6 +1032,11 @@ impl RuntimeState {
         agent.set_tool_runtime(Arc::new(RuntimeToolBridge {
             runtime: self.tool_runtime.clone(),
         }));
+        agent.set_tool_pipeline(
+            ToolExecutionPipeline::new().add_pre_hook(Arc::new(
+                PermissionPolicyHook::new().allow_tool("react_action".to_string()),
+            )),
+        );
         let grant_id = format!("agent-read-{}", uuid::Uuid::new_v4());
         match self
             .capabilities

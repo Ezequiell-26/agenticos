@@ -3649,6 +3649,53 @@ mod tests {
     }
 
     #[test]
+    fn stream_event_parsers_extract_usage() {
+        let openai = parse_stream_event(
+            StreamProtocol::OpenAiResponses,
+            Some("response.completed"),
+            r#"{"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":7,"total_tokens":17}}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            openai,
+            Some(StreamItem::Usage { input_tokens: 10, output_tokens: 7, total_tokens: 17 })
+        ));
+
+        let anthropic_start = parse_stream_event(
+            StreamProtocol::AnthropicMessages,
+            Some("message_start"),
+            r#"{"type":"message_start","message":{"usage":{"input_tokens":12,"output_tokens":0}}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            anthropic_start,
+            Some(StreamItem::Usage { input_tokens: 12, output_tokens: 0, total_tokens: 0 })
+        ));
+
+        let anthropic_delta = parse_stream_event(
+            StreamProtocol::AnthropicMessages,
+            Some("message_delta"),
+            r#"{"type":"message_delta","usage":{"output_tokens":8}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            anthropic_delta,
+            Some(StreamItem::Usage { input_tokens: 0, output_tokens: 8, total_tokens: 0 })
+        ));
+
+        let gemini = parse_stream_event(
+            StreamProtocol::Gemini,
+            None,
+            r#"{"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":9,"totalTokenCount":29}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            gemini,
+            Some(StreamItem::Usage { input_tokens: 20, output_tokens: 9, total_tokens: 29 })
+        ));
+    }
+
+    #[test]
     fn provider_capability_requirements_are_enforced() {
         let provider = ProviderEntry {
             provider_id: "p".to_string(),

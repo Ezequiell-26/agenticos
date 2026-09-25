@@ -7125,7 +7125,7 @@ struct AuthConfig {
 }
 
 async fn request_id_middleware(
-    mut req: ServiceRequest,
+    req: ServiceRequest,
     next: Next<impl actix_web::body::MessageBody + 'static>,
 ) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
     let request_id = req
@@ -7281,6 +7281,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         }
     });
 
+    let bind_port = state.bind_port;
     let data = web::Data::new(state);
     let cors_origins: Vec<String> = std::env::var("AGENTICOS_CORS_ORIGINS")
         .unwrap_or_default()
@@ -7617,7 +7618,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::post().to(backfill_memory_embeddings),
             )
     })
-    .bind(("127.0.0.1", state.bind_port))
+    .bind(("127.0.0.1", bind_port))
     .map_err(|error| std::io::Error::other(error.to_string()))?
     .run()
     .await

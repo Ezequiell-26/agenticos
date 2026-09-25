@@ -6,6 +6,7 @@ members = [
   "crates/application/agents",
   "crates/application/execution",
   "crates/application/scheduler",
+  "crates/application/skills",
   "crates/application/workflows",
   "crates/infrastructure/a2a",
   "crates/infrastructure/adapters",

@@ -3253,6 +3253,14 @@ async fn browser_status(state: web::Data<RuntimeState>) -> impl Responder {
     }))
 }
 
+fn request_correlation_id(request: &HttpRequest) -> String {
+    request
+        .extensions()
+        .get::<String>()
+        .cloned()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+}
+
 async fn browser_audit_event(
     state: &RuntimeState,
     request_id: &str,
@@ -3289,6 +3297,7 @@ async fn browser_audit_event(
 async fn browser_open(
     path: web::Path<String>,
     request: web::Json<BrowserOpenRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3297,11 +3306,11 @@ async fn browser_open(
     }
     match state.browser.open(&session_id, request.url.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "open", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "open", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "open", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "open", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_OPEN_FAILED",
@@ -3313,6 +3322,7 @@ async fn browser_open(
 async fn browser_snapshot(
     path: web::Path<String>,
     request: web::Json<BrowserGrantRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3321,11 +3331,11 @@ async fn browser_snapshot(
     }
     match state.browser.snapshot(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "snapshot", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "snapshot", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "snapshot", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "snapshot", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_SNAPSHOT_FAILED",
@@ -3337,6 +3347,7 @@ async fn browser_snapshot(
 async fn browser_click(
     path: web::Path<String>,
     request: web::Json<BrowserClickRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3345,11 +3356,11 @@ async fn browser_click(
     }
     match state.browser.click(&session_id, request.target.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "click", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "click", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "click", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "click", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_CLICK_FAILED",
@@ -3361,6 +3372,7 @@ async fn browser_click(
 async fn browser_fill(
     path: web::Path<String>,
     request: web::Json<BrowserFillRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3373,11 +3385,11 @@ async fn browser_fill(
         .await
     {
         Ok(result) => {
-            browser_audit_event(&state, "http", "fill", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "fill", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "fill", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "fill", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_FILL_FAILED",
@@ -3389,6 +3401,7 @@ async fn browser_fill(
 async fn browser_wait(
     path: web::Path<String>,
     request: web::Json<BrowserWaitRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3397,11 +3410,11 @@ async fn browser_wait(
     }
     match state.browser.wait(&session_id, request.target.trim()).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "wait", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "wait", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "wait", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "wait", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_WAIT_FAILED",
@@ -3413,6 +3426,7 @@ async fn browser_wait(
 async fn browser_get_text(
     path: web::Path<String>,
     request: web::Json<BrowserTextRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3425,11 +3439,11 @@ async fn browser_get_text(
         .await
     {
         Ok(result) => {
-            browser_audit_event(&state, "http", "get_text", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "get_text", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "get_text", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "get_text", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_GET_TEXT_FAILED",
@@ -3441,6 +3455,7 @@ async fn browser_get_text(
 async fn browser_screenshot(
     path: web::Path<String>,
     request: web::Json<BrowserGrantRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3449,11 +3464,11 @@ async fn browser_screenshot(
     }
     match state.browser.screenshot(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "screenshot", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "screenshot", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "screenshot", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "screenshot", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_SCREENSHOT_FAILED",
@@ -3465,6 +3480,7 @@ async fn browser_screenshot(
 async fn browser_close(
     path: web::Path<String>,
     request: web::Json<BrowserGrantRequest>,
+    request_http: HttpRequest,
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     let session_id = path.into_inner();
@@ -3473,11 +3489,11 @@ async fn browser_close(
     }
     match state.browser.close(&session_id).await {
         Ok(result) => {
-            browser_audit_event(&state, "http", "close", &session_id, result.success).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "close", &session_id, result.success).await;
             HttpResponse::Ok().json(result)
         },
         Err(error) => {
-            browser_audit_event(&state, "http", "close", &session_id, false).await;
+            browser_audit_event(&state, &request_correlation_id(&request_http), "close", &session_id, false).await;
             HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_CLOSE_FAILED",

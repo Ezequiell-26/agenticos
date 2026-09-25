@@ -4347,6 +4347,26 @@ async fn agent_chat(
 
     let agent = state.session_agent(&session_id, requested_model).await;
 
+    let memory_namespace = std::env::var("AGENTICOS_MEMORY_NAMESPACE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "agenticos".to_string());
+    let memory_limit = runtime_env_usize("AGENTICOS_RELEVANT_MEMORY_LIMIT", 8, 1, 24);
+    if let Ok(records) = state
+        .persistent_memory
+        .search(&memory_namespace, message, memory_limit)
+        .await
+    {
+        let relevant = records
+            .into_iter()
+            .map(|record| format!("- {}: {}", record.key, record.value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !relevant.is_empty() {
+            agent.set_memory_md(relevant);
+        }
+    }
+
     let created_run = match state.kernel.create_run(run_id.clone()).await {
         Ok(run) => run,
         Err(error) => {

@@ -1814,7 +1814,9 @@ impl OutboxStore for SqliteOutboxStore {
             .bind(&entry_id)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|error| ContractError::ParseError(format!("outbox claimed row lookup failed: {error}")))?;
+            .map_err(|error| {
+                ContractError::ParseError(format!("outbox claimed row lookup failed: {error}"))
+            })?;
 
             if let Some((
                 entry_id,
@@ -1872,8 +1874,6 @@ impl OutboxStore for SqliteOutboxStore {
         }
         Ok(())
     }
-
-
     async fn mark_published_by(
         &self,
         entry_id: &str,
@@ -1897,9 +1897,7 @@ impl OutboxStore for SqliteOutboxStore {
         .execute(self.pool.as_ref())
         .await
         .map_err(|error| {
-            ContractError::ParseError(format!(
-                "outbox owned publish update failed: {error}"
-            ))
+            ContractError::ParseError(format!("outbox owned publish update failed: {error}"))
         })?;
         if updated.rows_affected() == 0 {
             return Err(ContractError::MissingCapability);
@@ -1935,7 +1933,11 @@ impl OutboxStore for SqliteOutboxStore {
                  claimed_until = NULL
              WHERE entry_id = ?",
         )
-        .bind(if dead_letter { "dead_letter" } else { "pending" })
+        .bind(if dead_letter {
+            "dead_letter"
+        } else {
+            "pending"
+        })
         .bind(attempts as i64)
         .bind(if dead_letter {
             Some(unix_time() as i64)
@@ -1950,7 +1952,6 @@ impl OutboxStore for SqliteOutboxStore {
         })?;
         Ok(())
     }
-
 
     async fn mark_failed_by(
         &self,
@@ -1997,7 +1998,11 @@ impl OutboxStore for SqliteOutboxStore {
         )
         .bind(if dead_letter { "dead_letter" } else { "pending" })
         .bind(attempts as i64)
-        .bind(if dead_letter { Some(unix_time() as i64) } else { None })
+        .bind(if dead_letter {
+            Some(unix_time() as i64)
+        } else {
+            None
+        })
         .bind(entry_id)
         .bind(worker_id)
         .execute(self.pool.as_ref())
@@ -2421,8 +2426,7 @@ impl BackgroundEventPublisher {
         for entry in pending {
             match self.transport.publish(&entry).await {
                 Ok(()) => {
-                    self
-                        .outbox
+                    self.outbox
                         .mark_published_by(&entry.entry_id, &worker_id)
                         .await?;
                     published += 1;
@@ -2434,8 +2438,7 @@ impl BackgroundEventPublisher {
                         destination = %entry.destination,
                         "outbox publication failed; scheduling retry"
                     );
-                    self
-                        .outbox
+                    self.outbox
                         .mark_failed_by(&entry.entry_id, &worker_id)
                         .await?;
                 }

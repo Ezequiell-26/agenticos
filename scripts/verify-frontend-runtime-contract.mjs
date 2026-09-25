@@ -48,6 +48,7 @@ console.log(
 
 function normalizeRoute(path) {
   return path
+    .split('?', 1)[0]
     .replace(/\$\{[^}]+\}/g, '*')
     .replace(/\{[^}]+\}/g, '*')
     .replace(/\/$/, '')

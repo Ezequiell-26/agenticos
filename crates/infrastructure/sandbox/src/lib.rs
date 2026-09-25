@@ -528,6 +528,7 @@ mod tests {
             max_concurrent_processes: 4,
             clear_environment: true,
             preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
         });
         let result = sandbox
             .execute_command(

@@ -5151,6 +5151,14 @@ impl Default for LLMConfig {
     }
 }
 
+#[test]
+fn structured_tool_action_detection_accepts_tool_json_only() {
+    assert!(is_structured_tool_action(r#"{"tool":"fs.read","arguments":{"path":"README.md"}}"#));
+    assert!(is_structured_tool_action(r#"{"tool_id":"git.status","arguments":{}}"#));
+    assert!(!is_structured_tool_action("This is a normal assistant answer."));
+    assert!(!is_structured_tool_action(r#"{"tool":"","arguments":{}}"#));
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

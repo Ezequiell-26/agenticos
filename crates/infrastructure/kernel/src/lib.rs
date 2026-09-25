@@ -1591,7 +1591,8 @@ impl SqliteOutboxStore {
                 ContractError::ParseError(format!("outbox schema inspection failed: {error}"))
             })?;
             if exists.is_none() {
-                let statement = format!("ALTER TABLE outbox_entries ADD COLUMN {column} {definition}");
+                let statement =
+                    format!("ALTER TABLE outbox_entries ADD COLUMN {column} {definition}");
                 sqlx::query(&statement)
                     .execute(&pool)
                     .await
@@ -1809,11 +1810,7 @@ impl OutboxStore for SqliteOutboxStore {
             .bind(&entry_id)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|error| {
-                ContractError::ParseError(format!(
-                    "outbox claimed row lookup failed: {error}"
-                ))
-            })?;
+            .map_err(|error| ContractError::ParseError(format!("outbox claimed row lookup failed: {error}")))?;
 
             if let Some((
                 entry_id,
@@ -1844,9 +1841,7 @@ impl OutboxStore for SqliteOutboxStore {
         }
 
         tx.commit().await.map_err(|error| {
-            ContractError::ParseError(format!(
-                "outbox claim transaction commit failed: {error}"
-            ))
+            ContractError::ParseError(format!("outbox claim transaction commit failed: {error}"))
         })?;
 
         Ok(claimed)

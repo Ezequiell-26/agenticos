@@ -1909,12 +1909,8 @@ impl OutboxStore for SqliteOutboxStore {
 
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
         let current_attempts =
-            sqlx::query_scalar::<_, i64>(
-                "SELECT attempts FROM outbox_entries
-                 WHERE entry_id = ? AND status = 'processing' AND claimed_by = ?",
-            )
+            sqlx::query_scalar::<_, i64>("SELECT attempts FROM outbox_entries WHERE entry_id = ?")
                 .bind(entry_id)
-                .bind(worker_id)
                 .fetch_optional(self.pool.as_ref())
                 .await
                 .map_err(|error| {
@@ -2062,8 +2058,8 @@ impl OutboxStore for InMemoryOutboxStore {
         let limit = limit.clamp(1, 500);
         let now = unix_time();
         let until = now.saturating_add(lease_seconds.clamp(5, 3_600));
-        let mut entries = self.entries.write().await;
         let mut claims = self.claims.write().await;
+        let mut entries = self.entries.write().await;
 
         let mut candidates = entries
             .values()
@@ -2098,10 +2094,11 @@ impl OutboxStore for InMemoryOutboxStore {
     }
 
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
+        let mut claims = self.claims.write().await;
         let mut entries = self.entries.write().await;
         if let Some(entry) = entries.get_mut(entry_id) {
             entry.status = OutboxStatus::Published;
-            self.claims.write().await.remove(entry_id);
+            claims.remove(entry_id);
             entry.processed_at = Some(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -2138,10 +2135,11 @@ impl OutboxStore for InMemoryOutboxStore {
     }
 
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
+        let mut claims = self.claims.write().await;
         let mut entries = self.entries.write().await;
         if let Some(entry) = entries.get_mut(entry_id) {
             entry.status = OutboxStatus::Failed;
-            self.claims.write().await.remove(entry_id);
+            claims.remove(entry_id);
             entry.processed_at = Some(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -2569,7 +2567,7 @@ mod outbox_claim_ownership_tests {
         let claimed = store.claim_pending("worker-a", 1, 120).await.unwrap();
         assert_eq!(claimed.len(), 1);
         assert!(store
-            .mark_published_by("worker-b", "worker-a")
+            .mark_published_by("ownership-test", "worker-b")
             .await
             .is_err());
         assert!(store

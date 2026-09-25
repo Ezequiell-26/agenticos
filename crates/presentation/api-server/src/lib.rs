@@ -6347,25 +6347,14 @@ async fn list_memory(
                             {
                                 Ok(records) if !records.is_empty() => Ok(records),
                                 Ok(_) | Err(_) => {
-                                    state
-                                        .persistent_memory
-                                        .search(namespace, search, limit)
-                                        .await
+                                    state.persistent_memory.search(namespace, search, limit).await
                                 }
                             }
                         }
-                        _ => {
-                            state
-                                .persistent_memory
-                                .search(namespace, search, limit)
-                                .await
-                        },
+                        _ => state.persistent_memory.search(namespace, search, limit).await,
                     }
                 } else {
-                    state
-                        .persistent_memory
-                        .search(namespace, search, limit)
-                        .await
+                    state.persistent_memory.search(namespace, search, limit).await
                 }
             } else {
                 state.persistent_memory.search(namespace, search, limit).await
@@ -6474,7 +6463,7 @@ async fn upsert_memory(
                 }
             }
             HttpResponse::Ok().json(record)
-        },
+        }
         Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
             error: error.to_string(),
             code: "MEMORY_WRITE_FAILED",

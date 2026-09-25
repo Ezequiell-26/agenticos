@@ -4618,10 +4618,11 @@ async fn spawn_agent(
             dependencies: vec![],
             priority: 75,
             max_attempts: 2,
-
-            job_type: "agent".to_string(),
-
-            metadata: serde_json::json!({}),
+            job_type: "subagent".to_string(),
+            metadata: serde_json::json!({
+                "child_run_id": child.child_run_id,
+                "agent_id": child.agent_id,
+            }),
         })
         .await
     {

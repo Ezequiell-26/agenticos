@@ -2013,6 +2013,17 @@ impl RecoveryState {
     }
 }
 
+fn is_structured_tool_action(action: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(action) else {
+        return false;
+    };
+    value
+        .get("tool")
+        .or_else(|| value.get("tool_id"))
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
 /// ReAct agent core loop implementation.
 #[allow(missing_debug_implementations)]
 pub struct ReactAgent {
@@ -3144,12 +3155,15 @@ impl ReactAgent {
 
         // Step 3: Observation
         let observation = if let Some(pipeline) = &tool_pipeline {
-            // Execute with pipeline (pre/post hooks)
-            let context = ToolExecutionContext::new(
-                "react_action".to_string(),
-                serde_json::json!({"action": action}),
-                session_id.clone(),
-            )
+            if !is_structured_tool_action(&action) {
+                action.clone()
+            } else {
+                // Execute structured tool calls with pipeline (pre/post hooks).
+                let context = ToolExecutionContext::new(
+                    "react_action".to_string(),
+                    serde_json::json!({"action": action}),
+                    session_id.clone(),
+                )
             .with_turn_id(turn_id.clone().unwrap_or_else(|| "unknown".to_string()));
 
             // Log tool call start event
@@ -3342,6 +3356,8 @@ impl ReactAgent {
                 }
 
                 return Err(ContractError::ParseError(error_msg));
+            }
+        }
             }
         } else {
             // Without a configured tool pipeline, the model output is the final assistant response.

@@ -341,10 +341,7 @@ impl AgentTool for McpAgentTool {
 
 fn capability_type_for_permission(permission: &str) -> CapabilityType {
     let normalized = permission.trim().to_ascii_lowercase();
-    if normalized == "admin"
-        || normalized.starts_with("admin.")
-        || normalized.ends_with(".admin")
-    {
+    if normalized == "admin" || normalized.starts_with("admin.") || normalized.ends_with(".admin") {
         CapabilityType::Admin
     } else if normalized == "write"
         || normalized.starts_with("write.")

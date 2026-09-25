@@ -7896,6 +7896,14 @@ fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usiz
         .clamp(min, max)
 }
 
+fn runtime_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
 fn agent_execution_concurrency_limit() -> usize {
     let cores = std::thread::available_parallelism()
         .map(|value| value.get())

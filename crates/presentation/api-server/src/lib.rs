@@ -1109,6 +1109,12 @@ struct CreateCapabilityRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct SetSkillEnabledRequest {
+    enabled: bool,
+}
+
+
+#[derive(Debug, Deserialize)]
 struct RegisterMcpRequest {
     server: McpServerDefinition,
 }
@@ -3438,18 +3444,42 @@ async fn set_usage_pricing(
 }
 
 async fn list_skills(state: web::Data<RuntimeState>) -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({
-        "skills": state.skills.iter().map(|skill| {
-            serde_json::json!({
-                "name": skill.name,
-                "version": skill.version,
-                "author": skill.author,
-                "platforms": skill.platforms,
-                "description": skill.description,
-            })
-        }).collect::<Vec<_>>(),
-        "count": state.skills.len(),
-    }))
+    match state.skills_registry.list().await {
+        Ok(skills) => HttpResponse::Ok().json(serde_json::json!({
+            "skills": skills,
+            "count": skills.len(),
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error,
+            code: "SKILL_LIST_FAILED",
+        }),
+    }
+}
+
+async fn set_skill_enabled(
+    skill_id: web::Path<String>,
+    request: web::Json<SetSkillEnabledRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let skill_id = skill_id.into_inner();
+    if skill_id.trim().is_empty() || skill_id.len() > 128 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "skill_id must be 1..=128 characters".to_string(),
+            code: "INVALID_SKILL_ID",
+        });
+    }
+
+    match state.skills_registry.set_enabled(&skill_id, request.enabled).await {
+        Ok(skill) => HttpResponse::Ok().json(skill),
+        Err(error) if error.contains("not found") => HttpResponse::NotFound().json(ErrorResponse {
+            error,
+            code: "SKILL_NOT_FOUND",
+        }),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error,
+            code: "SKILL_UPDATE_FAILED",
+        }),
+    }
 }
 
 async fn runtime_metrics(state: web::Data<RuntimeState>) -> impl Responder {
@@ -7272,6 +7302,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/metrics", web::get().to(runtime_metrics))
             .route("/api/skills", web::get().to(list_skills))
+            .route(
+                "/api/skills/{skill_id}/enabled",
+                web::post().to(set_skill_enabled),
+            )
             .route("/api/usage/summary", web::get().to(usage_summary))
             .route("/api/usage/records", web::get().to(usage_records))
             .route("/api/usage/pricing", web::post().to(set_usage_pricing))

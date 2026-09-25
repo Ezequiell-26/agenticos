@@ -5591,25 +5591,36 @@ async fn execute_workflow_job(
     let agent = state.session_agent(&session_id, None).await;
     let result = agent.execute_turn(&started_job.spec.task).await;
     let success = result.is_ok();
+    let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
 
     let final_state = match state.workflows.initial_state(&workflow_id).await {
         Ok(value) => value,
         Err(_) => workflow_state,
     };
     let mut mutable_state = final_state;
-    let node_transition = state
-        .workflows
-        .transition_node(
-            &workflow_id,
-            &mut mutable_state,
-            &node_id,
-            if success {
-                WorkflowNodeState::Succeeded
-            } else {
-                WorkflowNodeState::Failed
-            },
-        )
-        .await;
+    let node_transition = if success {
+        state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut mutable_state,
+                &node_id,
+                WorkflowNodeState::Succeeded,
+            )
+            .await
+    } else if final_attempt {
+        state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut mutable_state,
+                &node_id,
+                WorkflowNodeState::Failed,
+            )
+            .await
+    } else {
+        Ok(())
+    };
 
     if node_transition.is_ok() && success {
         let _ = schedule_workflow_ready_nodes(&state, &workflow_id, mutable_state).await;
@@ -5709,6 +5720,7 @@ async fn execute_subagent_job(
     };
 
     let success = result.is_ok();
+    let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
     let run_id = RunId::new(child.child_run_id.clone()).ok();
     if let Some(run_id) = run_id {
         if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
@@ -5717,16 +5729,23 @@ async fn execute_subagent_job(
                     .kernel
                     .transition_run(&run_id, RunState::Running, current.version)
                     .await;
-            }
-            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            } else if !success && !final_attempt && current.state == RunState::Running {
                 let _ = state
                     .kernel
-                    .transition_run(
-                        &run_id,
-                        if success { RunState::Completed } else { RunState::Failed },
-                        current.version,
-                    )
+                    .transition_run(&run_id, RunState::Waiting, current.version)
                     .await;
+            }
+            if final_attempt {
+                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                    let _ = state
+                        .kernel
+                        .transition_run(
+                            &run_id,
+                            if success { RunState::Completed } else { RunState::Failed },
+                            current.version,
+                        )
+                        .await;
+                }
             }
         }
     }

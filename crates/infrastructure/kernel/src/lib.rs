@@ -1203,16 +1203,16 @@ impl EventStore for SqliteEventStore {
             .await
             .map_err(|_| ContractError::Persistence)?;
 
-        // Verify expected version
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM events WHERE stream_id = ? AND version >= ?")
-                .bind(stream_id)
-                .bind(expected_version as i64)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(|_| ContractError::Persistence)?;
+        // Verify the append starts exactly at the next contiguous stream version.
+        let next_version: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MAX(version) + 1, 0) FROM events WHERE stream_id = ?",
+        )
+        .bind(stream_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
 
-        if count > 0 {
+        if next_version != expected_version as i64 {
             return Err(ContractError::IncompatibleVersion);
         }
 
@@ -2467,6 +2467,47 @@ impl BackgroundEventPublisher {
         }
 
         Ok(published)
+    }
+}
+
+#[cfg(test)]
+mod event_store_contiguity_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn rejects_version_gap_in_event_stream() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-event-gap-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = SqliteEventStore::new(&url).await.unwrap();
+
+        store
+            .append(
+                "run:gap",
+                0,
+                vec![SerializedEvent {
+                    event_type: "first".to_string(),
+                    data: "{}".to_string(),
+                    schema_version: 1,
+                }],
+            )
+            .await
+            .unwrap();
+
+        let result = store
+            .append(
+                "run:gap",
+                2,
+                vec![SerializedEvent {
+                    event_type: "third".to_string(),
+                    data: "{}".to_string(),
+                    schema_version: 1,
+                }],
+            )
+            .await;
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_file(path);
     }
 }
 

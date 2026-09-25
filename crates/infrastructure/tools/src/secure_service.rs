@@ -4,8 +4,6 @@
 //! Secure capability-gated process execution service.
 
 use agenticos_contracts::ContractError;
-use agenticos_sandbox::ProcessSandbox;
-use agenticos_security::CapabilityManager;
 use std::sync::Arc;
 
 /// Capability-gated tool execution service.

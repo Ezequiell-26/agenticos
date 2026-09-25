@@ -41,6 +41,8 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Verification truth
 
+- Final verification candidate: latest `main` contains the API-server closure fix, backend rustfmt corrections, and legacy scheduler migration repair.
+
 A capability is not considered verified merely because source code exists.
 
 Verification evidence is tracked per capability/workstream and must include the relevant automated checks. Current newer backend changes require fresh CI evidence; historical green results remain historical evidence only.

@@ -5728,7 +5728,11 @@ async fn execute_workflow_job(
                         .kernel
                         .transition_run(
                             &run_id,
-                            if success { RunState::Completed } else { RunState::Failed },
+                            if success {
+                                RunState::Completed
+                            } else {
+                                RunState::Failed
+                            },
                             current.version,
                         )
                         .await;

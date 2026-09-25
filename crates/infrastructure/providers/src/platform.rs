@@ -1106,7 +1106,6 @@ impl ProviderPlatform {
             for provider_id in &requested_provider_ids {
                 push_provider(provider_id.clone());
             }
-            allow_discovered_fallbacks = false;
         } else if allow_discovered_fallbacks {
             for provider in &providers {
                 push_provider(provider.provider_id.clone());

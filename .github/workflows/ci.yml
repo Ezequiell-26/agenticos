@@ -103,4 +103,10 @@ jobs:
         run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture
 
       - name: Clippy
+        run: cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
+
+      - name: Provider integration tests
+        run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture
+
+      - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings

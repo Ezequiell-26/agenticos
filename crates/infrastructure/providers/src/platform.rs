@@ -1035,6 +1035,7 @@ impl ProviderPlatform {
         }))
     }
 
+    /// Execute a model request with provider routing based on request parameters.
     pub async fn execute_routed(
         &self,
         request: ModelRequest,

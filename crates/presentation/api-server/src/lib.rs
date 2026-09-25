@@ -55,7 +55,7 @@ use agenticos_tools::{
     BasicPolicyEngine, BrowserTool, GitHubSourceTool, GitWorkspaceTool, SecureCommandTool,
     SecureToolService, TerminalTool, ToolRegistry, ToolRuntime, WorkspaceTool,
 };
-use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
+use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState, WorkflowState};
 use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

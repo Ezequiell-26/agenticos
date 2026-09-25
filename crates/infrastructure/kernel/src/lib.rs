@@ -782,7 +782,7 @@ impl KernelRuntime {
             .append(&stream_id, 0, vec![event.clone()])
             .await?;
         self.enqueue_outbox_event(
-            format!("runtime:run:{}:created:v1", run_id.as_str()),
+            format!("runtime:run:{}:0:RunCreated:v1", run_id.as_str()),
             event,
             "runtime",
         )
@@ -843,7 +843,11 @@ impl KernelRuntime {
             .append(&stream_id, previous.version, vec![event.clone()])
             .await?;
         self.enqueue_outbox_event(
-            format!("runtime:run:{}:state:v{}", run_id.as_str(), updated.version),
+            format!(
+                "runtime:run:{}:{}:RunStateChanged:v1",
+                run_id.as_str(),
+                updated.version.saturating_sub(1)
+            ),
             event,
             "runtime",
         )
@@ -924,9 +928,9 @@ impl KernelRuntime {
             .await?;
         self.enqueue_outbox_event(
             format!(
-                "runtime:run:{}:cancel:v{}",
+                "runtime:run:{}:{}:RunCancellationRequested:v1",
                 run_id.as_str(),
-                updated.version
+                updated.version.saturating_sub(1)
             ),
             event,
             "runtime",
@@ -1109,6 +1113,48 @@ impl SqliteEventStore {
             );
 
             CREATE INDEX IF NOT EXISTS idx_events_stream ON events(stream_id, version);
+
+            CREATE TABLE IF NOT EXISTS outbox_entries (
+                entry_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                event_data TEXT NOT NULL,
+                event_schema_version INTEGER NOT NULL,
+                destination TEXT NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at INTEGER NOT NULL,
+                processed_at INTEGER
+            );
+
+            CREATE TRIGGER IF NOT EXISTS trg_events_to_runtime_outbox
+            AFTER INSERT ON events
+            WHEN NEW.stream_id LIKE 'run:%'
+            BEGIN
+                INSERT INTO outbox_entries (
+                    entry_id,
+                    event_type,
+                    event_data,
+                    event_schema_version,
+                    destination,
+                    attempts,
+                    status,
+                    created_at,
+                    processed_at
+                )
+                VALUES (
+                    'runtime:' || NEW.stream_id || ':' || NEW.version || ':' ||
+                        NEW.event_type || ':v' || NEW.schema_version,
+                    NEW.event_type,
+                    NEW.data,
+                    NEW.schema_version,
+                    'runtime',
+                    0,
+                    'pending',
+                    CAST(strftime('%s', 'now') AS INTEGER),
+                    NULL
+                )
+                ON CONFLICT(entry_id) DO NOTHING;
+            END;
             "#,
         )
         .execute(&pool)
@@ -2034,6 +2080,41 @@ impl BackgroundEventPublisher {
         }
 
         Ok(published)
+    }
+}
+
+#[cfg(test)]
+mod event_outbox_atomicity_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn event_append_creates_runtime_outbox_entry_atomically() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-event-outbox-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let events = SqliteEventStore::new(&url).await.unwrap();
+        let outbox = SqliteOutboxStore::open(&url).await.unwrap();
+
+        events
+            .append(
+                "run:test",
+                0,
+                vec![SerializedEvent {
+                    event_type: "RunCreated".to_string(),
+                    data: r#"{"run_id":"test"}"#.to_string(),
+                    schema_version: 1,
+                }],
+            )
+            .await
+            .unwrap();
+
+        let pending = outbox.get_pending(10).await.unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].entry_id, "runtime:run:test:0:RunCreated:v1");
+        assert_eq!(pending[0].destination, "runtime");
+
+        let _ = std::fs::remove_file(path);
     }
 }
 

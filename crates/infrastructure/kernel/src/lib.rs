@@ -20,10 +20,9 @@ pub use agenticos_context::{ContextBudget, ContextEngine};
 use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, OutboxEntry,
-    OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStepStatus,
-    Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest,
-    ToolRuntimePort,
+    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, OutboxEntry, OutboxStatus,
+    OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStepStatus,
+    SerializedEvent, SerializedSnapshot, SnapshotStore,
 };
 
 mod agent_core;
@@ -1056,6 +1055,7 @@ impl std::fmt::Debug for KernelRuntime {
 
 impl KernelRuntime {
     /// Create a kernel runtime with an explicit outbox implementation.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_outbox_and_lease_store(
         event_store: Arc<dyn EventStore>,
         snapshot_store: Arc<dyn SnapshotStore>,

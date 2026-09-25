@@ -57,6 +57,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore};
+use tracing::Instrument;
 
 /// Default local SQLite URL.
 const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
@@ -6389,7 +6390,8 @@ async fn request_id_middleware(
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     req.extensions_mut().insert(request_id.clone());
-    let mut response = next.call(req).await?;
+    let span = tracing::info_span!("http_request", request_id = %request_id);
+    let mut response = next.call(req).instrument(span).await?;
 
     let header_value = actix_web::http::header::HeaderValue::from_str(&request_id)
         .map_err(|error| actix_web::error::ErrorInternalServerError(error.to_string()))?;

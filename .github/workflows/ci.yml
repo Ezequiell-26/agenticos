@@ -145,8 +145,11 @@ jobs:
       - name: Build API runtime binary
         run: cargo build -p agenticos-api-server
 
+      - name: Install E2E runner
+        run: npm install --no-package-lock --prefix scripts/e2e --no-audit --no-fund @playwright/test@1.63.0
+
       - name: Install Chromium for E2E
-        run: npx --yes playwright@latest install --with-deps chromium
+        run: npx --yes playwright@1.63.0 install --with-deps chromium
 
       - name: Run desktop UI + API + provider E2E
         run: npm run e2e:desktop

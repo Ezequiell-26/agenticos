@@ -615,11 +615,13 @@ impl PersistentMemoryStore {
             ));
         }
 
-        let rows = sqlx::query_as::<_, (PersistentMemoryRecord, String, i64)>(
+        let rows = sqlx::query_as::<
+            _,
+            (String, String, String, String, f64, String, i64, i64, String, i64),
+        >(
             "SELECT
-                m.memory_id, m.namespace, m.key, m.value, m.tags, m.importance,
-                m.created_at, m.expires_at,
-                e.embedding, e.dimension
+                m.memory_id, m.namespace, m.key, m.value, m.importance, m.tags,
+                m.created_at, m.expires_at, e.embedding, e.dimension
              FROM memory_records m
              INNER JOIN memory_embeddings e ON e.memory_id = m.memory_id
              WHERE m.namespace = ?
@@ -633,7 +635,11 @@ impl PersistentMemoryStore {
         .await
         .map_err(|error| ContractError::ParseError(format!("semantic memory query failed: {error}")))?;
 
-        let query_norm = embedding.iter().map(|value| (*value as f64) * (*value as f64)).sum::<f64>().sqrt();
+        let query_norm = embedding
+            .iter()
+            .map(|value| (*value as f64) * (*value as f64))
+            .sum::<f64>()
+            .sqrt();
         if query_norm == 0.0 {
             return Err(ContractError::ParseError(
                 "query embedding has zero magnitude".to_string(),
@@ -641,10 +647,32 @@ impl PersistentMemoryStore {
         }
 
         let mut ranked = Vec::with_capacity(rows.len());
-        for (record, payload, dimension) in rows {
+        for (
+            memory_id,
+            namespace_value,
+            key,
+            value,
+            importance,
+            tags,
+            created_at,
+            expires_at,
+            payload,
+            dimension,
+        ) in rows
+        {
             if dimension <= 0 || dimension as usize != embedding.len() {
                 continue;
             }
+            let record = PersistentMemoryRecord {
+                memory_id,
+                namespace: namespace_value,
+                key,
+                value,
+                tags,
+                importance,
+                created_at,
+                expires_at,
+            };
             let candidate = match serde_json::from_str::<Vec<f32>>(&payload) {
                 Ok(value) => value,
                 Err(_) => continue,

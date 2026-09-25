@@ -78,20 +78,20 @@ mod tests {
             "lease_expires_at",
             "next_attempt_at",
         ] {
-            let exists: Option<String> =
-                sqlx::query_scalar("SELECT name FROM pragma_table_info('scheduler_jobs') WHERE name = ?")
-                    .bind(column)
-                    .fetch_optional(&pool)
-                    .await
-                    .unwrap();
+            let exists: Option<String> = sqlx::query_scalar(
+                "SELECT name FROM pragma_table_info('scheduler_jobs') WHERE name = ?",
+            )
+            .bind(column)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
             assert_eq!(exists.as_deref(), Some(column));
         }
 
-        let migration_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(migration_count, 1);
     }
 }

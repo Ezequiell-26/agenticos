@@ -53,15 +53,13 @@ pub struct ConversationEntry {
     pub timestamp: i64,
 }
 
-/// Initialize the Tauri app.
-/// Note: This is a basic implementation. Full Tauri integration with React UI
-/// will require additional setup including Vite, React components, and shadcn/ui.
-/// Based on MIT repositories: MrLightful/create-tauri-react, agmmnn/tauri-ui, kitlib/tauri-app-template
+/// Log the desktop integration entry point used by embedding hosts.
+///
+/// The canonical executable is the Tauri entry point in
+/// `crates/presentation/desktop/src/main.rs`, which starts the durable HTTP
+/// runtime and then launches the Tauri shell.
 pub fn run() {
-    // Basic placeholder for Tauri app initialization
-    // TODO: Add full Tauri integration with React UI, Vite, and shadcn/ui
-    println!("AgentiCOS Desktop - Tauri + React UI structure initialized");
-    println!("API Server: http://127.0.0.1:8080");
+    println!("AgentiCOS Desktop runtime is managed by the canonical Tauri entry point.");
 }
 
 /// Send a message to the agent via backend API.
@@ -113,16 +111,42 @@ pub async fn get_conversation_history(
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?;
+        .map_err(|e| format!("API request failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("API returned an error: {}", e))?;
 
-    let _json: serde_json::Value = response
+    let json: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    // For now, return empty history (placeholder)
-    // TODO: Parse actual history from API response
-    Ok(vec![])
+    let entries = json
+        .get("history")
+        .and_then(serde_json::Value::as_array)
+        .or_else(|| json.as_array())
+        .ok_or_else(|| "history response did not contain an array".to_string())?;
+
+    entries
+        .iter()
+        .map(|entry| {
+            Ok(ConversationEntry {
+                role: entry
+                    .get("role")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown")
+                    .to_string(),
+                content: entry
+                    .get("content")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                timestamp: entry
+                    .get("timestamp")
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or_default(),
+            })
+        })
+        .collect()
 }
 
 /// Get the current agent status from backend API.
@@ -134,7 +158,9 @@ pub async fn get_agent_status(api_url: &str) -> Result<String, String> {
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?;
+        .map_err(|e| format!("API request failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("API returned an error: {}", e))?;
 
     let json: serde_json::Value = response
         .json()
@@ -177,8 +203,6 @@ mod tests {
             content: "test".to_string(),
             session_id: Some("session-1".to_string()),
         };
-        // Note: This test uses a placeholder API URL
-        // TODO: Add test with mock API server
         let response = send_message(msg, "http://127.0.0.1:8080").await;
         // Expect API request to fail in test environment
         assert!(response.is_err());

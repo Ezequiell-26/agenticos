@@ -110,11 +110,26 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     const frontendPort = await freePort()
 
     provider = createServer(async (request, response) => {
+      if (request.method === 'GET' && request.url === '/v1/models') {
+        const body = JSON.stringify({
+          object: 'list',
+          data: [{ id: 'e2e-model', object: 'model', owned_by: 'agenticos-e2e' }],
+        })
+        response.writeHead(200, {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+          connection: 'close',
+        })
+        response.end(body)
+        return
+      }
+
       if (request.method !== 'POST' || request.url !== '/v1/chat/completions') {
         response.writeHead(404)
         response.end()
         return
       }
+
       const chunks = []
       for await (const chunk of request) chunks.push(chunk)
       const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'))
@@ -155,6 +170,18 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
     })
+    await waitForHttp(`${apiUrl}/health`, api)
+
+    const providerHealth = await fetch(
+      `${apiUrl}/api/providers/e2e-provider/health`,
+      { method: 'POST' },
+    )
+    if (!providerHealth.ok) {
+      throw new Error(
+        `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
+      )
+    }
+
     await waitForHttp(`${apiUrl}/ready`, api)
 
     preview = startProcess('npm', ['run', 'preview', '--prefix', frontendDir, '--', '--host', '127.0.0.1', '--port', String(frontendPort)], {

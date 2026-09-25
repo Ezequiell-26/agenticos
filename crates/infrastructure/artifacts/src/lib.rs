@@ -122,6 +122,7 @@ impl ArtifactStore {
     }
 
     /// Store bytes atomically and return durable metadata.
+    #[allow(clippy::too_many_arguments)]
     pub async fn put_bytes(
         &self,
         run_id: Option<String>,

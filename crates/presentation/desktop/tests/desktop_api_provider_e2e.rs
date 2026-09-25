@@ -178,7 +178,7 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
     let health = get_backend_health()
         .await
         .expect("desktop health bridge should reach API");
-    assert_eq!(health.status, "ok");
+    assert_eq!(health.status, "healthy");
 
     let agent_name = get_agent_status(&api_url)
         .await

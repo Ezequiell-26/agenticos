@@ -41,6 +41,8 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Verification truth
 
+- Latest CI repair target: Rust formatting and `run_server` closure are corrected on `main` and must pass the complete workflow before promotion.
+
 A capability is not considered verified merely because source code exists.
 
 Verification evidence is tracked per capability/workstream and must include the relevant automated checks. Current newer backend changes require fresh CI evidence; historical green results remain historical evidence only.

@@ -17,7 +17,6 @@ use tokio::sync::RwLock;
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-execution";
 
-
 /// Basic command handler for write operations.
 #[derive(Debug)]
 pub struct BasicCommandHandler {

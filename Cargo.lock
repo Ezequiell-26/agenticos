@@ -230,6 +230,7 @@ name = "agenticos-api-server"
 version = "0.1.0"
 dependencies = [
  "actix-cors",
+ "agenticos-browser",
  "actix-web",
  "agenticos-contracts",
  "agenticos-kernel",

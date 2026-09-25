@@ -280,7 +280,6 @@ impl Default for SubagentManager {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

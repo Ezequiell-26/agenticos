@@ -629,6 +629,18 @@ impl AgentTool for BrowserTool {
                     .fill(&args.session_id, &args.target, &args.text)
                     .await?
             }
+            "browser.wait" => {
+                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid browser.wait arguments: {error}"))
+                })?;
+                self.browser.wait(&args.session_id, &args.target).await?
+            }
+            "browser.get_text" => {
+                let args = serde_json::from_str::<ClickArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid browser.get_text arguments: {error}"))
+                })?;
+                self.browser.get_text(&args.session_id, &args.target).await?
+            }
             "browser.screenshot" => self.browser.screenshot(&session_id).await?,
             "browser.close" => self.browser.close(&session_id).await?,
             _ => return Err(ContractError::MissingCapability),
@@ -886,6 +898,8 @@ impl RuntimeState {
             ("browser.snapshot", "Inspect browser DOM"),
             ("browser.click", "Click browser target"),
             ("browser.fill", "Fill browser target"),
+            ("browser.wait", "Wait for browser condition"),
+            ("browser.get_text", "Read browser text"),
             ("browser.screenshot", "Capture browser screenshot"),
             ("browser.close", "Close browser session"),
         ] {
@@ -1491,6 +1505,20 @@ struct BrowserClickRequest {
     grant_id: String,
     target: String,
 }
+
+#[derive(Debug, Deserialize)]
+struct BrowserWaitRequest {
+    grant_id: String,
+    target: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserTextRequest {
+    grant_id: String,
+    target: String,
+}
+
+
 
 #[derive(Debug, Deserialize)]
 struct WriteSourceFileRequest {
@@ -3275,6 +3303,46 @@ async fn browser_fill(
         Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
             error: error.to_string(),
             code: "BROWSER_FILL_FAILED",
+        }),
+    }
+}
+
+async fn browser_wait(
+    path: web::Path<String>,
+    request: web::Json<BrowserWaitRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.wait(&session_id, request.target.trim()).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_WAIT_FAILED",
+        }),
+    }
+}
+
+async fn browser_get_text(
+    path: web::Path<String>,
+    request: web::Json<BrowserTextRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state
+        .browser
+        .get_text(&session_id, request.target.trim())
+        .await
+    {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_GET_TEXT_FAILED",
         }),
     }
 }
@@ -6866,6 +6934,14 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/browser/{session_id}/fill",
                 web::post().to(browser_fill),
+            )
+            .route(
+                "/api/browser/{session_id}/wait",
+                web::post().to(browser_wait),
+            )
+            .route(
+                "/api/browser/{session_id}/text",
+                web::post().to(browser_get_text),
             )
             .route(
                 "/api/browser/{session_id}/screenshot",

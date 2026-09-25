@@ -41,6 +41,8 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Verification truth
 
+- SQLite compatibility repair: legacy scheduler schemas are now upgraded with the required durable job columns before runtime use.
+
 A capability is not considered verified merely because source code exists.
 
 Verification evidence is tracked per capability/workstream and must include the relevant automated checks. Current newer backend changes require fresh CI evidence; historical green results remain historical evidence only.

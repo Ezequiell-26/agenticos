@@ -3409,13 +3409,68 @@ impl ReactAgent {
             }
         }
 
-        // Step 4: Process observation. A tool-backed turn is wrapped as an observation;
-        // a plain model turn returns the model output directly.
-        let result = if tool_pipeline.is_some() {
+        // Step 4: Complete the ReAct turn.
+        //
+        // When the model emitted a structured tool call, execute it and make one
+        // bounded follow-up model call so the user receives a final answer rather
+        // than the raw tool observation. Plain model responses are returned directly.
+        let mut result = if is_structured_tool_action(&thought) && tool_pipeline.is_some() {
             self.observe(&observation)
         } else {
             observation.clone()
         };
+
+        if is_structured_tool_action(&thought) && model_provider.is_some() {
+            let max_followups = std::env::var("AGENTICOS_MAX_TOOL_FOLLOWUPS")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(1)
+                .clamp(1, 4);
+            let mut followup_prompt = format!(
+                "Original user request:\n{}\n\nTool observation:\n{}\n\n",
+                input, observation
+            );
+            for _ in 0..max_followups {
+                followup_prompt.push_str(
+                    "Use the tool observation to produce the final user-facing answer.                     Return another tool JSON only when another tool call is strictly necessary.",
+                );
+                let followup = self
+                    .think_inner(
+                        model_provider.as_ref(),
+                        current_turn.saturating_add(1),
+                        &followup_prompt,
+                        preferred_model.as_deref(),
+                        parameters.as_deref(),
+                    )
+                    .await?;
+                if is_structured_tool_action(&followup) {
+                    if followup == thought {
+                        break;
+                    }
+                    // A second tool request is surfaced to the caller rather than
+                    // recursively executing unbounded actions in one turn.
+                    result = followup;
+                    break;
+                }
+                result = followup;
+                break;
+            }
+        }
+
+        // Persist the final user-facing answer separately from the model's tool-call thought.
+        if let Some(memory) = &memory {
+            if !result.trim().is_empty() && result != thought {
+                let msg_id = format!("assistant-final-{}", uuid::Uuid::new_v4());
+                memory
+                    .store_message(&msg_id, &session_id, "assistant", &result)
+                    .await
+                    .map_err(|error| {
+                        ContractError::ParseError(format!(
+                            "failed to persist final assistant message: {error}"
+                        ))
+                    })?;
+            }
+        }
 
         // Create checkpoint if checkpoint store is available
         if let Some(store) = &checkpoint_store {

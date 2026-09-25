@@ -973,8 +973,8 @@ impl ProviderPlatform {
 
         let mut last_error = None;
         for provider in healthy {
-            let effective_model = if request.model == "default" || request.model == "default-model"
-            {
+            let effective_model =
+                if request.model == "default" || request.model == "default-model" {
                 provider
                     .models
                     .first()
@@ -2112,7 +2112,10 @@ fn parse_stream_event(
             }
             if matches!(
                 kind,
-                "response.completed" | "response.failed" | "response.incomplete" | "response.done"
+                "response.completed"
+                    | "response.failed"
+                    | "response.incomplete"
+                    | "response.done"
             ) {
                 return Ok(Some(StreamItem::Done));
             }
@@ -2146,7 +2149,9 @@ fn parse_stream_event(
                 .and_then(|parts| {
                     parts
                         .iter()
-                        .find_map(|part| part.get("text").and_then(|value| value.as_str()))
+                        .find_map(|part| {
+                        part.get("text").and_then(|value| value.as_str())
+                    })
                 })
                 .filter(|value| !value.is_empty())
             {
@@ -2590,11 +2595,18 @@ async fn stream_protocol_request(
                 "stream": true,
             });
             merge_parameters(&mut payload, request.parameters.as_deref())?;
-            (url, payload, vec![("anthropic-version", "2023-06-01")])
+            (
+                url,
+                payload,
+                vec![("anthropic-version", "2023-06-01")],
+            )
         }
         StreamProtocol::Gemini => {
-            let mut url =
-                normalize_gemini_endpoint(&provider.base_url, &request.model, credential)?;
+            let mut url = normalize_gemini_endpoint(
+                &provider.base_url,
+                &request.model,
+                credential,
+            )?;
             let stream_url = url
                 .as_str()
                 .replace(":generateContent", ":streamGenerateContent");
@@ -3233,7 +3245,9 @@ mod tests {
             request_id: "budget-test".to_string(),
             model: "model".to_string(),
             input: "hello".to_string(),
-            parameters: Some(serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string()),
+            parameters: Some(
+                serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string(),
+            ),
         };
         assert_eq!(requested_token_budget(&request), Some(321));
 

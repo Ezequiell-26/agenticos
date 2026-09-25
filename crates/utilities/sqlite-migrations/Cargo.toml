@@ -9,3 +9,6 @@ sqlx = { workspace = true, features = ["migrate", "macros"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

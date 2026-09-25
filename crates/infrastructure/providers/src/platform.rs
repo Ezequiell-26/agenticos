@@ -2837,4 +2837,3 @@ mod tests {
         assert!(!super::allows_anonymous_provider("https://api.example.com"));
     }
 }
-

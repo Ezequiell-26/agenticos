@@ -17,6 +17,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
+  runId?: string
 }
 
 export interface RuntimeApiRecord {
@@ -393,4 +394,5 @@ export interface ChatSendOptions {
   maxTokens?: number
   temperature?: number
   responseFormat?: 'Markdown' | 'Plain text' | 'Structured' | 'Code first'
+  runId?: string
 }

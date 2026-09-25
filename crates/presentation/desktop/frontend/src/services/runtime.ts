@@ -186,10 +186,15 @@ function toTimestamp(value: unknown): number {
   return Date.now()
 }
 
-function createMessage(role: ChatMessage['role'], content: string, timestamp = Date.now(), id?: string): ChatMessage {
-  return { id: id ?? `${role}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`, role, content, timestamp }
+function createMessage(role: ChatMessage['role'], content: string, timestamp = Date.now(), id?: string, runId?: string): ChatMessage {
+  return {
+    id: id ?? `${role}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    content,
+    timestamp,
+    ...(runId ? { runId } : {}),
+  }
 }
-
 function normalizeAgentState(value: unknown): AgentStatusSnapshot['state'] {
   switch (String(value).toLowerCase()) {
     case 'queued': return 'queued'
@@ -266,6 +271,7 @@ export class AgenticosRuntime implements RuntimeServices {
         message,
         session_id: sessionId,
         ...(model ? { model } : {}),
+        ...(options?.runId ? { run_id: options.runId } : {}),
         ...(options?.maxTokens || options?.temperature || options?.responseFormat
           ? {
               parameters: {
@@ -288,7 +294,7 @@ export class AgenticosRuntime implements RuntimeServices {
       })
       const response = readString(data, 'response')?.trim() ?? ''
       if (!response) throw new RuntimeHttpError('The runtime returned an empty response.', 502, 'EMPTY_RESPONSE', data)
-      return createMessage('assistant', response)
+      return createMessage('assistant', response, Date.now(), undefined, readString(data, 'run_id') ?? options?.runId)
     },
   }
 

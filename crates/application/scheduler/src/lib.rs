@@ -247,7 +247,7 @@ impl JobScheduler {
             r#"
             INSERT INTO scheduler_jobs
                 (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(job_id) DO UPDATE SET
                 run_id = excluded.run_id,
                 task = excluded.task,

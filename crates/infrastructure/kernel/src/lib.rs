@@ -7673,6 +7673,99 @@ Test procedure"#;
     }
 
     #[tokio::test]
+    async fn sqlite_run_lease_survives_restart_and_fences_stale_owner() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-run-lease-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let event_store = Arc::new(SqliteEventStore::new(&url).await.unwrap());
+        let snapshot_store = Arc::new(SqliteSnapshotStore::new(&url).await.unwrap());
+        let lease_store = Arc::new(SqliteLeaseStore::open(&url).await.unwrap());
+
+        let first = KernelRuntime::new_with_outbox_and_lease_store(
+            event_store.clone(),
+            snapshot_store.clone(),
+            Arc::new(InMemoryLogger::default()),
+            Arc::new(RwLock::new(InMemoryConfig::default())),
+            Arc::new(InMemoryCapabilityIssuer::new()),
+            Arc::new(agenticos_brain::CapabilityRegistry::default()),
+            Arc::new(InMemoryOutboxStore::new()),
+            lease_store.clone(),
+        );
+
+        let run_id = RunId::new("sqlite-run-lease").unwrap();
+        first.create_run(run_id.clone()).await.unwrap();
+
+        let initial_expiry = unix_time().saturating_add(1);
+        let first_lease = first
+            .acquire_lease(&run_id, "worker-a".to_string(), initial_expiry)
+            .await
+            .unwrap();
+
+        assert!(
+            first
+                .lease_valid(
+                    &run_id,
+                    &first_lease.owner_id,
+                    first_lease.fencing_token,
+                    unix_time(),
+                )
+                .await
+                .unwrap()
+        );
+
+        drop(first);
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+        let second = KernelRuntime::new_with_outbox_and_lease_store(
+            event_store,
+            snapshot_store,
+            Arc::new(InMemoryLogger::default()),
+            Arc::new(RwLock::new(InMemoryConfig::default())),
+            Arc::new(InMemoryCapabilityIssuer::new()),
+            Arc::new(agenticos_brain::CapabilityRegistry::default()),
+            Arc::new(InMemoryOutboxStore::new()),
+            lease_store,
+        );
+
+        let recovered = second.get_or_recover_run(&run_id).await.unwrap();
+        assert!(recovered.lease.is_none());
+
+        let second_lease = second
+            .acquire_lease(
+                &run_id,
+                "worker-b".to_string(),
+                unix_time().saturating_add(60),
+            )
+            .await
+            .unwrap();
+
+        assert!(second_lease.fencing_token > first_lease.fencing_token);
+        assert!(
+            !second
+                .lease_valid(
+                    &run_id,
+                    &first_lease.owner_id,
+                    first_lease.fencing_token,
+                    unix_time(),
+                )
+                .await
+                .unwrap()
+        );
+
+        let recovered_with_lease = second.get_or_recover_run(&run_id).await.unwrap();
+        assert_eq!(
+            recovered_with_lease
+                .lease
+                .as_ref()
+                .map(|lease| lease.fencing_token),
+            Some(second_lease.fencing_token)
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn sqlite_idempotency_deduplicates_and_recovers() {
         let path =
             std::env::temp_dir().join(format!("agenticos-idempotency-{}.db", uuid::Uuid::new_v4()));

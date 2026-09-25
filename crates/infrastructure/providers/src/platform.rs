@@ -712,7 +712,9 @@ impl ProviderPlatform {
         }
 
         self.catalog.remove_by_provider(&provider_id).await;
-        self.credentials.remove_for_provider(&provider_id).await;
+        if api_key.as_ref().is_some_and(|key| !key.trim().is_empty()) {
+            self.credentials.remove_for_provider(&provider_id).await;
+        }
         self.registry.register(normalized_entry.clone()).await?;
         for model in &normalized_entry.models {
             self.catalog
@@ -877,7 +879,25 @@ impl ProviderPlatform {
         request: ModelRequest,
     ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
-        let primary_provider = match std::env::var("AGENTICOS_PRIMARY_PROVIDER")
+        let requested_provider_ids = request
+            .parameters
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .and_then(|value| value.get("agenticos").cloned())
+            .and_then(|value| value.get("providers").cloned())
+            .and_then(|value| value.as_array().cloned())
+            .map(|values| {
+                values
+                    .into_iter()
+                    .filter_map(|value| value.as_str().map(str::trim).filter(|id| !id.is_empty()).map(ToOwned::to_owned))
+                    .take(32)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let primary_provider = if let Some(first) = requested_provider_ids.first() {
+            Some(first.clone())
+        } else {
+            match std::env::var("AGENTICOS_PRIMARY_PROVIDER")
             .ok()
             .filter(|value| !value.trim().is_empty())
         {
@@ -891,6 +911,7 @@ impl ProviderPlatform {
                         .first()
                         .map(|provider| provider.provider_id.clone())
                 }),
+            } 
         };
 
         let mut ordered_ids = Vec::new();
@@ -914,7 +935,12 @@ impl ProviderPlatform {
                 }
             }
         }
-        if allow_discovered_fallbacks {
+        if !requested_provider_ids.is_empty() {
+            for provider_id in &requested_provider_ids {
+                push_provider(provider_id.clone());
+            }
+            allow_discovered_fallbacks = false;
+        } else if allow_discovered_fallbacks {
             for provider in &providers {
                 push_provider(provider.provider_id.clone());
             }
@@ -1381,6 +1407,7 @@ impl ProviderPlatform {
         let removed = self.registry.remove(provider_id).await;
         if removed {
             self.catalog.remove_by_provider(provider_id).await;
+            let _ = self.fallbacks.remove_provider_references(provider_id).await;
             self.credentials.remove_for_provider(provider_id).await;
             self.health.remove(provider_id).await;
             self.retries.remove(provider_id).await;

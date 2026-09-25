@@ -992,9 +992,22 @@ impl RuntimeState {
     }
 
     async fn session_agent(&self, session_id: &str, model: Option<&str>) -> Arc<ReactAgent> {
-        let agent_key = model
-            .map(|value| format!("{session_id}::model::{value}"))
-            .unwrap_or_else(|| session_id.to_string());
+        self.session_agent_with_definition(session_id, model, None).await
+    }
+
+    async fn session_agent_with_definition(
+        &self,
+        session_id: &str,
+        model: Option<&str>,
+        definition: Option<&AgentDefinition>,
+    ) -> Arc<ReactAgent> {
+        let agent_id = definition.map(|value| value.agent_id.as_str());
+        let agent_key = match (agent_id, model) {
+            (Some(agent_id), Some(model)) => format!("{session_id}::agent::{agent_id}::model::{model}"),
+            (Some(agent_id), None) => format!("{session_id}::agent::{agent_id}"),
+            (None, Some(model)) => format!("{session_id}::model::{model}"),
+            (None, None) => session_id.to_string(),
+        };
         let now = unix_time();
         {
             let mut sessions = self.sessions.write().await;
@@ -1004,9 +1017,13 @@ impl RuntimeState {
             }
         }
 
-        let agent = Arc::new(ReactAgent::with_max_turns("AgentiCOS".to_string(), 90));
+        let max_turns = definition
+            .map(|value| value.budget.max_tool_calls.max(1) as usize)
+            .unwrap_or(90)
+            .clamp(1, 512);
+        let agent = Arc::new(ReactAgent::with_max_turns("AgentiCOS".to_string(), max_turns));
         agent.set_session_id(session_id.to_string());
-        if let Some(model) = model {
+        if let Some(model) = model.filter(|value| !value.trim().is_empty()) {
             agent.set_model(model.to_string());
         }
         agent.set_memory(self.memory.clone());
@@ -1033,8 +1050,18 @@ impl RuntimeState {
                 "failed to issue read-only tool grant; protected tool calls will require explicit authorization"
             ),
         }
+
+        let requested_skills = definition.map(|value| value.skills.clone());
         for skill in self.skills.iter().cloned() {
-            agent.add_skill(skill);
+            let include = requested_skills
+                .as_ref()
+                .map(|requested| {
+                    requested.is_empty() || requested.iter().any(|name| name == &skill.name)
+                })
+                .unwrap_or(true);
+            if include {
+                agent.add_skill(skill);
+            }
         }
 
         let recovery_history_limit =
@@ -1095,6 +1122,37 @@ impl RuntimeState {
             },
         );
         agent
+    }
+
+    fn agent_execution_parameters(definition: Option<&AgentDefinition>) -> Option<String> {
+        let definition = definition?;
+        let mut agenticos = serde_json::Map::new();
+        if !definition.providers.is_empty() {
+            agenticos.insert(
+                "providers".to_string(),
+                serde_json::Value::Array(
+                    definition
+                        .providers
+                        .iter()
+                        .filter(|provider| !provider.trim().is_empty())
+                        .take(32)
+                        .cloned()
+                        .map(serde_json::Value::String)
+                        .collect(),
+                ),
+            );
+        }
+        if definition.budget.max_tokens > 0 {
+            agenticos.insert(
+                "max_tokens".to_string(),
+                serde_json::json!(definition.budget.max_tokens),
+            );
+        }
+        if agenticos.is_empty() {
+            None
+        } else {
+            Some(serde_json::json!({ "agenticos": agenticos }).to_string())
+        }
     }
 
     async fn configured(&self) -> bool {
@@ -2445,10 +2503,38 @@ async fn execute_registered_tool(
         });
     }
     if request.grant_id.trim().is_empty() {
-        return HttpResponse::Forbidden().json(ErrorResponse {
-            error: "grant_id is required".to_string(),
-            code: "TOOL_CAPABILITY_REQUIRED",
-        });
+        let required_permission = state
+            .tool_runtime
+            .list()
+            .await
+            .into_iter()
+            .find(|tool| tool.tool_id == request.tool_id)
+            .and_then(|tool| tool.required_permissions.first().cloned())
+            .unwrap_or_else(|| format!("tool.{}", request.tool_id.replace('/', ".")));
+        let approval = match state
+            .capabilities
+            .request_approval(
+                format!("tool-call-{}", request.agent_id),
+                required_permission.clone(),
+                format!("tool/{}", request.tool_id),
+                unix_time().saturating_add(900),
+            )
+            .await
+        {
+            Ok(approval) => approval,
+            Err(error) => {
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "APPROVAL_PERSIST_FAILED",
+                })
+            }
+        };
+        state.metrics.record_http(false);
+        return HttpResponse::Accepted().json(serde_json::json!({
+            "approval_required": true,
+            "approval": approval,
+            "required_permission": required_permission,
+        }));
     }
 
     let parameters = match &request.parameters {
@@ -3054,6 +3140,10 @@ async fn a2a_rpc(
                     dependencies: Vec::new(),
                     priority: 80,
                     max_attempts: 2,
+
+                    job_type: "agent".to_string(),
+
+                    metadata: serde_json::json!({}),
                 })
                 .await
             {
@@ -3821,6 +3911,10 @@ async fn get_provider_retry_policy(
         Some(policy) => HttpResponse::Ok().json(policy),
         None => HttpResponse::Ok().json(agenticos_contracts::RetryPolicy {
             max_attempts: 3,
+
+            job_type: "agent".to_string(),
+
+            metadata: serde_json::json!({}),
             initial_backoff_ms: 250,
             max_backoff_ms: 4_000,
             exponential_backoff: true,
@@ -3862,6 +3956,10 @@ async fn set_provider_retry_policy(
 
     let policy = agenticos_contracts::RetryPolicy {
         max_attempts: request.max_attempts,
+
+        job_type: "agent".to_string(),
+
+        metadata: serde_json::json!({}),
         initial_backoff_ms: request.initial_backoff_ms,
         max_backoff_ms: request.max_backoff_ms,
         exponential_backoff: request.exponential_backoff,
@@ -4239,6 +4337,10 @@ async fn create_run(
                     dependencies: vec![],
                     priority: 100,
                     max_attempts: 3,
+
+                    job_type: "agent".to_string(),
+
+                    metadata: serde_json::json!({}),
                 })
                 .await
             {
@@ -4545,6 +4647,11 @@ async fn spawn_agent(
             dependencies: vec![],
             priority: 75,
             max_attempts: 2,
+            job_type: "subagent".to_string(),
+            metadata: serde_json::json!({
+                "child_run_id": child.child_run_id,
+                "agent_id": child.agent_id,
+            }),
         })
         .await
     {
@@ -4680,7 +4787,13 @@ async fn start_workflow(
     state: web::Data<RuntimeState>,
 ) -> impl Responder {
     match state.workflows.initial_state(&workflow_id).await {
-        Ok(workflow_state) => HttpResponse::Ok().json(workflow_state),
+        Ok(workflow_state) => match schedule_workflow_ready_nodes(&state, &workflow_id, workflow_state).await {
+            Ok(updated) => HttpResponse::Ok().json(updated),
+            Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_SCHEDULING_FAILED",
+            }),
+        },
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {
             error,
             code: "WORKFLOW_START_FAILED",
@@ -4791,6 +4904,28 @@ async fn list_approvals(state: web::Data<RuntimeState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({"approvals": approvals, "count": approvals.len()}))
 }
 
+fn capability_type_for_action(action: &str) -> CapabilityType {
+    let normalized = action.trim().to_ascii_lowercase();
+    if normalized.starts_with("admin.") {
+        CapabilityType::Admin
+    } else if normalized.starts_with("write.") {
+        CapabilityType::Write
+    } else if normalized.starts_with("read.") {
+        CapabilityType::Read
+    } else {
+        CapabilityType::Execute
+    }
+}
+
+fn approval_grant_expiry(approval: &ApprovalRequest) -> u64 {
+    let now = unix_time();
+    if approval.expires_at == 0 {
+        now.saturating_add(900)
+    } else {
+        approval.expires_at
+    }
+}
+
 async fn create_approval(
     request: web::Json<CreateApprovalRequest>,
     state: web::Data<RuntimeState>,
@@ -4832,7 +4967,30 @@ async fn resolve_approval(
         .resolve_approval(&approval_id, decision.approved)
         .await
     {
-        Ok(approval) => HttpResponse::Ok().json(approval),
+        Ok(approval) if decision.approved => {
+            let grant = CapabilityGrant {
+                capability_type: capability_type_for_action(&approval.action),
+                resource: approval.resource.clone(),
+                permission: approval.action.clone(),
+                expires_at: approval_grant_expiry(&approval),
+                grant_id: format!("grant-{}", approval.approval_id),
+            };
+            match state.capabilities.issue(grant.clone()).await {
+                Ok(grant_id) => HttpResponse::Ok().json(serde_json::json!({
+                    "approval": approval,
+                    "grant": grant,
+                    "grant_id": grant_id,
+                })),
+                Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "APPROVAL_GRANT_ISSUE_FAILED",
+                }),
+            }
+        }
+        Ok(approval) => HttpResponse::Ok().json(serde_json::json!({
+            "approval": approval,
+            "grant_id": null,
+        })),
         Err(error) => HttpResponse::NotFound().json(ErrorResponse {
             error: error.to_string(),
             code: "APPROVAL_NOT_FOUND",
@@ -5196,6 +5354,64 @@ async fn worker_complete(
         });
     }
 
+    if job.spec.job_type == "workflow_node" {
+        let workflow_id = job.spec.metadata.get("workflow_id").and_then(|value| value.as_str()).unwrap_or_default();
+        let node_id = job.spec.metadata.get("node_id").and_then(|value| value.as_str()).unwrap_or_default();
+        if !workflow_id.is_empty() && !node_id.is_empty() {
+            if let Ok(mut workflow_state) = state.workflows.initial_state(workflow_id).await {
+                if workflow_state.nodes.get(node_id) == Some(&WorkflowNodeState::Ready) {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Running,
+                    ).await;
+                }
+                let final_attempt = request.success || job.attempts >= job.spec.max_attempts.max(1);
+                if request.success {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Succeeded,
+                    ).await;
+                    let _ = schedule_workflow_ready_nodes(&state, workflow_id, workflow_state).await;
+                } else if final_attempt {
+                    let _ = state.workflows.transition_node(
+                        workflow_id,
+                        &mut workflow_state,
+                        node_id,
+                        WorkflowNodeState::Failed,
+                    ).await;
+                }
+            }
+        }
+    } else if job.spec.job_type == "subagent" {
+        let child_run_id = job.spec.metadata
+            .get("child_run_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or(job.spec.run_id.as_str());
+        if let Ok(child_run_id) = RunId::new(child_run_id.to_string()) {
+            if let Ok(current) = state.kernel.get_or_recover_run(&child_run_id).await {
+                let final_attempt = request.success || job.attempts >= job.spec.max_attempts.max(1);
+                if request.success && current.state == RunState::Admitted {
+                    let _ = state.kernel.transition_run(&child_run_id, RunState::Running, current.version).await;
+                } else if !request.success && !final_attempt && current.state == RunState::Running {
+                    let _ = state.kernel.transition_run(&child_run_id, RunState::Waiting, current.version).await;
+                }
+                if final_attempt {
+                    if let Ok(current) = state.kernel.get_or_recover_run(&child_run_id).await {
+                        let _ = state.kernel.transition_run(
+                            &child_run_id,
+                            if request.success { RunState::Completed } else { RunState::Failed },
+                            current.version,
+                        ).await;
+                    }
+                }
+            }
+        }
+    }
+
     let Ok(run_id) = RunId::new(job.spec.run_id.clone()) else {
         return HttpResponse::InternalServerError().json(ErrorResponse {
             error: "job run_id is invalid".to_string(),
@@ -5270,6 +5486,341 @@ async fn worker_complete(
     }))
 }
 
+fn workflow_job_id(workflow_id: &str, node_id: &str) -> String {
+    fn compact(value: &str, limit: usize) -> String {
+        let mut result = value
+            .chars()
+            .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
+            .collect::<String>();
+        result.truncate(limit);
+        if result.is_empty() {
+            result.push_str("item");
+        }
+        result
+    }
+    format!("workflow-job-{}-{}", compact(workflow_id, 40), compact(node_id, 40))
+}
+
+async fn schedule_workflow_ready_nodes(
+    state: &RuntimeState,
+    workflow_id: &str,
+    mut workflow_state: WorkflowState,
+) -> Result<WorkflowState, String> {
+    let ready_nodes = state.workflows.ready_nodes(workflow_id, &workflow_state).await?;
+    for node in ready_nodes {
+        let mut next_state = workflow_state.clone();
+        state
+            .workflows
+            .transition_node(
+                workflow_id,
+                &mut next_state,
+                &node.id,
+                WorkflowNodeState::Ready,
+            )
+            .await?;
+        workflow_state = next_state;
+
+        let job_id = workflow_job_id(workflow_id, &node.id);
+        if state.scheduler.get(&job_id).await.is_some() {
+            continue;
+        }
+
+        let run_id = RunId::new(format!("workflow-node-{}", uuid::Uuid::new_v4()))
+            .map_err(|error| error.to_string())?;
+        let created = state.kernel.create_run(run_id.clone()).await.map_err(|error| error.to_string())?;
+        state
+            .kernel
+            .transition_run(&run_id, RunState::Admitted, created.version)
+            .await
+            .map_err(|error| error.to_string())?;
+        state
+            .memory
+            .store_message(
+                &format!("{}-objective", run_id.as_str()),
+                run_id.as_str(),
+                "objective",
+                &node.task,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+
+        state
+            .scheduler
+            .enqueue(JobSpec {
+                job_id,
+                run_id: run_id.as_str().to_string(),
+                task: node.task,
+                dependencies: vec![],
+                priority: 80,
+                max_attempts: 2,
+                job_type: "workflow_node".to_string(),
+                metadata: serde_json::json!({
+                    "workflow_id": workflow_id,
+                    "node_id": node.id,
+                    "run_id": run_id.as_str(),
+                }),
+            })
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(workflow_state)
+}
+
+async fn execute_workflow_job(
+    state: RuntimeState,
+    _worker_id: String,
+    started_job: JobRecord,
+) {
+    let workflow_id = started_job
+        .spec
+        .metadata
+        .get("workflow_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let node_id = started_job
+        .spec
+        .metadata
+        .get("node_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if workflow_id.is_empty() || node_id.is_empty() {
+        let _ = state
+            .scheduler
+            .complete_as(
+                &started_job.spec.job_id,
+                started_job.lease_owner.as_deref(),
+                Some(started_job.lease_token),
+                false,
+                Some("workflow job metadata is incomplete".to_string()),
+            )
+            .await;
+        return;
+    }
+
+    let mut workflow_state = match state.workflows.initial_state(&workflow_id).await {
+        Ok(value) => value,
+        Err(error) => {
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some(error),
+                )
+                .await;
+            return;
+        }
+    };
+
+    if matches!(
+        workflow_state.nodes.get(&node_id),
+        Some(WorkflowNodeState::Ready)
+    ) {
+        if state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut workflow_state,
+                &node_id,
+                WorkflowNodeState::Running,
+            )
+            .await
+            .is_err()
+        {
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some("workflow node could not enter running state".to_string()),
+                )
+                .await;
+            return;
+        }
+    }
+
+    let session_id = format!("workflow:{workflow_id}:{node_id}");
+    let agent = state.session_agent(&session_id, None).await;
+    let result = agent.execute_turn(&started_job.spec.task).await;
+    let success = result.is_ok();
+    let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
+
+    let final_state = match state.workflows.initial_state(&workflow_id).await {
+        Ok(value) => value,
+        Err(_) => workflow_state,
+    };
+    let mut mutable_state = final_state;
+    let node_transition = if success {
+        state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut mutable_state,
+                &node_id,
+                WorkflowNodeState::Succeeded,
+            )
+            .await
+    } else if final_attempt {
+        state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut mutable_state,
+                &node_id,
+                WorkflowNodeState::Failed,
+            )
+            .await
+    } else {
+        Ok(())
+    };
+
+    if node_transition.is_ok() && success {
+        let _ = schedule_workflow_ready_nodes(&state, &workflow_id, mutable_state).await;
+    }
+
+    let run_id = started_job
+        .spec
+        .metadata
+        .get("run_id")
+        .and_then(|value| value.as_str())
+        .and_then(|value| RunId::new(value.to_string()).ok());
+    if let Some(run_id) = run_id {
+        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+            if success && run.state == RunState::Admitted {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Running, run.version)
+                    .await;
+            }
+            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                let _ = state
+                    .kernel
+                    .transition_run(
+                        &run_id,
+                        if success { RunState::Completed } else { RunState::Failed },
+                        current.version,
+                    )
+                    .await;
+            }
+        }
+    }
+
+    let _ = state
+        .scheduler
+        .complete_as(
+            &started_job.spec.job_id,
+            started_job.lease_owner.as_deref(),
+            Some(started_job.lease_token),
+            success,
+            result.err().map(|error| error.to_string()),
+        )
+        .await;
+    state.metrics.record_scheduler_completion(success);
+}
+
+async fn execute_subagent_job(
+    state: RuntimeState,
+    _worker_id: String,
+    started_job: JobRecord,
+) {
+    let child_run_id = started_job
+        .spec
+        .metadata
+        .get("child_run_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or(started_job.spec.run_id.as_str());
+
+    let child = match state.subagents.child(child_run_id).await {
+        Some(value) => value,
+        None => {
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some("persisted subagent child metadata was not found".to_string()),
+                )
+                .await;
+            return;
+        }
+    };
+    let definition = state.subagents.definition(&child.agent_id).await;
+    let session_id = format!("subagent:{}", child.child_run_id);
+    let agent = state
+        .session_agent_with_definition(&session_id, None, definition.as_ref())
+        .await;
+    let parameters = RuntimeState::agent_execution_parameters(definition.as_ref());
+    let timeout_seconds = definition
+        .as_ref()
+        .map(|value| value.budget.max_wall_seconds.max(1))
+        .unwrap_or(1800)
+        .clamp(1, 86_400);
+
+    let execution = agent.execute_turn_with_parameters(&started_job.spec.task, parameters);
+    let result = match tokio::time::timeout(
+        std::time::Duration::from_secs(timeout_seconds),
+        execution,
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(ContractError::ParseError(format!(
+            "subagent exceeded wall-clock budget of {timeout_seconds}s"
+        ))),
+    };
+
+    let success = result.is_ok();
+    let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
+    let run_id = RunId::new(child.child_run_id.clone()).ok();
+    if let Some(run_id) = run_id {
+        if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            if success && current.state == RunState::Admitted {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Running, current.version)
+                    .await;
+            } else if !success && !final_attempt && current.state == RunState::Running {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Waiting, current.version)
+                    .await;
+            }
+            if final_attempt {
+                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                    let _ = state
+                        .kernel
+                        .transition_run(
+                            &run_id,
+                            if success { RunState::Completed } else { RunState::Failed },
+                            current.version,
+                        )
+                        .await;
+                }
+            }
+        }
+    }
+
+    let _ = state
+        .scheduler
+        .complete_as(
+            &started_job.spec.job_id,
+            started_job.lease_owner.as_deref(),
+            Some(started_job.lease_token),
+            success,
+            result.err().map(|error| error.to_string()),
+        )
+        .await;
+    state.metrics.record_scheduler_completion(success);
+}
+
 async fn scheduler_worker(state: RuntimeState) {
     let worker_id = format!("scheduler-worker-{}", uuid::Uuid::new_v4());
     let concurrency = std::env::var("AGENTICOS_WORKER_CONCURRENCY")
@@ -5327,6 +5878,18 @@ async fn execute_scheduled_job(state: RuntimeState, worker_id: String, queued_jo
             "scheduler rejected execution because the job exhausted its attempts"
         );
         return;
+    }
+
+    match started_job.spec.job_type.as_str() {
+        "workflow_node" => {
+            execute_workflow_job(state, worker_id, started_job).await;
+            return;
+        }
+        "subagent" => {
+            execute_subagent_job(state, worker_id, started_job).await;
+            return;
+        }
+        _ => {}
     }
 
     let run_id = RunId::new(started_job.spec.run_id.clone()).ok();

@@ -792,9 +792,13 @@ impl RuntimeState {
                             .await
                         {
                             Ok(records) => Ok(records),
-                            Err(_) => self.persistent_memory.search(&namespace, query, limit).await,
+                            Err(_) => {
+                                self.persistent_memory
+                                    .search(&namespace, query, limit)
+                                    .await
+                            }
                         }
-                    },
+                    }
                     _ => {
                         self.persistent_memory
                             .search(&namespace, query, limit)

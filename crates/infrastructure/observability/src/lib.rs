@@ -4,6 +4,7 @@
 //! telemetry and tracing boundary. Functionality is introduced only through verified vertical slices.
 
 pub mod audit;
+/// Cost and usage accounting for provider executions.
 pub mod cost;
 pub mod metrics;
 

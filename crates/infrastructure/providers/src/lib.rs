@@ -190,6 +190,8 @@ struct QuotaState {
     quota: QuotaInfo,
     window_started_at: u64,
     token_usage: u64,
+    /// Token budget reserved by in-flight requests but not yet finalized.
+    reserved_token_usage: u64,
 }
 
 /// Basic quota tracker.
@@ -223,6 +225,7 @@ impl QuotaTracker {
                 quota,
                 window_started_at: unix_time(),
                 token_usage: 0,
+                reserved_token_usage: 0,
             },
         );
         Ok(())
@@ -242,6 +245,7 @@ impl QuotaTracker {
                 quota,
                 window_started_at,
                 token_usage,
+                reserved_token_usage: 0,
             },
         );
         Ok(())
@@ -257,15 +261,27 @@ impl QuotaTracker {
 
     /// Consume one provider request when a quota is configured.
     ///
-    /// Providers without an explicit quota are not throttled here.
+    /// This preserves the historical API and performs no token reservation.
     pub async fn consume_request(&self, provider_id: &str) -> Result<(), ContractError> {
+        self.reserve_request(provider_id, None).await.map(|_| ())
+    }
+
+    /// Reserve a provider request and, when supplied, its expected token budget.
+    ///
+    /// Reservations are accounted atomically with the request count so concurrent
+    /// executions cannot all observe the same remaining token capacity.
+    pub async fn reserve_request(
+        &self,
+        provider_id: &str,
+        token_budget: Option<u64>,
+    ) -> Result<u64, ContractError> {
         let mut quotas = self.quotas.write().await;
         let Some(state) = quotas.get_mut(provider_id) else {
-            return Ok(());
+            return Ok(0);
         };
 
-        let now = unix_time();
-        Self::refresh_window(state, now);
+        Self::refresh_window(state, unix_time());
+
         if let Some(limit) = state.quota.requests_per_minute {
             if state.quota.current_usage >= u64::from(limit) {
                 return Err(ContractError::ParseError(format!(
@@ -273,14 +289,53 @@ impl QuotaTracker {
                 )));
             }
         }
+
+        let accounted_tokens = state
+            .token_usage
+            .saturating_add(state.reserved_token_usage);
         if let Some(limit) = state.quota.tokens_per_minute {
-            if state.token_usage >= u64::from(limit) {
-                return Err(ContractError::ParseError(format!(
-                    "provider token quota exceeded for {provider_id}: {limit} tokens/minute"
-                )));
+            let limit = u64::from(limit);
+            match token_budget {
+                Some(budget) if accounted_tokens.saturating_add(budget) > limit => {
+                    return Err(ContractError::ParseError(format!(
+                        "provider token quota exceeded for {provider_id}: requested {budget}, remaining {}",
+                        limit.saturating_sub(accounted_tokens)
+                    )));
+                }
+                None if accounted_tokens >= limit => {
+                    return Err(ContractError::ParseError(format!(
+                        "provider token quota exceeded for {provider_id}: {limit} tokens/minute"
+                    )));
+                }
+                _ => {}
             }
         }
+
         state.quota.current_usage = state.quota.current_usage.saturating_add(1);
+        let reservation = token_budget.unwrap_or(0);
+        state.reserved_token_usage = state
+            .reserved_token_usage
+            .saturating_add(reservation);
+        Ok(reservation)
+    }
+
+    /// Release an in-flight token reservation after an unsuccessful attempt.
+    pub async fn release_token_reservation(
+        &self,
+        provider_id: &str,
+        reservation: u64,
+    ) -> Result<(), ContractError> {
+        if reservation == 0 {
+            return Ok(());
+        }
+        let mut quotas = self.quotas.write().await;
+        let Some(state) = quotas.get_mut(provider_id) else {
+            return Ok(());
+        };
+        Self::refresh_window(state, unix_time());
+        state.reserved_token_usage = state
+            .reserved_token_usage
+            .saturating_sub(reservation);
         Ok(())
     }
 
@@ -309,11 +364,24 @@ impl QuotaTracker {
     /// token ceiling is reached, subsequent requests are blocked until the
     /// active window resets.
     pub async fn record_tokens(&self, provider_id: &str, tokens: u64) -> Result<(), ContractError> {
+        self.record_tokens_with_reservation(provider_id, tokens, 0).await
+    }
+
+    /// Reconcile actual token usage with a reservation made before execution.
+    pub async fn record_tokens_with_reservation(
+        &self,
+        provider_id: &str,
+        tokens: u64,
+        reservation: u64,
+    ) -> Result<(), ContractError> {
         let mut quotas = self.quotas.write().await;
         let state = quotas
             .get_mut(provider_id)
             .ok_or(ContractError::MissingCapability)?;
         Self::refresh_window(state, unix_time());
+        state.reserved_token_usage = state
+            .reserved_token_usage
+            .saturating_sub(reservation);
         state.token_usage = state.token_usage.saturating_add(tokens);
         Ok(())
     }
@@ -914,6 +982,39 @@ mod tests {
 
         assert!(error.to_string().contains("token quota exceeded"));
         assert_eq!(tracker.token_usage("token-limited").await, Some(10));
+    }
+
+    #[tokio::test]
+    async fn token_budget_reservation_is_atomic_and_releasable() {
+        let tracker = QuotaTracker::new();
+        tracker
+            .set_quota(QuotaInfo {
+                provider_id: "reserved".to_string(),
+                requests_per_minute: Some(10),
+                tokens_per_minute: Some(100),
+                current_usage: 0,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            tracker.reserve_request("reserved", Some(80)).await.unwrap(),
+            80
+        );
+        assert!(tracker.reserve_request("reserved", Some(30)).await.is_err());
+
+        tracker
+            .record_tokens_with_reservation("reserved", 55, 80)
+            .await
+            .unwrap();
+        assert_eq!(tracker.token_usage("reserved").await, Some(55));
+
+        assert_eq!(
+            tracker.reserve_request("reserved", Some(45)).await.unwrap(),
+            45
+        );
+        tracker.release_token_reservation("reserved", 45).await.unwrap();
+        assert_eq!(tracker.token_usage("reserved").await, Some(55));
     }
 
     #[test]

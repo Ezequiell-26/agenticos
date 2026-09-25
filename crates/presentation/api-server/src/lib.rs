@@ -6255,27 +6255,40 @@ async fn purge_memory(state: web::Data<RuntimeState>) -> impl Responder {
     }
 }
 
-fn authorize_capability_admin(request: &HttpRequest) -> Result<(), HttpResponse> {
-    let configured = std::env::var("AGENTICOS_CAPABILITY_ADMIN_TOKEN")
-        .ok()
-        .filter(|value| !value.trim().is_empty());
-    let Some(expected) = configured else {
-        return Ok(());
-    };
+fn capability_admin_token_allowed(configured: Option<&str>, supplied: &str) -> bool {
+    match configured.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(expected) => supplied == expected,
+        None => true,
+    }
+}
 
+fn authorize_capability_admin(request: &HttpRequest) -> Result<(), HttpResponse> {
+    let configured = std::env::var("AGENTICOS_CAPABILITY_ADMIN_TOKEN").ok();
     let supplied = request
         .headers()
         .get("x-agenticos-admin-token")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .unwrap_or_default();
-    if supplied == expected {
+    if capability_admin_token_allowed(configured.as_deref(), supplied) {
         Ok(())
     } else {
         Err(HttpResponse::Forbidden().json(ErrorResponse {
             error: "administrative capability token required".to_string(),
             code: "CAPABILITY_ADMIN_AUTH_REQUIRED",
         }))
+    }
+}
+
+#[cfg(test)]
+mod capability_auth_tests {
+    use super::capability_admin_token_allowed;
+
+    #[test]
+    fn admin_token_is_required_when_configured() {
+        assert!(!capability_admin_token_allowed(Some("secret"), ""));
+        assert!(capability_admin_token_allowed(Some("secret"), "secret"));
+        assert!(capability_admin_token_allowed(None, ""));
     }
 }
 

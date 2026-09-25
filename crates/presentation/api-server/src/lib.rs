@@ -11,7 +11,7 @@ use actix_cors::Cors;
 use actix_web::{
     dev::ServiceRequest,
     middleware::{from_fn, Next},
-    web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    web, App, Error, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use agenticos_a2a::{
     text_from_message, A2aMessage, A2aTaskRecord, A2aTaskStore, AgentCapabilities, AgentCard,
@@ -6314,6 +6314,41 @@ struct AuthConfig {
     token: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+struct RequestId(String);
+
+async fn request_id_middleware(
+    mut req: ServiceRequest,
+    next: Next<impl actix_web::body::MessageBody + 'static>,
+) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
+    let request_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= 128
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+        })
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    req.extensions_mut().insert(RequestId(request_id.clone()));
+    let mut response = next.call(req).await?;
+
+    let header_value = actix_web::http::header::HeaderValue::from_str(&request_id)
+        .map_err(|error| actix_web::error::ErrorInternalServerError(error.to_string()))?;
+    response.headers_mut().insert(
+        actix_web::http::header::HeaderName::from_static("x-request-id"),
+        header_value,
+    );
+
+    Ok(response)
+}
+
 async fn api_auth_middleware(
     config: web::Data<AuthConfig>,
     req: ServiceRequest,
@@ -6412,6 +6447,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
+            .wrap(from_fn(request_id_middleware))
             .app_data(web::JsonConfig::default().limit(8 * 1024 * 1024))
             .app_data(data.clone())
             .app_data(web::Data::new(auth_config))

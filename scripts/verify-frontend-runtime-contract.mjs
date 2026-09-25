@@ -32,12 +32,12 @@ const missing = [...frontendPaths]
 
 if (missing.length > 0) {
   console.error('Frontend runtime endpoints missing from api-server routes:')
-  for (const path of missing) console.error(` - \${path}`)
+  for (const path of missing) console.error(` - ${path}`)
   process.exit(1)
 }
 
 console.log(
-  `Frontend/backend runtime contract OK: \${frontendPaths.size} frontend API paths, \${apiRoutes.size} backend routes.`,
+  `Frontend/backend runtime contract OK: ${frontendPaths.size} frontend API paths, ${apiRoutes.size} backend routes.`,
 )
 
 function normalizeRoute(path) {

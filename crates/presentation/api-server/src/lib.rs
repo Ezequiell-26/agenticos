@@ -60,6 +60,7 @@ fn runtime_env_u64(key: &str, default: u64, min: u64, max: u64) -> u64 {
 fn agent_execution_concurrency_limit() -> usize {
     runtime_env_usize("AGENTICOS_AGENT_EXECUTION_CONCURRENCY", 4, 1, 16)
 }
+
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
@@ -302,6 +303,10 @@ impl RuntimeState {
                 .map_err(ContractError::ParseError)?,
         );
         let browser = Arc::new(BrowserRuntime::from_env());
+        let source_forge = Arc::new(
+            GitHubSourceClient::from_env()
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
         let skill_root =
             std::env::var("AGENTICOS_SKILLS_ROOT").unwrap_or_else(|_| "skills".to_string());
         let skills_registry = Arc::new(
@@ -593,6 +598,10 @@ impl RuntimeState {
             browser,
             skills_registry,
             model,
+            bind_port: std::env::var("AGENTICOS_BIND_PORT")
+                .ok()
+                .and_then(|value| value.parse::<u16>().ok())
+                .unwrap_or(8080),
         })
     }
 

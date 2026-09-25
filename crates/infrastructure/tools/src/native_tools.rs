@@ -21,6 +21,13 @@ pub struct SecureCommandTool {
     artifacts: Arc<ArtifactStore>,
 }
 
+impl SecureCommandTool {
+    /// Construct a process execution tool.
+    pub fn new(service: Arc<SecureToolService>, artifacts: Arc<ArtifactStore>) -> Self {
+        Self { service, artifacts }
+    }
+}
+
 #[async_trait::async_trait]
 impl AgentTool for SecureCommandTool {
     fn tool_id(&self) -> &str {
@@ -130,6 +137,23 @@ pub struct GitWorkspaceTool {
     operation: &'static str,
 }
 
+impl GitWorkspaceTool {
+    /// Construct a Git workspace tool for one stable operation identifier.
+    pub fn new(
+        service: Arc<SecureToolService>,
+        workspace: Arc<WorkspaceFs>,
+        artifacts: Arc<ArtifactStore>,
+        operation: &'static str,
+    ) -> Self {
+        Self {
+            service,
+            workspace,
+            artifacts,
+            operation,
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl AgentTool for GitWorkspaceTool {
     fn tool_id(&self) -> &str {
@@ -219,6 +243,16 @@ impl AgentTool for GitWorkspaceTool {
 pub struct WorkspaceTool {
     workspace: Arc<WorkspaceFs>,
     operation: &'static str,
+}
+
+impl WorkspaceTool {
+    /// Construct a workspace filesystem tool for one stable operation identifier.
+    pub fn new(workspace: Arc<WorkspaceFs>, operation: &'static str) -> Self {
+        Self {
+            workspace,
+            operation,
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -325,6 +359,21 @@ pub struct TerminalTool {
     terminal: Arc<TerminalManager>,
     capabilities: Arc<CapabilityManager>,
     operation: &'static str,
+}
+
+impl TerminalTool {
+    /// Construct a terminal tool for one stable operation identifier.
+    pub fn new(
+        terminal: Arc<TerminalManager>,
+        capabilities: Arc<CapabilityManager>,
+        operation: &'static str,
+    ) -> Self {
+        Self {
+            terminal,
+            capabilities,
+            operation,
+        }
+    }
 }
 
 #[async_trait::async_trait]

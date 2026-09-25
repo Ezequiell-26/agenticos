@@ -295,10 +295,10 @@ impl RuntimeState {
                     required_permissions: vec!["process.execute".to_string()],
                     context_requirements: vec!["capability:process.execute".to_string()],
                 },
-                Arc::new(SecureCommandTool {
-                    service: secure_tools.clone(),
-                    artifacts: artifacts.clone(),
-                }),
+                Arc::new(SecureCommandTool::new(
+                    secure_tools.clone(),
+                    artifacts.clone(),
+                )),
             )
             .await
             .map_err(|error| {
@@ -324,10 +324,7 @@ impl RuntimeState {
                         required_permissions: vec![capability.to_string()],
                         context_requirements: vec![format!("capability:{capability}")],
                     },
-                    Arc::new(WorkspaceTool {
-                        workspace: workspace.clone(),
-                        operation: tool_id,
-                    }),
+                    Arc::new(WorkspaceTool::new(workspace.clone(), tool_id)),
                 )
                 .await
                 .map_err(|error| {
@@ -417,12 +414,12 @@ impl RuntimeState {
                         required_permissions: vec!["git.read".to_string()],
                         context_requirements: vec!["capability:git.read".to_string()],
                     },
-                    Arc::new(GitWorkspaceTool {
-                        service: secure_tools.clone(),
-                        workspace: workspace.clone(),
-                        artifacts: artifacts.clone(),
-                        operation: tool_id,
-                    }),
+                    Arc::new(GitWorkspaceTool::new(
+                        secure_tools.clone(),
+                        workspace.clone(),
+                        artifacts.clone(),
+                        tool_id,
+                    )),
                 )
                 .await
                 .map_err(|error| {
@@ -446,11 +443,11 @@ impl RuntimeState {
                         required_permissions: vec![capability.to_string()],
                         context_requirements: vec![format!("capability:{capability}")],
                     },
-                    Arc::new(TerminalTool {
-                        terminal: terminal.clone(),
-                        capabilities: capabilities.clone(),
-                        operation: tool_id,
-                    }),
+                    Arc::new(TerminalTool::new(
+                        terminal.clone(),
+                        capabilities.clone(),
+                        tool_id,
+                    )),
                 )
                 .await
                 .map_err(|error| {

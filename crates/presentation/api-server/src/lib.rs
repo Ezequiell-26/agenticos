@@ -26,8 +26,8 @@ use agenticos_brain::{
 use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_contracts::{
-    CapabilityGrant, CapabilityType, ContractError, EmbeddingRequest, RunId, RunState, Sandbox,
-    SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest,
+    ModelProvider, RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_kernel::{
@@ -55,7 +55,7 @@ use agenticos_tools::{
     BasicPolicyEngine, BrowserTool, GitHubSourceTool, GitWorkspaceTool, SecureCommandTool,
     SecureToolService, TerminalTool, ToolRegistry, ToolRuntime, WorkspaceTool,
 };
-use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
+use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState, WorkflowState};
 use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -166,6 +166,10 @@ impl RuntimeState {
             AuditStore::open(&database_url)
                 .await
                 .map_err(ContractError::ParseError)?,
+        );
+        let source_forge = Arc::new(
+            GitHubSourceClient::from_env()
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
         let config = Arc::new(RwLock::new(InMemoryConfig::default()));
         let event_store = Arc::new(SqliteEventStore::new(&database_url).await.map_err(
@@ -545,10 +549,7 @@ impl RuntimeState {
                     .await
                     .map_err(|error| ContractError::ParseError(error.to_string()))?,
             ),
-            source_forge: Arc::new(
-                GitHubSourceClient::from_env()
-                    .map_err(|error| ContractError::ParseError(error.to_string()))?,
-            ),
+            source_forge: source_forge.clone(),
             a2a_tasks: Arc::new(
                 A2aTaskStore::open(&database_url)
                     .await
@@ -784,15 +785,20 @@ impl RuntimeState {
                     })
                     .await
                 {
-                    Ok(response) if response.embeddings.len() == 1 => self
-                        .persistent_memory
-                        .search_semantic(&namespace, &response.embeddings[0], limit)
-                        .await
-                        .or_else(|_| {
-                            self.persistent_memory
-                                .search(&namespace, query, limit)
-                                .await
-                        }),
+                    Ok(response) if response.embeddings.len() == 1 => {
+                        match self
+                            .persistent_memory
+                            .search_semantic(&namespace, &response.embeddings[0], limit)
+                            .await
+                        {
+                            Ok(records) => Ok(records),
+                            Err(_) => {
+                                self.persistent_memory
+                                    .search(&namespace, query, limit)
+                                    .await
+                            }
+                        }
+                    }
                     _ => {
                         self.persistent_memory
                             .search(&namespace, query, limit)
@@ -1060,6 +1066,7 @@ struct A2aTaskParams {
     id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 struct A2aErrorBody {
     code: i32,
@@ -2873,6 +2880,7 @@ async fn delete_github_source_file(
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn authorize_browser(
     state: &RuntimeState,
     session_id: &str,
@@ -4479,10 +4487,6 @@ async fn get_provider_retry_policy(
         Some(policy) => HttpResponse::Ok().json(policy),
         None => HttpResponse::Ok().json(agenticos_contracts::RetryPolicy {
             max_attempts: 3,
-
-            job_type: "agent".to_string(),
-
-            metadata: serde_json::json!({}),
             initial_backoff_ms: 250,
             max_backoff_ms: 4_000,
             exponential_backoff: true,
@@ -4524,10 +4528,6 @@ async fn set_provider_retry_policy(
 
     let policy = agenticos_contracts::RetryPolicy {
         max_attempts: request.max_attempts,
-
-        job_type: "agent".to_string(),
-
-        metadata: serde_json::json!({}),
         initial_backoff_ms: request.initial_backoff_ms,
         max_backoff_ms: request.max_backoff_ms,
         exponential_backoff: request.exponential_backoff,
@@ -5953,6 +5953,7 @@ fn capability_admin_token_allowed(configured: Option<&str>, supplied: &str) -> b
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn authorize_capability_admin(request: &HttpRequest) -> Result<(), HttpResponse> {
     let configured = std::env::var("AGENTICOS_CAPABILITY_ADMIN_TOKEN").ok();
     let supplied = request
@@ -6528,10 +6529,7 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         }
     };
 
-    if matches!(
-        workflow_state.nodes.get(&node_id),
-        Some(WorkflowNodeState::Ready)
-    ) {
+    if let Some(WorkflowNodeState::Ready) = workflow_state.nodes.get(&node_id) {
         if state
             .workflows
             .transition_node(
@@ -6563,7 +6561,6 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
-    heartbeat.abort();
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
@@ -6616,10 +6613,10 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
                     .kernel
                     .transition_run(&run_id, RunState::Running, run.version)
                     .await;
-            } else if !success && !final_attempt && run.state == RunState::Admitted {
+            } else if !success && !final_attempt && run.state == RunState::Running {
                 let _ = state
                     .kernel
-                    .transition_run(&run_id, RunState::Running, run.version)
+                    .transition_run(&run_id, RunState::Waiting, run.version)
                     .await;
             }
             if final_attempt {
@@ -6733,6 +6730,8 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
             "subagent exceeded wall-clock budget of {timeout_seconds}s"
         ))),
     };
+
+    heartbeat.abort();
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
@@ -7095,7 +7094,7 @@ struct AuthConfig {
 }
 
 async fn request_id_middleware(
-    mut req: ServiceRequest,
+    req: ServiceRequest,
     next: Next<impl actix_web::body::MessageBody + 'static>,
 ) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, Error> {
     let request_id = req
@@ -7194,6 +7193,40 @@ async fn api_auth_middleware(
     Ok(next.call(req).await?.map_into_right_body())
 }
 
+fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+fn runtime_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(default)
+        .clamp(min, max)
+}
+
+fn agent_execution_concurrency_limit() -> usize {
+    let cores = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let default_limit = cores.saturating_mul(2).clamp(2, 32);
+    runtime_env_usize("AGENTICOS_MAX_AGENT_CONCURRENCY", default_limit, 1, 64)
+}
+
+fn unix_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+/// Start the AgentiCOS HTTP server with configured bind and worker settings.
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
@@ -7587,7 +7620,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
                 web::post().to(backfill_memory_embeddings),
             )
     })
-    .bind(("127.0.0.1", state.bind_port))
+    .bind((host.as_str(), port))
     .map_err(|error| std::io::Error::other(error.to_string()))?
     .run()
     .await

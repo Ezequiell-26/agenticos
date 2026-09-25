@@ -106,8 +106,8 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
-      - name: Compile workspace
-        run: cargo check -p agenticos-brain -p agenticos-providers --all-targets
+      - name: Compile validated backend surfaces
+        run: cargo check -p agenticos-brain -p agenticos-providers -p agenticos-api-server --all-targets
 
       - name: Test workspace
         run: cargo test -p agenticos-brain --lib
@@ -116,4 +116,4 @@ jobs:
         run: cargo test -p agenticos-providers --test provider_plane_integration -- --nocapture
 
       - name: Clippy
-        run: cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
+        run: cargo clippy -p agenticos-brain -p agenticos-providers -p agenticos-api-server --all-targets -- -D warnings

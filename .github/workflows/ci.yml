@@ -99,14 +99,8 @@ jobs:
       - name: Test workspace
         run: cargo test -p agenticos-brain --lib
 
-      - name: Download API runtime binary
-        uses: actions/download-artifact@v5
-        with:
-          name: agenticos-api-server-linux-x64
-          path: target/debug
-
-      - name: Make API runtime executable
-        run: chmod +x target/debug/agenticos-api-server
+      - name: Build API runtime binary
+        run: cargo build -p agenticos-api-server
 
       - name: Upload API runtime binary
         uses: actions/upload-artifact@v4
@@ -159,8 +153,14 @@ jobs:
       - name: Install desktop frontend dependencies
         run: npm ci --no-audit --no-fund --prefix crates/presentation/desktop/frontend
 
-      - name: Build API runtime binary
-        run: cargo build -p agenticos-api-server
+      - name: Download API runtime binary
+        uses: actions/download-artifact@v5
+        with:
+          name: agenticos-api-server-linux-x64
+          path: target/debug
+
+      - name: Make API runtime executable
+        run: chmod +x target/debug/agenticos-api-server
 
       - name: Build desktop frontend for E2E
         run: npm run build --prefix crates/presentation/desktop/frontend

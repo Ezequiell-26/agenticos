@@ -7129,6 +7129,8 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
+    heartbeat.abort();
+
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
 
@@ -7225,7 +7227,7 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
     state.metrics.record_scheduler_completion(success);
 }
 
-async fn execute_subagent_job(state: RuntimeState, _worker_id: String, started_job: JobRecord) {
+async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_job: JobRecord) {
     let child_run_id = started_job
         .spec
         .metadata
@@ -7260,6 +7262,33 @@ async fn execute_subagent_job(state: RuntimeState, _worker_id: String, started_j
         .map(|value| value.budget.max_wall_seconds.max(1))
         .unwrap_or(1800)
         .clamp(1, 86_400);
+
+    let heartbeat_scheduler = state.scheduler.clone();
+    let heartbeat_job_id = started_job.spec.job_id.clone();
+    let heartbeat_owner = started_job
+        .lease_owner
+        .clone()
+        .unwrap_or(worker_id);
+    let heartbeat_token = started_job.lease_token;
+    let heartbeat = tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match heartbeat_scheduler
+                .renew_as(&heartbeat_job_id, &heartbeat_owner, heartbeat_token, 120)
+                .await
+            {
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(
+                        job_id = %heartbeat_job_id,
+                        %error,
+                        "subagent scheduler lease heartbeat failed"
+                    );
+                    break;
+                }
+            }
+        }
+    });
 
     let execution = agent.execute_turn_with_parameters(&started_job.spec.task, parameters);
     let result = match tokio::time::timeout(

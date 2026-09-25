@@ -1,6 +1,7 @@
 use agenticos_api_server::{run_server, RuntimeState};
 use agenticos_desktop::{
-    get_agent_status, get_conversation_history_from_api, get_backend_health, send_message, UserMessage,
+    get_agent_status, get_backend_health, get_conversation_history_from_api, send_message,
+    UserMessage,
 };
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -41,13 +42,19 @@ async fn serve_fake_provider(listener: TcpListener) {
     let mut buffer = [0_u8; 4096];
 
     let body_start = loop {
-        let read = socket.read(&mut buffer).await.expect("read provider request");
+        let read = socket
+            .read(&mut buffer)
+            .await
+            .expect("read provider request");
         assert!(read > 0, "provider connection closed before headers");
         request.extend_from_slice(&buffer[..read]);
         if let Some(boundary) = header_body_boundary(&request) {
             break boundary;
         }
-        assert!(request.len() < 128 * 1024, "provider request headers too large");
+        assert!(
+            request.len() < 128 * 1024,
+            "provider request headers too large"
+        );
     };
 
     let expected_body_len = content_length(&request[..body_start - 4]);
@@ -169,7 +176,9 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
         .await
         .expect("initialize full API runtime");
     let server_task = tokio::spawn(async move {
-        run_server(runtime).await.expect("API server should exit cleanly");
+        run_server(runtime)
+            .await
+            .expect("API server should exit cleanly");
     });
 
     let api_url = format!("http://127.0.0.1:{api_port}");

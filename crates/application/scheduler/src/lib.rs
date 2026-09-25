@@ -12,6 +12,10 @@ use tokio::sync::RwLock;
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-scheduler";
 
+fn default_job_type() -> String {
+    "agent".to_string()
+}
+
 /// Job lifecycle.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JobState {
@@ -44,6 +48,14 @@ pub struct JobSpec {
     pub priority: i32,
     /// Maximum attempts.
     pub max_attempts: u32,
+ job_type: default_job_type(),
+ metadata: serde_json::json!({}),
+    /// Execution class used by the runtime dispatcher.
+    #[serde(default = "default_job_type")]
+    pub job_type: String,
+    /// Structured execution metadata.
+    #[serde(default)]
+    pub metadata: serde_json::Value,
 }
 
 /// Job record maintained by the scheduler.
@@ -102,6 +114,8 @@ impl JobScheduler {
                 state TEXT NOT NULL,
                 attempts INTEGER NOT NULL,
                 last_error TEXT,
+                job_type TEXT NOT NULL DEFAULT 'agent',
+                metadata TEXT NOT NULL DEFAULT '{}',
                 lease_owner TEXT,
                 lease_token INTEGER NOT NULL DEFAULT 0,
                 lease_expires_at INTEGER NOT NULL DEFAULT 0
@@ -118,6 +132,18 @@ impl JobScheduler {
                 .await
                 .map_err(|error| format!("scheduler schema inspection failed: {error}"))?;
         let has_column = |name: &str| columns.iter().any(|(column,)| column == name);
+        if !has_column("job_type") {
+            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'")
+                .execute(&db)
+                .await
+                .map_err(|error| format!("scheduler job type migration failed: {error}"))?;
+        }
+        if !has_column("metadata") {
+            sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
+                .execute(&db)
+                .await
+                .map_err(|error| format!("scheduler metadata migration failed: {error}"))?;
+        }
         if !has_column("lease_owner") {
             sqlx::query("ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT")
                 .execute(&db)
@@ -141,8 +167,8 @@ impl JobScheduler {
             .map_err(|error| format!("scheduler lease expiry migration failed: {error}"))?;
         }
 
-        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, Option<String>, i64, i64)>(
-            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs",
+        let rows = sqlx::query_as::<_, (String, String, String, String, i32, i64, String, i64, Option<String>, String, String, Option<String>, i64, i64)>(
+            "SELECT job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at FROM scheduler_jobs",
         )
         .fetch_all(&db)
         .await
@@ -159,6 +185,8 @@ impl JobScheduler {
             state,
             attempts,
             last_error,
+            job_type,
+            metadata,
             lease_owner,
             lease_token,
             lease_expires_at,
@@ -168,6 +196,8 @@ impl JobScheduler {
                 serde_json::from_str(&dependencies).map_err(|error| {
                     format!("scheduler dependencies are invalid for {job_id}: {error}")
                 })?;
+            let metadata = serde_json::from_str::<serde_json::Value>(&metadata)
+                .unwrap_or_else(|_| serde_json::json!({}));
             let state = match state.as_str() {
                 "Pending" => JobState::Pending,
                 "Ready" => JobState::Ready,
@@ -188,6 +218,12 @@ impl JobScheduler {
                         dependencies,
                         priority,
                         max_attempts: max_attempts as u32,
+
+                        job_type: default_job_type(),
+
+                        metadata: serde_json::json!({}),
+                        job_type: if job_type.trim().is_empty() { default_job_type() } else { job_type },
+                        metadata,
                     },
                     state,
                     attempts: attempts.max(0) as u32,
@@ -211,10 +247,12 @@ impl JobScheduler {
         };
         let dependencies = serde_json::to_string(&record.spec.dependencies)
             .map_err(|error| format!("scheduler dependencies serialization failed: {error}"))?;
+        let metadata = serde_json::to_string(&record.spec.metadata)
+            .map_err(|error| format!("scheduler metadata serialization failed: {error}"))?;
         sqlx::query(
             r#"
             INSERT INTO scheduler_jobs
-                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, lease_owner, lease_token, lease_expires_at)
+                (job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error, job_type, metadata, lease_owner, lease_token, lease_expires_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(job_id) DO UPDATE SET
                 run_id = excluded.run_id,
@@ -239,6 +277,8 @@ impl JobScheduler {
         .bind(format!("{:?}", record.state))
         .bind(record.attempts as i64)
         .bind(record.last_error.as_deref())
+        .bind(&record.spec.job_type)
+        .bind(metadata)
         .bind(record.lease_owner.as_deref())
         .bind(record.lease_token as i64)
         .bind(record.lease_expires_at as i64)
@@ -707,6 +747,10 @@ mod tests {
                 dependencies: vec!["cycle-b".into()],
                 priority: 1,
                 max_attempts: 1,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();
@@ -719,6 +763,10 @@ mod tests {
                 dependencies: vec!["cycle-a".into()],
                 priority: 1,
                 max_attempts: 1,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .expect_err("cycle should be rejected");
@@ -741,6 +789,10 @@ mod tests {
                 dependencies: vec![],
                 priority: 10,
                 max_attempts: 3,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .expect("enqueue durable job");
@@ -771,6 +823,10 @@ mod tests {
                 dependencies: vec![],
                 priority: 1,
                 max_attempts: 3,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();
@@ -794,6 +850,10 @@ mod tests {
                 dependencies: vec![],
                 priority: 1,
                 max_attempts: 3,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();
@@ -845,6 +905,10 @@ mod tests {
                 dependencies: vec![],
                 priority: 1,
                 max_attempts: 3,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();
@@ -891,6 +955,10 @@ mod tests {
                 dependencies: vec![],
                 priority: 1,
                 max_attempts: 2,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();
@@ -902,6 +970,10 @@ mod tests {
                 dependencies: vec!["a".into()],
                 priority: 1,
                 max_attempts: 2,
+
+                job_type: default_job_type(),
+
+                metadata: serde_json::json!({}),
             })
             .await
             .unwrap();

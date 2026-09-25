@@ -18,6 +18,7 @@ import type {
   RuntimeSearchResult,
   RuntimeServices,
   RuntimeStreamEvent,
+  RuntimeEvent,
   RuntimeWorkerJob,
   RuntimeProject,
   RuntimeChannel,
@@ -41,6 +42,7 @@ export class RuntimeHttpError extends Error {
 
 interface HttpTransport {
   get<T>(path: string): Promise<T>
+  getStream(path: string, signal?: AbortSignal): Promise<Response>
   getBlob(path: string): Promise<Blob>
   post<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T>
   postStream(path: string, body?: unknown, headers?: Record<string, string>): Promise<Response>
@@ -104,6 +106,16 @@ class FetchTransport implements HttpTransport {
     })
     if (!response.ok) return this.parseError(response, 'GET', path)
     return response.blob()
+  }
+
+  async getStream(path: string, signal?: AbortSignal): Promise<Response> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: this.headers(),
+      signal,
+    })
+    if (!response.ok) return this.parseError(response, 'GET', path)
+    return response
   }
 
   async postStream(path: string, body?: unknown, headers?: Record<string, string>): Promise<Response> {
@@ -215,6 +227,33 @@ function normalizeAgentState(value: unknown): AgentStatusSnapshot['state'] {
   }
 }
 
+function parseRuntimeSseEvent(block: string): RuntimeEvent | null {
+  const lines = block.split(/\\r?\\n/)
+  let eventType = 'runtime'
+  const dataLines: string[] = []
+  for (const line of lines) {
+    if (line.startsWith('event:')) eventType = line.slice(6).trim()
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+  }
+  if (dataLines.length === 0) return null
+
+  const raw = dataLines.join('\\n')
+  try {
+    const data = JSON.parse(raw) as RuntimeApiRecord
+    return {
+      event_type: eventType,
+      entry_id: readString(data, 'entry_id'),
+      event_data: readString(data, 'event_data') ?? '',
+      event_schema_version: readNumber(data, 'event_schema_version') ?? 0,
+      destination: readString(data, 'destination') ?? 'runtime',
+      attempts: readNumber(data, 'attempts') ?? 0,
+      created_at: readNumber(data, 'created_at') ?? Date.now(),
+    }
+  } catch {
+    return null
+  }
+}
+
 function parseSseEvent(block: string): RuntimeStreamEvent | null {
   const lines = block.split(/\\r?\\n/)
   let eventType = 'message'
@@ -257,6 +296,51 @@ export class AgenticosRuntime implements RuntimeServices {
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
     this.transport = new FetchTransport(this.baseUrl, apiToken?.trim() || undefined)
+  }
+
+  readonly events = {
+    subscribe: (onEvent: (event: RuntimeEvent) => void): (() => void) => {
+      const controller = new AbortController()
+      const run = async () => {
+        let retryDelay = 500
+        while (!controller.signal.aborted) {
+          try {
+            const response = await this.transport.getStream('/api/events/stream', controller.signal)
+            if (!response.body) throw new RuntimeHttpError('Runtime event stream body is unavailable.', 502, 'EVENT_STREAM_BODY_UNAVAILABLE')
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
+            retryDelay = 500
+            try {
+              while (!controller.signal.aborted) {
+                const { value, done } = await reader.read()
+                if (done) break
+                buffer += decoder.decode(value, { stream: true })
+                const blocks = buffer.split(/\\r?\\n\\r?\\n/)
+                buffer = blocks.pop() ?? ''
+                for (const block of blocks) {
+                  const event = parseRuntimeSseEvent(block)
+                  if (event) onEvent(event)
+                }
+              }
+              buffer += decoder.decode()
+              if (buffer.trim()) {
+                const event = parseRuntimeSseEvent(buffer)
+                if (event) onEvent(event)
+              }
+            } finally {
+              reader.releaseLock()
+            }
+          } catch {
+            if (controller.signal.aborted) break
+            await new Promise((resolve) => window.setTimeout(resolve, retryDelay))
+            retryDelay = Math.min(retryDelay * 2, 5_000)
+          }
+        }
+      }
+      void run()
+      return () => controller.abort()
+    },
   }
 
   readonly health = {

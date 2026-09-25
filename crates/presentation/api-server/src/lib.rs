@@ -35,7 +35,7 @@ use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
     InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill, SqliteEventStore,
-    SqliteIdempotencyStore, SqliteMemory, SqliteOutboxStore, SqliteSnapshotStore,
+    SqliteIdempotencyStore, SqliteLeaseStore, SqliteMemory, SqliteOutboxStore, SqliteSnapshotStore,
     ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
@@ -971,6 +971,13 @@ impl RuntimeState {
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
         let outbox = Arc::new(SqliteOutboxStore::open(&database_url).await?);
+        let leases = Arc::new(
+            SqliteLeaseStore::open(&database_url)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("lease store initialization failed: {error}"))
+                })?,
+        );
         let outbox_transport = Arc::new(BroadcastOutboxTransport::new(runtime_env_usize(
             "AGENTICOS_OUTBOX_BROADCAST_CAPACITY",
             1024,
@@ -981,7 +988,7 @@ impl RuntimeState {
             outbox.clone(),
             Arc::new(CompositeOutboxTransport::new(outbox_transport.clone())),
         ));
-        let kernel = Arc::new(KernelRuntime::new_with_outbox(
+        let kernel = Arc::new(KernelRuntime::new_with_outbox_and_lease_store(
             event_store,
             snapshot_store,
             logger,
@@ -989,6 +996,7 @@ impl RuntimeState {
             capabilities.clone(),
             Arc::new(CapabilityRegistry::default()),
             outbox,
+            leases,
         ));
 
         let provider = Arc::new(ProviderPlatform::open_from_env(&database_url).await?);

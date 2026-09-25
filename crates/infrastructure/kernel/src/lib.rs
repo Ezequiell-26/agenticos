@@ -20,7 +20,7 @@ pub use agenticos_context::{ContextBudget, ContextEngine};
 use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
+    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
     OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus,
     SagaStepStatus, Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot, SnapshotStore,
     ToolRequest, ToolRuntimePort,
@@ -190,7 +190,6 @@ impl DurableRun {
         validate_transition(self.state, to)?;
         self.state = to;
         self.version += 1;
-        self.fencing_token += 1;
         Ok(())
     }
 
@@ -659,6 +658,333 @@ impl Default for InMemoryLeaseStore {
     }
 }
 
+impl InMemoryLeaseStore {
+    /// Return the current lease for a resource.
+    pub async fn get(&self, resource_id: &str) -> Option<LeaseRecord> {
+        self.leases.read().await.get(resource_id).cloned()
+    }
+
+    /// Renew a lease when the owner and fencing token still match.
+    pub async fn renew(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        let now = unix_time();
+        let mut store = self.leases.write().await;
+        let lease = store
+            .get_mut(resource_id)
+            .ok_or(ContractError::MissingCapability)?;
+        if lease.owner_id != owner_id
+            || lease.fencing_token != fencing_token
+            || lease.expires_at <= now
+        {
+            return Err(ContractError::MissingCapability);
+        }
+        lease.expires_at = expires_at;
+        Ok(lease.clone())
+    }
+}
+
+#[async_trait::async_trait]
+impl LeaseStore for InMemoryLeaseStore {
+    async fn acquire(
+        &self,
+        resource_id: String,
+        owner_id: String,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        InMemoryLeaseStore::acquire(self, resource_id, owner_id, expires_at).await
+    }
+
+    async fn get(&self, resource_id: &str) -> Result<Option<LeaseRecord>, ContractError> {
+        Ok(InMemoryLeaseStore::get(self, resource_id).await)
+    }
+
+    async fn renew(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        InMemoryLeaseStore::renew(self, resource_id, owner_id, fencing_token, expires_at).await
+    }
+
+    async fn is_valid(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        current_time: u64,
+    ) -> Result<bool, ContractError> {
+        Ok(InMemoryLeaseStore::is_valid(self, resource_id, owner_id, fencing_token, current_time).await)
+    }
+
+    async fn release(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+    ) -> Result<(), ContractError> {
+        let mut store = self.leases.write().await;
+        match store.get(resource_id) {
+            Some(lease)
+                if lease.owner_id == owner_id && lease.fencing_token == fencing_token =>
+            {
+                store.remove(resource_id);
+                Ok(())
+            }
+            _ => Err(ContractError::MissingCapability),
+        }
+    }
+}
+
+/// SQLite-backed durable lease store for run/worker ownership.
+#[derive(Debug, Clone)]
+pub struct SqliteLeaseStore {
+    pool: sqlx::SqlitePool,
+}
+
+impl SqliteLeaseStore {
+    /// Open or initialize the durable lease tables.
+    pub async fn open(connection_string: &str) -> Result<Self, sqlx::Error> {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(connection_string)
+            .await?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS run_lease_counters (
+                resource_id TEXT PRIMARY KEY,
+                next_fencing_token INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS run_leases (
+                resource_id TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                fencing_token INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        Ok(Self { pool })
+    }
+
+    fn validate_inputs(resource_id: &str, owner_id: &str, expires_at: u64) -> Result<(), ContractError> {
+        if resource_id.trim().is_empty() || owner_id.trim().is_empty() || expires_at == 0 {
+            return Err(ContractError::InvalidId);
+        }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl LeaseStore for SqliteLeaseStore {
+    async fn acquire(
+        &self,
+        resource_id: String,
+        owner_id: String,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        Self::validate_inputs(&resource_id, &owner_id, expires_at)?;
+        let now = unix_time();
+        if expires_at <= now {
+            return Err(ContractError::InvalidId);
+        }
+
+        let mut connection = self
+            .pool
+            .acquire()
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+        sqlx::query("BEGIN IMMEDIATE")
+            .execute(&mut *connection)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+        let operation = async {
+            let current = sqlx::query_as::<_, (i64,)>(
+                "SELECT expires_at FROM run_leases WHERE resource_id = ?",
+            )
+            .bind(&resource_id)
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+            if current.is_some_and(|(expires_at,)| expires_at.max(0) as u64 > now) {
+                return Err(ContractError::MissingCapability);
+            }
+
+            sqlx::query(
+                r#"
+                INSERT INTO run_lease_counters (resource_id, next_fencing_token)
+                VALUES (?, 1)
+                ON CONFLICT(resource_id) DO UPDATE SET
+                    next_fencing_token = run_lease_counters.next_fencing_token + 1
+                "#,
+            )
+            .bind(&resource_id)
+            .execute(&mut *connection)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+            let (fencing_token,) = sqlx::query_as::<_, (i64,)>(
+                "SELECT next_fencing_token FROM run_lease_counters WHERE resource_id = ?",
+            )
+            .bind(&resource_id)
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+            let lease = LeaseRecord {
+                resource_id: resource_id.clone(),
+                owner_id: owner_id.clone(),
+                fencing_token: fencing_token.max(0) as u64,
+                expires_at,
+            };
+
+            sqlx::query(
+                r#"
+                INSERT INTO run_leases (resource_id, owner_id, fencing_token, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(resource_id) DO UPDATE SET
+                    owner_id = excluded.owner_id,
+                    fencing_token = excluded.fencing_token,
+                    expires_at = excluded.expires_at
+                "#,
+            )
+            .bind(&lease.resource_id)
+            .bind(&lease.owner_id)
+            .bind(lease.fencing_token as i64)
+            .bind(lease.expires_at as i64)
+            .execute(&mut *connection)
+            .await
+            .map_err(|_| ContractError::Persistence)?;
+
+            Ok(lease)
+        }
+        .await;
+
+        if operation.is_ok() {
+            sqlx::query("COMMIT")
+                .execute(&mut *connection)
+                .await
+                .map_err(|_| ContractError::Persistence)?;
+        } else {
+            let _ = sqlx::query("ROLLBACK").execute(&mut *connection).await;
+        }
+
+        operation
+    }
+
+    async fn get(&self, resource_id: &str) -> Result<Option<LeaseRecord>, ContractError> {
+        sqlx::query_as::<_, (String, String, i64, i64)>(
+            "SELECT resource_id, owner_id, fencing_token, expires_at FROM run_leases WHERE resource_id = ?",
+        )
+        .bind(resource_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| {
+            row.map(|(resource_id, owner_id, fencing_token, expires_at)| LeaseRecord {
+                resource_id,
+                owner_id,
+                fencing_token: fencing_token.max(0) as u64,
+                expires_at: expires_at.max(0) as u64,
+            })
+        })
+        .map_err(|_| ContractError::Persistence)
+    }
+
+    async fn renew(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        Self::validate_inputs(resource_id, owner_id, expires_at)?;
+        let now = unix_time();
+        if expires_at <= now {
+            return Err(ContractError::InvalidId);
+        }
+
+        let result = sqlx::query(
+            "UPDATE run_leases SET expires_at = ? WHERE resource_id = ? AND owner_id = ? AND fencing_token = ? AND expires_at > ?",
+        )
+        .bind(expires_at as i64)
+        .bind(resource_id)
+        .bind(owner_id)
+        .bind(fencing_token as i64)
+        .bind(now as i64)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+
+        if result.rows_affected() != 1 {
+            return Err(ContractError::MissingCapability);
+        }
+
+        self.get(resource_id)
+            .await?
+            .ok_or(ContractError::MissingCapability)
+    }
+
+    async fn is_valid(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        current_time: u64,
+    ) -> Result<bool, ContractError> {
+        Ok(self
+            .get(resource_id)
+            .await?
+            .is_some_and(|lease| {
+                lease.owner_id == owner_id
+                    && lease.fencing_token == fencing_token
+                    && lease.expires_at > current_time
+            }))
+    }
+
+    async fn release(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+    ) -> Result<(), ContractError> {
+        let result = sqlx::query(
+            "DELETE FROM run_leases WHERE resource_id = ? AND owner_id = ? AND fencing_token = ?",
+        )
+        .bind(resource_id)
+        .bind(owner_id)
+        .bind(fencing_token as i64)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| ContractError::Persistence)?;
+
+        if result.rows_affected() == 1 {
+            Ok(())
+        } else {
+            Err(ContractError::MissingCapability)
+        }
+    }
+}
+
 /// Kernel runtime combining durable state with event/snapshot storage.
 pub struct KernelRuntime {
     /// Event store for persistence.
@@ -677,6 +1003,8 @@ pub struct KernelRuntime {
     pub capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
     /// Outbox used for reliable downstream event publication.
     pub outbox: Arc<dyn OutboxStore>,
+    /// Durable run lease store.
+    pub lease_store: Arc<dyn LeaseStore>,
 }
 
 impl std::fmt::Debug for KernelRuntime {
@@ -690,13 +1018,14 @@ impl std::fmt::Debug for KernelRuntime {
             .field("capability_issuer", &"<CapabilityIssuer>")
             .field("capability_registry", &"<CapabilityRegistry>")
             .field("outbox", &"<OutboxStore>")
+            .field("lease_store", &"<LeaseStore>")
             .finish()
     }
 }
 
 impl KernelRuntime {
     /// Create a kernel runtime with an explicit outbox implementation.
-    pub fn new_with_outbox(
+    pub fn new_with_outbox_and_lease_store(
         event_store: Arc<dyn EventStore>,
         snapshot_store: Arc<dyn SnapshotStore>,
         logger: Arc<dyn Logger>,
@@ -704,6 +1033,7 @@ impl KernelRuntime {
         capability_issuer: Arc<dyn CapabilityIssuer>,
         capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
         outbox: Arc<dyn OutboxStore>,
+        lease_store: Arc<dyn LeaseStore>,
     ) -> Self {
         Self {
             event_store,
@@ -714,7 +1044,30 @@ impl KernelRuntime {
             capability_issuer,
             capability_registry,
             outbox,
+            lease_store,
         }
+    }
+
+    /// Create a kernel runtime with an explicit outbox and in-memory leases.
+    pub fn new_with_outbox(
+        event_store: Arc<dyn EventStore>,
+        snapshot_store: Arc<dyn SnapshotStore>,
+        logger: Arc<dyn Logger>,
+        config: Arc<RwLock<dyn ConfigLayer>>,
+        capability_issuer: Arc<dyn CapabilityIssuer>,
+        capability_registry: Arc<agenticos_brain::CapabilityRegistry>,
+        outbox: Arc<dyn OutboxStore>,
+    ) -> Self {
+        Self::new_with_outbox_and_lease_store(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+            capability_registry,
+            outbox,
+            Arc::new(InMemoryLeaseStore::new()),
+        )
     }
 
     /// Create a new kernel runtime with default components.
@@ -909,25 +1262,79 @@ impl KernelRuntime {
         Ok(runs)
     }
 
-    /// Acquire a process-local lease for a run.
-    ///
-    /// Scheduler job leases provide durable worker ownership; this run-level
-    /// lease is currently kept in the runtime state and is not persisted.
+    /// Acquire and persist a lease for a run.
     pub async fn acquire_lease(
         &self,
         run_id: &RunId,
         owner_id: String,
         expires_at: u64,
     ) -> Result<LeaseRecord, ContractError> {
-        let current = self.get_or_recover_run(run_id).await?;
-        let mut updated = current.clone();
-        updated.acquire_lease(owner_id, expires_at)?;
-        let lease = updated
-            .lease
-            .clone()
-            .ok_or(ContractError::MissingCapability)?;
-        self.runs.write().await.insert(run_id.clone(), updated);
+        let _ = self.get_or_recover_run(run_id).await?;
+        let lease = self
+            .lease_store
+            .acquire(run_id.as_str().to_string(), owner_id, expires_at)
+            .await?;
+
+        let mut runs = self.runs.write().await;
+        if let Some(run) = runs.get_mut(run_id) {
+            run.set_lease(lease.clone());
+        }
         Ok(lease)
+    }
+
+    /// Renew a persisted run lease.
+    pub async fn renew_lease(
+        &self,
+        run_id: &RunId,
+        owner_id: &str,
+        fencing_token: u64,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError> {
+        let lease = self
+            .lease_store
+            .renew(run_id.as_str(), owner_id, fencing_token, expires_at)
+            .await?;
+        let mut runs = self.runs.write().await;
+        if let Some(run) = runs.get_mut(run_id) {
+            run.set_lease(lease.clone());
+        }
+        Ok(lease)
+    }
+
+    /// Validate the persisted lease for a run.
+    pub async fn lease_valid(
+        &self,
+        run_id: &RunId,
+        owner_id: &str,
+        fencing_token: u64,
+        current_time: u64,
+    ) -> Result<bool, ContractError> {
+        self.lease_store
+            .is_valid(run_id.as_str(), owner_id, fencing_token, current_time)
+            .await
+    }
+
+    /// Release a persisted run lease.
+    pub async fn release_lease(
+        &self,
+        run_id: &RunId,
+        owner_id: &str,
+        fencing_token: u64,
+    ) -> Result<(), ContractError> {
+        self.lease_store
+            .release(run_id.as_str(), owner_id, fencing_token)
+            .await?;
+        let mut runs = self.runs.write().await;
+        if let Some(run) = runs.get_mut(run_id) {
+            if run
+                .lease
+                .as_ref()
+                .is_some_and(|lease| lease.owner_id == owner_id && lease.fencing_token == fencing_token)
+            {
+                run.clear_lease();
+            }
+        }
+        Ok(())
     }
 
     /// Request cancellation of a run.
@@ -1093,13 +1500,20 @@ impl KernelRuntime {
                             run.cancellation.cancel();
                         }
                         run.version += 1;
-                        run.fencing_token += 1;
                     }
                 }
             }
 
             run
         };
+
+        // Rehydrate the active durable lease separately from event state.
+        let mut recovered_run = recovered_run;
+        if let Some(lease) = self.lease_store.get(run_id.as_str()).await? {
+            if lease.expires_at > unix_time() {
+                recovered_run.set_lease(lease);
+            }
+        }
 
         // Register recovered run
         let mut runs = self.runs.write().await;

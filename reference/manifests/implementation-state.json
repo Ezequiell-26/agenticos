@@ -24,7 +24,7 @@
       "verify the latest full CI run and promote only with fresh automated evidence",
       "centralize remaining SQLite schemas into versioned migrations",
       "complete semantic-memory retrieval evaluation and backfill strategy",
-      "add durable run-level lease storage and restart recovery beyond scheduler jobs",
+      "expand durable worker restart recovery beyond scheduler jobs and run leases",
       "expand runtime end-to-end tests for desktop, subagents, workflows and MCP"
     ],
     "scope": [
@@ -270,6 +270,11 @@
       "id": "context-prompt-overhead",
       "owner": "context + kernel",
       "status": "implemented-unverified"
+    },
+    {
+      "id": "run-level-leases",
+      "owner": "kernel + execution + api-server",
+      "status": "implemented-unverified"
     }
   ],
   "verification": {
@@ -290,10 +295,10 @@
   },
   "backlog": [
     "centralize remaining SQLite schemas into versioned migrations",
-    "durable run-level lease store and restart recovery",
     "semantic-memory retrieval evaluation and backfill",
     "stronger sandbox isolation profiles",
-    "evaluation and replay coverage"
+    "evaluation and replay coverage",
+    "durable worker restart recovery and end-to-end lease fencing tests"
   ],
   "migration": {
     "from_schema": 1,

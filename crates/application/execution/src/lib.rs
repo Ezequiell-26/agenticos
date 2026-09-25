@@ -345,9 +345,35 @@ impl AgentEngine for BasicAgentEngine {
             return Ok(());
         }
 
-        self.runtime
-            .transition_run(&run_id, RunState::Running, run.version)
+        let lease_seconds = std::env::var("AGENTICOS_RUN_LEASE_SECONDS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(300)
+            .clamp(10, 3600);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| ContractError::Persistence)?
+            .as_secs();
+        let lease = self
+            .runtime
+            .acquire_lease(
+                &run_id,
+                format!("agent-engine:{}", self.engine_id),
+                now.saturating_add(lease_seconds),
+            )
             .await?;
+
+        let transition = self
+            .runtime
+            .transition_run(&run_id, RunState::Running, run.version)
+            .await;
+        if let Err(error) = transition {
+            let _ = self
+                .runtime
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await;
+            return Err(error);
+        }
 
         let context = self.context_manager.get_context(run_id.clone()).await?;
         let input = context
@@ -406,6 +432,9 @@ impl AgentEngine for BasicAgentEngine {
                         .transition_run(&run_id, RunState::Completed, current.version)
                         .await?;
                 }
+                self.runtime
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await?;
                 Ok(())
             }
             Err(error) => {
@@ -416,6 +445,10 @@ impl AgentEngine for BasicAgentEngine {
                         .transition_run(&run_id, RunState::Failed, current.version)
                         .await;
                 }
+                let _ = self
+                    .runtime
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await;
                 Err(error)
             }
         }

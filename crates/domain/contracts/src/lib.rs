@@ -1058,6 +1058,47 @@ pub struct LeaseRecord {
     pub expires_at: u64,
 }
 
+/// Durable lease store for distributed execution ownership.
+#[async_trait::async_trait]
+pub trait LeaseStore: Send + Sync {
+    /// Acquire a lease atomically, allocating a new fencing token.
+    async fn acquire(
+        &self,
+        resource_id: String,
+        owner_id: String,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError>;
+
+    /// Return the current persisted lease, when present.
+    async fn get(&self, resource_id: &str) -> Result<Option<LeaseRecord>, ContractError>;
+
+    /// Renew a lease only when ownership and fencing token still match.
+    async fn renew(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        expires_at: u64,
+    ) -> Result<LeaseRecord, ContractError>;
+
+    /// Validate a lease against persisted ownership and expiry.
+    async fn is_valid(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+        current_time: u64,
+    ) -> Result<bool, ContractError>;
+
+    /// Release a lease only when ownership and fencing token still match.
+    async fn release(
+        &self,
+        resource_id: &str,
+        owner_id: &str,
+        fencing_token: u64,
+    ) -> Result<(), ContractError>;
+}
+
 /// Cancellation token for cooperative cancellation.
 #[derive(Clone, Debug)]
 pub struct CancellationToken {

@@ -8,7 +8,7 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
-- Backend hardening now includes durable retry backoff, GitHub write authorization, sandbox limits, request correlation, token-aware quotas and ranked memory retrieval.
+- Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, sandbox limits, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
 - Third-party canonical source policy: MIT/compatible license + provenance + exact revision before integration
@@ -30,7 +30,7 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Active workstreams
 
-- **backend-runtime (P0):** durable runs, jobs, workers, recovery and API control plane.
+- **backend-runtime (P0):** durable runs, jobs, workers, ownership leases, recovery and API control plane.
 - **provider-plane (P0):** providers, model catalog, routing, retry, quota, failover and capability normalization.
 - **agent-orchestration (P0):** Brain, planners, subagents, verification and repair.
 - **tool-mcp (P0):** typed tools, MCP, capability authorization and sandbox.
@@ -76,8 +76,8 @@ A failing check blocks the affected capability or release path; it does not auto
 
 A2A is implemented in its dedicated infrastructure crate and exposed through the API; it remains unverified until fresh CI evidence is available.
 
-The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. The backend now includes durable retry backoff and lease recovery, ranked persistent memory retrieval, capability-gated GitHub writes, an optional real browser adapter, request correlation, provider capability routing and a non-empty CQRS run projection.
+The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection.
 
 ## Next actions
 
-Continue backend work by capability rather than by numbered implementation step. Prioritize durable worker state, persistent jobs, real provider routing, complete tool/MCP execution, context/token optimization and runtime observability. Promote individual capabilities to verified only after their evidence exists.
+Continue backend work by capability rather than by numbered implementation step. Prioritize versioned SQLite migrations, semantic-memory retrieval evaluation/backfill, stronger sandbox isolation, durable worker end-to-end recovery, and runtime integration tests. Promote individual capabilities to verified only after fresh evidence exists.

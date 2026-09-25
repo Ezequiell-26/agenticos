@@ -47,7 +47,7 @@ use agenticos_projects::{ProjectDefinition, ProjectRegistry};
 use agenticos_providers::{ProviderPlatform, ProviderStatus};
 use agenticos_sandbox::{ProcessSandbox, SandboxPolicy};
 use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
-use agenticos_skills::{SkillRecord, SkillRegistry};
+use agenticos_skills::SkillRegistry;
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
@@ -125,7 +125,6 @@ pub struct RuntimeState {
     workspace: Arc<WorkspaceFs>,
     terminal: Arc<TerminalManager>,
     cost_ledger: Arc<CostLedger>,
-    skills: Arc<Vec<Skill>>,
     skills_registry: Arc<SkillRegistry>,
     model: String,
 }
@@ -277,7 +276,6 @@ impl RuntimeState {
                 .await
                 .map_err(ContractError::ParseError)?,
         );
-        let skills = Arc::new(Self::load_skills(&skills_registry).await);
         let session_cache_capacity =
             runtime_env_usize("AGENTICOS_MAX_CACHED_SESSIONS", 256, 16, 4096);
         let agent_execution_concurrency =
@@ -560,7 +558,6 @@ impl RuntimeState {
             terminal: terminal.clone(),
             cost_ledger,
             browser,
-            skills,
             skills_registry,
             model,
         })
@@ -581,7 +578,11 @@ impl RuntimeState {
             .filter_map(|document| match Skill::from_markdown(&document.content) {
                 Ok(skill) => Some(skill),
                 Err(error) => {
-                    tracing::warn!(skill = %document.name, %error, "invalid enabled skill skipped");
+                    tracing::warn!(
+                        skill = %document.name,
+                        %error,
+                        "invalid enabled skill skipped"
+                    );
                     None
                 }
             })
@@ -658,7 +659,8 @@ impl RuntimeState {
         }
 
         let requested_skills = definition.map(|value| value.skills.clone());
-        for skill in self.skills.iter().cloned() {
+        let available_skills = Self::load_skills(&self.skills_registry).await;
+        for skill in available_skills {
             let include = requested_skills
                 .as_ref()
                 .map(|requested| {

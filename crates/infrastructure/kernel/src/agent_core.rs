@@ -4,6 +4,7 @@
 //! support that historically lived inline in lib.rs.
 
 use super::*;
+use agenticos_contracts::{ModelRequest, Sandbox, SandboxRequest, ToolRequest, ToolRuntimePort};
 
 /// Recovery state for failed tool executions with retry logic.
 #[derive(Debug, Clone)]

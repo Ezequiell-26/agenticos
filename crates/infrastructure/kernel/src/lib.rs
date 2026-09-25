@@ -1874,10 +1874,47 @@ impl OutboxStore for SqliteOutboxStore {
         Ok(())
     }
 
+
+    async fn mark_published_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let updated = sqlx::query(
+            "UPDATE outbox_entries
+             SET status = 'published',
+                 processed_at = ?,
+                 claimed_by = NULL,
+                 claimed_until = NULL
+             WHERE entry_id = ?
+               AND status = 'processing'
+               AND claimed_by = ?",
+        )
+        .bind(unix_time() as i64)
+        .bind(entry_id)
+        .bind(worker_id)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!(
+                "outbox owned publish update failed: {error}"
+            ))
+        })?;
+        if updated.rows_affected() == 0 {
+            return Err(ContractError::MissingCapability);
+        }
+        Ok(())
+    }
+
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
         let current_attempts =
-            sqlx::query_scalar::<_, i64>("SELECT attempts FROM outbox_entries WHERE entry_id = ?")
+            sqlx::query_scalar::<_, i64>(
+                "SELECT attempts FROM outbox_entries
+                 WHERE entry_id = ? AND status = 'processing' AND claimed_by = ?",
+            )
                 .bind(entry_id)
+                .bind(worker_id)
                 .fetch_optional(self.pool.as_ref())
                 .await
                 .map_err(|error| {
@@ -1915,6 +1952,62 @@ impl OutboxStore for SqliteOutboxStore {
         .map_err(|error| {
             ContractError::ParseError(format!("outbox failure update failed: {error}"))
         })?;
+        Ok(())
+    }
+
+
+    async fn mark_failed_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let current_attempts = sqlx::query_scalar::<_, i64>(
+            "SELECT attempts FROM outbox_entries
+             WHERE entry_id = ? AND status = 'processing' AND claimed_by = ?",
+        )
+        .bind(entry_id)
+        .bind(worker_id)
+        .fetch_optional(self.pool.as_ref())
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox owned failure lookup failed: {error}"))
+        })?
+        .ok_or(ContractError::MissingCapability)?;
+
+        let max_attempts = std::env::var("AGENTICOS_OUTBOX_MAX_ATTEMPTS")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(5)
+            .clamp(1, 100);
+        let attempts = current_attempts.max(0) as u32 + 1;
+        let dead_letter = attempts >= max_attempts;
+
+        let updated = sqlx::query(
+            "UPDATE outbox_entries
+             SET status = ?,
+                 attempts = ?,
+                 processed_at = ?,
+                 claimed_by = NULL,
+                 claimed_until = NULL
+             WHERE entry_id = ?
+               AND status = 'processing'
+               AND claimed_by = ?",
+        )
+        .bind(if dead_letter { "dead_letter" } else { "pending" })
+        .bind(attempts as i64)
+        .bind(if dead_letter { Some(unix_time() as i64) } else { None })
+        .bind(entry_id)
+        .bind(worker_id)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("outbox owned failure update failed: {error}"))
+        })?;
+
+        if updated.rows_affected() == 0 {
+            return Err(ContractError::MissingCapability);
+        }
         Ok(())
     }
 
@@ -2019,6 +2112,31 @@ impl OutboxStore for InMemoryOutboxStore {
         Ok(())
     }
 
+
+    async fn mark_published_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let mut claims = self.claims.write().await;
+        let owns_claim = claims
+            .get(entry_id)
+            .is_some_and(|(owner, until)| owner == worker_id && *until > unix_time());
+        if !owns_claim {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let mut entries = self.entries.write().await;
+        let entry = entries
+            .get_mut(entry_id)
+            .ok_or(ContractError::MissingCapability)?;
+        entry.status = OutboxStatus::Published;
+        entry.processed_at = Some(unix_time());
+        claims.remove(entry_id);
+        Ok(())
+    }
+
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
         let mut entries = self.entries.write().await;
         if let Some(entry) = entries.get_mut(entry_id) {
@@ -2031,6 +2149,31 @@ impl OutboxStore for InMemoryOutboxStore {
                     .as_secs(),
             );
         }
+        Ok(())
+    }
+
+
+    async fn mark_failed_by(
+        &self,
+        entry_id: &str,
+        worker_id: &str,
+    ) -> Result<(), ContractError> {
+        validate_outbox_worker_id(worker_id)?;
+        let mut claims = self.claims.write().await;
+        let owns_claim = claims
+            .get(entry_id)
+            .is_some_and(|(owner, until)| owner == worker_id && *until > unix_time());
+        if !owns_claim {
+            return Err(ContractError::MissingCapability);
+        }
+
+        let mut entries = self.entries.write().await;
+        let entry = entries
+            .get_mut(entry_id)
+            .ok_or(ContractError::MissingCapability)?;
+        entry.status = OutboxStatus::Failed;
+        entry.processed_at = Some(unix_time());
+        claims.remove(entry_id);
         Ok(())
     }
 
@@ -2275,7 +2418,10 @@ impl BackgroundEventPublisher {
         for entry in pending {
             match self.transport.publish(&entry).await {
                 Ok(()) => {
-                    self.outbox.mark_published(&entry.entry_id).await?;
+                    self
+                        .outbox
+                        .mark_published_by(&entry.entry_id, &worker_id)
+                        .await?;
                     published += 1;
                 }
                 Err(error) => {
@@ -2285,7 +2431,10 @@ impl BackgroundEventPublisher {
                         destination = %entry.destination,
                         "outbox publication failed; scheduling retry"
                     );
-                    self.outbox.mark_failed(&entry.entry_id).await?;
+                    self
+                        .outbox
+                        .mark_failed_by(&entry.entry_id, &worker_id)
+                        .await?;
                 }
             }
         }
@@ -2390,6 +2539,43 @@ mod outbox_claim_tests {
 
         assert_eq!(first.len(), 1);
         assert!(second.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod outbox_claim_ownership_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stale_worker_cannot_finalize_another_workers_claim() {
+        let store = Arc::new(InMemoryOutboxStore::new());
+        store
+            .add(OutboxEntry {
+                entry_id: "ownership-test".to_string(),
+                event: SerializedEvent {
+                    event_type: "Test".to_string(),
+                    data: "{}".to_string(),
+                    schema_version: 1,
+                },
+                destination: "runtime".to_string(),
+                attempts: 0,
+                status: OutboxStatus::Pending,
+                created_at: 1,
+                processed_at: None,
+            })
+            .await
+            .unwrap();
+
+        let claimed = store.claim_pending("worker-a", 1, 120).await.unwrap();
+        assert_eq!(claimed.len(), 1);
+        assert!(store
+            .mark_published_by("worker-b", "worker-a")
+            .await
+            .is_err());
+        assert!(store
+            .mark_published_by("ownership-test", "worker-a")
+            .await
+            .is_ok());
     }
 }
 

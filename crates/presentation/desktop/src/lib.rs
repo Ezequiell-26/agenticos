@@ -78,7 +78,9 @@ pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentRe
         }))
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?;
+        .map_err(|e| format!("API request failed: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("API returned an error: {}", e))?;
 
     let json: serde_json::Value = response
         .json()
@@ -90,7 +92,12 @@ pub async fn send_message(message: UserMessage, api_url: &str) -> Result<AgentRe
         .unwrap_or("No response")
         .to_string();
 
-    let session_id = message.session_id.unwrap_or_else(|| "default".to_string());
+    let session_id = json
+        .get("session_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .or(message.session_id)
+        .unwrap_or_else(|| "default".to_string());
 
     Ok(AgentResponse {
         content,

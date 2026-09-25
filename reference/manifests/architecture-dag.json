@@ -64,9 +64,7 @@
     ]
   },
   "planned_crates": {
-    "application": [
-      "skills"
-    ],
+    "application": [],
     "infrastructure": [
       "plugins",
       "router"

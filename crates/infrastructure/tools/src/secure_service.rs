@@ -144,7 +144,6 @@ impl SecureToolService {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,10 +1,10 @@
 use crate::{
     shared_http_client, CredentialPool, FallbackManager, HealthChecker, ModelCatalog,
-    ProviderRegistry, QuotaTracker, RetryManager,
+    OpenAiCompatibleEmbeddingProvider, ProviderRegistry, QuotaTracker, RetryManager,
 };
 use agenticos_contracts::{
-    ContractError, Credential, HealthCheck, HealthStatus, ModelEntry, ModelProvider, ModelRequest,
-    ModelResponse, ProviderEntry,
+    ContractError, Credential, EmbeddingProvider, EmbeddingRequest, EmbeddingResponse, HealthCheck,
+    HealthStatus, ModelEntry, ModelProvider, ModelRequest, ModelResponse, ProviderEntry,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -875,6 +875,103 @@ impl ProviderPlatform {
     }
 
     /// Route a model request to the first compatible healthy provider.
+    /// Generate embeddings through the first configured provider advertising embedding support.
+    pub async fn embed(
+        &self,
+        request: EmbeddingRequest,
+    ) -> Result<EmbeddingResponse, ContractError> {
+        let providers = self.registry.list().await;
+        let mut candidates = providers
+            .into_iter()
+            .filter(|provider| {
+                provider
+                    .capabilities
+                    .iter()
+                    .any(|capability| {
+                        matches!(
+                            capability.to_ascii_lowercase().as_str(),
+                            "embedding" | "embeddings"
+                        )
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        candidates.sort_by_key(|provider| (!futures::executor::block_on(self.health.is_healthy(&provider.provider_id)), provider.provider_id.clone()));
+
+        let mut last_error = None;
+        for provider in candidates {
+            let credential = self
+                .credentials
+                .get_for_provider(&provider.provider_id)
+                .await
+                .into_iter()
+                .find(|credential| credential.expires_at == 0 || credential.expires_at > unix_time());
+
+            if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
+                continue;
+            }
+
+            let reservation = self
+                .quotas
+                .reserve_request(&provider.provider_id, None)
+                .await?;
+
+            let permit = self.network_concurrency.acquire().await.map_err(|_| {
+                ContractError::ParseError("provider concurrency limiter closed".to_string())
+            })?;
+
+            let adapter = OpenAiCompatibleEmbeddingProvider::from_provider(
+                &provider.provider_id,
+                &provider.base_url,
+                credential.as_ref(),
+            )?;
+
+            let result = adapter.embed(request.clone()).await;
+            drop(permit);
+
+            match result {
+                Ok(response) => {
+                    if let Some(tokens) = response.tokens_used {
+                        let _ = self
+                            .quotas
+                            .record_tokens_with_reservation(&provider.provider_id, tokens, reservation)
+                            .await;
+                        let _ = self.persist_runtime_state(&provider.provider_id).await;
+                    } else {
+                        let _ = self
+                            .quotas
+                            .release_token_reservation(&provider.provider_id, reservation)
+                            .await;
+                    }
+                    let _ = self
+                        .update_health(&provider.provider_id, HealthStatus::Healthy, None)
+                        .await;
+                    return Ok(response);
+                }
+                Err(error) => {
+                    let _ = self
+                        .quotas
+                        .release_token_reservation(&provider.provider_id, reservation)
+                        .await;
+                    let _ = self
+                        .update_health(
+                            &provider.provider_id,
+                            HealthStatus::Degraded,
+                            Some(error.to_string()),
+                        )
+                        .await;
+                    last_error = Some(error);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            ContractError::ParseError(
+                "no configured provider advertises embedding capability".to_string(),
+            )
+        }))
+    }
+
     pub async fn execute_routed(
         &self,
         request: ModelRequest,

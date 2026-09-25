@@ -74,6 +74,8 @@ A failing check blocks the affected capability or release path; it does not auto
 
 ## Current operation
 
+A2A is implemented in its dedicated infrastructure crate and exposed through the API; it remains unverified until fresh CI evidence is available.
+
 The active operation is the backend architecture refactor and runtime hardening. It is intentionally allowed to touch related backend capabilities when their contracts and boundaries are preserved.
 
 ## Next actions

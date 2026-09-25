@@ -19,7 +19,7 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "2077397d19e3edc92f9f09258c7e70a82cab6933",
+    "last_update_commit": "cda9b685a8e507ee1172592741f64e9b3405603d",
     "next_actions": [
       "inspect the fresh AgentiCOS CI result and fix any compile, test or clippy regression",
       "continue durable worker recovery and lease hardening",
@@ -144,7 +144,7 @@
     {
       "id": "a2a",
       "owner": "infrastructure/protocols",
-      "status": "planned"
+      "status": "implemented-unverified"
     },
     {
       "id": "credentials",

@@ -1594,11 +1594,21 @@ impl RuntimeState {
                         .persistent_memory
                         .search_semantic(&namespace, &response.embeddings[0], limit)
                         .await
-                        .or_else(|_| self.persistent_memory.search(&namespace, query, limit).await),
-                    _ => self.persistent_memory.search(&namespace, query, limit).await,
+                        .or_else(|_| {
+                            self.persistent_memory
+                                .search(&namespace, query, limit)
+                                .await
+                        }),
+                    _ => {
+                        self.persistent_memory
+                            .search(&namespace, query, limit)
+                            .await
+                    },
                 }
             } else {
-                self.persistent_memory.search(&namespace, query, limit).await
+                self.persistent_memory
+                .search(&namespace, query, limit)
+                .await
             }
         } else {
             self.persistent_memory.search(&namespace, query, limit).await
@@ -6368,14 +6378,25 @@ async fn list_memory(
                             {
                                 Ok(records) if !records.is_empty() => Ok(records),
                                 Ok(_) | Err(_) => {
-                                    state.persistent_memory.search(namespace, search, limit).await
+                                    state
+                                        .persistent_memory
+                                        .search(namespace, search, limit)
+                                        .await
                                 }
                             }
                         }
-                        _ => state.persistent_memory.search(namespace, search, limit).await,
+                        _ => {
+                            state
+                                .persistent_memory
+                                .search(namespace, search, limit)
+                                .await
+                        },
                     }
                 } else {
-                    state.persistent_memory.search(namespace, search, limit).await
+                    state
+                        .persistent_memory
+                        .search(namespace, search, limit)
+                        .await
                 }
             } else {
                 state.persistent_memory.search(namespace, search, limit).await

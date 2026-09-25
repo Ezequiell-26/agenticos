@@ -201,6 +201,15 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
   })
 
   test('connects the UI to the runtime, provider, response and persisted history', async ({ page }) => {
+    const chatResponses = []
+    page.on('response', async (response) => {
+      if (response.url().endsWith('/api/agent/chat') && response.request().method() === 'POST') {
+        let body = ''
+        try { body = await response.text() } catch {}
+        chatResponses.push({ status: response.status(), body })
+      }
+    })
+
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' })
     const shell = page.locator('.app-shell')
     await expect(shell).toBeVisible({ timeout: 30_000 })
@@ -209,9 +218,16 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await composer.fill('desktop UI E2E')
     await page.getByRole('button', { name: 'Send message' }).click()
 
-    await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
-      timeout: 30_000,
-    })
+    try {
+      await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
+        timeout: 30_000,
+      })
+    } catch (error) {
+      const bodyText = await page.locator('body').innerText()
+      throw new Error(
+        `UI did not render the provider response. chatResponses=${JSON.stringify(chatResponses)}\\nbody=\\n${bodyText}\\n${error}`,
+      )
+    }
     await expect.poll(async () => shell.getAttribute('data-runtime'), { timeout: 10_000 }).toBe('connected')
 
     expect(receivedRequests).toHaveLength(1)

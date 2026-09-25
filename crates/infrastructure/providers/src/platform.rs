@@ -899,15 +899,12 @@ impl ProviderPlatform {
         let mut candidates = providers
             .into_iter()
             .filter(|provider| {
-                provider
-                    .capabilities
-                    .iter()
-                    .any(|capability| {
-                        matches!(
-                            capability.to_ascii_lowercase().as_str(),
-                            "embedding" | "embeddings"
-                        )
-                    })
+                provider.capabilities.iter().any(|capability| {
+                    matches!(
+                        capability.to_ascii_lowercase().as_str(),
+                        "embedding" | "embeddings"
+                    )
+                })
             })
             .collect::<Vec<_>>();
 
@@ -930,7 +927,9 @@ impl ProviderPlatform {
                 .get_for_provider(&provider.provider_id)
                 .await
                 .into_iter()
-                .find(|credential| credential.expires_at == 0 || credential.expires_at > unix_time());
+                .find(|credential| {
+                    credential.expires_at == 0 || credential.expires_at > unix_time()
+                });
 
             if credential.is_none() && !allows_anonymous_provider(&provider.base_url) {
                 continue;
@@ -959,7 +958,11 @@ impl ProviderPlatform {
                     if let Some(tokens) = response.tokens_used {
                         let _ = self
                             .quotas
-                            .record_tokens_with_reservation(&provider.provider_id, tokens, reservation)
+                            .record_tokens_with_reservation(
+                                &provider.provider_id,
+                                tokens,
+                                reservation,
+                            )
                             .await;
                         let _ = self.persist_runtime_state(&provider.provider_id).await;
                     } else {

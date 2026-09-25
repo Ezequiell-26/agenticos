@@ -5,7 +5,7 @@ members = [
   "crates/application/execution", "crates/application/workflows", "crates/application/scheduler", "crates/application/agents",
   "crates/infrastructure/kernel", "crates/infrastructure/runtime", "crates/infrastructure/providers", "crates/infrastructure/channels", "crates/infrastructure/projects", "crates/infrastructure/tools", "crates/infrastructure/mcp",
   "crates/infrastructure/memory", "crates/infrastructure/context", "crates/infrastructure/protocols", "crates/infrastructure/sandbox", "crates/infrastructure/source-forge",
-  "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters",
+  "crates/infrastructure/observability", "crates/infrastructure/evaluation", "crates/infrastructure/security", "crates/infrastructure/adapters", "crates/infrastructure/browser",
   "crates/presentation/cli", "crates/presentation/gateway", "crates/presentation/desktop", "crates/presentation/api-server",
   "crates/utilities/concurrency-stress", "crates/utilities/crypto", "crates/utilities/math", "crates/utilities/time-utils",
   "crates/utilities/http-client", "crates/utilities/async-utils", "crates/utilities/cache", "crates/utilities/compression",

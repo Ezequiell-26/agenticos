@@ -785,15 +785,16 @@ impl RuntimeState {
                     })
                     .await
                 {
-                    Ok(response) if response.embeddings.len() == 1 => self
-                        .persistent_memory
-                        .search_semantic(&namespace, &response.embeddings[0], limit)
-                        .await
-                        .or_else(|_| {
-                            self.persistent_memory
-                                .search(&namespace, query, limit)
-                                .await
-                        }),
+                    Ok(response) if response.embeddings.len() == 1 => {
+                        match self
+                            .persistent_memory
+                            .search_semantic(&namespace, &response.embeddings[0], limit)
+                            .await
+                        {
+                            Ok(records) => Ok(records),
+                            Err(_) => self.persistent_memory.search(&namespace, query, limit).await,
+                        }
+                    },
                     _ => {
                         self.persistent_memory
                             .search(&namespace, query, limit)

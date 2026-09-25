@@ -352,7 +352,7 @@ impl JobScheduler {
             })
             .cloned()
             .collect();
-        ready.sort_by(|left, right| right.spec.priority.cmp(&left.spec.priority));
+        ready.sort_by_key(|left| std::cmp::Reverse(left.spec.priority));
         ready.truncate(limit);
         ready
     }

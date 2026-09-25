@@ -944,7 +944,11 @@ impl ProviderPlatform {
             }
 
             let effective_model = if request.model == "default" {
-                provider.models.first().cloned().unwrap_or_else(|| request.model.clone())
+                provider
+                    .models
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| request.model.clone())
             } else {
                 request.model.clone()
             };

@@ -31,6 +31,7 @@ agenticos-projects = { path = "../../infrastructure/projects" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
 agenticos-tools = { path = "../../infrastructure/tools" }
 agenticos-scheduler = { path = "../../application/scheduler" }
+agenticos-skills = { path = "../../application/skills" }
 agenticos-source-forge = { path = "../../infrastructure/source-forge" }
 agenticos-security = { path = "../../infrastructure/security" }
 agenticos-workflows = { path = "../../application/workflows" }

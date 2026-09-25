@@ -877,6 +877,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sqlite_scheduler_persists_retry_backoff_state() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-scheduler-retry-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = JobScheduler::open(&url).await.expect("open scheduler");
+        first
+            .enqueue(JobSpec {
+                job_id: "retry-job".into(),
+                run_id: "retry-run".into(),
+                task: "retry task".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 3,
+                job_type: "agent".into(),
+                metadata: serde_json::json!({}),
+            })
+            .await
+            .expect("enqueue retry job");
+
+        let claimed = first
+            .start_as("retry-job", "worker-a".into(), 60)
+            .await
+            .expect("claim retry job");
+        first
+            .complete_as(
+                "retry-job",
+                claimed.lease_owner.as_deref(),
+                Some(claimed.lease_token),
+                false,
+                Some("transient failure".into()),
+            )
+            .await
+            .expect("complete retry attempt");
+        let persisted = first.get("retry-job").await.expect("get retry job");
+        assert_eq!(persisted.state, JobState::Ready);
+        assert!(persisted.next_attempt_at > unix_time());
+        drop(first);
+
+        let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
+        let recovered_job = recovered.get("retry-job").await.expect("recover retry job");
+        assert_eq!(recovered_job.next_attempt_at, persisted.next_attempt_at);
+        assert!(recovered.next_ready(10).await.is_empty());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn sqlite_scheduler_persists_execution_metadata() {
         let path = std::env::temp_dir().join(format!(
             "agenticos-scheduler-meta-{}.db",

@@ -120,7 +120,10 @@ impl InMemoryContextManager {
     }
 
     /// Retrieve decisions from a previous session.
-    pub async fn get_session_decisions(&self, session_id: &str) -> Result<Vec<DecisionRecord>, ContractError> {
+    pub async fn get_session_decisions(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<DecisionRecord>, ContractError> {
         let snapshots = self.session_snapshots.read().await;
         if let Some(snapshot) = snapshots.get(session_id) {
             Ok(snapshot.decisions.clone())

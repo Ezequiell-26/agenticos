@@ -260,12 +260,12 @@ impl EvaluationRegistry {
         let assessment = Self::assess_risk(
             modified_files.len(),
             modified_files.len() * 10, // Estimate lines changed
-            modified_files.iter().any(|f| {
-                f.contains("config") || f.contains("secret") || f.contains("key")
-            }),
-            modified_files.iter().any(|f| {
-                f.contains("kernel") || f.contains("runtime") || f.contains("brain")
-            }),
+            modified_files
+                .iter()
+                .any(|f| f.contains("config") || f.contains("secret") || f.contains("key")),
+            modified_files
+                .iter()
+                .any(|f| f.contains("kernel") || f.contains("runtime") || f.contains("brain")),
         );
 
         let review_depth = Self::determine_review_depth(assessment.risk_score);

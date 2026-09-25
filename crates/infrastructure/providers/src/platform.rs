@@ -540,14 +540,29 @@ impl ProviderPlatform {
             let model =
                 std::env::var("AGENTICOS_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
             let key = std::env::var("AGENTICOS_API_KEY").ok();
+            let mut capabilities = vec!["chat".to_string()];
+            if std::env::var("AGENTICOS_EMBEDDING_MODEL")
+                .ok()
+                .is_some_and(|value| !value.trim().is_empty())
+            {
+                capabilities.push("embeddings".to_string());
+            }
+
+            let mut models = vec![model];
+            if let Ok(embedding_model) = std::env::var("AGENTICOS_EMBEDDING_MODEL") {
+                let embedding_model = embedding_model.trim().to_string();
+                if !embedding_model.is_empty() && embedding_model != models[0] {
+                    models.push(embedding_model);
+                }
+            }
 
             self.register(
                 ProviderEntry {
                     provider_id: provider_id.clone(),
                     name: "Environment provider".to_string(),
                     base_url,
-                    models: vec![model],
-                    capabilities: vec!["chat".to_string()],
+                    models,
+                    capabilities,
                 },
                 key,
             )

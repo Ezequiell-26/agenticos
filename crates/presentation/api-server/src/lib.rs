@@ -6314,9 +6314,6 @@ struct AuthConfig {
     token: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-struct RequestId(String);
-
 async fn request_id_middleware(
     mut req: ServiceRequest,
     next: Next<impl actix_web::body::MessageBody + 'static>,
@@ -6336,7 +6333,7 @@ async fn request_id_middleware(
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
-    req.extensions_mut().insert(RequestId(request_id.clone()));
+    req.extensions_mut().insert(request_id.clone());
     let mut response = next.call(req).await?;
 
     let header_value = actix_web::http::header::HeaderValue::from_str(&request_id)

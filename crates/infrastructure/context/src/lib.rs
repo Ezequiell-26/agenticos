@@ -111,15 +111,12 @@ fn strip_ansi(input: &str) -> String {
             continue;
         }
 
-        match chars.next() {
-            Some('[') => {
-                for control in chars.by_ref() {
-                    if ('@'..='~').contains(&control) {
-                        break;
-                    }
+        if let Some('[') = chars.next() {
+            for control in chars.by_ref() {
+                if ('@'..='~').contains(&control) {
+                    break;
                 }
             }
-            Some(_) | None => {}
         }
     }
 

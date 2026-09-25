@@ -10,7 +10,6 @@ agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-kernel = { path = "../../infrastructure/kernel" }
 agenticos-memory = { path = "../../infrastructure/memory" }
 agenticos-sandbox = { path = "../../infrastructure/sandbox" }
-agenticos-security = { path = "../../infrastructure/security" }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 serde = { workspace = true, features = ["derive"] }

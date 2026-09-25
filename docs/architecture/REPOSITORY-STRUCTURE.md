@@ -16,7 +16,7 @@ This file is the human-readable counterpart to `reference/manifests/architecture
 
 ## Important boundaries
 
-`infrastructure/kernel` is a durable runtime boundary. `infrastructure/providers` is the canonical model/provider plane. `application/execution` owns reusable capability-gated native tool adapters so presentation surfaces do not implement tool behavior themselves.
+`infrastructure/kernel` is a durable runtime boundary. `infrastructure/providers` is the canonical model/provider plane. `infrastructure/tools` owns reusable capability-gated native and MCP tool adapters; `application/execution` orchestrates execution and projections without owning OS-specific tool implementations.
 
 `crates/infrastructure/kernel/src/agent_core.rs` is a transitional internal module extracted from the historical kernel monolith. It makes the agent implementation boundary explicit without pretending that the application-layer migration is already complete.
 

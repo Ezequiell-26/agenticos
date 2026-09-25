@@ -244,6 +244,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "agenticos-browser"
+version = "0.1.0"
+dependencies = [
+ "agenticos-contracts",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "agenticos-brain"
 version = "0.1.0"
 dependencies = [

@@ -4896,16 +4896,6 @@ async fn agent_chat(
             code: "CHAT_RUN_ADMISSION_FAILED",
         });
     }
-    let admitted = match state.kernel.get_or_recover_run(&run_id).await {
-        Ok(run) => run,
-        Err(error) => {
-            state.metrics.record_http(true);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: error.to_string(),
-                code: "CHAT_RUN_STATE_FAILED",
-            });
-        }
-    };
     if let Err(error) = state
         .memory
         .store_message(
@@ -4947,6 +4937,8 @@ async fn agent_chat(
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(300)
         .clamp(10, 3600);
+    // The lease is acquired only after admission, durable objective persistence and capacity
+    // admission, so a held lease always corresponds to an execution attempt.
     let owner_id = format!("api-chat:{}:{}", session_id, run_id.as_str());
     let lease = match state
         .kernel
@@ -5047,6 +5039,10 @@ async fn agent_chat(
             let current = match state.kernel.get_or_recover_run(&run_id).await {
                 Ok(run) => run,
                 Err(error) => {
+                    let _ = state
+                        .kernel
+                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                        .await;
                     state.metrics.record_http(true);
                     return HttpResponse::InternalServerError().json(ErrorResponse {
                         error: error.to_string(),
@@ -5058,6 +5054,10 @@ async fn agent_chat(
                 let _ = state
                     .kernel
                     .transition_run(&run_id, RunState::Cancelled, current.version)
+                    .await;
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
                     .await;
                 state.metrics.record_http(true);
                 return HttpResponse::Conflict().json(ErrorResponse {

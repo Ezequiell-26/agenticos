@@ -1407,6 +1407,7 @@ impl ProviderPlatform {
         let removed = self.registry.remove(provider_id).await;
         if removed {
             self.catalog.remove_by_provider(provider_id).await;
+            let _ = self.fallbacks.remove_provider_references(provider_id).await;
             self.credentials.remove_for_provider(provider_id).await;
             self.health.remove(provider_id).await;
             self.retries.remove(provider_id).await;

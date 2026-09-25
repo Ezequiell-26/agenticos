@@ -896,7 +896,17 @@ impl ProviderPlatform {
             })
             .collect::<Vec<_>>();
 
-        candidates.sort_by_key(|provider| (!futures::executor::block_on(self.health.is_healthy(&provider.provider_id)), provider.provider_id.clone()));
+        let mut healthy_candidates = Vec::with_capacity(candidates.len());
+        let mut other_candidates = Vec::with_capacity(candidates.len());
+        for provider in candidates.drain(..) {
+            if self.health.is_healthy(&provider.provider_id).await {
+                healthy_candidates.push(provider);
+            } else {
+                other_candidates.push(provider);
+            }
+        }
+        healthy_candidates.extend(other_candidates);
+        let candidates = healthy_candidates;
 
         let mut last_error = None;
         for provider in candidates {

@@ -9,6 +9,7 @@
 
 use agenticos_contracts::ContractError;
 use serde::Serialize;
+use std::path::Path;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -233,6 +234,25 @@ impl BrowserRuntime {
         self.run(session_id, &[String::from("screenshot")]).await
     }
 
+    /// Capture a screenshot at a caller-controlled absolute path.
+    pub async fn screenshot_to(
+        &self,
+        session_id: &str,
+        output_path: &Path,
+    ) -> Result<BrowserActionResult, ContractError> {
+        validate_output_path(output_path)?;
+        self.run(
+            session_id,
+            &[
+                String::from("screenshot"),
+                String::from("--screenshot-format"),
+                String::from("png"),
+                output_path.to_string_lossy().into_owned(),
+            ],
+        )
+        .await
+    }
+
     /// Close a persistent browser session.
     pub async fn close(&self, session_id: &str) -> Result<BrowserActionResult, ContractError> {
         self.run(session_id, &[String::from("close")]).await
@@ -289,6 +309,16 @@ fn validate_target(target: &str) -> Result<(), ContractError> {
     Ok(())
 }
 
+fn validate_output_path(path: &Path) -> Result<(), ContractError> {
+    let value = path.to_string_lossy();
+    if value.is_empty() || value.len() > 4096 || value.contains(['\r', '\n']) || !path.is_absolute() {
+        return Err(ContractError::ParseError(
+            "browser screenshot output path must be absolute and valid".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +348,12 @@ mod tests {
     fn validates_action_arguments() {
         assert!(validate_args(&[String::from("snapshot"), String::from("-i")]).is_ok());
         assert!(validate_args(&[]).is_err());
+    }
+
+    #[test]
+    fn validates_screenshot_output_paths() {
+        assert!(validate_output_path(Path::new("/tmp/agenticos.png")).is_ok());
+        assert!(validate_output_path(Path::new("relative.png")).is_err());
+        assert!(validate_output_path(Path::new("/tmp/bad\npath.png")).is_err());
     }
 }

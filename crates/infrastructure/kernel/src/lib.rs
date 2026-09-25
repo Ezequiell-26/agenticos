@@ -2089,8 +2089,10 @@ mod event_outbox_atomicity_tests {
 
     #[tokio::test]
     async fn event_append_creates_runtime_outbox_entry_atomically() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-event-outbox-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-event-outbox-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let events = SqliteEventStore::new(&url).await.unwrap();

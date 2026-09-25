@@ -104,3 +104,49 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
+
+  verify-desktop-e2e:
+    needs: [verify-typescript, verify-rust]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v5
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install desktop frontend dependencies
+        run: npm ci --no-audit --no-fund --prefix crates/presentation/desktop/frontend
+
+      - name: Build API runtime binary
+        run: cargo build -p agenticos-api-server
+
+      - name: Install Chromium for E2E
+        run: npx --yes playwright@latest install --with-deps chromium
+
+      - name: Run desktop UI + API + provider E2E
+        run: npm run e2e:desktop

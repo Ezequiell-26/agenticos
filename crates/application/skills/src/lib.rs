@@ -405,6 +405,49 @@ Review files.";
 Do work").is_err());
     }
 
+    #[tokio::test]
+    async fn local_skill_sync_persists_activation_state() {
+        let root = std::env::temp_dir().join(format!(
+            "agenticos-skills-{}-{}",
+            std::process::id(),
+            chrono::Utc::now()
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+        ));
+        let skill_dir = root.join("repo-review");
+        tokio::fs::create_dir_all(&skill_dir).await.unwrap();
+        tokio::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: repo-review\ndescription: Review repositories\nversion: 2.0.0\ncategory: Engineering\n---\n## Procedure\nReview repositories.",
+        )
+        .await
+        .unwrap();
+
+        let database = std::env::temp_dir().join(format!(
+            "agenticos-skills-{}-{}.db",
+            std::process::id(),
+            chrono::Utc::now()
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", database.display());
+
+        let first = SkillRegistry::open(&url, &root).await.unwrap();
+        let skills = first.list().await.unwrap();
+        assert_eq!(skills.len(), 1);
+        assert!(skills[0].enabled);
+        first.set_enabled("repo-review", false).await.unwrap();
+        drop(first);
+
+        let reopened = SkillRegistry::open(&url, &root).await.unwrap();
+        let skills = reopened.list().await.unwrap();
+        assert_eq!(skills.len(), 1);
+        assert!(!skills[0].enabled);
+
+        let _ = tokio::fs::remove_dir_all(&root).await;
+        let _ = tokio::fs::remove_file(database).await;
+    }
+
     #[test]
     fn rejects_oversized_metadata() {
         let content = format!("---

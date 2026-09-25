@@ -21,9 +21,9 @@ use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
     LeaseRecord, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, ModelResponse,
-    OutboxEntry, OutboxStatus, OutboxStore, ResourceUsage, RunId, RunState, Saga, SagaCoordinator,
-    SagaStatus, SagaStep, SagaStepStatus, SagaStepType, Sandbox, SandboxRequest, SandboxResponse,
-    SandboxStatus, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest,
+    OutboxEntry, OutboxStatus, OutboxStore, RunId, RunState, Saga, SagaCoordinator,
+    SagaStatus, SagaStepStatus, Sandbox, SandboxRequest, SerializedEvent, SerializedSnapshot,
+    SnapshotStore, ToolRequest,
     ToolRuntimePort,
 };
 
@@ -2977,12 +2977,10 @@ impl ReactAgent {
         parameters: Option<String>,
     ) -> Result<String, ContractError> {
         // Reserve the turn atomically so concurrent requests cannot reuse the same turn.
-        let current_turn = {
+        {
             let mut inner = self.inner.lock().unwrap();
-            let turn = inner.current_turn;
             inner.current_turn = inner.current_turn.saturating_add(1);
-            turn
-        };
+        }
 
         // Snapshot required state without holding the lock across await boundaries
         let (

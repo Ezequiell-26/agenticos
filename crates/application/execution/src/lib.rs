@@ -160,12 +160,12 @@ fn projected_run_state(
         .ok_or_else(|| ContractError::ParseError("projection event missing run_id".to_string()))?;
 
     let state = match event.event_type.as_str() {
-        "RunCreated" => RunState::Created,
+        "RunCreated" => Some(RunState::Created),
         "RunStateChanged" => payload
             .get("to")
             .and_then(serde_json::Value::as_str)
             .and_then(parse_run_state),
-        "RunCancellationRequested" => RunState::Cancelling,
+        "RunCancellationRequested" => Some(RunState::Cancelling),
         _ => return Ok(None),
     };
 
@@ -1077,6 +1077,22 @@ impl SecureToolService {
             None,
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+
+    #[test]
+    fn ignores_incomplete_state_change_without_panicking() {
+        let event = agenticos_contracts::SerializedEvent {
+            event_type: "RunStateChanged".to_string(),
+            data: r#"{"run_id":"run-1"}"#.to_string(),
+            schema_version: 1,
+        };
+        let projected = projected_run_state(&event).unwrap();
+        assert!(projected.is_none());
     }
 }
 

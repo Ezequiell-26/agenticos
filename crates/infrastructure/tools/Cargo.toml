@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+agenticos-workspace = { path = "../workspace" }
+agenticos-terminal = { path = "../terminal" }
+agenticos-context = { path = "../context" }
+agenticos-artifacts = { path = "../artifacts" }
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-mcp = { path = "../mcp" }
 agenticos-security = { path = "../security" }

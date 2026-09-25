@@ -14,6 +14,9 @@ use tokio::sync::{RwLock, Semaphore};
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-tools";
 
+pub mod native_tools;
+pub use native_tools::{GitWorkspaceTool, SecureCommandTool, TerminalTool, WorkspaceTool};
+
 /// In-memory tool registry.
 #[derive(Debug)]
 pub struct ToolRegistry {

@@ -30,7 +30,7 @@ use agenticos_contracts::{
     SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
-use agenticos_execution::{GitWorkspaceTool, SecureCommandTool, SecureToolService, TerminalTool, WorkspaceTool};
+use agenticos_execution::SecureToolService;
 use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
     InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill, SqliteEventStore,
@@ -51,7 +51,10 @@ use agenticos_scheduler::{JobRecord, JobScheduler, JobSpec, JobState};
 use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
-use agenticos_tools::{BasicPolicyEngine, ToolRegistry, ToolRuntime};
+use agenticos_tools::{
+    BasicPolicyEngine, GitWorkspaceTool, SecureCommandTool, TerminalTool, ToolRegistry, ToolRuntime,
+    WorkspaceTool,
+};
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};

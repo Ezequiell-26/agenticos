@@ -137,7 +137,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await new Promise((resolvePromise) => provider.listen(providerPort, '127.0.0.1', resolvePromise))
 
     apiUrl = `http://127.0.0.1:${apiPort}`
-    const projectPath = repoRoot
+    const projectPath = '.'
     api = startProcess(apiBinary, [], {
       AGENTICOS_BIND_HOST: '127.0.0.1',
       AGENTICOS_BIND_PORT: String(apiPort),
@@ -148,7 +148,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_DATABASE_URL: `sqlite://${join(tempRoot, 'agenticos.db').replaceAll('\\\\', '/') }?mode=rwc`,
       AGENTICOS_ARTIFACT_ROOT: join(tempRoot, 'artifacts'),
       AGENTICOS_PROJECT_PATH: projectPath,
-      AGENTICOS_SKILLS_ROOT: join(repoRoot, 'skills'),
+      AGENTICOS_SKILLS_ROOT: 'skills',
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
     })

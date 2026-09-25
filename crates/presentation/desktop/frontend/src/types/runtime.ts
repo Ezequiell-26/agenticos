@@ -211,7 +211,20 @@ export interface RuntimeWorkerJob extends RuntimeApiRecord {
   worker_id?: string
 }
 
+export interface RuntimeEvent {
+  event_type: string
+  entry_id?: string
+  event_data: string
+  event_schema_version: number
+  destination: string
+  attempts: number
+  created_at: number
+}
+
 export interface RuntimeServices {
+  events: {
+    subscribe(onEvent: (event: RuntimeEvent) => void): () => void
+  }
   health: {
     get(): Promise<RuntimeHealth>
     ready(): Promise<RuntimeReadiness>

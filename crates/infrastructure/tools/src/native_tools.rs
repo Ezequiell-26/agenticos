@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-//! Capability-gated native tools owned by the execution application layer.
+//! Capability-gated native tools owned by the infrastructure tool layer.
 
 use agenticos_artifacts::{ArtifactRecord, ArtifactStore};
 use agenticos_context::optimize_tool_output;

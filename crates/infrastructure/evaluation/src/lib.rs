@@ -138,14 +138,7 @@ impl EvaluationRegistry {
             .connect(database_url)
             .await
             .map_err(|error| format!("evaluation database connection failed: {error}"))?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS evaluation_cases (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
-            .execute(&db)
-            .await
-            .map_err(|error| format!("evaluation case schema failed: {error}"))?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS evaluation_results (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
-            .execute(&db)
-            .await
-            .map_err(|error| format!("evaluation result schema failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let case_rows = sqlx::query_as::<_, (String, String)>(
             "SELECT case_id, payload FROM evaluation_cases ORDER BY case_id",

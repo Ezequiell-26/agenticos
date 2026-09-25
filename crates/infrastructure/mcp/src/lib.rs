@@ -177,22 +177,7 @@ impl McpManager {
                 McpError::InvalidConfiguration(format!("MCP database connection failed: {error}"))
             })?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS mcp_servers (
-                server_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                transport TEXT NOT NULL,
-                enabled INTEGER NOT NULL,
-                timeout_ms INTEGER
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            McpError::InvalidConfiguration(format!("MCP schema initialization failed: {error}"))
-        })?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| McpError::InvalidConfiguration(format!("sqlite migrations failed: {error}")))?;
 
         let rows = sqlx::query_as::<_, (String, String, String, i64, Option<i64>)>(
             "SELECT server_id, name, transport, enabled, timeout_ms FROM mcp_servers",

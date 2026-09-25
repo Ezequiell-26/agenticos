@@ -77,31 +77,7 @@ impl ChannelRegistry {
             .await
             .map_err(|error| format!("channel database connection failed: {error}"))?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS channel_definitions (
-                channel_id TEXT PRIMARY KEY,
-                payload TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("channel definition schema failed: {error}"))?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS channel_events (
-                event_id TEXT PRIMARY KEY,
-                channel_id TEXT NOT NULL,
-                received_at TEXT NOT NULL,
-                payload TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("channel event schema failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let rows = sqlx::query_as::<_, (String, String)>(
             "SELECT channel_id, payload FROM channel_definitions",

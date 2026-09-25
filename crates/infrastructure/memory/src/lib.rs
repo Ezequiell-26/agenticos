@@ -327,50 +327,7 @@ impl PersistentMemoryStore {
                 ContractError::ParseError(format!("memory database connection failed: {error}"))
             })?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS memory_records (
-                memory_id TEXT PRIMARY KEY,
-                namespace TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value TEXT NOT NULL,
-                tags TEXT NOT NULL DEFAULT '[]',
-                importance REAL NOT NULL DEFAULT 0.5,
-                created_at INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(namespace, key)
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("memory schema initialization failed: {error}"))
-        })?;
-
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_memory_namespace_created ON memory_records(namespace, created_at DESC)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("memory index initialization failed: {error}"))
-        })?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS memory_embeddings (
-                memory_id TEXT PRIMARY KEY,
-                embedding TEXT NOT NULL,
-                dimension INTEGER NOT NULL
-            )",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!(
-                "memory embedding schema initialization failed: {error}"
-            ))
-        })?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
 
         Ok(Self { db: Arc::new(db) })
     }

@@ -1037,9 +1037,31 @@ impl ProviderPlatform {
                     }
                 };
 
-                let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
-                    ContractError::ParseError("provider concurrency limiter closed".to_string())
-                })?;
+                let _network_permit = match self.network_concurrency.acquire().await {
+                    Ok(permit) => permit,
+                    Err(_) => {
+                        let error = ContractError::ParseError(
+                            "provider concurrency limiter closed".to_string(),
+                        );
+                        if let Err(release_error) = self
+                            .quotas
+                            .release_token_reservation(
+                                &provider.provider_id,
+                                token_reservation,
+                            )
+                            .await
+                        {
+                            tracing::warn!(
+                                provider = %provider.provider_id,
+                                %release_error,
+                                "failed to release provider token reservation"
+                            );
+                        }
+                        provider_last_error = Some(error.clone());
+                        last_error = Some(error);
+                        break;
+                    }
+                };
 
                 let protocol_result = execute_protocol(
                     detect_protocol(&provider),
@@ -1086,6 +1108,19 @@ impl ProviderPlatform {
                                     );
                                 }
                             }
+                        } else if let Err(error) = self
+                            .quotas
+                            .release_token_reservation(
+                                &provider.provider_id,
+                                token_reservation,
+                            )
+                            .await
+                        {
+                            tracing::warn!(
+                                provider = %provider.provider_id,
+                                %error,
+                                "provider response omitted token usage; released reservation"
+                            );
                         }
                         let _ = self.persist_runtime_state(&provider.provider_id).await;
                         let _ = self

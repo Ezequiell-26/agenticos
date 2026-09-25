@@ -20,9 +20,10 @@ pub use agenticos_context::{ContextBudget, ContextEngine};
 use agenticos_contracts::{
     CancellationToken, CapabilityGrant, CapabilityIssuer, ConfigError, ConfigLayer, ContractError,
     EventStore, FeatureFlag, FeatureFlagStore, FlagValue, IdempotencyRecord, IdempotencyStatus,
-    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, OutboxEntry, OutboxStatus,
-    OutboxStore, RunId, RunState, Saga, SagaCoordinator, SagaStatus, SagaStepStatus,
-    SerializedEvent, SerializedSnapshot, SnapshotStore,
+    LeaseRecord, LeaseStore, LogEntry, LogLevel, Logger, ModelProvider, ModelRequest, OutboxEntry,
+    OutboxStatus, OutboxStore, RunId, RunState, Sandbox, SandboxRequest, Saga, SagaCoordinator,
+    SagaStatus, SagaStepStatus, SerializedEvent, SerializedSnapshot, SnapshotStore, ToolRequest,
+    ToolRuntimePort,
 };
 
 mod agent_core;
@@ -36,6 +37,66 @@ pub use tool_execution_pipeline::{
     PermissionPolicyHook, PostExecutionHook, PreExecutionHook, PreExecutionHookResult,
     ToolExecutionContext, ToolExecutionPipeline, ToolExecutionResult,
 };
+
+/// Minimal provider-adapter compatibility types used by the legacy streaming API.
+///
+/// Provider implementations themselves live in agenticos-providers; this module intentionally
+/// contains only transport-neutral request types and a registry of configured provider IDs.
+pub mod provider_adapters {
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashSet;
+    use std::sync::{Arc, RwLock};
+
+    /// Transport-neutral chat completion request retained for streaming compatibility.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ChatCompletionRequest {
+        /// Model identifier.
+        pub model: String,
+        /// Conversation messages.
+        pub messages: Vec<ChatMessage>,
+        /// Optional sampling temperature.
+        pub temperature: Option<f32>,
+        /// Optional maximum output tokens.
+        pub max_tokens: Option<u32>,
+        /// Whether streaming was requested.
+        pub stream: Option<bool>,
+    }
+
+    /// Chat message used by the compatibility request.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ChatMessage {
+        /// Message role.
+        pub role: String,
+        /// Message content.
+        pub content: String,
+    }
+
+    /// Provider-ID registry for routing/streaming compatibility.
+    #[derive(Debug, Clone, Default)]
+    pub struct ProviderRegistry {
+        providers: Arc<RwLock<HashSet<String>>>,
+    }
+
+    impl ProviderRegistry {
+        /// Create an empty provider registry.
+        pub fn new() -> Self { Self::default() }
+
+        /// Register a provider ID.
+        pub fn register(&self, provider_id: impl Into<String>) {
+            if let Ok(mut providers) = self.providers.write() {
+                providers.insert(provider_id.into());
+            }
+        }
+
+        /// Check whether a provider ID is registered.
+        pub fn get(&self, provider_id: &str) -> Option<()> {
+            self.providers
+                .read()
+                .ok()
+                .and_then(|providers| providers.contains(provider_id).then_some(()))
+        }
+    }
+}
 
 pub mod streaming_pipeline;
 pub use streaming_pipeline::{

@@ -1400,6 +1400,175 @@ impl TestClock {
     }
 }
 
+/// SQLite-backed outbox store for durable event publication.
+#[derive(Debug, Clone)]
+pub struct SqliteOutboxStore {
+    pool: Arc<sqlx::SqlitePool>,
+}
+
+impl SqliteOutboxStore {
+    /// Open a durable outbox store.
+    pub async fn open(database_url: &str) -> Result<Self, ContractError> {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("outbox database connection failed: {error}"))
+            })?;
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS outbox_entries (
+                entry_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                event_data TEXT NOT NULL,
+                event_schema_version INTEGER NOT NULL,
+                destination TEXT NOT NULL,
+                attempts INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                processed_at INTEGER
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("outbox schema initialization failed: {error}")))?;
+
+        Ok(Self { pool: Arc::new(pool) })
+    }
+
+    fn status_name(status: OutboxStatus) -> &'static str {
+        match status {
+            OutboxStatus::Pending => "pending",
+            OutboxStatus::Processing => "processing",
+            OutboxStatus::Published => "published",
+            OutboxStatus::Failed => "failed",
+            OutboxStatus::DeadLetter => "dead_letter",
+        }
+    }
+
+    fn parse_status(status: &str) -> Result<OutboxStatus, ContractError> {
+        match status {
+            "pending" => Ok(OutboxStatus::Pending),
+            "processing" => Ok(OutboxStatus::Processing),
+            "published" => Ok(OutboxStatus::Published),
+            "failed" => Ok(OutboxStatus::Failed),
+            "dead_letter" => Ok(OutboxStatus::DeadLetter),
+            other => Err(ContractError::ParseError(format!(
+                "unknown outbox status {other}"
+            ))),
+        }
+    }
+
+    async fn load_entries(
+        &self,
+        where_clause: &str,
+        limit: usize,
+    ) -> Result<Vec<OutboxEntry>, ContractError> {
+        let query = format!(
+            "SELECT entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at FROM outbox_entries WHERE {where_clause} ORDER BY created_at ASC, entry_id ASC LIMIT ?"
+        );
+        let rows = sqlx::query_as::<_, (String, String, String, i64, String, i64, String, i64, Option<i64>)>(&query)
+            .bind(limit.clamp(1, 500) as i64)
+            .fetch_all(self.pool.as_ref())
+            .await
+            .map_err(|error| ContractError::ParseError(format!("outbox query failed: {error}")))?;
+
+        rows.into_iter()
+            .map(|(entry_id, event_type, event_data, schema_version, destination, attempts, status, created_at, processed_at)| {
+                Ok(OutboxEntry {
+                    entry_id,
+                    event: SerializedEvent {
+                        event_type,
+                        data: event_data,
+                        schema_version: schema_version.max(0) as u16,
+                    },
+                    destination,
+                    attempts: attempts.max(0) as u32,
+                    status: Self::parse_status(&status)?,
+                    created_at: created_at.max(0) as u64,
+                    processed_at: processed_at.map(|value| value.max(0) as u64),
+                })
+            })
+            .collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl OutboxStore for SqliteOutboxStore {
+    async fn add(&self, entry: OutboxEntry) -> Result<(), ContractError> {
+        sqlx::query(
+            r#"
+            INSERT INTO outbox_entries
+                (entry_id, event_type, event_data, event_schema_version, destination, attempts, status, created_at, processed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(entry_id) DO UPDATE SET
+                event_type = excluded.event_type,
+                event_data = excluded.event_data,
+                event_schema_version = excluded.event_schema_version,
+                destination = excluded.destination,
+                attempts = excluded.attempts,
+                status = excluded.status,
+                created_at = excluded.created_at,
+                processed_at = excluded.processed_at
+            "#,
+        )
+        .bind(&entry.entry_id)
+        .bind(&entry.event.event_type)
+        .bind(&entry.event.data)
+        .bind(entry.event.schema_version as i64)
+        .bind(&entry.destination)
+        .bind(entry.attempts as i64)
+        .bind(Self::status_name(entry.status))
+        .bind(entry.created_at as i64)
+        .bind(entry.processed_at.map(|value| value as i64))
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| ContractError::ParseError(format!("outbox insert failed: {error}")))?;
+        Ok(())
+    }
+
+    async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
+        self.load_entries("status IN ('pending', 'processing')", limit).await
+    }
+
+    async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError> {
+        let updated = sqlx::query(
+            "UPDATE outbox_entries SET status = 'published', processed_at = ? WHERE entry_id = ?",
+        )
+        .bind(unix_time() as i64)
+        .bind(entry_id)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| ContractError::ParseError(format!("outbox publish update failed: {error}")))?;
+        if updated.rows_affected() == 0 {
+            return Err(ContractError::MissingCapability);
+        }
+        Ok(())
+    }
+
+    async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError> {
+        let updated = sqlx::query(
+            "UPDATE outbox_entries SET status = 'failed', attempts = attempts + 1, processed_at = ? WHERE entry_id = ?",
+        )
+        .bind(unix_time() as i64)
+        .bind(entry_id)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| ContractError::ParseError(format!("outbox failure update failed: {error}")))?;
+        if updated.rows_affected() == 0 {
+            return Err(ContractError::MissingCapability);
+        }
+        Ok(())
+    }
+
+    async fn get_dead_letter(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError> {
+        self.load_entries("status IN ('failed', 'dead_letter')", limit).await
+    }
+}
+
 /// In-memory outbox store for reliable event publication.
 #[derive(Debug)]
 pub struct InMemoryOutboxStore {

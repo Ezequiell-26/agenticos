@@ -732,6 +732,69 @@ fn parse_tools(response: JsonRpcResponse) -> Result<Vec<McpTool>, McpError> {
     .map_err(McpError::Serialization)
 }
 
+fn mcp_concurrency_limit() -> usize {
+    std::env::var("AGENTICOS_MCP_MAX_CONCURRENCY")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(16)
+        .clamp(1, 128)
+}
+
+fn mcp_tool_cache_ttl() -> Duration {
+    let ttl_ms = std::env::var("AGENTICOS_MCP_TOOL_CACHE_TTL_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(300_000)
+        .clamp(1_000, 3_600_000);
+    Duration::from_millis(ttl_ms)
+}
+
+fn mcp_max_active_sessions() -> usize {
+    std::env::var("AGENTICOS_MCP_MAX_ACTIVE_SESSIONS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(32)
+        .clamp(1, 256)
+}
+
+fn mcp_max_tool_cache_entries() -> usize {
+    std::env::var("AGENTICOS_MCP_TOOL_CACHE_MAX_ENTRIES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(256)
+        .clamp(8, 2048)
+}
+
+fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
+        serde_json::Value::Array(values) => {
+            serde_json::Value::Array(values.into_iter().map(optimize_mcp_value).collect())
+        }
+        serde_json::Value::Object(values) => serde_json::Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| {
+                    let value = if matches!(
+                        key.as_str(),
+                        "text" | "stdout" | "stderr" | "output" | "message"
+                    ) {
+                        match value {
+                            serde_json::Value::String(text) => {
+                                serde_json::Value::String(optimize_tool_output(&text).0)
+                            }
+                            other => optimize_mcp_value(other),
+                        }
+                    } else {
+                        optimize_mcp_value(value)
+                    };
+                    (key, value)
+                })
+                .collect(),
+        ),
+        other => other,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -807,66 +870,3 @@ mod tests {
     }
 }
 
-fn mcp_concurrency_limit() -> usize {
-    std::env::var("AGENTICOS_MCP_MAX_CONCURRENCY")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(16)
-        .clamp(1, 128)
-}
-
-fn mcp_tool_cache_ttl() -> Duration {
-    let ttl_ms = std::env::var("AGENTICOS_MCP_TOOL_CACHE_TTL_MS")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(300_000)
-        .clamp(1_000, 3_600_000);
-    Duration::from_millis(ttl_ms)
-}
-
-fn mcp_max_active_sessions() -> usize {
-    std::env::var("AGENTICOS_MCP_MAX_ACTIVE_SESSIONS")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(32)
-        .clamp(1, 256)
-}
-
-fn mcp_max_tool_cache_entries() -> usize {
-    std::env::var("AGENTICOS_MCP_TOOL_CACHE_MAX_ENTRIES")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(256)
-        .clamp(8, 2048)
-}
-
-fn optimize_mcp_value(value: serde_json::Value) -> serde_json::Value {
-    match value {
-        serde_json::Value::String(text) => serde_json::Value::String(optimize_tool_output(&text).0),
-        serde_json::Value::Array(values) => {
-            serde_json::Value::Array(values.into_iter().map(optimize_mcp_value).collect())
-        }
-        serde_json::Value::Object(values) => serde_json::Value::Object(
-            values
-                .into_iter()
-                .map(|(key, value)| {
-                    let value = if matches!(
-                        key.as_str(),
-                        "text" | "stdout" | "stderr" | "output" | "message"
-                    ) {
-                        match value {
-                            serde_json::Value::String(text) => {
-                                serde_json::Value::String(optimize_tool_output(&text).0)
-                            }
-                            other => optimize_mcp_value(other),
-                        }
-                    } else {
-                        optimize_mcp_value(value)
-                    };
-                    (key, value)
-                })
-                .collect(),
-        ),
-        other => other,
-    }
-}

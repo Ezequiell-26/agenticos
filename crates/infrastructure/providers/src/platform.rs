@@ -1325,19 +1325,55 @@ impl ProviderPlatform {
 
             let result = match protocol {
                 ProviderProtocol::OpenAiChat => {
-                    let _network_permit =
-                        self.network_concurrency.acquire().await.map_err(|_| {
-                            ContractError::ParseError(
+                    let _network_permit = match self.network_concurrency.acquire().await {
+                        Ok(permit) => permit,
+                        Err(_) => {
+                            if let Err(release_error) = self
+                                .quotas
+                                .release_token_reservation(
+                                    &provider.provider_id,
+                                    token_reservation,
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    provider = %provider.provider_id,
+                                    %release_error,
+                                    "failed to release streaming reservation after limiter failure"
+                                );
+                            }
+                            last_error = Some(ContractError::ParseError(
                                 "provider concurrency limiter closed".to_string(),
-                            )
-                        })?;
-                    AuthenticatedOpenAiProvider::new(
+                            ));
+                            continue;
+                        }
+                    };
+                    let client = match AuthenticatedOpenAiProvider::new(
                         provider.provider_id.clone(),
                         provider.base_url.clone(),
                         credential.map(|value| value.value),
-                    )?
-                    .stream(routed_request)
-                    .await
+                    ) {
+                        Ok(client) => client,
+                        Err(error) => {
+                            if let Err(release_error) = self
+                                .quotas
+                                .release_token_reservation(
+                                    &provider.provider_id,
+                                    token_reservation,
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    provider = %provider.provider_id,
+                                    %release_error,
+                                    "failed to release streaming reservation after client initialization failure"
+                                );
+                            }
+                            last_error = Some(error);
+                            continue;
+                        }
+                    };
+                    client.stream(routed_request).await
                 }
                 ProviderProtocol::OpenAiResponses => {
                     stream_protocol_request(
@@ -1370,14 +1406,11 @@ impl ProviderPlatform {
 
             match result {
                 Ok(stream) => {
-                    if let Some(ledger) = &self.cost_ledger {
-                        tracing::debug!(
-                            provider = %provider.provider_id,
-                            request_id = %routed_request.request_id,
-                            "streaming usage will be finalized when provider usage events are available"
-                        );
-                        let _ = ledger;
-                    }
+                    tracing::debug!(
+                        provider = %provider.provider_id,
+                        request_id = %routed_request.request_id,
+                        "streaming usage will be finalized when provider usage events are available"
+                    );
                     if let Err(error) = self
                         .quotas
                         .release_token_reservation(&provider.provider_id, token_reservation)

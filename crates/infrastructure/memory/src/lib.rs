@@ -357,6 +357,19 @@ impl PersistentMemoryStore {
             ContractError::ParseError(format!("memory index initialization failed: {error}"))
         })?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS memory_embeddings (
+                memory_id TEXT PRIMARY KEY,
+                embedding TEXT NOT NULL,
+                dimension INTEGER NOT NULL
+            )",
+        )
+        .execute(&db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory embedding schema initialization failed: {error}"))
+        })?;
+
         Ok(Self { db: Arc::new(db) })
     }
 
@@ -551,14 +564,155 @@ impl PersistentMemoryStore {
             .collect())
     }
 
+    /// Store or replace the embedding associated with a memory record.
+    pub async fn set_embedding(
+        &self,
+        memory_id: &str,
+        embedding: &[f32],
+    ) -> Result<(), ContractError> {
+        if memory_id.trim().is_empty() || embedding.is_empty() || embedding.len() > 16_384 {
+            return Err(ContractError::ParseError(
+                "invalid memory embedding".to_string(),
+            ));
+        }
+        if embedding.iter().any(|value| !value.is_finite()) {
+            return Err(ContractError::ParseError(
+                "memory embedding contains a non-finite value".to_string(),
+            ));
+        }
+        let payload = serde_json::to_string(embedding).map_err(|error| {
+            ContractError::ParseError(format!("memory embedding serialization failed: {error}"))
+        })?;
+        let updated = sqlx::query(
+            "INSERT INTO memory_embeddings(memory_id, embedding, dimension)
+             VALUES (?, ?, ?)
+             ON CONFLICT(memory_id) DO UPDATE SET embedding = excluded.embedding, dimension = excluded.dimension",
+        )
+        .bind(memory_id)
+        .bind(payload)
+        .bind(embedding.len() as i64)
+        .execute(&*self.db)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory embedding persistence failed: {error}"))
+        })?;
+        if updated.rows_affected() == 0 {
+            return Err(ContractError::Persistence);
+        }
+        Ok(())
+    }
+
+    /// Search memory records by cosine similarity against a query embedding.
+    pub async fn search_semantic(
+        &self,
+        namespace: &str,
+        embedding: &[f32],
+        limit: usize,
+    ) -> Result<Vec<PersistentMemoryRecord>, ContractError> {
+        if embedding.is_empty() || embedding.len() > 16_384 || embedding.iter().any(|value| !value.is_finite()) {
+            return Err(ContractError::ParseError(
+                "invalid query embedding".to_string(),
+            ));
+        }
+
+        let rows = sqlx::query_as::<_, (PersistentMemoryRecord, String, i64)>(
+            "SELECT
+                m.memory_id, m.namespace, m.key, m.value, m.tags, m.importance,
+                m.created_at, m.expires_at,
+                e.embedding, e.dimension
+             FROM memory_records m
+             INNER JOIN memory_embeddings e ON e.memory_id = m.memory_id
+             WHERE m.namespace = ?
+               AND (m.expires_at = 0 OR m.expires_at > ?)
+             ORDER BY m.created_at DESC
+             LIMIT 500",
+        )
+        .bind(namespace)
+        .bind(unix_time() as i64)
+        .fetch_all(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("semantic memory query failed: {error}")))?;
+
+        let query_norm = embedding.iter().map(|value| (*value as f64) * (*value as f64)).sum::<f64>().sqrt();
+        if query_norm == 0.0 {
+            return Err(ContractError::ParseError(
+                "query embedding has zero magnitude".to_string(),
+            ));
+        }
+
+        let mut ranked = Vec::with_capacity(rows.len());
+        for (record, payload, dimension) in rows {
+            if dimension <= 0 || dimension as usize != embedding.len() {
+                continue;
+            }
+            let candidate = match serde_json::from_str::<Vec<f32>>(&payload) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if candidate.len() != embedding.len() || candidate.iter().any(|value| !value.is_finite()) {
+                continue;
+            }
+            let mut dot = 0.0_f64;
+            let mut candidate_norm = 0.0_f64;
+            for (left, right) in embedding.iter().zip(candidate.iter()) {
+                dot += (*left as f64) * (*right as f64);
+                candidate_norm += (*right as f64) * (*right as f64);
+            }
+            if candidate_norm == 0.0 {
+                continue;
+            }
+            let cosine = dot / (query_norm * candidate_norm.sqrt());
+            let score = cosine * 0.85 + record.importance.clamp(0.0, 1.0) * 0.10;
+            ranked.push((score, record));
+        }
+
+        ranked.sort_by(|(left_score, left), (right_score, right)| {
+            right_score
+                .partial_cmp(left_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    right
+                        .importance
+                        .partial_cmp(&left.importance)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .then_with(|| right.created_at.cmp(&left.created_at))
+                .then_with(|| left.memory_id.cmp(&right.memory_id))
+        });
+
+        Ok(ranked
+            .into_iter()
+            .take(limit.clamp(1, 500))
+            .map(|(_, record)| record)
+            .collect())
+    }
+
     /// Delete a record by namespace and key.
     pub async fn delete(&self, namespace: &str, key: &str) -> Result<bool, ContractError> {
+        let memory_id = sqlx::query_scalar::<_, String>(
+            "SELECT memory_id FROM memory_records WHERE namespace = ? AND key = ?",
+        )
+        .bind(namespace)
+        .bind(key)
+        .fetch_optional(&*self.db)
+        .await
+        .map_err(|error| ContractError::ParseError(format!("memory delete lookup failed: {error}")))?;
+
         let result = sqlx::query("DELETE FROM memory_records WHERE namespace = ? AND key = ?")
             .bind(namespace)
             .bind(key)
             .execute(&*self.db)
             .await
             .map_err(|error| ContractError::ParseError(format!("memory delete failed: {error}")))?;
+        if let Some(memory_id) = memory_id {
+            sqlx::query("DELETE FROM memory_embeddings WHERE memory_id = ?")
+                .bind(memory_id)
+                .execute(&*self.db)
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("memory embedding delete failed: {error}"))
+                })?;
+        }
         Ok(result.rows_affected() > 0)
     }
 

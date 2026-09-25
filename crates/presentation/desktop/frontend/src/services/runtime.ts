@@ -470,7 +470,7 @@ export class AgenticosRuntime implements RuntimeServices {
           const { value, done } = await reader.read()
           if (done) break
           buffer += decoder.decode(value, { stream: true })
-          const blocks = buffer.split(/\\n\\n/)
+          const blocks = buffer.split(/\r?\n\r?\n/
           buffer = blocks.pop() ?? ''
           for (const block of blocks) {
             const parsed = parseSseEvent(block)

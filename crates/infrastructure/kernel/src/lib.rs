@@ -209,6 +209,17 @@ impl DurableRun {
         Ok(())
     }
 
+    /// Install a lease returned by the durable lease store.
+    pub fn set_lease(&mut self, lease: LeaseRecord) {
+        self.fencing_token = self.fencing_token.max(lease.fencing_token);
+        self.lease = Some(lease);
+    }
+
+    /// Clear the local lease projection after a successful release.
+    pub fn clear_lease(&mut self) {
+        self.lease = None;
+    }
+
     /// Check if the current lease is valid.
     pub fn lease_valid(&self, owner_id: &str, current_time: u64) -> bool {
         match &self.lease {

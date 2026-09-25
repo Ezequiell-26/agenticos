@@ -8,6 +8,7 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
+- Backend hardening now includes durable retry backoff, GitHub write authorization, sandbox limits, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
 - Third-party canonical source policy: MIT/compatible license + provenance + exact revision before integration

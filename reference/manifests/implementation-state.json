@@ -19,11 +19,13 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "4e0c096ac40f0040d34115220da6e3b1ade41370",
+    "last_update_commit": "2077397d19e3edc92f9f09258c7e70a82cab6933",
     "next_actions": [
-      "inspect the fresh AgentiCOS CI run and fix any compile/test/clippy regressions",
-      "continue durable worker state and recovery hardening",
-      "finish token-aware quota accounting and runtime observability"
+      "inspect the fresh AgentiCOS CI result and fix any compile, test or clippy regression",
+      "continue durable worker recovery and lease hardening",
+      "finish token-aware usage accounting across agent and streaming paths",
+      "replace preview-only browser/computer surfaces with a real isolated browser runtime",
+      "add optional real embedding provider support without making semantic retrieval provider-dependent"
     ],
     "scope": [
       "capability-driven governance",
@@ -189,11 +191,13 @@
   "backlog": [
     "durable-worker-state",
     "persistent-job-store",
-    "provider-router-policy-engine",
+    "complete provider routing and streaming usage accounting",
     "tool-registry-mcp-completion",
     "context-engine-and-token-optimization",
     "observability-and-audit",
-    "desktop-runtime-integration",
+    "real-browser-computer-use-runtime",
+    "semantic-memory-retrieval",
+    "stronger-sandbox-isolation",
     "evaluation-and-replay"
   ],
   "migration": {

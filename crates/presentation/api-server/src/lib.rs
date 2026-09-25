@@ -19,6 +19,7 @@ use agenticos_a2a::{
 };
 use agenticos_agents::{AgentBudget, AgentDefinition, SubagentManager};
 use agenticos_artifacts::{ArtifactRange, ArtifactStore};
+use agenticos_browser::BrowserRuntime;
 use agenticos_brain::{
     reasoning_engine::{EngineConfig, ReasoningEngine, SelectionStrategy},
     CapabilityRegistry,
@@ -584,6 +585,7 @@ pub struct RuntimeState {
     idempotency: Arc<SqliteIdempotencyStore>,
     source_forge: Arc<GitHubSourceClient>,
     a2a_tasks: Arc<A2aTaskStore>,
+    browser: Arc<BrowserRuntime>,
     artifacts: Arc<ArtifactStore>,
     workspace: Arc<WorkspaceFs>,
     terminal: Arc<TerminalManager>,
@@ -1331,6 +1333,30 @@ struct AnalyzeRepositoryRequest {
 struct SourceFileQuery {
     path: String,
     reference: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserGrantRequest {
+    grant_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserOpenRequest {
+    grant_id: String,
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserFillRequest {
+    grant_id: String,
+    target: String,
+    text: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserClickRequest {
+    grant_id: String,
+    target: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3005,6 +3031,154 @@ async fn write_github_source_file(
                 code: "SOURCE_WRITE_FAILED",
             })
         }
+    }
+}
+
+async fn authorize_browser(
+    state: &RuntimeState,
+    session_id: &str,
+    grant_id: &str,
+) -> Result<(), HttpResponse> {
+    if grant_id.trim().is_empty() {
+        return Err(HttpResponse::BadRequest().json(ErrorResponse {
+            error: "grant_id is required".to_string(),
+            code: "BROWSER_GRANT_REQUIRED",
+        }));
+    }
+    let resource = format!("browser/{session_id}");
+    match state
+        .capabilities
+        .authorize(grant_id.trim(), CapabilityType::Execute, &resource, "browser.use")
+        .await
+    {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(HttpResponse::Forbidden().json(ErrorResponse {
+            error: "browser.use capability denied".to_string(),
+            code: "BROWSER_CAPABILITY_REQUIRED",
+        })),
+        Err(error) => Err(HttpResponse::Forbidden().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_CAPABILITY_CHECK_FAILED",
+        })),
+    }
+}
+
+async fn browser_status(state: web::Data<RuntimeState>) -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "available": state.browser.is_available().await,
+        "runtime": "agent-browser",
+    }))
+}
+
+async fn browser_open(
+    path: web::Path<String>,
+    request: web::Json<BrowserOpenRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.open(&session_id, request.url.trim()).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_OPEN_FAILED",
+        }),
+    }
+}
+
+async fn browser_snapshot(
+    path: web::Path<String>,
+    request: web::Json<BrowserGrantRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.snapshot(&session_id).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_SNAPSHOT_FAILED",
+        }),
+    }
+}
+
+async fn browser_click(
+    path: web::Path<String>,
+    request: web::Json<BrowserClickRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.click(&session_id, request.target.trim()).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_CLICK_FAILED",
+        }),
+    }
+}
+
+async fn browser_fill(
+    path: web::Path<String>,
+    request: web::Json<BrowserFillRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state
+        .browser
+        .fill(&session_id, request.target.trim(), &request.text)
+        .await
+    {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_FILL_FAILED",
+        }),
+    }
+}
+
+async fn browser_screenshot(
+    path: web::Path<String>,
+    request: web::Json<BrowserGrantRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.screenshot(&session_id).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_SCREENSHOT_FAILED",
+        }),
+    }
+}
+
+async fn browser_close(
+    path: web::Path<String>,
+    request: web::Json<BrowserGrantRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let session_id = path.into_inner();
+    if let Err(response) = authorize_browser(&state, &session_id, &request.grant_id).await {
+        return response;
+    }
+    match state.browser.close(&session_id).await {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "BROWSER_CLOSE_FAILED",
+        }),
     }
 }
 
@@ -6538,6 +6712,35 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/source/github/{owner}/{repo}/file",
                 web::get().to(fetch_github_source_file),
+            )
+            .route(
+                "/api/source/github/{owner}/{repo}/file",
+                web::post().to(write_github_source_file),
+            )
+            .route("/api/browser/status", web::get().to(browser_status))
+            .route(
+                "/api/browser/{session_id}/open",
+                web::post().to(browser_open),
+            )
+            .route(
+                "/api/browser/{session_id}/snapshot",
+                web::post().to(browser_snapshot),
+            )
+            .route(
+                "/api/browser/{session_id}/click",
+                web::post().to(browser_click),
+            )
+            .route(
+                "/api/browser/{session_id}/fill",
+                web::post().to(browser_fill),
+            )
+            .route(
+                "/api/browser/{session_id}/screenshot",
+                web::post().to(browser_screenshot),
+            )
+            .route(
+                "/api/browser/{session_id}/close",
+                web::post().to(browser_close),
             )
             .route(
                 "/api/source/github/{owner}/{repo}/file",

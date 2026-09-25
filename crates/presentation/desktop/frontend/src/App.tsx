@@ -188,6 +188,19 @@ function App() {
   }, [refreshRuntime, sessionId])
 
   useEffect(() => {
+    const unsubscribe = runtime.events.subscribe((event) => {
+      if (
+        event.event_type === 'RunCreated' ||
+        event.event_type === 'RunStateChanged' ||
+        event.event_type === 'RunCancellationRequested'
+      ) {
+        void refreshRuntime(sessionId)
+      }
+    })
+    return unsubscribe
+  }, [refreshRuntime, sessionId])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'Enter') {
         event.preventDefault()

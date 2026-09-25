@@ -531,6 +531,14 @@ pub trait OutboxStore: Send + Sync {
     /// Get pending entries for processing.
     async fn get_pending(&self, limit: usize) -> Result<Vec<OutboxEntry>, ContractError>;
 
+    /// Atomically claim pending or expired entries for one worker.
+    async fn claim_pending(
+        &self,
+        worker_id: &str,
+        limit: usize,
+        lease_seconds: u64,
+    ) -> Result<Vec<OutboxEntry>, ContractError>;
+
     /// Mark entry as published.
     async fn mark_published(&self, entry_id: &str) -> Result<(), ContractError>;
 

@@ -51,6 +51,7 @@ dotenv = "0.15"
 rand = "0.8"
 async-stream = "0.3"
 clap = { version = "4.0", features = ["derive"] }
+base64 = "0.22"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

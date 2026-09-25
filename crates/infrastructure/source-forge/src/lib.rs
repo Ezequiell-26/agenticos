@@ -617,8 +617,12 @@ impl GitHubSourceClient {
             "content": base64::engine::general_purpose::STANDARD.encode(content.as_bytes()),
         });
         if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
-            if reference.len() > 256 || reference.contains(['\r', '\n']) {
-            if sha.len() > 128 || sha.contains(['\r', '\n']) {
+            if reference.len() > 256 || reference.contains(['', '
+']) {
+                return Err(SourceForgeError::InvalidSource(
+                    "invalid Git reference".to_string(),
+                ));
+            }
             body["branch"] = serde_json::Value::String(reference.to_string());
         }
         if let Some(sha) = expected_sha.map(str::trim).filter(|value| !value.is_empty()) {

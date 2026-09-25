@@ -20,14 +20,21 @@ const apiRoutes = new Set(
     .map(normalizeRoute),
 )
 
-const frontendPaths = new Set(
-  [...frontendFile.matchAll(/['"`](\/api\/[^'"`?]*)/g)]
-    .map((match) => match[1])
-    .map(normalizeRoute),
-)
+const frontendPaths = new Set([
+  ...frontendFile.matchAll(/["'](\/api\/[^"']*)["']/g),
+  ...frontendFile.matchAll(/\`(\/api\/[^`]+)\`/g),
+].map((match) => match[1]).map(normalizeRoute))
+
 
 const missing = [...frontendPaths]
-  .filter((path) => !apiRoutes.has(path))
+  .filter((path) => {
+    if (apiRoutes.has(path)) return false
+    if (path.endsWith('*')) {
+      const prefix = path.slice(0, -1)
+      return ![...apiRoutes].some((route) => route.startsWith(prefix))
+    }
+    return true
+  })
   .sort()
 
 if (missing.length > 0) {

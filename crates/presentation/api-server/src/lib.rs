@@ -549,6 +549,139 @@ impl AgentTool for TerminalTool {
 }
 
 #[derive(Clone, Debug)]
+struct GitHubSourceTool {
+    source_forge: Arc<GitHubSourceClient>,
+    capabilities: Arc<CapabilityManager>,
+    audit: Arc<AuditStore>,
+    metrics: Arc<RuntimeMetrics>,
+    operation: &'static str,
+}
+
+#[async_trait::async_trait]
+impl AgentTool for GitHubSourceTool {
+    fn tool_id(&self) -> &str {
+        self.operation
+    }
+
+    async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        #[derive(Debug, Deserialize)]
+        struct WriteArgs {
+            repo: String,
+            path: String,
+            content: String,
+            reference: Option<String>,
+            message: String,
+            expected_sha: Option<String>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct DeleteArgs {
+            repo: String,
+            path: String,
+            reference: Option<String>,
+            message: String,
+            expected_sha: String,
+        }
+
+        let (repo, path, result) = match self.operation {
+            "source.github.write" => {
+                let args = serde_json::from_str::<WriteArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid source.github.write arguments: {error}"))
+                })?;
+                let resource = format!("github/{}/*", args.repo);
+                if !self
+                    .capabilities
+                    .authorize(
+                        &request.grant_id,
+                        CapabilityType::Write,
+                        &resource,
+                        "source.github.write",
+                    )
+                    .await?
+                {
+                    return Err(ContractError::MissingCapability);
+                }
+                let result = self
+                    .source_forge
+                    .write_file(
+                        &args.repo,
+                        &args.path,
+                        &args.content,
+                        args.reference.as_deref(),
+                        &args.message,
+                        args.expected_sha.as_deref(),
+                    )
+                    .await
+                    .map_err(|error| ContractError::ParseError(error.to_string()))?;
+                (args.repo, args.path, serde_json::to_value(result).map_err(|error| {
+                    ContractError::ParseError(error.to_string())
+                })?)
+            }
+            "source.github.delete" => {
+                let args = serde_json::from_str::<DeleteArgs>(&request.parameters).map_err(|error| {
+                    ContractError::ParseError(format!("invalid source.github.delete arguments: {error}"))
+                })?;
+                let resource = format!("github/{}/*", args.repo);
+                if !self
+                    .capabilities
+                    .authorize(
+                        &request.grant_id,
+                        CapabilityType::Write,
+                        &resource,
+                        "source.github.delete",
+                    )
+                    .await?
+                {
+                    return Err(ContractError::MissingCapability);
+                }
+                let result = self
+                    .source_forge
+                    .delete_file(
+                        &args.repo,
+                        &args.path,
+                        args.reference.as_deref(),
+                        &args.message,
+                        &args.expected_sha,
+                    )
+                    .await
+                    .map_err(|error| ContractError::ParseError(error.to_string()))?;
+                (args.repo, args.path, serde_json::to_value(result).map_err(|error| {
+                    ContractError::ParseError(error.to_string())
+                })?)
+            }
+            _ => return Err(ContractError::MissingCapability),
+        };
+
+        self.metrics.record_tool(false);
+        if let Err(error) = self
+            .audit
+            .append(AuditEvent::new(
+                "source-forge",
+                self.operation,
+                Some(request.agent_id.clone()),
+                format!("github/{repo}"),
+                Some(request.request_id.clone()),
+                "success",
+                serde_json::json!({
+                    "path": path,
+                    "operation": self.operation,
+                }),
+            ))
+            .await
+        {
+            tracing::warn!(%error, operation = self.operation, "failed to persist GitHub tool audit");
+        }
+
+        Ok(ToolResponse {
+            request_id: request.request_id,
+            result: result.to_string(),
+            success: true,
+            error: None,
+            metadata: Some(format!("capability-gated GitHub tool {}", self.operation)),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
 struct BrowserTool {
     browser: Arc<BrowserRuntime>,
     capabilities: Arc<CapabilityManager>,
@@ -915,6 +1048,34 @@ impl RuntimeState {
                     ContractError::ParseError(format!(
                         "workspace tool registration failed: {error}"
                     ))
+                })?;
+        }
+
+        for (tool_id, name) in [
+            ("source.github.write", "Write GitHub file"),
+            ("source.github.delete", "Delete GitHub file"),
+        ] {
+            tool_runtime
+                .register(
+                    ToolEntry {
+                        tool_id: tool_id.to_string(),
+                        name: name.to_string(),
+                        description: name.to_string(),
+                        capabilities: vec!["source-forge".to_string()],
+                        required_permissions: vec![tool_id.to_string()],
+                        context_requirements: vec![format!("capability:{tool_id}")],
+                    },
+                    Arc::new(GitHubSourceTool {
+                        source_forge: source_forge.clone(),
+                        capabilities: capabilities.clone(),
+                        audit: audit.clone(),
+                        metrics: metrics.clone(),
+                        operation: tool_id,
+                    }),
+                )
+                .await
+                .map_err(|error| {
+                    ContractError::ParseError(format!("GitHub tool registration failed: {error}"))
                 })?;
         }
 

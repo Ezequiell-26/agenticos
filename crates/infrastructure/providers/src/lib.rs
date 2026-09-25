@@ -4,8 +4,8 @@
 //! model/provider adapters boundary. Functionality is introduced only through verified vertical slices.
 
 use agenticos_contracts::{
-    ContractError, Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry, ModelProvider,
-    ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
+    ContractError, Credential, FallbackConfig, HealthCheck, HealthStatus, ModelEntry,
+    ModelProvider, ModelRequest, ModelResponse, ProviderEntry, QuotaInfo, RetryPolicy,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};

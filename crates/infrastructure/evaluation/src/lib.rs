@@ -2,6 +2,12 @@
 #![warn(missing_docs)]
 
 //! Deterministic replay/evaluation primitives for backend regression checks.
+//!
+//! This module implements RDD (Receipt-Driven Development) concepts adapted from gentle-ai:
+//! - **Candidate Freezing**: Exact version is frozen before review
+//! - **Depth-based Review**: Passive, medium, and high depth checks
+//! - **Evidence Binding**: Review evidence is bound to the exact candidate version
+//! - **Risk Assessment**: Read-only risk assessment determines review depth
 
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
@@ -9,8 +15,78 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Get current Unix timestamp in seconds.
+fn unix_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
 /// Architectural owner of this crate.
 pub const OWNER: &str = "agenticos-evaluation";
+
+/// Review depth levels adapted from gentle-ai RDD.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ReviewDepth {
+    /// Passive: structural readback with zero reviewer lenses.
+    Passive,
+    /// Medium: one focused lens on specific area.
+    Medium,
+    /// High: canonical 4R — Risk, Resilience, Readability and Reliability.
+    High,
+}
+
+/// Frozen candidate for review (adapted from gentle-ai RDD).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReviewCandidate {
+    /// Unique candidate identifier.
+    pub candidate_id: String,
+    /// Git commit SHA that this candidate represents.
+    pub commit_sha: String,
+    /// Files modified in this candidate.
+    pub modified_files: Vec<String>,
+    /// Timestamp when candidate was frozen.
+    pub frozen_at: i64,
+    /// Review depth assigned to this candidate.
+    pub review_depth: ReviewDepth,
+    /// Risk assessment score (0.0 = low risk, 1.0 = high risk).
+    pub risk_score: f64,
+}
+
+/// Review receipt with evidence bound to exact candidate version.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReviewReceipt {
+    /// Candidate identifier.
+    pub candidate_id: String,
+    /// Reviewer identifier (agent or human).
+    pub reviewer_id: String,
+    /// Timestamp of review.
+    pub reviewed_at: i64,
+    /// Whether review passed.
+    pub passed: bool,
+    /// Review depth used.
+    pub review_depth: ReviewDepth,
+    /// Review comments or findings.
+    pub comments: Vec<String>,
+    /// Corrections suggested (at most one bounded correction allowed).
+    pub corrections: Vec<String>,
+}
+
+/// Risk assessment factors for determining review depth.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RiskAssessment {
+    /// Number of files modified.
+    pub file_count: usize,
+    /// Lines changed.
+    pub lines_changed: usize,
+    /// Whether sensitive files are modified (config, secrets, etc).
+    pub sensitive_files: bool,
+    /// Whether core infrastructure is modified.
+    pub core_infrastructure: bool,
+    /// Estimated risk score (0.0-1.0).
+    pub risk_score: f64,
+}
 
 /// A deterministic evaluation case for an agent objective/output pair.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -128,6 +204,103 @@ impl EvaluationRegistry {
     /// Create an empty evaluation registry.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Assess risk for a change and determine appropriate review depth.
+    pub fn assess_risk(
+        file_count: usize,
+        lines_changed: usize,
+        sensitive_files: bool,
+        core_infrastructure: bool,
+    ) -> RiskAssessment {
+        let mut risk_score = 0.0;
+
+        // File count factor (0-0.3)
+        risk_score += (file_count as f64 / 50.0).min(0.3);
+
+        // Lines changed factor (0-0.3)
+        risk_score += (lines_changed as f64 / 1000.0).min(0.3);
+
+        // Sensitive files factor (0-0.2)
+        if sensitive_files {
+            risk_score += 0.2;
+        }
+
+        // Core infrastructure factor (0-0.2)
+        if core_infrastructure {
+            risk_score += 0.2;
+        }
+
+        RiskAssessment {
+            file_count,
+            lines_changed,
+            sensitive_files,
+            core_infrastructure,
+            risk_score: risk_score.clamp(0.0, 1.0),
+        }
+    }
+
+    /// Determine review depth based on risk assessment.
+    pub fn determine_review_depth(risk_score: f64) -> ReviewDepth {
+        if risk_score < 0.3 {
+            ReviewDepth::Passive
+        } else if risk_score < 0.7 {
+            ReviewDepth::Medium
+        } else {
+            ReviewDepth::High
+        }
+    }
+
+    /// Freeze a candidate for review (adapted from gentle-ai RDD).
+    pub async fn freeze_candidate(
+        &self,
+        commit_sha: &str,
+        modified_files: Vec<String>,
+    ) -> Result<ReviewCandidate, String> {
+        let assessment = Self::assess_risk(
+            modified_files.len(),
+            modified_files.len() * 10, // Estimate lines changed
+            modified_files.iter().any(|f| {
+                f.contains("config") || f.contains("secret") || f.contains("key")
+            }),
+            modified_files.iter().any(|f| {
+                f.contains("kernel") || f.contains("runtime") || f.contains("brain")
+            }),
+        );
+
+        let review_depth = Self::determine_review_depth(assessment.risk_score);
+
+        let candidate = ReviewCandidate {
+            candidate_id: format!("cand-{}", uuid::Uuid::new_v4()),
+            commit_sha: commit_sha.to_string(),
+            modified_files,
+            frozen_at: unix_time() as i64,
+            review_depth,
+            risk_score: assessment.risk_score,
+        };
+
+        Ok(candidate)
+    }
+
+    /// Create a review receipt for a frozen candidate.
+    pub async fn create_receipt(
+        &self,
+        candidate_id: &str,
+        reviewer_id: &str,
+        passed: bool,
+        comments: Vec<String>,
+        corrections: Vec<String>,
+    ) -> ReviewReceipt {
+        // In a full implementation, this would retrieve the candidate to get review_depth
+        ReviewReceipt {
+            candidate_id: candidate_id.to_string(),
+            reviewer_id: reviewer_id.to_string(),
+            reviewed_at: unix_time() as i64,
+            passed,
+            review_depth: ReviewDepth::Medium, // Default, would be retrieved from candidate
+            comments,
+            corrections,
+        }
     }
 
     /// Open a SQLite-backed registry and recover cases/results.

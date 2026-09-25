@@ -2,6 +2,12 @@
 #![warn(missing_docs)]
 
 //! durable memory and retrieval boundary. Functionality is introduced only through verified vertical slices.
+//!
+//! This module implements Engram-inspired persistent memory that maintains context across sessions.
+//! Key concepts adapted from gentle-ai:
+//! - **Session Persistence**: Context survives agent restarts
+//! - **Decision Tracking**: Important decisions are recorded and retrievable
+//! - **Context Compaction**: Session boundaries are preserved while memory persists
 
 use agenticos_contracts::{
     ContextManager, ContextWindow, ContractError, MemoryEntry, MemoryStore, Message, RunId,
@@ -10,23 +16,147 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Session snapshot that preserves context across agent restarts.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SessionSnapshot {
+    /// Unique session identifier.
+    pub session_id: String,
+    /// Project or workspace namespace.
+    pub namespace: String,
+    /// Timestamp when snapshot was created.
+    pub created_at: i64,
+    /// Important decisions made during this session.
+    pub decisions: Vec<DecisionRecord>,
+    /// Summary of work completed.
+    pub summary: String,
+    /// File paths that were modified.
+    pub modified_files: Vec<String>,
+}
+
+/// A decision made by the agent that should persist across sessions.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DecisionRecord {
+    /// Decision identifier.
+    pub decision_id: String,
+    /// Context of the decision (what was being solved).
+    pub context: String,
+    /// The decision that was made.
+    pub decision: String,
+    /// Reasoning behind the decision.
+    pub reasoning: String,
+    /// Timestamp of the decision.
+    pub timestamp: i64,
+    /// File path if decision relates to a specific file.
+    pub file_path: Option<String>,
+}
+
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-memory";
 
-/// In-memory context manager.
+/// In-memory context manager with Engram-inspired session persistence.
 #[derive(Debug)]
 pub struct InMemoryContextManager {
     messages: Arc<RwLock<HashMap<String, Vec<Message>>>>,
     context_windows: Arc<RwLock<HashMap<String, ContextWindow>>>,
+    /// Session snapshots for cross-session memory.
+    session_snapshots: Arc<RwLock<HashMap<String, SessionSnapshot>>>,
 }
 
 impl InMemoryContextManager {
-    /// Create a new in-memory context manager.
+    /// Create a new in-memory context manager with session persistence.
     pub fn new() -> Self {
         Self {
             messages: Arc::new(RwLock::new(HashMap::new())),
             context_windows: Arc::new(RwLock::new(HashMap::new())),
+            session_snapshots: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Create a session snapshot for cross-session memory.
+    pub async fn create_session_snapshot(
+        &self,
+        session_id: &str,
+        namespace: &str,
+        summary: &str,
+        modified_files: Vec<String>,
+    ) -> Result<(), ContractError> {
+        let snapshot = SessionSnapshot {
+            session_id: session_id.to_string(),
+            namespace: namespace.to_string(),
+            created_at: unix_time() as i64,
+            decisions: Vec::new(),
+            summary: summary.to_string(),
+            modified_files,
+        };
+        let mut snapshots = self.session_snapshots.write().await;
+        snapshots.insert(session_id.to_string(), snapshot);
+        Ok(())
+    }
+
+    /// Record a decision that should persist across sessions.
+    pub async fn record_decision(
+        &self,
+        session_id: &str,
+        context: &str,
+        decision: &str,
+        reasoning: &str,
+        file_path: Option<String>,
+    ) -> Result<(), ContractError> {
+        let mut snapshots = self.session_snapshots.write().await;
+        if let Some(snapshot) = snapshots.get_mut(session_id) {
+            let decision_record = DecisionRecord {
+                decision_id: format!("dec-{}", uuid::Uuid::new_v4()),
+                context: context.to_string(),
+                decision: decision.to_string(),
+                reasoning: reasoning.to_string(),
+                timestamp: unix_time() as i64,
+                file_path,
+            };
+            snapshot.decisions.push(decision_record);
+            Ok(())
+        } else {
+            Err(ContractError::ParseError("session not found".to_string()))
+        }
+    }
+
+    /// Retrieve decisions from a previous session.
+    pub async fn get_session_decisions(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<DecisionRecord>, ContractError> {
+        let snapshots = self.session_snapshots.read().await;
+        if let Some(snapshot) = snapshots.get(session_id) {
+            Ok(snapshot.decisions.clone())
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Search decisions across all sessions for a given namespace.
+    pub async fn search_decisions(
+        &self,
+        namespace: &str,
+        query: &str,
+    ) -> Result<Vec<DecisionRecord>, ContractError> {
+        let snapshots = self.session_snapshots.read().await;
+        let query_lower = query.to_lowercase();
+        let mut results = Vec::new();
+
+        for snapshot in snapshots.values() {
+            if snapshot.namespace == namespace {
+                for decision in &snapshot.decisions {
+                    if decision.context.to_lowercase().contains(&query_lower)
+                        || decision.decision.to_lowercase().contains(&query_lower)
+                        || decision.reasoning.to_lowercase().contains(&query_lower)
+                    {
+                        results.push(decision.clone());
+                    }
+                }
+            }
+        }
+
+        results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        Ok(results)
     }
 
     /// Set context window for a run.

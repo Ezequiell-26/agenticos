@@ -553,6 +553,7 @@ struct BrowserTool {
     browser: Arc<BrowserRuntime>,
     capabilities: Arc<CapabilityManager>,
     audit: Arc<AuditStore>,
+    metrics: Arc<RuntimeMetrics>,
     operation: &'static str,
 }
 
@@ -647,6 +648,7 @@ impl AgentTool for BrowserTool {
             _ => return Err(ContractError::MissingCapability),
         };
 
+        self.metrics.record_tool(!result.success);
         let audit_outcome = if result.success { "success" } else { "failure" };
         if let Err(error) = self
             .audit
@@ -938,6 +940,7 @@ impl RuntimeState {
                         browser: browser.clone(),
                         capabilities: capabilities.clone(),
                         audit: audit.clone(),
+                        metrics: Arc::new(RuntimeMetrics::new()),
                         operation: tool_id,
                     }),
                 )

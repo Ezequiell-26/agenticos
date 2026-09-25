@@ -11,6 +11,7 @@ use agenticos_contracts::{
 use agenticos_kernel::KernelRuntime;
 use agenticos_memory::InMemoryContextManager;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-execution";
@@ -124,16 +125,63 @@ impl QueryHandler for BasicQueryHandler {
 }
 
 /// Basic projection for read model updates.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BasicProjection {
     #[allow(dead_code)]
     runtime: Arc<KernelRuntime>,
+    run_states: Arc<RwLock<HashMap<String, RunState>>>,
 }
 
 impl BasicProjection {
-    /// Create a new projection.
+    /// Create a new projection with an empty in-memory run-state read model.
     pub fn new(runtime: Arc<KernelRuntime>) -> Self {
-        Self { runtime }
+        Self {
+            runtime,
+            run_states: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Return the projected state for a run, when known.
+    pub async fn state_for(&self, run_id: &str) -> Option<RunState> {
+        self.run_states.read().await.get(run_id).copied()
+    }
+}
+
+fn projected_run_state(
+    event: &agenticos_contracts::SerializedEvent,
+) -> Result<Option<(String, RunState)>, ContractError> {
+    let payload = serde_json::from_str::<serde_json::Value>(&event.data)
+        .map_err(|error| ContractError::ParseError(format!("invalid projection event: {error}")))?;
+    let run_id = payload
+        .get("run_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| ContractError::ParseError("projection event missing run_id".to_string()))?;
+
+    let state = match event.event_type.as_str() {
+        "RunCreated" => RunState::Created,
+        "RunStateChanged" => payload
+            .get("to")
+            .and_then(serde_json::Value::as_str)
+            .and_then(parse_run_state),
+        "RunCancellationRequested" => RunState::Cancelling,
+        _ => return Ok(None),
+    };
+
+    Ok(state.map(|state| (run_id.to_string(), state)))
+}
+
+fn parse_run_state(value: &str) -> Option<RunState> {
+    match value {
+        "Created" => Some(RunState::Created),
+        "Admitted" => Some(RunState::Admitted),
+        "Waiting" => Some(RunState::Waiting),
+        "Running" => Some(RunState::Running),
+        "Cancelling" => Some(RunState::Cancelling),
+        "Completed" => Some(RunState::Completed),
+        "Failed" => Some(RunState::Failed),
+        "Cancelled" => Some(RunState::Cancelled),
+        _ => None,
     }
 }
 
@@ -141,10 +189,11 @@ impl BasicProjection {
 impl Projection for BasicProjection {
     async fn update(
         &self,
-        _event: agenticos_contracts::SerializedEvent,
+        event: agenticos_contracts::SerializedEvent,
     ) -> Result<(), agenticos_contracts::ContractError> {
-        // Basic projection implementation - in a full CQRS system, this would
-        // update read models based on events from the command side
+        if let Some((run_id, state)) = projected_run_state(&event)? {
+            self.run_states.write().await.insert(run_id, state);
+        }
         Ok(())
     }
 }
@@ -389,6 +438,53 @@ mod tests {
 
     fn test_runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Runtime::new().unwrap()
+    }
+
+    #[tokio::test]
+    async fn basic_projection_applies_run_lifecycle_events() {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer =
+            std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+        let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+            std::sync::Arc::new(
+                agenticos_brain::capability_registry::CapabilityRegistry::default(),
+            ),
+        ));
+        let projection = BasicProjection::new(runtime);
+
+        projection
+            .update(agenticos_contracts::SerializedEvent {
+                event_type: "RunCreated".to_string(),
+                data: r#"{"run_id":"run-projection","state":"Created"}"#.to_string(),
+                schema_version: 1,
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            projection.state_for("run-projection").await,
+            Some(RunState::Created)
+        );
+
+        projection
+            .update(agenticos_contracts::SerializedEvent {
+                event_type: "RunStateChanged".to_string(),
+                data: r#"{"run_id":"run-projection","from":"Created","to":"Running","version":2}"#.to_string(),
+                schema_version: 1,
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            projection.state_for("run-projection").await,
+            Some(RunState::Running)
+        );
     }
 
     #[test]

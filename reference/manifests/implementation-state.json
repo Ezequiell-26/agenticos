@@ -19,14 +19,13 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "2cbc4e9cbd0fafb6eb8adc801c25617b8bc32939",
+    "last_update_commit": "1d08cd1a4378aa7bdbf161ba290b34cc9b7bcd78",
     "next_actions": [
-      "verify CI run 2213 after runners become available",
-      "finish actual outbound transport for durable outbox before background draining",
-      "add browser screenshot/artifact ingestion into ArtifactStore",
-      "add provider-neutral embeddings and optional real embedding adapters",
+      "verify the latest full CI run and promote only with fresh automated evidence",
       "centralize remaining SQLite schemas into versioned migrations",
-      "promote capabilities only after CI and runtime evidence"
+      "complete semantic-memory retrieval evaluation and backfill strategy",
+      "add durable run-level lease storage and restart recovery beyond scheduler jobs",
+      "expand runtime end-to-end tests for desktop, subagents, workflows and MCP"
     ],
     "scope": [
       "capability-driven governance",
@@ -77,14 +76,14 @@
     {
       "id": "observability-control-plane",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_progress",
       "owner": "infrastructure/observability + presentation/api-server",
       "objective": "Add structured metrics, traces, audit events, health, readiness and operational diagnostics."
     },
     {
       "id": "desktop-integration",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_progress",
       "owner": "presentation/desktop",
       "objective": "Connect the existing desktop UI to typed runtime services without moving orchestration into React."
     },
@@ -170,7 +169,7 @@
     {
       "id": "desktop-api-integration",
       "owner": "api-server/desktop",
-      "status": "in_progress"
+      "status": "implemented-unverified"
     },
     {
       "id": "github-write-plane",
@@ -246,6 +245,31 @@
       "id": "durable-scheduler-retry",
       "owner": "scheduler",
       "status": "implemented-unverified"
+    },
+    {
+      "id": "live-runtime-events",
+      "owner": "kernel + api-server + desktop",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "provider-embeddings",
+      "owner": "providers + api-server + desktop",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "semantic-memory-embeddings",
+      "owner": "memory + providers + api-server",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "outbox-claim-leases",
+      "owner": "contracts + kernel",
+      "status": "implemented-unverified"
+    },
+    {
+      "id": "context-prompt-overhead",
+      "owner": "context + kernel",
+      "status": "implemented-unverified"
     }
   ],
   "verification": {
@@ -261,20 +285,15 @@
       "npm run architecture:boundaries",
       "npm run provider:coverage"
     ],
-    "last_known_green": "2026-09-21 historical baseline; current provider/kernel/scheduler/API hardening has fresh CI running but is not yet green evidence",
+    "last_known_green": "2026-09-21 historical baseline; latest backend changes still require fresh full CI evidence",
     "ci_pending": true
   },
   "backlog": [
-    "durable-worker-state",
-    "persistent-job-store",
-    "complete provider routing and streaming usage accounting",
-    "tool-registry-mcp-completion",
-    "context-engine-and-token-optimization",
-    "observability-and-audit",
-    "real-browser-computer-use-runtime",
-    "semantic-memory-retrieval",
-    "stronger-sandbox-isolation",
-    "evaluation-and-replay"
+    "centralize remaining SQLite schemas into versioned migrations",
+    "durable run-level lease store and restart recovery",
+    "semantic-memory retrieval evaluation and backfill",
+    "stronger sandbox isolation profiles",
+    "evaluation and replay coverage"
   ],
   "migration": {
     "from_schema": 1,

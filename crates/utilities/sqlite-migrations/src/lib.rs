@@ -35,6 +35,57 @@ pub async fn migrate_pool(pool: &sqlx::SqlitePool) -> Result<(), String> {
     ensure_legacy_columns(pool).await
 }
 
+
+/// Add columns introduced after the original scheduler schema to legacy databases.
+async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
+    let additions = [
+        (
+            "job_type",
+            "ALTER TABLE scheduler_jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'agent'",
+        ),
+        (
+            "metadata",
+            "ALTER TABLE scheduler_jobs ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
+        ),
+        (
+            "lease_owner",
+            "ALTER TABLE scheduler_jobs ADD COLUMN lease_owner TEXT",
+        ),
+        (
+            "lease_token",
+            "ALTER TABLE scheduler_jobs ADD COLUMN lease_token INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "lease_expires_at",
+            "ALTER TABLE scheduler_jobs ADD COLUMN lease_expires_at INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "next_attempt_at",
+            "ALTER TABLE scheduler_jobs ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
+        ),
+    ];
+
+    for (column, statement) in additions {
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT name FROM pragma_table_info('scheduler_jobs') WHERE name = ?")
+                .bind(column)
+                .fetch_optional(pool)
+                .await
+                .map_err(|error| format!("legacy column inspection failed: {error}"))?;
+
+        if exists.is_none() {
+            sqlx::query(statement)
+                .execute(pool)
+                .await
+                .map_err(|error| {
+                    format!("legacy scheduler column migration failed for {column}: {error}")
+                })?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

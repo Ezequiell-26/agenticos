@@ -556,11 +556,7 @@ pub trait OutboxStore: Send + Sync {
     async fn mark_failed(&self, entry_id: &str) -> Result<(), ContractError>;
 
     /// Mark entry as failed only when owned by the given worker claim.
-    async fn mark_failed_by(
-        &self,
-        entry_id: &str,
-        worker_id: &str,
-    ) -> Result<(), ContractError> {
+    async fn mark_failed_by(&self, entry_id: &str, worker_id: &str) -> Result<(), ContractError> {
         let _ = worker_id;
         self.mark_failed(entry_id).await
     }

@@ -52,7 +52,7 @@ function normalizeRoute(path) {
 function routeMatches(route, candidate) {
   if (candidate.endsWith('*')) {
     const prefix = candidate.slice(0, -1)
-    return route === prefix || route.startsWith(`${prefix}/`)
+    return route === prefix || route.startsWith(prefix)
   }
 
   const routeSegments = route.split('/')

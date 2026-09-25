@@ -1015,11 +1015,21 @@ impl ProviderPlatform {
 
             let mut provider_last_error = None;
             for attempt in 0..policy.max_attempts.max(1) {
-                if let Err(error) = self.quotas.consume_request(&provider.provider_id).await {
-                    last_error = Some(error.clone());
-                    provider_last_error = Some(error);
-                    break;
-                }
+                let token_reservation = match self
+                    .quotas
+                    .reserve_request(
+                        &provider.provider_id,
+                        requested_token_budget(&routed_request),
+                    )
+                    .await
+                {
+                    Ok(reservation) => reservation,
+                    Err(error) => {
+                        last_error = Some(error.clone());
+                        provider_last_error = Some(error);
+                        break;
+                    }
+                };
 
                 let _network_permit = self.network_concurrency.acquire().await.map_err(|_| {
                     ContractError::ParseError("provider concurrency limiter closed".to_string())
@@ -1039,7 +1049,11 @@ impl ProviderPlatform {
                         if let Some(tokens) = response.tokens_used {
                             if let Err(error) = self
                                 .quotas
-                                .record_tokens(&provider.provider_id, tokens)
+                                .record_tokens_with_reservation(
+                                    &provider.provider_id,
+                                    tokens,
+                                    token_reservation,
+                                )
                                 .await
                             {
                                 tracing::warn!(
@@ -1074,6 +1088,20 @@ impl ProviderPlatform {
                         return Ok(response);
                     }
                     Err(error) => {
+                        if let Err(release_error) = self
+                            .quotas
+                            .release_token_reservation(
+                                &provider.provider_id,
+                                token_reservation,
+                            )
+                            .await
+                        {
+                            tracing::warn!(
+                                provider = %provider.provider_id,
+                                %release_error,
+                                "failed to release provider token reservation"
+                            );
+                        }
                         provider_last_error = Some(error.clone());
                         last_error = Some(error.clone());
 
@@ -1759,6 +1787,24 @@ fn is_retryable_provider_error(error: &ContractError) -> bool {
         return status == Some(429) || status.is_some_and(|value| value >= 500);
     }
     message.contains("provider request failed:") || message.contains("provider response failed:")
+}
+
+fn requested_token_budget(request: &ModelRequest) -> Option<u64> {
+    let parameters = request.parameters.as_deref()?;
+    let value: serde_json::Value = serde_json::from_str(parameters).ok()?;
+
+    [
+        value.get("max_tokens"),
+        value.get("max_output_tokens"),
+        value.get("max_completion_tokens"),
+        value
+            .get("agenticos")
+            .and_then(|nested| nested.get("max_tokens")),
+    ]
+    .into_iter()
+    .flatten()
+    .find_map(serde_json::Value::as_u64)
+    .filter(|tokens| *tokens > 0)
 }
 
 fn normalize_chat_url(base_url: &str) -> String {
@@ -2783,6 +2829,27 @@ mod tests {
             normalize_endpoint("https://api.anthropic.com/v1", "/v1/messages", "/messages"),
             "https://api.anthropic.com/v1/messages"
         );
+    }
+
+    #[test]
+    fn token_budget_is_read_from_supported_parameter_shapes() {
+        let request = ModelRequest {
+            request_id: "budget-test".to_string(),
+            model: "model".to_string(),
+            input: "hello".to_string(),
+            parameters: Some(
+                serde_json::json!({"agenticos": {"max_tokens": 321}}).to_string(),
+            ),
+        };
+        assert_eq!(requested_token_budget(&request), Some(321));
+
+        let request = ModelRequest {
+            request_id: "budget-test-2".to_string(),
+            model: "model".to_string(),
+            input: "hello".to_string(),
+            parameters: Some(serde_json::json!({"max_output_tokens": 654}).to_string()),
+        };
+        assert_eq!(requested_token_budget(&request), Some(654));
     }
 
     #[test]

@@ -76,7 +76,7 @@ A failing check blocks the affected capability or release path; it does not auto
 
 A2A is implemented in its dedicated infrastructure crate and exposed through the API; it remains unverified until fresh CI evidence is available.
 
-The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence, A2A and CQRS run projection. The backend now includes durable retry backoff and lease recovery, ranked persistent memory retrieval, capability-gated GitHub writes, an optional real browser adapter, request correlation, provider capability routing and a non-empty CQRS run projection.
+The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. The backend now includes durable retry backoff and lease recovery, ranked persistent memory retrieval, capability-gated GitHub writes, an optional real browser adapter, request correlation, provider capability routing and a non-empty CQRS run projection.
 
 ## Next actions
 

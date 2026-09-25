@@ -105,9 +105,7 @@ impl EmbeddingProvider for OpenAiCompatibleEmbeddingProvider {
 
         let status = response.status();
         let body = response.text().await.map_err(|error| {
-            ContractError::ParseError(format!(
-                "embedding provider response read failed: {error}"
-            ))
+            ContractError::ParseError(format!("embedding provider response read failed: {error}"))
         })?;
 
         if !status.is_success() {

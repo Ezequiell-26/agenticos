@@ -1540,3 +1540,11 @@ Verification status:
 - Re-applied plain-text assistant answers: bot responses render only the response text without the dark bubble, avatar, header or action row; user and system messages keep their bubbles.
 - Recorded the slice in docs/architecture/FRONTEND-CHANGELOG.md.
 - Verification status: tsc, Vite production build and the frontend architecture contract pass; alignment and plain-text rendering verified in the browser preview.
+
+## 2026-09-26 — Desktop runtime wiring and compile repair
+
+- Restored the canonical Tauri startup path: the desktop application initializes the Rust API runtime in-process, starts it on a background thread, and registers the frontend IPC commands.
+- Removed the duplicate `get_conversation_history` Rust symbol and aligned the Tauri history command with the canonical `/api/conversations/{session_id}/history` route.
+- Replaced the undeclared legacy `@tauri-apps/api` frontend import with a typed HTTP implementation so the complete TypeScript source tree can compile from the declared dependency set.
+- Restored defense-in-depth capability authorization for the direct process execution endpoint; an issued, scoped Execute capability is now required before sandbox execution.
+- Verification status: source-level repair complete; fresh CI and a live desktop/provider smoke test remain required before runtime verification is claimed.

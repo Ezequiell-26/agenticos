@@ -1,153 +1,131 @@
 # Getting Started with AgentiCOS
 
-This guide will help you get started with AgentiCOS, from installation to running your first agent.
+This guide covers the supported development surfaces: the Rust API runtime, CLI, and Tauri desktop application.
 
-## Installation
+## Prerequisites
 
-### Prerequisites
-- Rust 1.70 or later
-- Cargo (comes with Rust)
+- Rust toolchain with `cargo`, `rustfmt`, and `clippy`
 - Git
+- Node.js and npm for the desktop frontend
+- At least one model provider credential or a local OpenAI-compatible endpoint for actual model execution
 
-### Clone and Build
+## Clone
+
 ```bash
 git clone https://github.com/Ezequiell-26/agenticos.git
 cd agenticos
-cargo build --release
 ```
 
-The compiled binary will be available at `target/release/agenticos` (or `target/release/agenticos.exe` on Windows).
+## Configure
 
-## Quick Tour
+Copy the example environment file:
 
-### 1. Create Your First Run
 ```bash
-agenticos run create --id hello-world --objective "Say hello to the world"
+cp .env.example .env
 ```
 
-This creates a new run with ID "hello-world" and the objective "Say hello to the world".
+Fill in at least one provider configuration documented in `.env.example`. The default API bind is:
 
-### 2. List All Runs
+```text
+127.0.0.1:8080
+```
+
+The backend reads environment variables from the process environment. For local shells that do not load `.env` automatically, export the variables before starting the runtime.
+
+## Run the API server
+
 ```bash
-agenticos run list
+cargo run -p agenticos-api-server
 ```
 
-You'll see output like:
-```
-Listing all runs...
-Found 1 runs:
-  - RunId("hello-world"): Created
+Health endpoint:
+
+```text
+GET http://127.0.0.1:8080/health
 ```
 
-### 3. Check Run Status
+Chat endpoint:
+
+```text
+POST /api/agent/chat
+```
+
+The chat endpoint returns `PROVIDER_NOT_CONFIGURED` until a provider credential/configuration is available.
+
+## Run the desktop application
+
+Install the Tauri CLI once:
+
 ```bash
-agenticos run status --id hello-world
+cargo install tauri-cli --version "^2"
 ```
 
-### 4. Manage Feature Flags
+Then:
+
 ```bash
-# List all flags
-agenticos flags list
-
-# Enable a flag
-agenticos flags enable --id experimental-feature
-
-# Check flag status
-agenticos flags get --id experimental-feature
-
-# Disable a flag
-agenticos flags disable --id experimental-feature
+cd crates/presentation/desktop
+cargo tauri dev
 ```
 
-### 5. Check System Status
+The desktop application starts the Rust backend runtime in-process and launches the React/Vite frontend using the Tauri configuration.
+
+For a production bundle:
+
 ```bash
-agenticos status system
+cargo tauri build
 ```
 
-This shows the overall system status including runtime, kernel, providers, and tools.
+## Build the CLI
 
-## Architecture Overview
+```bash
+cargo build -p agenticos-cli --release
+```
 
-AgentiCOS is built with a layered architecture:
+Binary:
 
-1. **Domain** - Stable contracts and model-neutral brain abstractions
-2. **Application** - Agent, execution, scheduler and workflow use cases
-3. **Infrastructure** - Durable kernel, providers, tools, memory, security and integrations
-4. **Presentation** - API server, CLI, desktop and gateway surfaces
-5. **Utilities** - Reusable cross-cutting primitives
+```text
+target/release/agenticos
+```
 
-See [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md) and [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md) for the detailed ownership model.
+The CLI is a separate diagnostic/demo surface. The Tauri desktop and API runtime are the canonical product surfaces.
 
-## Understanding the Core Concepts
+## Verification
 
-### Runs
-A Run represents a single execution of an agent with a specific objective. Runs have:
-- Unique ID
-- State (Created, Admitted, Waiting, Running, Completed, Failed, Cancelled)
-- Associated events
-- Snapshot for recovery
+Install JavaScript dependencies and run the repository gates:
 
-### Event Sourcing
-All state changes are recorded as events. This provides:
-- Complete audit trail
-- Event replay for debugging
-- Temporal queries
-- State recovery
+```bash
+npm ci --no-audit --no-fund
+npm run verify
+```
 
-### CQRS
-Command-Query Responsibility Segregation separates:
-- **Commands**: Write operations that change state
-- **Queries**: Read operations that don't change state
-- **Projections**: Optimized read models updated by events
+Rust formatting:
 
-### Outbox Pattern
-Events are stored in an outbox before publication to ensure:
-- Reliable event delivery
-- Transactional consistency
-- Idempotent publication
+```bash
+cargo fmt --all -- --check
+```
 
-### Saga Coordinator
-Multi-step workflows are orchestrated by sagas with:
-- Step-by-step execution
-- Compensating transactions for rollback
-- Recovery from failures
+Critical CI Rust checks:
 
-### Feature Flags
-Runtime configuration provides:
-- Dynamic feature toggling
-- A/B testing support
-- Gradual rollout capabilities
+```bash
+cargo check -p agenticos-brain -p agenticos-providers --all-targets
+cargo test -p agenticos-brain --lib
+cargo test -p agenticos-providers --test provider_plane_integration
+cargo clippy -p agenticos-brain -p agenticos-providers --all-targets -- -D warnings
+```
 
-## Next Steps
+For a local release-candidate audit, also run:
 
-- Read the [Architecture Documentation](docs/architecture/) for deeper understanding
-- Check the [Development Guide](DEVELOPMENT.md) for contribution guidelines
-- Review the [ADRs](doc/adr/) for architectural decisions
-- Explore the [Project Executive Summary](docs/PROJECT-EXECUTIVE-SUMMARY.md) for project status
+```bash
+cargo check --workspace --all-targets
+cargo test --workspace
+```
 
 ## Troubleshooting
 
-### Build Errors
-If you encounter build errors:
-1. Ensure Rust version is 1.70 or later: `rustc --version`
-2. Update dependencies: `cargo update`
-3. Clean build: `cargo clean && cargo build`
+If the API fails at startup, inspect the terminal for SQLite, filesystem, browser, or provider initialization errors.
 
-### Runtime Errors
-If you encounter runtime errors:
-1. Check system status: `agenticos status system`
-2. Review logs for error messages
-3. Verify feature flag configuration
+If the desktop shell opens with the runtime offline, inspect the desktop terminal for backend startup errors and verify that the frontend points to `http://127.0.0.1:8080` unless a custom API URL is configured.
 
-### Test Failures
-If tests fail:
-1. Run tests with output: `cargo test --workspace -- --nocapture`
-2. Check for specific test failures
-3. Review test output for error details
+If chat returns `PROVIDER_NOT_CONFIGURED`, configure at least one provider and restart the runtime.
 
-## Getting Help
-
-- Check the [Documentation](docs/)
-- Review [ADRs](doc/adr/)
-- Open an issue on GitHub
-- Check the [Architecture Decision Records](doc/adr/) for design rationale
+See [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md), [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md), and [Project State](reference/PROJECT-STATE.md) for the deeper implementation status.

@@ -5,13 +5,13 @@
 
 use agenticos_artifacts::{ArtifactRecord, ArtifactStore};
 use agenticos_browser::{BrowserActionResult, BrowserRuntime};
+use agenticos_context::optimize_tool_output;
+use agenticos_contracts::{AgentTool, CapabilityType, ContractError, ToolRequest, ToolResponse};
 use agenticos_observability::{
     audit::{AuditEvent, AuditStore},
     metrics::RuntimeMetrics,
 };
 use agenticos_source_forge::GitHubSourceClient;
-use agenticos_context::optimize_tool_output;
-use agenticos_contracts::{AgentTool, CapabilityType, ContractError, ToolRequest, ToolResponse};
 use agenticos_security::CapabilityManager;
 use agenticos_terminal::TerminalManager;
 use agenticos_workspace::WorkspaceFs;

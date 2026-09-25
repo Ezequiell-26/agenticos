@@ -1530,14 +1530,14 @@ impl ProviderPlatform {
                         }
                     };
                     client
-                        .stream(routed_request, Some(usage_recorder.clone()))
+                        .stream(routed_request.clone(), Some(usage_recorder.clone()))
                         .await
                 }
                 ProviderProtocol::OpenAiResponses => {
                     stream_protocol_request(
                         provider,
                         credential.as_ref(),
-                        routed_request,
+                        routed_request.clone(),
                         StreamProtocol::OpenAiResponses,
                         Some(usage_recorder.clone()),
                     )
@@ -1547,7 +1547,7 @@ impl ProviderPlatform {
                     stream_protocol_request(
                         provider,
                         credential.as_ref(),
-                        routed_request,
+                        routed_request.clone(),
                         StreamProtocol::AnthropicMessages,
                         Some(usage_recorder.clone()),
                     )
@@ -1557,7 +1557,7 @@ impl ProviderPlatform {
                     stream_protocol_request(
                         provider,
                         credential.as_ref(),
-                        routed_request,
+                        routed_request.clone(),
                         StreamProtocol::Gemini,
                         Some(usage_recorder.clone()),
                     )
@@ -2225,7 +2225,7 @@ fn requested_token_budget(request: &ModelRequest) -> Option<u64> {
     let parameters = request.parameters.as_deref()?;
     let value: serde_json::Value = serde_json::from_str(parameters).ok()?;
 
-    [
+    let budget = [
         value.get("max_tokens"),
         value.get("max_output_tokens"),
         value.get("max_completion_tokens"),
@@ -2236,7 +2236,8 @@ fn requested_token_budget(request: &ModelRequest) -> Option<u64> {
     .into_iter()
     .flatten()
     .find_map(serde_json::Value::as_u64)
-    .filter(|tokens| *tokens > 0)
+    .filter(|tokens| *tokens > 0);
+    budget
 }
 
 fn normalize_chat_url(base_url: &str) -> String {
@@ -2652,7 +2653,7 @@ fn stream_sse_response(
         let mut usage_total_tokens = 0u64;
         let mut usage_recorded = false;
 
-        let mut emit_data = |event: Option<&str>, data: &str| -> Result<Option<StreamItem>, ContractError> {
+        let emit_data = |event: Option<&str>, data: &str| -> Result<Option<StreamItem>, ContractError> {
             match parse_stream_event(protocol, event, data)? {
                 Some(item) => Ok(Some(item)),
                 None => Ok(None),
@@ -3155,7 +3156,7 @@ async fn stream_protocol_request(
     request.parameters =
         normalize_agenticos_chat_parameters(native_protocol, request.parameters.as_deref())?;
 
-    let (url, mut payload, headers) = match protocol {
+    let (url, payload, headers) = match protocol {
         StreamProtocol::OpenAiResponses => {
             let url = normalize_endpoint(&provider.base_url, "/v1/responses", "/responses");
             let mut payload = serde_json::json!({

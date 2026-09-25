@@ -1108,6 +1108,12 @@ struct MemorySearchQuery {
 }
 
 #[derive(Debug, Deserialize)]
+struct MemoryBackfillRequest {
+    namespace: String,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CreateMemoryRequest {
     namespace: String,
     key: String,
@@ -5641,6 +5647,152 @@ async fn list_memory(
     }
 }
 
+async fn memory_embedding_coverage(
+    query: web::Query<MemorySearchQuery>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let namespace = query.namespace.trim();
+    if namespace.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "namespace must not be empty".to_string(),
+            code: "INVALID_MEMORY_NAMESPACE",
+        });
+    }
+
+    match state.persistent_memory.embedding_coverage(namespace).await {
+        Ok(coverage) => HttpResponse::Ok().json(coverage),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_COVERAGE_FAILED",
+        }),
+    }
+}
+
+async fn backfill_memory_embeddings(
+    request: web::Json<MemoryBackfillRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let namespace = request.namespace.trim();
+    if namespace.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "namespace must not be empty".to_string(),
+            code: "INVALID_MEMORY_NAMESPACE",
+        });
+    }
+    let Some(model) = configured_embedding_model() else {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "AGENTICOS_EMBEDDING_MODEL must be configured".to_string(),
+            code: "EMBEDDING_MODEL_NOT_CONFIGURED",
+        });
+    };
+    if !memory_embeddings_enabled() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "memory embeddings are disabled".to_string(),
+            code: "MEMORY_EMBEDDINGS_DISABLED",
+        });
+    }
+
+    let limit = request.limit.unwrap_or(32).clamp(1, 128);
+    let records = match state
+        .persistent_memory
+        .records_missing_embeddings(namespace, limit)
+        .await
+    {
+        Ok(records) => records,
+        Err(error) => {
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MEMORY_BACKFILL_QUERY_FAILED",
+            });
+        }
+    };
+
+    if records.is_empty() {
+        let coverage = state.persistent_memory.embedding_coverage(namespace).await;
+        return match coverage {
+            Ok(coverage) => HttpResponse::Ok().json(serde_json::json!({
+                "namespace": namespace,
+                "requested": 0,
+                "embedded": 0,
+                "failed": 0,
+                "coverage": coverage,
+            })),
+            Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MEMORY_COVERAGE_FAILED",
+            }),
+        };
+    }
+
+    let inputs = records
+        .iter()
+        .map(|record| format!("{}: {}", record.key, record.value))
+        .collect::<Vec<_>>();
+
+    let response = match state
+        .provider
+        .embed(EmbeddingRequest {
+            request_id: format!("memory-backfill-{}", uuid::Uuid::new_v4()),
+            model,
+            inputs,
+        })
+        .await
+    {
+        Ok(response) => response,
+        Err(error) => {
+            return HttpResponse::BadGateway().json(ErrorResponse {
+                error: error.to_string(),
+                code: "MEMORY_BACKFILL_EMBEDDING_FAILED",
+            });
+        }
+    };
+
+    if response.embeddings.len() != records.len() {
+        return HttpResponse::BadGateway().json(ErrorResponse {
+            error: format!(
+                "embedding provider returned {} vectors for {} records",
+                response.embeddings.len(),
+                records.len()
+            ),
+            code: "MEMORY_BACKFILL_VECTOR_COUNT_MISMATCH",
+        });
+    }
+
+    let mut embedded = 0_usize;
+    let mut failed = 0_usize;
+    for (record, embedding) in records.iter().zip(response.embeddings.iter()) {
+        match state
+            .persistent_memory
+            .set_embedding(&record.memory_id, embedding)
+            .await
+        {
+            Ok(()) => embedded += 1,
+            Err(error) => {
+                failed += 1;
+                tracing::warn!(
+                    memory_id = %record.memory_id,
+                    %error,
+                    "memory embedding backfill item failed"
+                );
+            }
+        }
+    }
+
+    match state.persistent_memory.embedding_coverage(namespace).await {
+        Ok(coverage) => HttpResponse::Ok().json(serde_json::json!({
+            "namespace": namespace,
+            "requested": records.len(),
+            "embedded": embedded,
+            "failed": failed,
+            "coverage": coverage,
+        })),
+        Err(error) => HttpResponse::InternalServerError().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_COVERAGE_FAILED",
+        }),
+    }
+}
+
 async fn upsert_memory(
     request: web::Json<CreateMemoryRequest>,
     state: web::Data<RuntimeState>,
@@ -7397,51 +7549,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/memory", web::get().to(list_memory))
             .route("/api/memory", web::post().to(upsert_memory))
             .route(
-                "/api/memory/{namespace}/{key}",
-                web::delete().to(delete_memory),
+                "/api/memory/coverage",
+                web::get().to(memory_embedding_coverage),
             )
-            .route("/api/memory/purge", web::post().to(purge_memory))
-            .route("/api/capabilities", web::get().to(list_capabilities))
-            .route("/api/capabilities", web::post().to(issue_capability))
             .route(
-                "/api/capabilities/{grant_id}",
-                web::delete().to(revoke_capability),
+                "/api/memory/backfill",
+                web::post().to(backfill_memory_embeddings),
             )
-            .route("/api/tools/execute", web::post().to(execute_tool))
-            .route("/api/sandbox/status", web::get().to(sandbox_status))
-    })
-    .bind((host, port))?
-    .run()
-    .await
-}
-
-fn unix_time() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
-
-fn runtime_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(default)
-        .clamp(min, max)
-}
-
-fn runtime_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(default)
-        .clamp(min, max)
-}
-
-fn agent_execution_concurrency_limit() -> usize {
-    let cores = std::thread::available_parallelism()
-        .map(|value| value.get())
-        .unwrap_or(4);
-    let default_limit = cores.saturating_mul(2).clamp(4, 32);
-    runtime_env_usize("AGENTICOS_MAX_AGENT_CONCURRENCY", default_limit, 2, 64)
-}

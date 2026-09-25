@@ -26,7 +26,7 @@
     "dependencies:check": "node scripts/verify-cargo-dependencies.mjs",
     "provider:coverage": "node scripts/verify-provider-integration-coverage.mjs",
     "frontend:runtime-contract": "node scripts/verify-frontend-runtime-contract.mjs",
-    "e2e:desktop": "npx --yes playwright@latest test scripts/e2e/runtime-provider.spec.mjs"
+    "e2e:desktop": "npm --prefix scripts/e2e exec -- playwright test runtime-provider.spec.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"

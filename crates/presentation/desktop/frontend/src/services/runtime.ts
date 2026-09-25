@@ -242,7 +242,7 @@ function parseRuntimeSseEvent(block: string): RuntimeEvent | null {
   try {
     const data = JSON.parse(raw) as RuntimeApiRecord
     return {
-      event_type: eventType,
+      event_type: readString(data, 'event_type') ?? eventType,
       entry_id: readString(data, 'entry_id'),
       event_data: readString(data, 'event_data') ?? '',
       event_schema_version: readNumber(data, 'event_schema_version') ?? 0,

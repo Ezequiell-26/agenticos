@@ -696,7 +696,7 @@ impl KernelRuntime {
     pub fn new(
         event_store: Arc<dyn EventStore>,
         snapshot_store: Arc<dyn SnapshotStore>,
-        logger: Arc<RwLock<dyn Logger>>,
+        logger: Arc<dyn Logger>,
         config: Arc<RwLock<dyn ConfigLayer>>,
         capability_issuer: Arc<dyn CapabilityIssuer>,
         capability_registry: Arc<agenticos_brain::CapabilityRegistry>,

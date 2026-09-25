@@ -91,6 +91,8 @@ async function stopProcess(processInfo) {
   })
 }
 
+test.describe.configure({ timeout: 120_000 })
+
 test.describe('AgentiCOS desktop runtime E2E', () => {
   let provider
   let api

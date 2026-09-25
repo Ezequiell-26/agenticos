@@ -27,8 +27,8 @@ use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_context::optimize_tool_output;
 use agenticos_contracts::{
-    AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, ModelProvider,
-    RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    AgentTool, CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest,
+    ModelProvider, RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
 };
 use agenticos_evaluation::{EvaluationCase, EvaluationRegistry};
 use agenticos_execution::SecureToolService;
@@ -1624,6 +1624,13 @@ struct DirectModelRequest {
     model: String,
     input: String,
     parameters: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EmbeddingHttpRequest {
+    request_id: Option<String>,
+    model: String,
+    inputs: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4684,6 +4691,62 @@ async fn direct_model_execute(
             HttpResponse::BadGateway().json(ErrorResponse {
                 error: error.to_string(),
                 code: "MODEL_EXECUTION_FAILED",
+            })
+        }
+    }
+}
+
+async fn embed_models(
+    request: web::Json<EmbeddingHttpRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let model = request.model.trim();
+    if model.is_empty() || model.len() > 256 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "embedding model is required and must be <= 256 characters".to_string(),
+            code: "INVALID_EMBEDDING_MODEL",
+        });
+    }
+    if request.inputs.is_empty() || request.inputs.len() > 128 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "embedding inputs must contain 1..=128 items".to_string(),
+            code: "INVALID_EMBEDDING_INPUTS",
+        });
+    }
+    if request.inputs.iter().any(|input| input.len() > 256_000) {
+        return HttpResponse::PayloadTooLarge().json(ErrorResponse {
+            error: "embedding input exceeds the supported limit".to_string(),
+            code: "EMBEDDING_INPUT_TOO_LARGE",
+        });
+    }
+
+    let request_id = request
+        .request_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    match state
+        .provider
+        .embed(EmbeddingRequest {
+            request_id,
+            model: model.to_string(),
+            inputs: request.inputs.clone(),
+        })
+        .await
+    {
+        Ok(response) => {
+            state.metrics.record_http(false);
+            HttpResponse::Ok().json(response)
+        }
+        Err(error) => {
+            state.metrics.record_provider(true);
+            state.metrics.record_http(true);
+            HttpResponse::BadGateway().json(ErrorResponse {
+                error: error.to_string(),
+                code: "EMBEDDING_EXECUTION_FAILED",
             })
         }
     }
@@ -7785,6 +7848,7 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/agent/chat", web::post().to(agent_chat))
             .route("/api/models/execute", web::post().to(direct_model_execute))
             .route("/api/models/stream", web::post().to(stream_model_execute))
+            .route("/api/models/embeddings", web::post().to(embed_models))
             .route(
                 "/api/conversations/{session_id}/history",
                 web::get().to(conversation_history),

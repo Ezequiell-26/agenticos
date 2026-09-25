@@ -1288,6 +1288,10 @@ impl ProviderPlatform {
                 continue;
             }
 
+            let routed_request = ModelRequest {
+                model: effective_model,
+                ..request.clone()
+            };
             let required_capabilities = required_provider_capabilities(&routed_request);
             if !provider_supports_required_capabilities(&provider, &required_capabilities) {
                 continue;
@@ -1305,16 +1309,19 @@ impl ProviderPlatform {
                 continue;
             }
 
-            let routed_request = ModelRequest {
-                model: effective_model,
-                ..request.clone()
-            };
             let protocol = detect_protocol(&provider);
-
-            if let Err(error) = self.quotas.consume_request(&provider.provider_id).await {
-                last_error = Some(error);
-                continue;
-            }
+            let token_budget = requested_token_budget(&routed_request);
+            let token_reservation = match self
+                .quotas
+                .reserve_request(&provider.provider_id, token_budget)
+                .await
+            {
+                Ok(reservation) => reservation,
+                Err(error) => {
+                    last_error = Some(error);
+                    continue;
+                }
+            };
 
             let result = match protocol {
                 ProviderProtocol::OpenAiChat => {
@@ -1363,6 +1370,25 @@ impl ProviderPlatform {
 
             match result {
                 Ok(stream) => {
+                    if let Some(ledger) = &self.cost_ledger {
+                        tracing::debug!(
+                            provider = %provider.provider_id,
+                            request_id = %routed_request.request_id,
+                            "streaming usage will be finalized when provider usage events are available"
+                        );
+                        let _ = ledger;
+                    }
+                    if let Err(error) = self
+                        .quotas
+                        .release_token_reservation(&provider.provider_id, token_reservation)
+                        .await
+                    {
+                        tracing::warn!(
+                            provider = %provider.provider_id,
+                            %error,
+                            "stream opened without usage metadata; released token reservation"
+                        );
+                    }
                     let _ = self
                         .update_health(
                             &provider.provider_id,
@@ -1373,6 +1399,17 @@ impl ProviderPlatform {
                     return Ok(stream);
                 }
                 Err(error) => {
+                    if let Err(release_error) = self
+                        .quotas
+                        .release_token_reservation(&provider.provider_id, token_reservation)
+                        .await
+                    {
+                        tracing::warn!(
+                            provider = %provider.provider_id,
+                            %release_error,
+                            "failed to release streaming token reservation"
+                        );
+                    }
                     last_error = Some(error.clone());
                     let _ = self
                         .update_health(

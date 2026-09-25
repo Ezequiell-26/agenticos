@@ -39,8 +39,8 @@ console.log(
 
 function normalizeRoute(path) {
   return path
-    .replace(/\\$\\{[^}]+\\}/g, '*')
-    .replace(/\\{[^}]+\\}/g, '*')
+    .replace(/\$\{[^}]+\}/g, '*')
+    .replace(/\{[^}]+\}/g, '*')
     .replace(/\\/$/, '')
     .replace(/\\*/g, '*')
     .replace(/\\/{2,}/g, '/')

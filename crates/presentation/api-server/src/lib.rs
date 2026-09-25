@@ -857,6 +857,8 @@ impl RuntimeState {
         let agent_execution_concurrency =
             Arc::new(Semaphore::new(agent_execution_concurrency_limit()));
 
+        let metrics = Arc::new(RuntimeMetrics::new());
+
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_policy = Arc::new(BasicPolicyEngine::with_capabilities(
             tool_registry.clone(),
@@ -940,7 +942,7 @@ impl RuntimeState {
                         browser: browser.clone(),
                         capabilities: capabilities.clone(),
                         audit: audit.clone(),
-                        metrics: Arc::new(RuntimeMetrics::new()),
+                        metrics: metrics.clone(),
                         operation: tool_id,
                     }),
                 )
@@ -1079,7 +1081,7 @@ impl RuntimeState {
                 .await
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
             ),
-            metrics: Arc::new(RuntimeMetrics::new()),
+            metrics,
             evaluation: Arc::new(
                 EvaluationRegistry::open(&database_url)
                     .await

@@ -117,6 +117,24 @@ mod tests {
         .await
         .unwrap();
 
+        sqlx::query(
+            "INSERT INTO scheduler_jobs (
+                job_id, run_id, task, dependencies, priority, max_attempts, state, attempts, last_error
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind("legacy-job")
+        .bind("legacy-run")
+        .bind("legacy task")
+        .bind("[]")
+        .bind(1_i64)
+        .bind(3_i64)
+        .bind("Ready")
+        .bind(0_i64)
+        .bind(Option::<String>::None)
+        .execute(&pool)
+        .await
+        .unwrap();
+
         MIGRATOR.run(&pool).await.unwrap();
         ensure_legacy_columns(&pool).await.unwrap();
         MIGRATOR.run(&pool).await.unwrap();
@@ -138,6 +156,20 @@ mod tests {
             .unwrap();
             assert_eq!(exists.as_deref(), Some(column));
         }
+
+        let defaults: (String, String, i64, i64, i64) = sqlx::query_as(
+            "SELECT job_type, metadata, lease_token, lease_expires_at, next_attempt_at
+             FROM scheduler_jobs WHERE job_id = ?",
+        )
+        .bind("legacy-job")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(defaults.0, "agent");
+        assert_eq!(defaults.1, "{}");
+        assert_eq!(defaults.2, 0);
+        assert_eq!(defaults.3, 0);
+        assert_eq!(defaults.4, 0);
 
         let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
             .fetch_one(&pool)

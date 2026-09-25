@@ -77,19 +77,7 @@ impl CapabilityManager {
                 ContractError::ParseError(format!("security database connection failed: {error}"))
             })?;
 
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS capability_grants (grant_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| ContractError::ParseError(format!("capability schema initialization failed: {error}")))?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS approval_requests (approval_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| ContractError::ParseError(format!("approval schema initialization failed: {error}")))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| ContractError::ParseError(format!("sqlite migrations failed: {error}")))?;
 
         let grant_rows = sqlx::query_as::<_, (String, String)>(
             "SELECT grant_id, payload FROM capability_grants",

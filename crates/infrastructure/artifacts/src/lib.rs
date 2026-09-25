@@ -82,24 +82,7 @@ impl ArtifactStore {
             .connect(database_url)
             .await
             .map_err(|error| format!("artifact database connection failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS artifacts (
-                artifact_id TEXT PRIMARY KEY,
-                run_id TEXT,
-                kind TEXT NOT NULL,
-                mime_type TEXT NOT NULL,
-                size_bytes INTEGER NOT NULL,
-                checksum TEXT NOT NULL,
-                locator TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                expires_at INTEGER,
-                trusted INTEGER NOT NULL,
-                metadata TEXT NOT NULL
-            )",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| format!("artifact schema initialization failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         Ok(Self {
             pool: Arc::new(pool),

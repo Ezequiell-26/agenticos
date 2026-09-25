@@ -111,33 +111,7 @@ impl TerminalManager {
             .await
             .map_err(|error| format!("terminal database connection failed: {error}"))?;
 
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS terminal_sessions (
-                terminal_id TEXT PRIMARY KEY,
-                command TEXT NOT NULL,
-                cwd TEXT NOT NULL,
-                status TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                exit_code INTEGER
-            )",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| format!("terminal session schema initialization failed: {error}"))?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS terminal_output (
-                event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                terminal_id TEXT NOT NULL,
-                stream TEXT NOT NULL,
-                data TEXT NOT NULL,
-                created_at INTEGER NOT NULL
-            )",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| format!("terminal output schema initialization failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         sqlx::query(
             "UPDATE terminal_sessions

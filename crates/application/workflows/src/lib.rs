@@ -83,32 +83,7 @@ impl WorkflowEngine {
             .connect(database_url)
             .await
             .map_err(|error| format!("workflow database connection failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS workflow_definitions (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("workflow definition schema failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS workflow_states (workflow_id TEXT PRIMARY KEY, payload TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("workflow state schema failed: {error}"))?;
-
-        let state_columns =
-            sqlx::query_as::<_, (String,)>("SELECT name FROM pragma_table_info('workflow_states')")
-                .fetch_all(&db)
-                .await
-                .map_err(|error| format!("workflow state schema inspection failed: {error}"))?;
-        if !state_columns.iter().any(|(name,)| name == "version") {
-            sqlx::query(
-                "ALTER TABLE workflow_states ADD COLUMN version INTEGER NOT NULL DEFAULT 0",
-            )
-            .execute(&db)
-            .await
-            .map_err(|error| format!("workflow state version migration failed: {error}"))?;
-        }
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let definitions = sqlx::query_as::<_, (String, String)>(
             "SELECT workflow_id, payload FROM workflow_definitions",

@@ -95,18 +95,7 @@ impl SubagentManager {
         let db = SqlitePool::connect(database_url)
             .await
             .map_err(|error| format!("agent database connection failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS agent_definitions (agent_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("agent definition schema failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS agent_children (child_run_id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("agent child schema failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate(database_url).await.map_err(|error| format!("sqlite migrations failed: {error}"))?;
 
         let defs = sqlx::query_as::<_, (String, String)>(
             "SELECT agent_id, payload FROM agent_definitions",

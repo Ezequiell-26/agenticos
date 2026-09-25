@@ -47,6 +47,25 @@ fn credential(provider_id: &str, id: &str) -> Credential {
     }
 }
 
+fn accept_with_deadline(
+    listener: &TcpListener,
+    deadline: std::time::Instant,
+) -> Option<std::net::TcpStream> {
+    listener.set_nonblocking(true).ok()?;
+    loop {
+        match listener.accept() {
+            Ok((stream, _)) => return Some(stream),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if std::time::Instant::now() >= deadline {
+                    return None;
+                }
+                thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Err(_) => return None,
+        }
+    }
+}
+
 fn spawn_http_response_server_with_status(
     status_line: &'static str,
     response_body: &'static str,
@@ -55,20 +74,25 @@ fn spawn_http_response_server_with_status(
     let address = listener.local_addr().expect("read local address");
 
     let handle = thread::spawn(move || {
-        if let Ok((mut stream, _)) = listener.accept() {
-            let mut request = [0_u8; 4096];
-            let _ = stream.read(&mut request);
+        let Some(mut stream) =
+            accept_with_deadline(&listener, std::time::Instant::now() + std::time::Duration::from_secs(10))
+        else {
+            return;
+        };
+        let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+        let mut request = [0_u8; 4096];
+        let _ = stream.read(&mut request);
 
-            let response = format!(
-                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                response_body.len(),
-                response_body
-            );
-            stream
-                .write_all(response.as_bytes())
-                .expect("write test HTTP response");
-            stream.flush().expect("flush test HTTP response");
-        }
+        let response = format!(
+            "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("write test HTTP response");
+        stream.flush().expect("flush test HTTP response");
     });
 
     (format!("http://{}", address), handle)
@@ -87,31 +111,31 @@ fn spawn_authenticated_models_server(
         .expect("read auth model server address");
 
     let handle = thread::spawn(move || {
-        if let Ok((mut stream, _)) = listener.accept() {
-            let mut request = [0_u8; 8192];
-            let read = stream.read(&mut request).expect("read model request");
-            let request = String::from_utf8_lossy(&request[..read]);
-            assert!(
-                request.lines().any(|line| line.trim() == expected_auth),
-                "expected auth header was not sent: {request}"
-            );
+        let Some(mut stream) =
+            accept_with_deadline(&listener, std::time::Instant::now() + std::time::Duration::from_secs(10))
+        else {
+            return;
+        };
+        let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+        let mut request = [0_u8; 8192];
+        let read = stream.read(&mut request).expect("read model request");
+        let request = String::from_utf8_lossy(&request[..read]);
+        assert!(
+            request.lines().any(|line| line.trim() == expected_auth),
+            "expected auth header was not sent: {request}"
+        );
 
-            let body = r#"{"data":[{"id":"discovered-model"}]}"#;
-            let response = format!(
-                "HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: {}
-Connection: close
-
-{}",
-                body.len(),
-                body
-            );
-            stream
-                .write_all(response.as_bytes())
-                .expect("write model response");
-            stream.flush().expect("flush model response");
-        }
+        let body = r#"{"data":[{"id":"discovered-model"}]}"#;
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("write model response");
+        stream.flush().expect("flush model response");
     });
 
     (format!("http://{}", address), handle)
@@ -125,9 +149,13 @@ fn spawn_http_response_sequence_server(
 
     let handle = thread::spawn(move || {
         for (status_line, response_body) in responses {
-            let Ok((mut stream, _)) = listener.accept() else {
+            let Some(mut stream) =
+                accept_with_deadline(&listener, std::time::Instant::now() + std::time::Duration::from_secs(10))
+            else {
                 return;
             };
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
             let mut request = [0_u8; 4096];
             let _ = stream.read(&mut request);
 

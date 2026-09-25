@@ -158,7 +158,10 @@ mod tests {
 
     #[async_trait::async_trait]
     impl agenticos_contracts::Sandbox for InMemorySandbox {
-        async fn execute(&self, _request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
+        async fn execute(
+            &self,
+            _request: SandboxRequest,
+        ) -> Result<SandboxResponse, ContractError> {
             Ok(SandboxResponse {
                 status: SandboxStatus::Success,
                 output: "test output".to_string(),

@@ -52,8 +52,8 @@ use agenticos_security::{ApprovalRequest, CapabilityManager};
 use agenticos_source_forge::GitHubSourceClient;
 use agenticos_terminal::TerminalManager;
 use agenticos_tools::{
-    BasicPolicyEngine, GitWorkspaceTool, SecureCommandTool, TerminalTool, ToolRegistry, ToolRuntime,
-    WorkspaceTool,
+    BasicPolicyEngine, GitWorkspaceTool, SecureCommandTool, TerminalTool, ToolRegistry,
+    ToolRuntime, WorkspaceTool,
 };
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;

@@ -17,8 +17,6 @@ use tokio::sync::RwLock;
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-execution";
 
-pub mod native_tools;
-pub use native_tools::{GitWorkspaceTool, SecureCommandTool, TerminalTool, WorkspaceTool};
 
 /// Basic command handler for write operations.
 #[derive(Debug)]

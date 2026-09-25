@@ -1286,6 +1286,16 @@ struct SourceFileQuery {
 }
 
 #[derive(Debug, Deserialize)]
+struct WriteSourceFileRequest {
+    grant_id: String,
+    path: String,
+    content: String,
+    reference: Option<String>,
+    message: String,
+    expected_sha: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct A2aSendMessageParams {
     message: A2aMessage,
 }
@@ -2864,6 +2874,89 @@ async fn fetch_github_source_file(
             error: error.to_string(),
             code: "SOURCE_FILE_FETCH_FAILED",
         }),
+    }
+}
+
+async fn write_github_source_file(
+    path: web::Path<(String, String)>,
+    request: web::Json<WriteSourceFileRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let (owner, repo) = path.into_inner();
+    let repo_id = format!("{owner}/{repo}");
+    let grant_id = request.grant_id.trim();
+    let file_path = request.path.trim();
+    let message = request.message.trim();
+
+    if grant_id.is_empty() || file_path.is_empty() || message.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "grant_id, path and message are required".to_string(),
+            code: "SOURCE_WRITE_REQUEST_INVALID",
+        });
+    }
+    if request.content.len() > 16 * 1024 * 1024 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "source content exceeds the supported size limit".to_string(),
+            code: "SOURCE_WRITE_TOO_LARGE",
+        });
+    }
+
+    let resource = format!("github/{repo_id}/*");
+    match state
+        .capabilities
+        .authorize(
+            grant_id,
+            CapabilityType::Write,
+            &resource,
+            "source.github.write",
+        )
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: "source.github.write capability denied".to_string(),
+                code: "SOURCE_WRITE_CAPABILITY_REQUIRED",
+            });
+        }
+        Err(error) => {
+            return HttpResponse::Forbidden().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SOURCE_WRITE_CAPABILITY_CHECK_FAILED",
+            });
+        }
+    }
+
+    match state
+        .source_forge
+        .write_file(
+            &repo_id,
+            file_path,
+            &request.content,
+            request.reference.as_deref(),
+            message,
+            request.expected_sha.as_deref(),
+        )
+        .await
+    {
+        Ok(result) => {
+            state.metrics.record_http(false);
+            HttpResponse::Ok().json(result)
+        }
+        Err(agenticos_source_forge::SourceForgeError::Conflict) => {
+            state.metrics.record_http(true);
+            HttpResponse::Conflict().json(ErrorResponse {
+                error: "GitHub file changed since the supplied expected SHA".to_string(),
+                code: "SOURCE_WRITE_CONFLICT",
+            })
+        }
+        Err(error) => {
+            state.metrics.record_http(true);
+            HttpResponse::BadRequest().json(ErrorResponse {
+                error: error.to_string(),
+                code: "SOURCE_WRITE_FAILED",
+            })
+        }
     }
 }
 
@@ -6355,6 +6448,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route(
                 "/api/source/github/{owner}/{repo}/file",
                 web::get().to(fetch_github_source_file),
+            )
+            .route(
+                "/api/source/github/{owner}/{repo}/file",
+                web::post().to(write_github_source_file),
             )
             .route(
                 "/api/evaluation/cases",

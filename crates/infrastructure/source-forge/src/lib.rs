@@ -725,17 +725,15 @@ impl GitHubSourceClient {
                 "invalid expected file SHA".to_string(),
             ));
         }
-
-        let mut url = format!("{}/repos/{repo_id}/contents/{path}", self.api_base);
         if let Some(reference) = reference.map(str::trim).filter(|value| !value.is_empty()) {
             if reference.len() > 256 || reference.contains(['\r', '\n']) {
                 return Err(SourceForgeError::InvalidSource(
                     "invalid Git reference".to_string(),
                 ));
             }
-            url.push_str(&format!("?ref={}", urlencoding::encode(reference)));
         }
 
+        let url = format!("{}/repos/{repo_id}/contents/{path}", self.api_base);
         let mut body = serde_json::json!({
             "message": message,
             "sha": expected_sha,

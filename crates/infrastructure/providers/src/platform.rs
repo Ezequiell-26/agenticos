@@ -1110,16 +1110,16 @@ impl ProviderPlatform {
 
         let mut last_error = None;
         for provider in ordered {
-            let effective_model =
-                if request.model == "default" || request.model == "default-model" {
-                    provider
-                        .models
-                        .first()
-                        .cloned()
-                        .unwrap_or_else(|| request.model.clone())
-                } else {
-                    request.model.clone()
-                };
+            let effective_model = if request.model == "default" || request.model == "default-model"
+            {
+                provider
+                    .models
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| request.model.clone())
+            } else {
+                request.model.clone()
+            };
 
             if !provider.models.is_empty()
                 && !provider

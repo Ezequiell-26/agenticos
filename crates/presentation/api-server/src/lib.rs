@@ -1200,6 +1200,53 @@ struct ChatResponse {
     run_id: String,
 }
 
+fn provider_id_from_metadata(metadata: Option<&str>) -> Option<&str> {
+    metadata?
+        .split(';')
+        .find_map(|part| part.trim().strip_prefix("provider=").map(str::trim))
+        .filter(|value| !value.is_empty())
+}
+
+async fn record_model_usage(
+    state: &RuntimeState,
+    request_id: &str,
+    provider_id: Option<&str>,
+    model_id: &str,
+    tokens_used: Option<u64>,
+) {
+    let Some(tokens) = tokens_used else {
+        return;
+    };
+    let Some(provider_id) = provider_id else {
+        tracing::debug!(
+            request_id = %request_id,
+            model = %model_id,
+            "model usage returned without provider metadata"
+        );
+        return;
+    };
+
+    if let Err(error) = state
+        .cost_ledger
+        .record(
+            request_id,
+            provider_id,
+            model_id,
+            tokens,
+            unix_time(),
+        )
+        .await
+    {
+        tracing::warn!(
+            request_id = %request_id,
+            provider = %provider_id,
+            model = %model_id,
+            %error,
+            "failed to persist model usage"
+        );
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
     error: String,
@@ -3538,6 +3585,14 @@ async fn direct_model_execute(
         .await
     {
         Ok(response) => {
+            record_model_usage(
+                &state,
+                &response.request_id,
+                provider_id_from_metadata(response.metadata.as_deref()),
+                model,
+                response.tokens_used,
+            )
+            .await;
             state.metrics.record_http(false);
             state
                 .metrics

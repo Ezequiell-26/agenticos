@@ -5515,15 +5515,179 @@ async fn create_workflow(
     }
 }
 
+async fn abort_workflow_startup(state: &RuntimeState, run_id: &RunId) {
+    let jobs = state
+        .scheduler
+        .list()
+        .await
+        .into_iter()
+        .filter(|job| job.spec.run_id == run_id.as_str())
+        .map(|job| job.spec.job_id)
+        .collect::<Vec<_>>();
+
+    for job_id in jobs {
+        let _ = state.scheduler.cancel(&job_id).await;
+    }
+
+    if let Ok(current) = state.kernel.get_or_recover_run(run_id).await {
+        let _ = state
+            .kernel
+            .transition_run(run_id, RunState::Failed, current.version)
+            .await;
+    }
+}
+
 async fn start_workflow(
     workflow_id: web::Path<String>,
-    _state: web::Data<RuntimeState>,
+    state: web::Data<RuntimeState>,
 ) -> impl Responder {
-    // TODO: Fix workflow state type mismatch between WorkflowState and WorkflowNodeState
-    HttpResponse::ServiceUnavailable().json(ErrorResponse {
-        error: "Workflow scheduling temporarily disabled due to type system errors".to_string(),
-        code: "WORKFLOW_DISABLED",
-    })
+    let workflow_id = workflow_id.into_inner();
+    let workflow = match state.workflows.get(&workflow_id).await {
+        Some(workflow) => workflow,
+        None => {
+            return HttpResponse::NotFound().json(ErrorResponse {
+                error: "workflow not found".to_string(),
+                code: "WORKFLOW_NOT_FOUND",
+            })
+        }
+    };
+
+    let mut workflow_state = match state.workflows.initial_state(&workflow_id).await {
+        Ok(value) => value,
+        Err(error) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_STATE_INITIALIZATION_FAILED",
+            })
+        }
+    };
+
+    if workflow_state
+        .nodes
+        .values()
+        .any(|node_state| *node_state != WorkflowNodeState::Pending)
+    {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error:
+                "workflow has already been started; reset/revision support is required before rerun"
+                    .to_string(),
+            code: "WORKFLOW_ALREADY_STARTED",
+        });
+    }
+
+    let existing_jobs = state
+        .scheduler
+        .list()
+        .await
+        .into_iter()
+        .filter(|job| {
+            job.spec
+                .metadata
+                .get("workflow_id")
+                .and_then(|value| value.as_str())
+                == Some(workflow_id.as_str())
+        })
+        .collect::<Vec<_>>();
+    if !existing_jobs.is_empty() {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: "workflow already has scheduled jobs".to_string(),
+            code: "WORKFLOW_ALREADY_SCHEDULED",
+        });
+    }
+
+    let run_id = match RunId::new(format!("workflow-run-{}", uuid::Uuid::new_v4())) {
+        Ok(run_id) => run_id,
+        Err(error) => {
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKFLOW_RUN_ID_INVALID",
+            })
+        }
+    };
+
+    let created_run = match state.kernel.create_run(run_id.clone()).await {
+        Ok(run) => run,
+        Err(error) => {
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "WORKFLOW_RUN_CREATE_FAILED",
+            })
+        }
+    };
+    if let Err(error) = state
+        .kernel
+        .transition_run(&run_id, RunState::Admitted, created_run.version)
+        .await
+    {
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "WORKFLOW_RUN_ADMISSION_FAILED",
+        });
+    }
+
+    for node in &workflow.nodes {
+        let dependencies = node
+            .depends_on
+            .iter()
+            .map(|dependency| workflow_job_id(&workflow_id, dependency))
+            .collect::<Vec<_>>();
+        let job_id = workflow_job_id(&workflow_id, &node.id);
+        if let Err(error) = state
+            .scheduler
+            .enqueue(JobSpec {
+                job_id: job_id.clone(),
+                run_id: run_id.as_str().to_string(),
+                task: node.task.clone(),
+                dependencies,
+                priority: 80,
+                max_attempts: 2,
+                job_type: "workflow_node".to_string(),
+                metadata: serde_json::json!({
+                    "workflow_id": workflow_id.clone(),
+                    "node_id": node.id.clone(),
+                    "run_id": run_id.as_str(),
+                }),
+            })
+            .await
+        {
+            abort_workflow_startup(&state, &run_id).await;
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_JOB_CREATE_FAILED",
+            });
+        }
+    }
+
+    for node in workflow
+        .nodes
+        .iter()
+        .filter(|node| node.depends_on.is_empty())
+    {
+        if let Err(error) = state
+            .workflows
+            .transition_node(
+                &workflow_id,
+                &mut workflow_state,
+                &node.id,
+                WorkflowNodeState::Ready,
+            )
+            .await
+        {
+            abort_workflow_startup(&state, &run_id).await;
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error,
+                code: "WORKFLOW_NODE_READY_FAILED",
+            });
+        }
+    }
+
+    HttpResponse::Accepted().json(serde_json::json!({
+        "workflow_id": workflow_id,
+        "run_id": run_id.as_str(),
+        "state": "Admitted",
+        "nodes": workflow.nodes,
+        "jobs": workflow.nodes.len(),
+    }))
 }
 
 async fn workflow_ready_nodes(
@@ -6441,8 +6605,36 @@ async fn worker_complete(
                             WorkflowNodeState::Succeeded,
                         )
                         .await;
-                    // TODO: Fix workflow state type mismatch
-                    // let _ = schedule_workflow_ready_nodes(&state, workflow_id, workflow_state).await;
+                    if let Err(error) = advance_workflow_ready_nodes(&state, workflow_id).await {
+                        tracing::warn!(
+                            workflow_id = %workflow_id,
+                            %error,
+                            "workflow downstream readiness advancement failed"
+                        );
+                    }
+                    if workflow_state
+                        .nodes
+                        .values()
+                        .all(|status| *status == WorkflowNodeState::Succeeded)
+                    {
+                        if let Ok(run_id) = RunId::new(job.spec.run_id.clone()) {
+                            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                                if matches!(
+                                    current.state,
+                                    RunState::Admitted | RunState::Running | RunState::Waiting
+                                ) {
+                                    let _ = state
+                                        .kernel
+                                        .transition_run(
+                                            &run_id,
+                                            RunState::Completed,
+                                            current.version,
+                                        )
+                                        .await;
+                                }
+                            }
+                        }
+                    }
                 } else if final_attempt {
                     let _ = state
                         .workflows
@@ -6539,15 +6731,25 @@ async fn worker_complete(
             RunState::Waiting
         };
 
-        if matches!(
-            run.state,
-            RunState::Running | RunState::Waiting | RunState::Admitted
-        ) && target != run.state
+        if target == RunState::Completed
+            && matches!(run.state, RunState::Waiting | RunState::Admitted)
         {
             let _ = state
                 .kernel
-                .transition_run(&run_id, target, run.version)
+                .transition_run(&run_id, RunState::Running, run.version)
                 .await;
+        }
+        if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            if matches!(
+                current.state,
+                RunState::Running | RunState::Waiting | RunState::Admitted
+            ) && target != current.state
+            {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, target, current.version)
+                    .await;
+            }
         }
     }
 
@@ -6596,16 +6798,39 @@ fn workflow_job_id(workflow_id: &str, node_id: &str) -> String {
     )
 }
 
-// TODO: Fix workflow state type mismatch - WorkflowEngine expects WorkflowState with nodes HashMap
-// async fn schedule_workflow_ready_nodes(
-//     state: &RuntimeState,
-//     workflow_id: &str,
-//     mut workflow_state: agenticos_workflows::WorkflowState,
-// ) -> Result<agenticos_workflows::WorkflowState, String> {
-//     // TODO: Fix workflow state type mismatch - WorkflowEngine expects WorkflowState with nodes HashMap
-//     // For now, return the state unchanged
-//     Ok(workflow_state)
-// }
+/// Promote pending workflow nodes whose dependencies have completed successfully.
+///
+/// Workflow node jobs are enqueued up front, so advancing the state is enough to
+/// make the next dependency-ready job executable without a second scheduler queue.
+async fn advance_workflow_ready_nodes(
+    state: &RuntimeState,
+    workflow_id: &str,
+) -> Result<usize, String> {
+    let mut workflow_state = state.workflows.initial_state(workflow_id).await?;
+    let ready_nodes = state
+        .workflows
+        .ready_nodes(workflow_id, &workflow_state)
+        .await?;
+    let mut promoted = 0;
+
+    for node in ready_nodes {
+        if workflow_state.nodes.get(&node.id) != Some(&WorkflowNodeState::Pending) {
+            continue;
+        }
+        state
+            .workflows
+            .transition_node(
+                workflow_id,
+                &mut workflow_state,
+                &node.id,
+                WorkflowNodeState::Ready,
+            )
+            .await?;
+        promoted += 1;
+    }
+
+    Ok(promoted)
+}
 
 async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_job: JobRecord) {
     let workflow_id = started_job
@@ -6653,6 +6878,33 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         }
     };
 
+    if workflow_state.nodes.get(&node_id) == Some(&WorkflowNodeState::Pending) {
+        if let Err(error) = advance_workflow_ready_nodes(&state, &workflow_id).await {
+            tracing::warn!(
+                workflow_id = %workflow_id,
+                node_id = %node_id,
+                %error,
+                "workflow node readiness advancement failed before execution"
+            );
+        }
+        workflow_state = match state.workflows.initial_state(&workflow_id).await {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = state
+                    .scheduler
+                    .complete_as(
+                        &started_job.spec.job_id,
+                        started_job.lease_owner.as_deref(),
+                        Some(started_job.lease_token),
+                        false,
+                        Some(error),
+                    )
+                    .await;
+                return;
+            }
+        };
+    }
+
     if matches!(
         workflow_state.nodes.get(&node_id),
         Some(WorkflowNodeState::Ready)
@@ -6688,7 +6940,6 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
-    // heartbeat.abort(); - TODO: re-enable when heartbeat is properly initialized
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
@@ -6722,9 +6973,15 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         Ok(())
     };
 
-    if node_transition.is_ok() && success {
-        // TODO: Fix workflow state type mismatch
-        // let _ = schedule_workflow_ready_nodes(&state, &workflow_id, mutable_state).await;
+    if let Err(error) = node_transition {
+        if !success || final_attempt {
+            tracing::warn!(
+                workflow_id = %workflow_id,
+                node_id = %node_id,
+                %error,
+                "workflow node state transition failed"
+            );
+        }
     }
 
     let run_id = started_job
@@ -6733,44 +6990,14 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .get("run_id")
         .and_then(|value| value.as_str())
         .and_then(|value| RunId::new(value.to_string()).ok());
-    if let Some(run_id) = run_id {
-        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
-            let final_attempt =
-                success || started_job.attempts >= started_job.spec.max_attempts.max(1);
-            if success && run.state == RunState::Admitted {
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Running, run.version)
-                    .await;
-            } else if !success && !final_attempt && run.state == RunState::Admitted {
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Running, run.version)
-                    .await;
-            }
-            if final_attempt {
-                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-                    let _ = state
-                        .kernel
-                        .transition_run(
-                            &run_id,
-                            if success {
-                                RunState::Completed
-                            } else {
-                                RunState::Failed
-                            },
-                            current.version,
-                        )
-                        .await;
-                }
-            } else if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-                if current.state == RunState::Running {
-                    let _ = state
-                        .kernel
-                        .transition_run(&run_id, RunState::Waiting, current.version)
-                        .await;
-                }
-            }
+
+    if success {
+        if let Err(error) = advance_workflow_ready_nodes(&state, &workflow_id).await {
+            tracing::warn!(
+                workflow_id = %workflow_id,
+                %error,
+                "workflow downstream readiness advancement failed"
+            );
         }
     }
 
@@ -6784,6 +7011,79 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
             result.err().map(|error| error.to_string()),
         )
         .await;
+
+    if let Some(run_id) = run_id {
+        if let Ok(run) = state.kernel.get_or_recover_run(&run_id).await {
+            let related_jobs = state
+                .scheduler
+                .list()
+                .await
+                .into_iter()
+                .filter(|candidate| candidate.spec.run_id == run_id.as_str())
+                .collect::<Vec<_>>();
+            let any_failed = related_jobs
+                .iter()
+                .any(|candidate| candidate.state == JobState::Failed);
+            let any_active = related_jobs.iter().any(|candidate| {
+                matches!(
+                    candidate.state,
+                    JobState::Pending | JobState::Ready | JobState::Running
+                )
+            });
+            let all_succeeded = !related_jobs.is_empty()
+                && related_jobs
+                    .iter()
+                    .all(|candidate| candidate.state == JobState::Succeeded);
+
+            let target = if any_failed {
+                RunState::Failed
+            } else if all_succeeded {
+                RunState::Completed
+            } else if any_active {
+                RunState::Waiting
+            } else {
+                RunState::Waiting
+            };
+
+            let mut current = run;
+            if current.state == RunState::Admitted && target != RunState::Admitted {
+                if let Err(error) = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Running, current.version)
+                    .await
+                {
+                    tracing::warn!(
+                        run_id = %run_id.as_str(),
+                        %error,
+                        "workflow run failed to enter running state"
+                    );
+                } else if let Ok(updated) = state.kernel.get_or_recover_run(&run_id).await {
+                    current = updated;
+                }
+            }
+
+            if current.state != target
+                && matches!(
+                    current.state,
+                    RunState::Running | RunState::Waiting | RunState::Admitted
+                )
+            {
+                if let Err(error) = state
+                    .kernel
+                    .transition_run(&run_id, target, current.version)
+                    .await
+                {
+                    tracing::warn!(
+                        run_id = %run_id.as_str(),
+                        ?target,
+                        %error,
+                        "workflow run state reconciliation failed"
+                    );
+                }
+            }
+        }
+    }
+
     state.metrics.record_scheduler_completion(success);
 }
 

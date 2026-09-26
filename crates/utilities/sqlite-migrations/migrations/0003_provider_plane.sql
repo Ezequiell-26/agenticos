@@ -1,6 +1,7 @@
 -- Provider plane schema.
 -- Provider configuration, credentials, fallback routing and runtime health state
 -- are owned by the canonical SQLite migration authority.
+-- This migration is additive and safe for existing provider data.
 
 CREATE TABLE IF NOT EXISTS providers (
     provider_id TEXT PRIMARY KEY,

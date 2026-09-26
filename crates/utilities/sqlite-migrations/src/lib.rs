@@ -171,10 +171,12 @@ mod tests {
         assert_eq!(defaults.3, 0);
         assert_eq!(defaults.4, 0);
 
-        let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-        assert_eq!(migration_count, 1);
+        let migration_versions: Vec<i64> = sqlx::query_scalar(
+            "SELECT version FROM _sqlx_migrations ORDER BY version",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(migration_versions, vec![1, 2, 3]);
     }
 }

@@ -185,7 +185,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
     }
     const startApi = async (verifyProvider = true) => {
-      api = startProcess(apiBinary, [], { env: apiEnv })
+      api = startProcess(apiBinary, [], apiEnv)
       await waitForHttp(`${apiUrl}/health`, api)
       if (verifyProvider) {
         const providerHealth = await fetch(

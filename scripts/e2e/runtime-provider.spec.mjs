@@ -189,6 +189,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     const apiEnv = {
       AGENTICOS_BIND_HOST: '127.0.0.1',
       AGENTICOS_BIND_PORT: String(apiPort),
+      AGENTICOS_PROVIDERS_JSON: undefined,
       AGENTICOS_PROVIDER_URL: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
       AGENTICOS_PROVIDER_NAME: 'e2e-provider',
       AGENTICOS_MODEL: 'e2e-model',

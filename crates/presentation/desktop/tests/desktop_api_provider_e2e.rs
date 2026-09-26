@@ -140,7 +140,7 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
 
     let database_url = format!(
         "sqlite://{}/agenticos.db?mode=rwc",
-        temp_root.display().replace('\\', "/")
+        temp_root.display().to_string().replace('\\', "/")
     );
     let artifact_root = temp_root.join("artifacts");
 

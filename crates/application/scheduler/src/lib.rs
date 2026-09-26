@@ -975,6 +975,70 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sqlite_recovery_reclaims_expired_running_lease() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-scheduler-lease-recovery-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let first = JobScheduler::open(&url).await.expect("open scheduler");
+        first
+            .enqueue(JobSpec {
+                job_id: "recover-lease".into(),
+                run_id: "recover-run".into(),
+                task: "recoverable work".into(),
+                dependencies: vec![],
+                priority: 1,
+                max_attempts: 3,
+                job_type: default_job_type(),
+                metadata: serde_json::json!({}),
+            })
+            .await
+            .expect("enqueue recovery job");
+
+        let claimed = first
+            .start_as("recover-lease", "worker-a".into(), 60)
+            .await
+            .expect("claim recovery job");
+        assert_eq!(claimed.state, JobState::Running);
+        drop(first);
+
+        let db = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(&url)
+            .await
+            .expect("open raw scheduler database");
+        sqlx::query(
+            "UPDATE scheduler_jobs
+             SET state = 'Running', lease_owner = 'worker-a', lease_token = ?, lease_expires_at = ?, next_attempt_at = 0
+             WHERE job_id = ?",
+        )
+        .bind(claimed.lease_token as i64)
+        .bind(unix_time().saturating_sub(1) as i64)
+        .bind("recover-lease")
+        .execute(&db)
+        .await
+        .expect("expire persisted lease");
+        drop(db);
+
+        let recovered = JobScheduler::open(&url).await.expect("reopen scheduler");
+        let record = recovered.get("recover-lease").await.expect("recover job");
+        assert_eq!(record.state, JobState::Ready);
+        assert_eq!(record.lease_owner, None);
+        assert_eq!(record.lease_expires_at, 0);
+
+        let reclaimed = recovered
+            .start_as("recover-lease", "worker-b".into(), 30)
+            .await
+            .expect("reclaim expired lease");
+        assert_eq!(reclaimed.lease_owner.as_deref(), Some("worker-b"));
+        assert_eq!(reclaimed.lease_token, claimed.lease_token + 1);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn cancelling_running_job_is_terminal() {
         let scheduler = JobScheduler::new();
         scheduler

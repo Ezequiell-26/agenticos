@@ -1352,15 +1352,18 @@ mod persistent_memory_tests {
             .unwrap();
 
         assert_eq!(store.purge_expired().await.unwrap(), 1);
-        assert!(store.get("project:purge", "expired").await.unwrap().is_none());
+        assert!(store
+            .get("project:purge", "expired")
+            .await
+            .unwrap()
+            .is_none());
 
-        let embedding_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM memory_embeddings WHERE memory_id = ?",
-        )
-        .bind(&record.memory_id)
-        .fetch_one(&*store.db)
-        .await
-        .unwrap();
+        let embedding_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM memory_embeddings WHERE memory_id = ?")
+                .bind(&record.memory_id)
+                .fetch_one(&*store.db)
+                .await
+                .unwrap();
         assert_eq!(embedding_count, 0);
 
         let _ = std::fs::remove_file(path);

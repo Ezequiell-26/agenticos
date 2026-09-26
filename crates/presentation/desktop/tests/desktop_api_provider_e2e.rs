@@ -3,9 +3,9 @@ use agenticos_desktop::{
     get_agent_status, get_backend_health, get_conversation_history_from_api, send_message,
     UserMessage,
 };
+use sqlx::sqlite::SqlitePoolOptions;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use sqlx::sqlite::SqlitePoolOptions;
 use tokio::net::TcpListener;
 
 async fn free_port() -> u16 {

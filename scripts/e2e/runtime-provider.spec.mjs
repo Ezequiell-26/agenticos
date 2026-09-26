@@ -474,6 +474,104 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     expect(finalWorkflowStateBody.nodes['step-a']).toBe('Succeeded')
     expect(finalWorkflowStateBody.nodes['step-b']).toBe('Succeeded')
   })
+  test('recovers workflow definition and state after API restart', async () => {
+    const workflow = await fetch(apiUrl + '/api/workflows', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        workflow: {
+          workflow_id: 'workflow-restart-e2e',
+          name: 'restart recovery',
+          nodes: [
+            { id: 'step-a', task: 'restart step A', depends_on: [] },
+            { id: 'step-b', task: 'restart step B', depends_on: ['step-a'] },
+          ],
+        },
+      }),
+    })
+    expect(workflow.status).toBe(201)
+
+    const started = await fetch(apiUrl + '/api/workflows/workflow-restart-e2e/start', {
+      method: 'POST',
+    })
+    expect(started.status).toBe(202)
+    const startedBody = await started.json()
+    expect(startedBody.run_id).toBeTruthy()
+
+    const initialState = await fetch(apiUrl + '/api/workflows/workflow-restart-e2e/state')
+    expect(initialState.status).toBe(200)
+    const initialStateBody = await initialState.json()
+    expect(initialStateBody.nodes['step-a']).toBe('Ready')
+    expect(initialStateBody.nodes['step-b']).toBe('Pending')
+
+    await stopProcess(api)
+    api = null
+    await startApi(false)
+
+    const recoveredState = await fetch(apiUrl + '/api/workflows/workflow-restart-e2e/state')
+    expect(recoveredState.status).toBe(200)
+    const recoveredStateBody = await recoveredState.json()
+    expect(recoveredStateBody.nodes['step-a']).toBe('Ready')
+    expect(recoveredStateBody.nodes['step-b']).toBe('Pending')
+
+    const recoveredReady = await fetch(apiUrl + '/api/workflows/workflow-restart-e2e/ready')
+    expect(recoveredReady.status).toBe(200)
+    const recoveredReadyBody = await recoveredReady.json()
+    expect(recoveredReadyBody.nodes.map((node) => node.id)).toEqual(['step-a'])
+
+    const claimA = await fetch(apiUrl + '/api/workers/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ worker_id: 'workflow-restart-worker-a', lease_seconds: 30 }),
+    })
+    expect(claimA.status).toBe(200)
+    const claimABody = await claimA.json()
+    expect(claimABody.job.spec.metadata.node_id).toBe('step-a')
+
+    const completeA = await fetch(
+      apiUrl + '/api/workers/jobs/' + claimABody.job.spec.job_id + '/complete',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          worker_id: 'workflow-restart-worker-a',
+          lease_token: claimABody.job.lease_token,
+          success: true,
+          output: 'restart step A complete',
+        }),
+      },
+    )
+    expect(completeA.status).toBe(200)
+
+    const claimB = await fetch(apiUrl + '/api/workers/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ worker_id: 'workflow-restart-worker-b', lease_seconds: 30 }),
+    })
+    expect(claimB.status).toBe(200)
+    const claimBBody = await claimB.json()
+    expect(claimBBody.job.spec.metadata.node_id).toBe('step-b')
+
+    const completeB = await fetch(
+      apiUrl + '/api/workers/jobs/' + claimBBody.job.spec.job_id + '/complete',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          worker_id: 'workflow-restart-worker-b',
+          lease_token: claimBBody.job.lease_token,
+          success: true,
+          output: 'restart step B complete',
+        }),
+      },
+    )
+    expect(completeB.status).toBe(200)
+
+    const recoveredRun = await fetch(apiUrl + '/api/runs/' + startedBody.run_id)
+    expect(recoveredRun.status).toBe(200)
+    const recoveredRunBody = await recoveredRun.json()
+    expect(recoveredRunBody.state).toBe('Completed')
+  })
   test('recovers an expired worker lease and fences the stale worker', async () => {
     const createRun = await fetch(`${apiUrl}/api/runs`, {
       method: 'POST',

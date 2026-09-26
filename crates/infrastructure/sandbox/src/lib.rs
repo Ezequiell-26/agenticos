@@ -596,6 +596,17 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_strict_profile_without_bwrap() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            isolation_runner: "process".to_string(),
+            isolation_profile: "strict".to_string(),
+            ..SandboxPolicy::default()
+        });
+        let result = sandbox.validate_policy();
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
+    }
+
+    #[tokio::test]
     async fn rejects_unknown_isolation_runner() {
         let sandbox = ProcessSandbox::new(SandboxPolicy {
             max_timeout_ms: 1_000,

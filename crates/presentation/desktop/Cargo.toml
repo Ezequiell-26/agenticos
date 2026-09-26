@@ -16,3 +16,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 reqwest = { workspace = true }
+
+[dev-dependencies]
+sqlx = { workspace = true }

@@ -96,6 +96,9 @@ jobs:
       - name: Compile workspace
         run: cargo check -p agenticos-brain -p agenticos-providers --all-targets
 
+      - name: Compile Tauri desktop crate
+        run: cargo check -p agenticos-desktop --all-targets
+
       - name: Test workspace
         run: cargo test -p agenticos-brain --lib
 

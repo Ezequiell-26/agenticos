@@ -10,7 +10,7 @@ pub(super) struct AuthenticatedOpenAiProvider {
 }
 
 impl AuthenticatedOpenAiProvider {
-    fn new(
+    pub(super) fn new(
         provider_id: String,
         base_url: String,
         api_key: Option<String>,
@@ -26,7 +26,7 @@ impl AuthenticatedOpenAiProvider {
 }
 
 impl AuthenticatedOpenAiProvider {
-    async fn list_models(&self) -> Result<Vec<String>, ContractError> {
+    pub(super) async fn list_models(&self) -> Result<Vec<String>, ContractError> {
         let mut request = self.client.get(self.models_url());
         if let Some(api_key) = &self.api_key {
             request = request.bearer_auth(api_key);

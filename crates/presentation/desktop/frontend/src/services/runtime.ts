@@ -570,7 +570,12 @@ export class AgenticosRuntime implements RuntimeServices {
   readonly workers = {
     claim: async (workerId: string, leaseSeconds?: number): Promise<RuntimeWorkerJob | null> => {
       const response = await this.transport.post<RuntimeApiRecord>('/api/workers/claim', { worker_id: workerId, ...(leaseSeconds ? { lease_seconds: leaseSeconds } : {}) })
-      return Object.keys(response ?? {}).length === 0 ? null : response as RuntimeWorkerJob
+      if (Object.keys(response ?? {}).length === 0) return null
+      const job = response.job
+      if (job && typeof job === 'object') {
+        return { ...job, worker_id: response.worker_id ?? workerId } as RuntimeWorkerJob
+      }
+      return response as RuntimeWorkerJob
     },
     heartbeat: async (jobId: string, request: { worker_id: string; lease_token: number; lease_seconds?: number }) =>
       this.transport.post<RuntimeWorkerJob>(`/api/workers/jobs/${encodeURIComponent(jobId)}/heartbeat`, request),

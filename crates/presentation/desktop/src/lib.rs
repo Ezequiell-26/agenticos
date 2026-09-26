@@ -50,8 +50,7 @@ fn api_base_url() -> String {
     format!("http://{host}:{port}")
 }
 
-/// Send a message to the agent via Tauri command.
-#[tauri::command]
+/// Send a message to the agent through the desktop runtime.
 pub async fn send_agent_message(
     message: String,
     session_id: Option<String>,
@@ -64,8 +63,7 @@ pub async fn send_agent_message(
     send_message(user_message, &api_url).await
 }
 
-/// Get conversation history for a session via Tauri command.
-#[tauri::command]
+/// Get conversation history for a session through the desktop runtime.
 pub async fn get_conversation_history(
     session_id: String,
 ) -> Result<Vec<ConversationEntry>, String> {
@@ -74,7 +72,6 @@ pub async fn get_conversation_history(
 }
 
 /// Get backend health status.
-#[tauri::command]
 pub async fn get_backend_health() -> Result<BackendHealth, String> {
     let api_url = api_base_url();
     let client = reqwest::Client::new();

@@ -3,6 +3,26 @@
 
 use tauri::Manager;
 
+#[tauri::command]
+async fn send_agent_message_command(
+    message: String,
+    session_id: Option<String>,
+) -> Result<agenticos_desktop::AgentResponse, String> {
+    agenticos_desktop::send_agent_message(message, session_id).await
+}
+
+#[tauri::command]
+async fn get_conversation_history_command(
+    session_id: String,
+) -> Result<Vec<agenticos_desktop::ConversationEntry>, String> {
+    agenticos_desktop::get_conversation_history(session_id).await
+}
+
+#[tauri::command]
+async fn get_backend_health_command() -> Result<agenticos_desktop::BackendHealth, String> {
+    agenticos_desktop::get_backend_health().await
+}
+
 fn configure_runtime_storage(app: &tauri::App) -> Result<(), String> {
     let app_data_dir = app
         .path()
@@ -33,9 +53,9 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
-            agenticos_desktop::send_agent_message,
-            agenticos_desktop::get_conversation_history,
-            agenticos_desktop::get_backend_health,
+            send_agent_message_command,
+            get_conversation_history_command,
+            get_backend_health_command,
         ])
         .setup(|app| {
             configure_runtime_storage(app).map_err(std::io::Error::other)?;

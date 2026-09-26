@@ -118,7 +118,10 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       if (request.method === 'GET' && request.url === '/v1/models') {
         const body = JSON.stringify({
           object: 'list',
-          data: [{ id: 'e2e-model', object: 'model', owned_by: 'agenticos-e2e' }],
+          data: [
+            { id: 'e2e-model', object: 'model', owned_by: 'agenticos-e2e' },
+            { id: 'e2e-embedding', object: 'model', owned_by: 'agenticos-e2e' },
+          ],
         })
         response.writeHead(200, {
           'content-type': 'application/json',

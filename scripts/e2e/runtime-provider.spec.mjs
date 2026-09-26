@@ -190,6 +190,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_BIND_HOST: '127.0.0.1',
       AGENTICOS_BIND_PORT: String(apiPort),
       AGENTICOS_PROVIDER_URL: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
+      AGENTICOS_EMBEDDING_PROVIDER: 'e2e-provider',
       AGENTICOS_PROVIDER_NAME: 'e2e-provider',
       AGENTICOS_MODEL: 'e2e-model',
       AGENTICOS_MEMORY_EMBEDDINGS: 'true',
@@ -197,7 +198,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_PROVIDERS_JSON: JSON.stringify([{
         provider_id: 'e2e-provider',
         name: 'E2E provider',
-        base_url: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
+        base_url: `http://127.0.0.1:${providerPort}`,
         models: ['e2e-model', 'e2e-embedding'],
         capabilities: ['chat', 'embeddings'],
         api_key: null,

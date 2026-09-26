@@ -208,9 +208,9 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
                 .await
                 .expect("desktop bridge should read persisted history");
             assert!(
-                history
-                    .iter()
-                    .any(|entry| entry.role == "user" && entry.content == "desktop API provider E2E"),
+                history.iter().any(
+                    |entry| entry.role == "user" && entry.content == "desktop API provider E2E"
+                ),
                 "user turn should be persisted"
             );
 

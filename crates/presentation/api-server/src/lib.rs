@@ -4363,7 +4363,13 @@ async fn agent_chat(
             }
             if let Err(error) = state
                 .kernel
-                .transition_run(&run_id, RunState::Completed, current.version)
+                .transition_run_with_lease(
+                    &run_id,
+                    RunState::Completed,
+                    current.version,
+                    &lease.owner_id,
+                    lease.fencing_token,
+                )
                 .await
             {
                 let _ = state
@@ -4425,7 +4431,13 @@ async fn agent_chat(
                 if !lease_lost {
                     let _ = state
                         .kernel
-                        .transition_run(&run_id, RunState::Failed, current.version)
+                        .transition_run_with_lease(
+                            &run_id,
+                            RunState::Failed,
+                            current.version,
+                            &lease.owner_id,
+                            lease.fencing_token,
+                        )
                         .await;
                 }
             }

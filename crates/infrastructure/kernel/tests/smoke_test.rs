@@ -761,7 +761,10 @@ fn test_feature_flag_types() {
 fn test_http_model_provider() {
     let rt = test_runtime();
     rt.block_on(async {
-        let provider = HttpModelProvider::new("http-model-provider".to_string(), "https://api.example.com".to_string());
+        let provider = HttpModelProvider::new(
+            "http-model-provider".to_string(),
+            "https://api.example.com".to_string(),
+        );
 
         assert_eq!(provider.provider_id(), "http-model-provider");
 

@@ -246,7 +246,10 @@ async fn handle_run_command(
             }
 
             // Create HTTP provider
-            let http_provider = HttpModelProvider::new("cli-demo".to_string(), "https://api.example.com".to_string());
+            let http_provider = HttpModelProvider::new(
+                "cli-demo".to_string(),
+                "https://api.example.com".to_string(),
+            );
 
             // Create model request
             let request = ModelRequest {

@@ -6783,7 +6783,6 @@ async fn advance_workflow_ready_nodes(
     Ok(promoted)
 }
 
-
 async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_job: JobRecord) {
     let workflow_id = started_job
         .spec
@@ -6830,6 +6829,33 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         }
     };
 
+    if workflow_state.nodes.get(&node_id) == Some(&WorkflowNodeState::Pending) {
+        if let Err(error) = advance_workflow_ready_nodes(&state, &workflow_id).await {
+            tracing::warn!(
+                workflow_id = %workflow_id,
+                node_id = %node_id,
+                %error,
+                "workflow node readiness advancement failed before execution"
+            );
+        }
+        workflow_state = match state.workflows.initial_state(&workflow_id).await {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = state
+                    .scheduler
+                    .complete_as(
+                        &started_job.spec.job_id,
+                        started_job.lease_owner.as_deref(),
+                        Some(started_job.lease_token),
+                        false,
+                        Some(error),
+                    )
+                    .await;
+                return;
+            }
+        };
+    }
+
     if matches!(
         workflow_state.nodes.get(&node_id),
         Some(WorkflowNodeState::Ready)
@@ -6865,7 +6891,6 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         .hydrate_relevant_memory(&agent, &started_job.spec.task)
         .await;
     let result = agent.execute_turn(&started_job.spec.task).await;
-    // heartbeat.abort(); - TODO: re-enable when heartbeat is properly initialized
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);

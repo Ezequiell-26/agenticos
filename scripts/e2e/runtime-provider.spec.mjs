@@ -249,7 +249,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       timeout: 30_000,
     })
   })
-})
+
   test('recovers an expired worker lease and fences the stale worker', async () => {
     const createJob = await fetch(`${apiUrl}/api/jobs`, {
       method: 'POST',
@@ -338,4 +338,4 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     const recoveredBody = await recoveredJob.json()
     expect(recoveredBody.state).toBe('Succeeded')
   })
-
+})

@@ -606,10 +606,10 @@ export class AgenticosRuntime implements RuntimeServices {
     upsert: async (record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>) => this.transport.post<RuntimeMemoryRecord>('/api/memory', record),
     coverage: async (namespace: string): Promise<RuntimeMemoryEmbeddingCoverage> => {
       const params = new URLSearchParams({ namespace })
-      return this.transport.get<RuntimeMemoryEmbeddingCoverage>(`/api/memory/embeddings/coverage?${params.toString()}`)
+      return this.transport.get<RuntimeMemoryEmbeddingCoverage>(`/api/memory/coverage?${params.toString()}`)
     },
     backfillEmbeddings: async (namespace: string, limit?: number): Promise<RuntimeApiRecord> =>
-      this.transport.post<RuntimeApiRecord>('/api/memory/embeddings/backfill', {
+      this.transport.post<RuntimeApiRecord>('/api/memory/backfill', {
         namespace,
         ...(limit !== undefined ? { limit } : {}),
       }),

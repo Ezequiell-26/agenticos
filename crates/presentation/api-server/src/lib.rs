@@ -6625,7 +6625,11 @@ async fn worker_complete(
                                 ) {
                                     let _ = state
                                         .kernel
-                                        .transition_run(&run_id, RunState::Completed, current.version)
+                                        .transition_run(
+                                            &run_id,
+                                            RunState::Completed,
+                                            current.version,
+                                        )
                                         .await;
                                 }
                             }

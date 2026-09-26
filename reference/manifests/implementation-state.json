@@ -21,6 +21,7 @@
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
     "last_update_commit": "pending",
     "next_actions": [
+      "verify worker restart recovery and lease fencing through fresh CI evidence",
       "expand runtime end-to-end tests for desktop, subagents, workflows, MCP and skills",
       "strengthen sandbox isolation profiles and resource enforcement",
       "complete evaluation/replay coverage and regression fixtures"
@@ -229,19 +230,7 @@
     {
       "id": "lease-recovery",
       "owner": "scheduler",
-      "status": "verified",
-      "verification_evidence": [
-        {
-          "kind": "github_actions",
-          "run_id": 0,
-          "run_number": 0,
-          "commit": "pending",
-          "workflow": "AgentiCOS CI",
-          "check": "verify-desktop-e2e",
-          "result": "pending",
-          "scope": "API worker claim -> lease expiry -> process restart -> second-worker reclaim -> stale lease heartbeat rejection -> completion"
-        }
-      ]
+      "status": "implemented-unverified"
     },
     {
       "id": "streaming-token-accounting",
@@ -322,6 +311,7 @@
     "ci_pending": false
   },
   "backlog": [
+    "durable worker restart recovery and end-to-end lease fencing tests",
     "strengthen sandbox isolation profiles",
     "evaluation and replay coverage",
     "runtime integration coverage for desktop, subagents, workflows, MCP and skills"

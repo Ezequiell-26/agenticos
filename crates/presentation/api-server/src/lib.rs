@@ -69,7 +69,7 @@ use agenticos_kernel::{
     ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
-use agenticos_memory::PersistentMemoryStore;
+use agenticos_memory::{PersistentMemoryStore, SemanticRetrievalCase};
 use agenticos_observability::{
     audit::{AuditEvent, AuditStore},
     cost::{CostLedger, TokenPricing},
@@ -1132,6 +1132,13 @@ struct MemorySearchQuery {
 #[derive(Debug, Deserialize)]
 struct MemoryBackfillRequest {
     namespace: String,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemorySemanticEvaluationRequest {
+    namespace: String,
+    cases: Vec<SemanticRetrievalCase>,
     limit: Option<usize>,
 }
 
@@ -5833,6 +5840,41 @@ async fn backfill_memory_embeddings(
     }
 }
 
+async fn evaluate_memory_semantic(
+    request: web::Json<MemorySemanticEvaluationRequest>,
+    state: web::Data<RuntimeState>,
+) -> impl Responder {
+    let namespace = request.namespace.trim();
+    if namespace.is_empty() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "namespace must not be empty".to_string(),
+            code: "INVALID_MEMORY_NAMESPACE",
+        });
+    }
+    if request.cases.len() > 256 {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "too many semantic evaluation cases".to_string(),
+            code: "MEMORY_EVALUATION_CASE_LIMIT",
+        });
+    }
+
+    match state
+        .persistent_memory
+        .evaluate_semantic_retrieval(
+            namespace,
+            &request.cases,
+            request.limit.unwrap_or(10),
+        )
+        .await
+    {
+        Ok(report) => HttpResponse::Ok().json(report),
+        Err(error) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: error.to_string(),
+            code: "MEMORY_EVALUATION_FAILED",
+        }),
+    }
+}
+
 async fn upsert_memory(
     request: web::Json<CreateMemoryRequest>,
     state: web::Data<RuntimeState>,
@@ -7556,6 +7598,10 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             )
             .route("/api/memory", web::get().to(list_memory))
             .route("/api/memory", web::post().to(upsert_memory))
+            .route(
+                "/api/memory/evaluate-semantic",
+                web::post().to(evaluate_memory_semantic),
+            )
             .route(
                 "/api/memory/{namespace}/{key}",
                 web::delete().to(delete_memory),

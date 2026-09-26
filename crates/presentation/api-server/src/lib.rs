@@ -5515,6 +5515,28 @@ async fn create_workflow(
     }
 }
 
+async fn abort_workflow_startup(state: &RuntimeState, run_id: &RunId) {
+    let jobs = state
+        .scheduler
+        .list()
+        .await
+        .into_iter()
+        .filter(|job| job.spec.run_id == run_id.as_str())
+        .map(|job| job.spec.job_id)
+        .collect::<Vec<_>>();
+
+    for job_id in jobs {
+        let _ = state.scheduler.cancel(&job_id).await;
+    }
+
+    if let Ok(current) = state.kernel.get_or_recover_run(run_id).await {
+        let _ = state
+            .kernel
+            .transition_run(run_id, RunState::Failed, current.version)
+            .await;
+    }
+}
+
 async fn start_workflow(
     workflow_id: web::Path<String>,
     state: web::Data<RuntimeState>,
@@ -5627,13 +5649,7 @@ async fn start_workflow(
             })
             .await
         {
-            let _ = state.scheduler.cancel(&job_id).await;
-            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, current.version)
-                    .await;
-            }
+            abort_workflow_startup(&state, &run_id).await;
             return HttpResponse::InternalServerError().json(ErrorResponse {
                 error,
                 code: "WORKFLOW_JOB_CREATE_FAILED",
@@ -5652,12 +5668,7 @@ async fn start_workflow(
             )
             .await
         {
-            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, current.version)
-                    .await;
-            }
+            abort_workflow_startup(&state, &run_id).await;
             return HttpResponse::InternalServerError().json(ErrorResponse {
                 error,
                 code: "WORKFLOW_NODE_READY_FAILED",

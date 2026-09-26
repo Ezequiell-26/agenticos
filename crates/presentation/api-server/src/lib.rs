@@ -6874,11 +6874,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
         ) {
             let _ = state
                 .kernel
-                .release_lease(
-                    &run_id,
-                    &run_lease.owner_id,
-                    run_lease.fencing_token,
-                )
+                .release_lease(&run_id, &run_lease.owner_id, run_lease.fencing_token)
                 .await;
             let _ = state
                 .scheduler
@@ -6920,6 +6916,8 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
                 )
                 .await;
 
+            let scheduler_failed = scheduler_result.is_err();
+            let kernel_failed = kernel_result.is_err();
             if let Err(error) = scheduler_result {
                 tracing::warn!(
                     job_id = %heartbeat_job_id,
@@ -6934,7 +6932,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
                     "subagent run lease heartbeat failed"
                 );
             }
-            if scheduler_result.is_err() || kernel_result.is_err() {
+            if scheduler_failed || kernel_failed {
                 break;
             }
         }
@@ -7014,11 +7012,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
     heartbeat.abort();
     let _ = state
         .kernel
-        .release_lease(
-            &run_id,
-            &run_lease.owner_id,
-            run_lease.fencing_token,
-        )
+        .release_lease(&run_id, &run_lease.owner_id, run_lease.fencing_token)
         .await;
     state.metrics.record_scheduler_completion(success);
 }

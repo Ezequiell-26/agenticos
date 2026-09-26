@@ -489,7 +489,7 @@ fn test_background_event_publisher() {
         let entry = agenticos_contracts::OutboxEntry {
             entry_id: "test-entry-pub".to_string(),
             event: event.clone(),
-            destination: "test-queue".to_string(),
+            destination: "runtime".to_string(),
             attempts: 0,
             status: agenticos_contracts::OutboxStatus::Pending,
             created_at: std::time::SystemTime::now()

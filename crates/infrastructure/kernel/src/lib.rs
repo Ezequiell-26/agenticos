@@ -2524,7 +2524,7 @@ impl OutboxStore for InMemoryOutboxStore {
         let mut claims = self.claims.write().await;
         let owns_claim = claims
             .get(entry_id)
-            .is_some_and(|(owner, until)| owner == worker_id && *until > unix_time());
+            .is_some_and(|(owner, _)| owner == worker_id);
         if !owns_claim {
             return Err(ContractError::MissingCapability);
         }
@@ -2560,7 +2560,7 @@ impl OutboxStore for InMemoryOutboxStore {
         let mut claims = self.claims.write().await;
         let owns_claim = claims
             .get(entry_id)
-            .is_some_and(|(owner, until)| owner == worker_id && *until > unix_time());
+            .is_some_and(|(owner, _)| owner == worker_id);
         if !owns_claim {
             return Err(ContractError::MissingCapability);
         }

@@ -161,7 +161,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
     apiUrl = 'http://127.0.0.1:8080'
     const projectPath = '.'
-    api = startProcess(apiBinary, [], {
+    const apiEnv = {
       AGENTICOS_BIND_HOST: '127.0.0.1',
       AGENTICOS_BIND_PORT: String(apiPort),
       AGENTICOS_PROVIDER_URL: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
@@ -174,21 +174,23 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_SKILLS_ROOT: 'skills',
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
-    })
-    await waitForHttp(`${apiUrl}/health`, api)
-
-    const providerHealth = await fetch(
-      `${apiUrl}/api/providers/e2e-provider/health`,
-      { method: 'POST' },
-    )
-    if (!providerHealth.ok) {
-      throw new Error(
-        `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
-      )
     }
-
-    await waitForHttp(`${apiUrl}/ready`, api)
-
+    const startApi = async () => {
+      api = startProcess(apiBinary, [], { env: apiEnv })
+      await waitForHttp(`${apiUrl}/health`, api)
+      const providerHealth = await fetch(
+        `${apiUrl}/api/providers/e2e-provider/health`,
+        { method: 'POST' },
+      )
+      if (!providerHealth.ok) {
+        throw new Error(
+          `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
+        )
+      }
+      await waitForHttp(`${apiUrl}/ready`, api)
+    }
+    await startApi()
+    
     preview = startProcess('npm', ['run', 'preview', '--prefix', frontendDir, '--', '--host', '127.0.0.1', '--port', String(frontendPort)], {
       env: { VITE_AGENTICOS_API_URL: apiUrl },
     })
@@ -203,6 +205,95 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       await new Promise((resolvePromise) => provider.close(resolvePromise))
     }
     if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
+  })
+
+  test('recovers an expired worker lease and fences the stale worker', async () => {
+    const createJob = await fetch(`${apiUrl}/api/jobs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        job: {
+          job_id: 'worker-recovery-e2e',
+          run_id: 'worker-recovery-run',
+          task: 'recover worker after restart',
+          dependencies: [],
+          priority: 100,
+          max_attempts: 3,
+          job_type: 'agent',
+          metadata: {},
+        },
+      }),
+    })
+    if (!createJob.ok) {
+      throw new Error(
+        `Job creation failed: HTTP ${createJob.status} ${await createJob.text()}`,
+      )
+    }
+
+    const claimA = await fetch(`${apiUrl}/api/workers/claim`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ worker_id: 'worker-a', lease_seconds: 5 }),
+    })
+    expect(claimA.status).toBe(200)
+    const claimBody = await claimA.json()
+    expect(claimBody.worker_id).toBe('worker-a')
+    expect(claimBody.job.state).toBe('Running')
+    expect(claimBody.job.lease_owner).toBe('worker-a')
+    const staleToken = claimBody.job.lease_token
+
+    await stopProcess(api)
+    api = null
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 6_000))
+
+    await startApi()
+
+    const claimB = await fetch(`${apiUrl}/api/workers/claim`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ worker_id: 'worker-b', lease_seconds: 30 }),
+    })
+    expect(claimB.status).toBe(200)
+    const claimBBody = await claimB.json()
+    expect(claimBBody.worker_id).toBe('worker-b')
+    expect(claimBBody.job.attempts).toBe(2)
+    expect(claimBBody.job.lease_owner).toBe('worker-b')
+    expect(claimBBody.job.lease_token).toBeGreaterThan(staleToken)
+
+    const staleHeartbeat = await fetch(
+      `${apiUrl}/api/workers/jobs/worker-recovery-e2e/heartbeat`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          worker_id: 'worker-a',
+          lease_token: staleToken,
+          lease_seconds: 30,
+        }),
+      },
+    )
+    expect(staleHeartbeat.status).toBe(409)
+
+    const completion = await fetch(
+      `${apiUrl}/api/workers/jobs/worker-recovery-e2e/complete`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          worker_id: 'worker-b',
+          lease_token: claimBBody.job.lease_token,
+          success: true,
+          output: 'recovered',
+        }),
+      },
+    )
+    expect(completion.status).toBe(200)
+
+    const recoveredJob = await fetch(`${apiUrl}/api/jobs/worker-recovery-e2e`)
+    expect(recoveredJob.status).toBe(200)
+    const recoveredBody = await recoveredJob.json()
+    expect(recoveredBody.state).toBe('Succeeded')
   })
 
   test('connects the UI to the runtime, provider, response and persisted history', async ({ page }) => {

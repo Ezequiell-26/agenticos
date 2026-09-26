@@ -863,6 +863,9 @@ mod tests {
         assert_eq!(record.lease_owner, None);
         assert_eq!(record.lease_expires_at, 0);
         assert_eq!(record.attempts, 1);
+        let ready = recovered.next_ready(10).await;
+        assert_eq!(ready.len(), 1);
+        assert_eq!(ready[0].spec.job_id, "interrupted-job");
 
         let reclaimed = recovered
             .start_as("interrupted-job", "worker-b".into(), 30)

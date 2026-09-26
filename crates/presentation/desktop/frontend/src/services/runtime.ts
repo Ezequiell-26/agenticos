@@ -7,6 +7,9 @@ import type {
   RuntimeHealth,
   RuntimeHealthCheck,
   RuntimeMemoryRecord,
+  RuntimeMemoryEmbeddingCoverage,
+  RuntimeSemanticRetrievalCase,
+  RuntimeSemanticRetrievalReport,
   RuntimeModel,
   RuntimeModelResponse,
   RuntimeEmbeddingResponse,
@@ -601,6 +604,25 @@ export class AgenticosRuntime implements RuntimeServices {
       return arrayOfRecords(data.records).map((entry) => entry as unknown as RuntimeMemoryRecord)
     },
     upsert: async (record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>) => this.transport.post<RuntimeMemoryRecord>('/api/memory', record),
+    coverage: async (namespace: string): Promise<RuntimeMemoryEmbeddingCoverage> => {
+      const params = new URLSearchParams({ namespace })
+      return this.transport.get<RuntimeMemoryEmbeddingCoverage>(`/api/memory/embeddings/coverage?${params.toString()}`)
+    },
+    backfillEmbeddings: async (namespace: string, limit?: number): Promise<RuntimeApiRecord> =>
+      this.transport.post<RuntimeApiRecord>('/api/memory/embeddings/backfill', {
+        namespace,
+        ...(limit !== undefined ? { limit } : {}),
+      }),
+    evaluateSemantic: async (
+      namespace: string,
+      cases: RuntimeSemanticRetrievalCase[],
+      limit?: number,
+    ): Promise<RuntimeSemanticRetrievalReport> =>
+      this.transport.post<RuntimeSemanticRetrievalReport>('/api/memory/evaluate-semantic', {
+        namespace,
+        cases,
+        ...(limit !== undefined ? { limit } : {}),
+      }),
     remove: async (namespace: string, key: string) => { await this.transport.delete(`/api/memory/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`) },
     purge: async () => this.transport.post<{ removed: number }>('/api/memory/purge'),
   }

@@ -4177,16 +4177,6 @@ async fn agent_chat(
             code: "CHAT_RUN_ADMISSION_FAILED",
         });
     }
-    let admitted = match state.kernel.get_or_recover_run(&run_id).await {
-        Ok(run) => run,
-        Err(error) => {
-            state.metrics.record_http(true);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: error.to_string(),
-                code: "CHAT_RUN_STATE_FAILED",
-            });
-        }
-    };
     if let Err(error) = state
         .memory
         .store_message(
@@ -4294,6 +4284,23 @@ async fn agent_chat(
     let execution_result = loop {
         tokio::select! {
             result = &mut execution => break result,
+            _ = heartbeat.tick() => {
+                let renewed_until = unix_time().saturating_add(lease_seconds);
+                if state
+                    .kernel
+                    .renew_lease(
+                        &run_id,
+                        &lease.owner_id,
+                        lease.fencing_token,
+                        renewed_until,
+                    )
+                    .await
+                    .is_err()
+                {
+                    lease_lost = true;
+                    break Err(ContractError::ParseError("run lease lost".to_string()));
+                }
+            }
             _ = tokio::time::sleep(std::time::Duration::from_millis(75)) => {
                 match state.kernel.get_or_recover_run(&run_id).await {
                     Ok(run) if run.state == RunState::Cancelling || run.cancellation.is_cancelled() => {

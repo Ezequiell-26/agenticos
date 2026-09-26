@@ -7515,6 +7515,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
             .route("/api/jobs", web::post().to(create_job))
             .route("/api/jobs/{job_id}", web::get().to(get_job))
             .route("/api/jobs/{job_id}/cancel", web::post().to(cancel_job))
+            .route("/api/workers/claim", web::post().to(worker_claim))
+            .route(
+                "/api/workers/jobs/{job_id}/heartbeat",
+                web::post().to(worker_heartbeat),
+            )
+            .route(
+                "/api/workers/jobs/{job_id}/complete",
+                web::post().to(worker_complete),
+            )
             .route("/api/workflows", web::get().to(list_workflows))
             .route("/api/workflows", web::post().to(create_workflow))
             .route(

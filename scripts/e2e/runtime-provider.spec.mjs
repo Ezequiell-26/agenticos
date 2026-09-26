@@ -316,6 +316,20 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     })
     expect(pythonMemory.status).toBe(200)
 
+    const backfill = await fetch(apiUrl + '/api/memory/backfill', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        namespace: 'project:semantic-e2e',
+        limit: 2,
+      }),
+    })
+    if (!backfill.ok) {
+      throw new Error(
+        `Memory embedding backfill failed: HTTP ${backfill.status} ${await backfill.text()}`,
+      )
+    }
+
     const coverage = await fetch(
       apiUrl + '/api/memory/coverage?namespace=project%3Asemantic-e2e',
     )

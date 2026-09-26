@@ -56,6 +56,8 @@ impl OpenAiCompatibleEmbeddingProvider {
     fn endpoint(&self) -> String {
         if self.base_url.ends_with("/embeddings") {
             self.base_url.clone()
+        } else if self.base_url.ends_with("/chat/completions") {
+            format!("{}/../../embeddings", self.base_url.trim_end_matches("/chat/completions"))
         } else if self.base_url.ends_with("/v1") {
             format!("{}/embeddings", self.base_url)
         } else {
@@ -189,6 +191,20 @@ mod tests {
         )
         .unwrap();
         assert_eq!(provider.endpoint(), "http://localhost:8000/v1/embeddings");
+    }
+
+    #[test]
+    fn maps_chat_completion_endpoint_to_embedding_endpoint() {
+        let provider = OpenAiCompatibleEmbeddingProvider::new(
+            "test".to_string(),
+            "http://localhost:8000/v1/chat/completions".to_string(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            provider.endpoint(),
+            "http://localhost:8000/v1/chat/completions/../../embeddings"
+        );
     }
 
     #[test]

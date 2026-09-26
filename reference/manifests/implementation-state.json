@@ -19,9 +19,11 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "pending",
+    "last_update_commit": "c47ca31970a303e6091329b3a08a0242ac1b3d99",
     "next_actions": [
-      "verify worker restart recovery and lease fencing through fresh CI evidence",
+      "version and verify SQLite migrations for runtime state",
+      "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
+      "strengthen sandbox isolation profiles and add destructive-operation regression coverage",
       "expand runtime end-to-end tests for desktop, subagents, workflows, MCP and skills",
       "strengthen sandbox isolation profiles and resource enforcement",
       "complete evaluation/replay coverage and regression fixtures"
@@ -230,7 +232,19 @@
     {
       "id": "lease-recovery",
       "owner": "scheduler",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36208299082,
+          "run_number": 2536,
+          "commit": "c47ca31970a303e6091329b3a08a0242ac1b3d99",
+          "workflow": "AgentiCOS CI",
+          "check": "verify-desktop-e2e",
+          "result": "success",
+          "scope": "durable run job -> worker A claim -> API restart -> SQLite recovery -> worker B reclaim -> stale lease heartbeat fenced -> worker B completion"
+        }
+      ]
     },
     {
       "id": "streaming-token-accounting",
@@ -307,11 +321,10 @@
       "npm run provider:coverage",
       "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-26 CI run 2519 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "last_known_green": "2026-09-26 CI run 2536 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
     "ci_pending": false
   },
   "backlog": [
-    "durable worker restart recovery and end-to-end lease fencing tests",
     "strengthen sandbox isolation profiles",
     "evaluation and replay coverage",
     "runtime integration coverage for desktop, subagents, workflows, MCP and skills"

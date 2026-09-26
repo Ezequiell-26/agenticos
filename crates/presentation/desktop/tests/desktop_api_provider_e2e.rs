@@ -167,54 +167,59 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
     let runtime = RuntimeState::from_env()
         .await
         .expect("initialize full API runtime");
-    let server_task = tokio::spawn(async move {
-        run_server(runtime)
+
+    tokio::task::LocalSet::new()
+        .run_until(async move {
+            let server_task = tokio::task::spawn_local(async move {
+                run_server(runtime)
+                    .await
+                    .expect("API server should exit cleanly");
+            });
+
+            let api_url = format!("http://127.0.0.1:{api_port}");
+            wait_for_health(&api_url).await;
+
+            let health = get_backend_health()
+                .await
+                .expect("desktop health bridge should reach API");
+            assert_eq!(health.status, "healthy");
+
+            let agent_name = get_agent_status(&api_url)
+                .await
+                .expect("desktop status bridge should reach API");
+            assert_eq!(agent_name, "AgentiCOS");
+
+            let session_id = "desktop-e2e-session";
+            let response = send_message(
+                UserMessage {
+                    content: "desktop API provider E2E".to_string(),
+                    session_id: Some(session_id.to_string()),
+                },
+                &api_url,
+            )
             .await
-            .expect("API server should exit cleanly");
-    });
+            .expect("desktop bridge should receive provider response");
 
-    let api_url = format!("http://127.0.0.1:{api_port}");
-    wait_for_health(&api_url).await;
+            assert_eq!(response.content, "E2E provider response");
+            assert_eq!(response.session_id, session_id);
+            assert!(response.is_complete);
 
-    let health = get_backend_health()
-        .await
-        .expect("desktop health bridge should reach API");
-    assert_eq!(health.status, "healthy");
+            let history = get_conversation_history_from_api(session_id, &api_url)
+                .await
+                .expect("desktop bridge should read persisted history");
+            assert!(
+                history
+                    .iter()
+                    .any(|entry| entry.role == "user" && entry.content == "desktop API provider E2E"),
+                "user turn should be persisted"
+            );
 
-    let agent_name = get_agent_status(&api_url)
-        .await
-        .expect("desktop status bridge should reach API");
-    assert_eq!(agent_name, "AgentiCOS");
-
-    let session_id = "desktop-e2e-session";
-    let response = send_message(
-        UserMessage {
-            content: "desktop API provider E2E".to_string(),
-            session_id: Some(session_id.to_string()),
-        },
-        &api_url,
-    )
-    .await
-    .expect("desktop bridge should receive provider response");
-
-    assert_eq!(response.content, "E2E provider response");
-    assert_eq!(response.session_id, session_id);
-    assert!(response.is_complete);
-
-    let history = get_conversation_history_from_api(session_id, &api_url)
-        .await
-        .expect("desktop bridge should read persisted history");
-    assert!(
-        history
-            .iter()
-            .any(|entry| entry.role == "user" && entry.content == "desktop API provider E2E"),
-        "user turn should be persisted"
-    );
-
-    provider_task
-        .await
-        .expect("fake provider task should succeed");
-    server_task.abort();
+            provider_task
+                .await
+                .expect("fake provider task should succeed");
+            server_task.abort();
+        })
+        .await;
 
     let _ = std::fs::remove_dir_all(temp_root);
 }

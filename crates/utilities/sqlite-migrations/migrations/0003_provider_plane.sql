@@ -11,12 +11,11 @@ CREATE TABLE IF NOT EXISTS providers (
 );
 
 CREATE TABLE IF NOT EXISTS provider_credentials (
-    provider_id TEXT NOT NULL,
+    provider_id TEXT PRIMARY KEY,
     credential_type TEXT NOT NULL,
     encrypted_value TEXT NOT NULL,
     expires_at INTEGER NOT NULL DEFAULT 0,
     scope TEXT,
-    PRIMARY KEY (provider_id, credential_type)
 );
 
 CREATE TABLE IF NOT EXISTS provider_fallback_configs (

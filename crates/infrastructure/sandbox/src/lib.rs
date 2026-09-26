@@ -527,7 +527,8 @@ mod tests {
 
     #[test]
     fn tokenizes_quoted_and_escaped_arguments_without_shell_expansion() {
-        let args = tokenize_command(r#"printf "hello world" 'second value' escaped\ value"#).unwrap();
+        let args =
+            tokenize_command(r#"printf "hello world" 'second value' escaped\ value"#).unwrap();
         assert_eq!(
             args,
             vec![

@@ -6955,7 +6955,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
 
     if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-        if success && current.state == RunState::Admitted {
+        if success && matches!(current.state, RunState::Admitted | RunState::Waiting) {
             let _ = state
                 .kernel
                 .transition_run_with_lease(

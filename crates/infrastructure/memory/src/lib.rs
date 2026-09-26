@@ -517,6 +517,10 @@ impl PersistentMemoryStore {
             ContractError::ParseError(format!("memory tags serialization failed: {error}"))
         })?;
 
+        let mut transaction = self.db.begin().await.map_err(|error| {
+            ContractError::ParseError(format!("memory upsert transaction failed: {error}"))
+        })?;
+
         sqlx::query(
             r#"
             INSERT INTO memory_records
@@ -537,22 +541,34 @@ impl PersistentMemoryStore {
         .bind(importance.clamp(0.0, 1.0))
         .bind(now)
         .bind(expires_at.max(0))
-        .execute(&*self.db)
+        .execute(&mut *transaction)
         .await
         .map_err(|error| ContractError::ParseError(format!("memory upsert failed: {error}")))?;
 
-        let record = self
-            .get(namespace, key)
-            .await?
-            .ok_or(ContractError::Persistence)?;
+        let record = sqlx::query_as::<_, PersistentMemoryRecord>(
+            "SELECT memory_id, namespace, key, value, tags, importance, created_at, expires_at
+             FROM memory_records WHERE namespace = ? AND key = ?",
+        )
+        .bind(namespace)
+        .bind(key)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory upsert readback failed: {error}"))
+        })?
+        .ok_or(ContractError::Persistence)?;
 
         sqlx::query("DELETE FROM memory_embeddings WHERE memory_id = ?")
             .bind(&record.memory_id)
-            .execute(&*self.db)
+            .execute(&mut *transaction)
             .await
             .map_err(|error| {
                 ContractError::ParseError(format!("memory embedding invalidation failed: {error}"))
             })?;
+
+        transaction.commit().await.map_err(|error| {
+            ContractError::ParseError(format!("memory upsert commit failed: {error}"))
+        })?;
 
         Ok(record)
     }
@@ -1139,6 +1155,42 @@ mod persistent_memory_tests {
             .set_embedding("missing-memory", &[1.0, 0.0, 0.0])
             .await;
         assert!(matches!(result, Err(ContractError::Persistence)));
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn upsert_preserves_embedding_consistency_on_success() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-atomic-upsert-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let record = store
+            .upsert("project:atomic", "goal", "first", &[], 0.5, 0)
+            .await
+            .unwrap();
+        store
+            .set_embedding(&record.memory_id, &[1.0, 0.0])
+            .await
+            .unwrap();
+
+        let updated = store
+            .upsert("project:atomic", "goal", "second", &[], 0.8, 0)
+            .await
+            .unwrap();
+
+        assert_eq!(updated.memory_id, record.memory_id);
+        assert_eq!(
+            store
+                .embedding_coverage("project:atomic")
+                .await
+                .unwrap()
+                .missing_records,
+            1
+        );
 
         let _ = std::fs::remove_file(path);
     }

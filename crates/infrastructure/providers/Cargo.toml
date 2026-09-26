@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 agenticos-contracts = { path = "../../domain/contracts" }
 agenticos-observability = { path = "../observability" }
+agenticos-sqlite-migrations = { path = "../../utilities/sqlite-migrations" }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros", "time"] }
 serde = { workspace = true, features = ["derive"] }

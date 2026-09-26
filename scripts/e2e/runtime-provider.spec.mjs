@@ -326,7 +326,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     const readyJobsBody = await readyJobs.json()
     if (!readyJobsBody.jobs.some((job) => job.spec?.job_id === 'worker-recovery-e2e')) {
       throw new Error(
-        `Recovered job was not present in /api/jobs/ready: ${JSON.stringify(readyJobsBody)}`,
+        `Recovered job was not present in /api/jobs/ready: recovered=${JSON.stringify(recoveredBeforeClaimBody)} ready=${JSON.stringify(readyJobsBody)}`,
       )
     }
 

@@ -1266,6 +1266,33 @@ impl KernelRuntime {
         Ok(())
     }
 
+    /// Transition a run only when the caller still owns its durable lease.
+    pub async fn transition_run_with_lease(
+        &self,
+        run_id: &RunId,
+        to: RunState,
+        expected_version: u64,
+        owner_id: &str,
+        fencing_token: u64,
+    ) -> Result<(), ContractError> {
+        let valid = self
+            .lease_store
+            .is_valid(
+                run_id.as_str(),
+                owner_id,
+                fencing_token,
+                unix_time(),
+            )
+            .await?;
+        if !valid {
+            return Err(ContractError::ParseError(
+                "run lease is no longer valid".to_string(),
+            ));
+        }
+
+        self.transition_run(run_id, to, expected_version).await
+    }
+
     /// Return a loaded run or recover it from durable snapshot/event state.
     pub async fn get_or_recover_run(&self, run_id: &RunId) -> Result<DurableRun, ContractError> {
         if let Some(run) = self.runs.read().await.get(run_id).cloned() {
@@ -4151,6 +4178,62 @@ Test procedure"#;
 
         assert_eq!(recovered.state, RunState::Admitted);
         assert_eq!(recovered.version, 2);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn fenced_transition_rejects_stale_lease_owner() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-fenced-transition-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let event_store = Arc::new(SqliteEventStore::new(&url).await.unwrap());
+        let snapshot_store = Arc::new(SqliteSnapshotStore::new(&url).await.unwrap());
+        let lease_store = Arc::new(SqliteLeaseStore::open(&url).await.unwrap());
+
+        let runtime = KernelRuntime::new_with_outbox_and_lease_store(
+            event_store,
+            snapshot_store,
+            Arc::new(InMemoryLogger::default()),
+            Arc::new(RwLock::new(InMemoryConfig::default())),
+            Arc::new(InMemoryCapabilityIssuer::new()),
+            Arc::new(agenticos_brain::CapabilityRegistry::default()),
+            Arc::new(InMemoryOutboxStore::new()),
+            lease_store.clone(),
+        );
+
+        let run_id = RunId::new("fenced-transition").unwrap();
+        runtime.create_run(run_id.clone()).await.unwrap();
+
+        let first_lease = runtime
+            .acquire_lease(
+                &run_id,
+                "worker-a".to_string(),
+                unix_time().saturating_add(60),
+            )
+            .await
+            .unwrap();
+        let second_lease = runtime
+            .acquire_lease(
+                &run_id,
+                "worker-b".to_string(),
+                unix_time().saturating_add(60),
+            )
+            .await
+            .unwrap();
+        assert!(second_lease.fencing_token > first_lease.fencing_token);
+
+        let result = runtime
+            .transition_run_with_lease(
+                &run_id,
+                RunState::Completed,
+                1,
+                &first_lease.owner_id,
+                first_lease.fencing_token,
+            )
+            .await;
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
 
         let _ = std::fs::remove_file(path);
     }

@@ -3683,8 +3683,12 @@ mod tests {
         ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
-        let _platform = ProviderPlatform::open(&url).await.expect("open provider platform");
-        let db = SqlitePool::connect(&url).await.expect("open provider test database");
+        let _platform = ProviderPlatform::open(&url)
+            .await
+            .expect("open provider platform");
+        let db = SqlitePool::connect(&url)
+            .await
+            .expect("open provider test database");
 
         for table in [
             "providers",
@@ -3702,12 +3706,11 @@ mod tests {
             assert_eq!(exists.as_deref(), Some(table));
         }
 
-        let migration_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM _sqlx_migrations WHERE version = 3",
-        )
-        .fetch_one(&db)
-        .await
-        .expect("inspect provider migration");
+        let migration_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations WHERE version = 3")
+                .fetch_one(&db)
+                .await
+                .expect("inspect provider migration");
         assert_eq!(migration_count, 1);
 
         let _ = std::fs::remove_file(path);

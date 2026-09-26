@@ -1611,11 +1611,9 @@ impl ProviderPlatform {
             }
         }
 
-        if provider
-            .capabilities
-            .iter()
-            .any(|value| value.eq_ignore_ascii_case("embedding") || value.eq_ignore_ascii_case("embeddings"))
-        {
+        if provider.capabilities.iter().any(|value| {
+            value.eq_ignore_ascii_case("embedding") || value.eq_ignore_ascii_case("embeddings")
+        }) {
             let preferred_embedding_provider = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
                 .ok()
                 .map(|value| value.trim().to_string())

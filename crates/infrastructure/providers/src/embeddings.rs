@@ -57,7 +57,10 @@ impl OpenAiCompatibleEmbeddingProvider {
         if self.base_url.ends_with("/embeddings") {
             self.base_url.clone()
         } else if self.base_url.ends_with("/chat/completions") {
-            format!("{}/embeddings", self.base_url.trim_end_matches("/chat/completions"))
+            format!(
+                "{}/embeddings",
+                self.base_url.trim_end_matches("/chat/completions")
+            )
         } else if self.base_url.ends_with("/v1") {
             format!("{}/embeddings", self.base_url)
         } else {
@@ -201,10 +204,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(
-            provider.endpoint(),
-            "http://localhost:8000/v1/embeddings"
-        );
+        assert_eq!(provider.endpoint(), "http://localhost:8000/v1/embeddings");
     }
 
     #[test]

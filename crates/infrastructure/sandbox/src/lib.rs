@@ -495,6 +495,13 @@ impl Default for ProcessSandbox {
 #[async_trait::async_trait]
 impl Sandbox for ProcessSandbox {
     async fn execute(&self, request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
+        if request.memory_limit_bytes > 0 {
+            return Err(ContractError::ParseError(
+                "sandbox memory limits are not supported by the configured process runner"
+                    .to_string(),
+            ));
+        }
+
         self.execute_command(
             &request.code,
             Some(request.timeout_ms),
@@ -584,6 +591,22 @@ mod tests {
             .unwrap();
         assert!(result.success);
         assert_eq!(result.output, "hello world");
+    }
+
+    #[tokio::test]
+    async fn rejects_unsupported_memory_limit_in_contract_request() {
+        let sandbox = ProcessSandbox::default();
+        let result = sandbox
+            .execute(SandboxRequest {
+                request_id: "memory-limit-test".to_string(),
+                code: "git --version".to_string(),
+                timeout_ms: 1_000,
+                memory_limit_bytes: 64 * 1024 * 1024,
+                allowed_capabilities: vec!["process.execute".to_string()],
+            })
+            .await;
+
+        assert!(matches!(result, Err(ContractError::ParseError(_))));
     }
 
     #[tokio::test]

@@ -5620,8 +5620,8 @@ async fn start_workflow(
                 max_attempts: 2,
                 job_type: "workflow_node".to_string(),
                 metadata: serde_json::json!({
-                    "workflow_id": workflow_id,
-                    "node_id": node.id,
+                    "workflow_id": workflow_id.clone(),
+                    "node_id": node.id.clone(),
                     "run_id": run_id.as_str(),
                 }),
             })
@@ -6778,16 +6778,6 @@ async fn advance_workflow_ready_nodes(
     Ok(promoted)
 }
 
-// Legacy scheduling shim removed: dependency jobs are created by start_workflow
-// and become claimable directly from the scheduler once their predecessors succeed.
-//     state: &RuntimeState,
-//     workflow_id: &str,
-//     mut workflow_state: agenticos_workflows::WorkflowState,
-// ) -> Result<agenticos_workflows::WorkflowState, String> {
-//     // TODO: Fix workflow state type mismatch - WorkflowEngine expects WorkflowState with nodes HashMap
-//     // For now, return the state unchanged
-//     Ok(workflow_state)
-// }
 
 async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_job: JobRecord) {
     let workflow_id = started_job
@@ -6904,9 +6894,15 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         Ok(())
     };
 
-    if node_transition.is_ok() && success {
-        // TODO: Fix workflow state type mismatch
-        // let _ = schedule_workflow_ready_nodes(&state, &workflow_id, mutable_state).await;
+    if let Err(error) = node_transition {
+        if !success || final_attempt {
+            tracing::warn!(
+                workflow_id = %workflow_id,
+                node_id = %node_id,
+                %error,
+                "workflow node state transition failed"
+            );
+        }
     }
 
     let run_id = started_job

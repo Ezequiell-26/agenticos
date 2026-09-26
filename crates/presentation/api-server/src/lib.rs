@@ -5568,8 +5568,9 @@ async fn start_workflow(
         .any(|node_state| *node_state != WorkflowNodeState::Pending)
     {
         return HttpResponse::Conflict().json(ErrorResponse {
-            error: "workflow has already been started; reset/revision support is required before rerun"
-                .to_string(),
+            error:
+                "workflow has already been started; reset/revision support is required before rerun"
+                    .to_string(),
             code: "WORKFLOW_ALREADY_STARTED",
         });
     }
@@ -5657,7 +5658,11 @@ async fn start_workflow(
         }
     }
 
-    for node in workflow.nodes.iter().filter(|node| node.depends_on.is_empty()) {
+    for node in workflow
+        .nodes
+        .iter()
+        .filter(|node| node.depends_on.is_empty())
+    {
         if let Err(error) = state
             .workflows
             .transition_node(

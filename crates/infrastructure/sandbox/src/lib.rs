@@ -520,14 +520,14 @@ mod tests {
 
     #[test]
     fn tokenizes_quoted_and_escaped_arguments_without_shell_expansion() {
-        let args = tokenize_command(r#"printf "hello world" 'second value' escaped\\ value"#).unwrap();
+        let args = tokenize_command(r#"printf "hello world" 'second value' escaped\ value"#).unwrap();
         assert_eq!(
             args,
             vec![
                 "printf".to_string(),
                 "hello world".to_string(),
                 "second value".to_string(),
-                "escaped\\ value".to_string(),
+                "escaped\ value".to_string(),
             ]
         );
     }
@@ -539,7 +539,7 @@ mod tests {
             Err(ContractError::ParseError(_))
         ));
         assert!(matches!(
-            tokenize_command(r#"printf trailing\\ "#),
+            tokenize_command(r#"printf trailing\ "#),
             Err(ContractError::ParseError(_))
         ));
     }

@@ -6727,15 +6727,25 @@ async fn worker_complete(
             RunState::Waiting
         };
 
-        if matches!(
-            run.state,
-            RunState::Running | RunState::Waiting | RunState::Admitted
-        ) && target != run.state
+        if target == RunState::Completed
+            && matches!(run.state, RunState::Waiting | RunState::Admitted)
         {
             let _ = state
                 .kernel
-                .transition_run(&run_id, target, run.version)
+                .transition_run(&run_id, RunState::Running, run.version)
                 .await;
+        }
+        if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+            if matches!(
+                current.state,
+                RunState::Running | RunState::Waiting | RunState::Admitted
+            ) && target != current.state
+            {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, target, current.version)
+                    .await;
+            }
         }
     }
 

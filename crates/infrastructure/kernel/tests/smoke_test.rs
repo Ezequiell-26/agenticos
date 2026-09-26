@@ -16,6 +16,8 @@ use agenticos_kernel::{
     InMemorySnapshotStore, KernelRuntime, SqliteEventStore, SqliteSnapshotStore, TestClock,
     TestIdGenerator,
 };
+use agenticos_providers::HttpModelProvider;
+use agenticos_providers::HttpModelProvider;
 use std::sync::Arc;
 
 fn test_runtime() -> tokio::runtime::Runtime {
@@ -760,7 +762,7 @@ fn test_feature_flag_types() {
 fn test_http_model_provider() {
     let rt = test_runtime();
     rt.block_on(async {
-        let provider = HttpModelProvider::new("https://api.example.com".to_string());
+        let provider = HttpModelProvider::new("http-model-provider".to_string(), "https://api.example.com".to_string());
 
         assert_eq!(provider.provider_id(), "http-model-provider");
 
@@ -782,9 +784,9 @@ fn test_http_model_provider() {
 fn test_http_model_provider_with_custom_id() {
     let rt = test_runtime();
     rt.block_on(async {
-        let provider = HttpModelProvider::with_provider_id(
-            "https://api.example.com".to_string(),
+        let provider = HttpModelProvider::new(
             "custom-provider".to_string(),
+            "https://api.example.com".to_string(),
         );
 
         assert_eq!(provider.provider_id(), "custom-provider");
@@ -807,7 +809,10 @@ fn test_http_model_provider_with_custom_id() {
 fn test_http_model_provider_with_timeout() {
     let rt = test_runtime();
     rt.block_on(async {
-        let provider = HttpModelProvider::with_timeout("https://api.example.com".to_string(), 10);
+        let provider = HttpModelProvider::new(
+            "http-model-provider".to_string(),
+            "https://api.example.com".to_string(),
+        );
 
         assert_eq!(provider.provider_id(), "http-model-provider");
 

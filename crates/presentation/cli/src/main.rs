@@ -4,7 +4,8 @@
 //! AgentiCOS CLI - Command-line interface for the AgentiCOS platform.
 
 use agenticos_contracts::{FeatureFlagStore, ModelProvider, ModelRequest, RunId};
-use agenticos_kernel::{HttpModelProvider, InMemoryFeatureFlagStore, KernelRuntime, ReactAgent};
+use agenticos_kernel::{InMemoryFeatureFlagStore, KernelRuntime, ReactAgent};
+use agenticos_providers::HttpModelProvider;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
@@ -245,7 +246,7 @@ async fn handle_run_command(
             }
 
             // Create HTTP provider
-            let http_provider = HttpModelProvider::new("https://api.example.com".to_string());
+            let http_provider = HttpModelProvider::new("cli-demo".to_string(), "https://api.example.com".to_string());
 
             // Create model request
             let request = ModelRequest {

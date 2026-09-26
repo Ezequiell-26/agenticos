@@ -26,6 +26,7 @@ reqwest = { workspace = true }
 
 [dev-dependencies]
 agenticos-brain = { path = "../../domain/brain" }
+agenticos-providers = { path = "../../infrastructure/providers" }
 
 [lints]
 workspace = true

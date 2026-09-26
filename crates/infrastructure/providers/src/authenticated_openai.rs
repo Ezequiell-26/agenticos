@@ -2,7 +2,7 @@ use super::{
     normalize_chat_url, openai_chat_message_content, shared_http_client, StreamUsageRecorder,
 };
 use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
-struct AuthenticatedOpenAiProvider {
+pub(super) struct AuthenticatedOpenAiProvider {
     provider_id: String,
     base_url: String,
     api_key: Option<String>,

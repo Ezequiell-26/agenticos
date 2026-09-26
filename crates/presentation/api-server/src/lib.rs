@@ -6811,6 +6811,24 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
             return;
         }
     };
+
+    let run_id = match RunId::new(child.child_run_id.clone()) {
+        Ok(value) => value,
+        Err(error) => {
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some(format!("invalid child run id: {error}")),
+                )
+                .await;
+            return;
+        }
+    };
+
     let definition = state.subagents.definition(&child.agent_id).await;
     let session_id = format!("subagent:{}", child.child_run_id);
     let agent = state
@@ -6823,26 +6841,99 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
         .unwrap_or(1800)
         .clamp(1, 86_400);
 
+    let lease_owner = worker_id.clone();
+    let run_lease = match state
+        .kernel
+        .acquire_lease(
+            &run_id,
+            lease_owner.clone(),
+            unix_time().saturating_add(120),
+        )
+        .await
+    {
+        Ok(lease) => lease,
+        Err(error) => {
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    false,
+                    Some(format!("subagent run lease acquisition failed: {error}")),
+                )
+                .await;
+            return;
+        }
+    };
+
+    if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+        if matches!(
+            current.state,
+            RunState::Completed | RunState::Failed | RunState::Cancelled
+        ) {
+            let _ = state
+                .kernel
+                .release_lease(&run_id, &run_lease.owner_id, run_lease.fencing_token)
+                .await;
+            let _ = state
+                .scheduler
+                .complete_as(
+                    &started_job.spec.job_id,
+                    started_job.lease_owner.as_deref(),
+                    Some(started_job.lease_token),
+                    true,
+                    None,
+                )
+                .await;
+            return;
+        }
+    }
+
     let heartbeat_scheduler = state.scheduler.clone();
+    let heartbeat_kernel = state.kernel.clone();
     let heartbeat_job_id = started_job.spec.job_id.clone();
-    let heartbeat_owner = started_job.lease_owner.clone().unwrap_or(worker_id);
+    let heartbeat_owner = started_job
+        .lease_owner
+        .clone()
+        .unwrap_or_else(|| worker_id.clone());
     let heartbeat_token = started_job.lease_token;
+    let heartbeat_run_id = run_id.clone();
+    let heartbeat_run_owner = run_lease.owner_id.clone();
+    let heartbeat_run_token = run_lease.fencing_token;
     let heartbeat = tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            match heartbeat_scheduler
+            let scheduler_result = heartbeat_scheduler
                 .renew_as(&heartbeat_job_id, &heartbeat_owner, heartbeat_token, 120)
-                .await
-            {
-                Ok(_) => {}
-                Err(error) => {
-                    tracing::warn!(
-                        job_id = %heartbeat_job_id,
-                        %error,
-                        "subagent scheduler lease heartbeat failed"
-                    );
-                    break;
-                }
+                .await;
+            let kernel_result = heartbeat_kernel
+                .renew_lease(
+                    &heartbeat_run_id,
+                    &heartbeat_run_owner,
+                    heartbeat_run_token,
+                    unix_time().saturating_add(120),
+                )
+                .await;
+
+            let scheduler_failed = scheduler_result.is_err();
+            let kernel_failed = kernel_result.is_err();
+            if let Err(error) = scheduler_result {
+                tracing::warn!(
+                    job_id = %heartbeat_job_id,
+                    %error,
+                    "subagent scheduler lease heartbeat failed"
+                );
+            }
+            if let Err(error) = kernel_result {
+                tracing::warn!(
+                    run_id = heartbeat_run_id.as_str(),
+                    %error,
+                    "subagent run lease heartbeat failed"
+                );
+            }
+            if scheduler_failed || kernel_failed {
+                break;
             }
         }
     });
@@ -6862,35 +6953,48 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
 
     let success = result.is_ok();
     let final_attempt = success || started_job.attempts >= started_job.spec.max_attempts.max(1);
-    let run_id = RunId::new(child.child_run_id.clone()).ok();
-    if let Some(run_id) = run_id {
-        if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-            if success && current.state == RunState::Admitted {
+
+    if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+        if success && matches!(current.state, RunState::Admitted | RunState::Waiting) {
+            let _ = state
+                .kernel
+                .transition_run_with_lease(
+                    &run_id,
+                    RunState::Running,
+                    current.version,
+                    &run_lease.owner_id,
+                    run_lease.fencing_token,
+                )
+                .await;
+        } else if !success && !final_attempt && current.state == RunState::Running {
+            let _ = state
+                .kernel
+                .transition_run_with_lease(
+                    &run_id,
+                    RunState::Waiting,
+                    current.version,
+                    &run_lease.owner_id,
+                    run_lease.fencing_token,
+                )
+                .await;
+        }
+
+        if final_attempt {
+            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
                 let _ = state
                     .kernel
-                    .transition_run(&run_id, RunState::Running, current.version)
+                    .transition_run_with_lease(
+                        &run_id,
+                        if success {
+                            RunState::Completed
+                        } else {
+                            RunState::Failed
+                        },
+                        current.version,
+                        &run_lease.owner_id,
+                        run_lease.fencing_token,
+                    )
                     .await;
-            } else if !success && !final_attempt && current.state == RunState::Running {
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Waiting, current.version)
-                    .await;
-            }
-            if final_attempt {
-                if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
-                    let _ = state
-                        .kernel
-                        .transition_run(
-                            &run_id,
-                            if success {
-                                RunState::Completed
-                            } else {
-                                RunState::Failed
-                            },
-                            current.version,
-                        )
-                        .await;
-                }
             }
         }
     }
@@ -6904,6 +7008,11 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
             success,
             result.err().map(|error| error.to_string()),
         )
+        .await;
+    heartbeat.abort();
+    let _ = state
+        .kernel
+        .release_lease(&run_id, &run_lease.owner_id, run_lease.fencing_token)
         .await;
     state.metrics.record_scheduler_completion(success);
 }

@@ -125,7 +125,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
         return
       }
 
-      if (request.method !== 'POST' || request.url !== '/v1/chat/completions') {
+      if (request.method !== 'POST' || !['/v1/chat/completions', '/v1/embeddings'].includes(request.url)) {
         response.writeHead(404)
         response.end()
         return
@@ -134,6 +134,30 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       const chunks = []
       for await (const chunk of request) chunks.push(chunk)
       const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+
+      if (request.url === '/v1/embeddings') {
+        const inputs = Array.isArray(payload.input) ? payload.input : [payload.input]
+        const embeddings = inputs.map((value) =>
+          String(value).toLowerCase().includes('rust') ? [1, 0] : [0, 1],
+        )
+        const body = JSON.stringify({
+          object: 'list',
+          data: embeddings.map((embedding, index) => ({
+            object: 'embedding',
+            index,
+            embedding,
+          })),
+          model: payload.model ?? 'e2e-embedding',
+        })
+        response.writeHead(200, {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+          connection: 'close',
+        })
+        response.end(body)
+        return
+      }
+
       receivedRequests.push(payload)
       const serializedPayload = JSON.stringify(payload)
       if (!serializedPayload.includes('desktop UI E2E')) {
@@ -168,12 +192,14 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_PROVIDER_URL: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
       AGENTICOS_PROVIDER_NAME: 'e2e-provider',
       AGENTICOS_MODEL: 'e2e-model',
+      AGENTICOS_MEMORY_EMBEDDINGS: 'true',
+      AGENTICOS_EMBEDDING_MODEL: 'e2e-embedding',
       AGENTICOS_PROVIDERS_JSON: JSON.stringify([{
         provider_id: 'e2e-provider',
         name: 'E2E provider',
         base_url: `http://127.0.0.1:${providerPort}/v1/chat/completions`,
-        models: ['e2e-model'],
-        capabilities: ['chat'],
+        models: ['e2e-model', 'e2e-embedding'],
+        capabilities: ['chat', 'embeddings'],
         api_key: null,
       }]),
       AGENTICOS_PRIMARY_PROVIDER: 'e2e-provider',
@@ -259,6 +285,70 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
       timeout: 30_000,
     })
+  })
+
+  test('exercises semantic memory coverage and evaluation through the API', async () => {
+    const rustMemory = await fetch(apiUrl + '/api/memory', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        namespace: 'project:semantic-e2e',
+        key: 'rust-runtime',
+        value: 'durable Rust runtime and worker recovery',
+        tags: ['runtime'],
+        importance: 0.9,
+      }),
+    })
+    expect(rustMemory.status).toBe(200)
+    const rustRecord = await rustMemory.json()
+
+    const pythonMemory = await fetch(apiUrl + '/api/memory', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        namespace: 'project:semantic-e2e',
+        key: 'python-notes',
+        value: 'python scripting notes',
+        tags: ['notes'],
+        importance: 0.4,
+      }),
+    })
+    expect(pythonMemory.status).toBe(200)
+
+    const coverage = await fetch(
+      apiUrl + '/api/memory/embeddings/coverage?namespace=project%3Asemantic-e2e',
+    )
+    expect(coverage.status).toBe(200)
+    const coverageBody = await coverage.json()
+    expect(coverageBody.total_records).toBe(2)
+    expect(coverageBody.embedded_records).toBe(2)
+    expect(coverageBody.missing_records).toBe(0)
+
+    const evaluation = await fetch(apiUrl + '/api/memory/evaluate-semantic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        namespace: 'project:semantic-e2e',
+        cases: [{
+          query_embedding: [1, 0],
+          relevant_memory_ids: [rustRecord.memory_id],
+        }],
+        limit: 2,
+      }),
+    })
+    expect(evaluation.status).toBe(200)
+    const evaluationBody = await evaluation.json()
+    expect(evaluationBody.evaluated_queries).toBe(1)
+    expect(evaluationBody.hit_at_1).toBe(1)
+    expect(evaluationBody.hit_at_k).toBe(1)
+    expect(evaluationBody.mean_reciprocal_rank).toBe(1)
+
+    const search = await fetch(
+      apiUrl + '/api/memory?namespace=project%3Asemantic-e2e&q=rust&limit=2',
+    )
+    expect(search.status).toBe(200)
+    const searchBody = await search.json()
+    expect(searchBody.records[0].key).toBe('rust-runtime')
   })
 
   test('recovers an expired worker lease and fences the stale worker', async () => {

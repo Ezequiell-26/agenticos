@@ -175,19 +175,21 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
     }
-    const startApi = async () => {
+    const startApi = async (verifyProvider = true) => {
       api = startProcess(apiBinary, [], { env: apiEnv })
       await waitForHttp(`${apiUrl}/health`, api)
-      const providerHealth = await fetch(
-        `${apiUrl}/api/providers/e2e-provider/health`,
-        { method: 'POST' },
-      )
-      if (!providerHealth.ok) {
-        throw new Error(
-          `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
+      if (verifyProvider) {
+        const providerHealth = await fetch(
+          `${apiUrl}/api/providers/e2e-provider/health`,
+          { method: 'POST' },
         )
+        if (!providerHealth.ok) {
+          throw new Error(
+            `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
+          )
+        }
+        await waitForHttp(`${apiUrl}/ready`, api)
       }
-      await waitForHttp(`${apiUrl}/ready`, api)
     }
     await startApi()
     
@@ -207,6 +209,47 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
   })
 
+  test('connects the UI to the runtime, provider, response and persisted history', async ({ page }) => {
+    const chatResponses = []
+    page.on('response', async (response) => {
+      if (response.url().endsWith('/api/agent/chat') && response.request().method() === 'POST') {
+        let body = ''
+        try { body = await response.text() } catch {}
+        chatResponses.push({ status: response.status(), body })
+      }
+    })
+
+    await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' })
+    const shell = page.locator('.app-shell')
+    await expect(shell).toBeVisible({ timeout: 30_000 })
+
+    const composer = page.getByRole('textbox', { name: 'Message AgentiCOS' })
+    await composer.fill('desktop UI E2E')
+    await page.getByRole('button', { name: 'Send message' }).click()
+
+    try {
+      await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
+        timeout: 30_000,
+      })
+    } catch (error) {
+      const bodyText = await page.locator('body').innerText()
+      throw new Error(
+        `UI did not render the provider response. chatResponses=${JSON.stringify(chatResponses)}\\nbody=\\n${bodyText}\\n${error}`,
+      )
+    }
+    await expect.poll(async () => shell.getAttribute('data-runtime'), { timeout: 10_000 }).toBe('connected')
+
+    expect(receivedRequests).toHaveLength(1)
+    expect(receivedRequests[0]?.model).toBe('e2e-model')
+    expect(JSON.stringify(receivedRequests[0])).toContain('desktop UI E2E')
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(shell).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
+      timeout: 30_000,
+    })
+  })
+})
   test('recovers an expired worker lease and fences the stale worker', async () => {
     const createJob = await fetch(`${apiUrl}/api/jobs`, {
       method: 'POST',
@@ -247,7 +290,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 6_000))
 
-    await startApi()
+    await startApi(false)
 
     const claimB = await fetch(`${apiUrl}/api/workers/claim`, {
       method: 'POST',
@@ -296,44 +339,3 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     expect(recoveredBody.state).toBe('Succeeded')
   })
 
-  test('connects the UI to the runtime, provider, response and persisted history', async ({ page }) => {
-    const chatResponses = []
-    page.on('response', async (response) => {
-      if (response.url().endsWith('/api/agent/chat') && response.request().method() === 'POST') {
-        let body = ''
-        try { body = await response.text() } catch {}
-        chatResponses.push({ status: response.status(), body })
-      }
-    })
-
-    await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' })
-    const shell = page.locator('.app-shell')
-    await expect(shell).toBeVisible({ timeout: 30_000 })
-
-    const composer = page.getByRole('textbox', { name: 'Message AgentiCOS' })
-    await composer.fill('desktop UI E2E')
-    await page.getByRole('button', { name: 'Send message' }).click()
-
-    try {
-      await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
-        timeout: 30_000,
-      })
-    } catch (error) {
-      const bodyText = await page.locator('body').innerText()
-      throw new Error(
-        `UI did not render the provider response. chatResponses=${JSON.stringify(chatResponses)}\\nbody=\\n${bodyText}\\n${error}`,
-      )
-    }
-    await expect.poll(async () => shell.getAttribute('data-runtime'), { timeout: 10_000 }).toBe('connected')
-
-    expect(receivedRequests).toHaveLength(1)
-    expect(receivedRequests[0]?.model).toBe('e2e-model')
-    expect(JSON.stringify(receivedRequests[0])).toContain('desktop UI E2E')
-
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(shell).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
-      timeout: 30_000,
-    })
-  })
-})

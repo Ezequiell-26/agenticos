@@ -5,6 +5,7 @@ use agenticos_desktop::{
 };
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use sqlx::sqlite::SqlitePoolOptions;
 use tokio::net::TcpListener;
 
 async fn free_port() -> u16 {
@@ -203,6 +204,21 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
             assert_eq!(response.content, "E2E provider response");
             assert_eq!(response.session_id, session_id);
             assert!(response.is_complete);
+
+            let lease_pool = SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect(&database_url)
+                .await
+                .expect("open E2E database");
+            let active_leases: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM run_leases")
+                .fetch_one(&lease_pool)
+                .await
+                .expect("query persisted run leases");
+            assert_eq!(
+                active_leases, 0,
+                "successful chat must release its durable run lease"
+            );
+            drop(lease_pool);
 
             let history = get_conversation_history_from_api(session_id, &api_url)
                 .await

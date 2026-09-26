@@ -316,7 +316,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     expect(pythonMemory.status).toBe(200)
 
     const coverage = await fetch(
-      apiUrl + '/api/memory/embeddings/coverage?namespace=project%3Asemantic-e2e',
+      apiUrl + '/api/memory/coverage?namespace=project%3Asemantic-e2e',
     )
     expect(coverage.status).toBe(200)
     const coverageBody = await coverage.json()

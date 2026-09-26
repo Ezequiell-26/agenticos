@@ -302,12 +302,44 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
     await startApi(false)
 
+    const recoveredBeforeClaim = await fetch(
+      `${apiUrl}/api/jobs/worker-recovery-e2e`,
+    )
+    if (!recoveredBeforeClaim.ok) {
+      throw new Error(
+        `Recovered job lookup failed: HTTP ${recoveredBeforeClaim.status} ${await recoveredBeforeClaim.text()}`,
+      )
+    }
+    const recoveredBeforeClaimBody = await recoveredBeforeClaim.json()
+    if (recoveredBeforeClaimBody.state !== 'Ready') {
+      throw new Error(
+        `Recovered job was not ready for reclaim: ${JSON.stringify(recoveredBeforeClaimBody)}`,
+      )
+    }
+
+    const readyJobs = await fetch(`${apiUrl}/api/jobs/ready`)
+    if (!readyJobs.ok) {
+      throw new Error(
+        `Ready jobs lookup failed: HTTP ${readyJobs.status} ${await readyJobs.text()}`,
+      )
+    }
+    const readyJobsBody = await readyJobs.json()
+    if (!readyJobsBody.jobs.some((job) => job.spec?.job_id === 'worker-recovery-e2e')) {
+      throw new Error(
+        `Recovered job was not present in /api/jobs/ready: ${JSON.stringify(readyJobsBody)}`,
+      )
+    }
+
     const claimB = await fetch(`${apiUrl}/api/workers/claim`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ worker_id: 'worker-b', lease_seconds: 30 }),
     })
-    expect(claimB.status).toBe(200)
+    if (claimB.status !== 200) {
+      throw new Error(
+        `Worker reclaim failed: HTTP ${claimB.status} ${await claimB.text()}`,
+      )
+    }
     const claimBBody = await claimB.json()
     expect(claimBBody.worker_id).toBe('worker-b')
     expect(claimBBody.job.attempts).toBe(2)

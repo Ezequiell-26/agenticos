@@ -5860,11 +5860,7 @@ async fn evaluate_memory_semantic(
 
     match state
         .persistent_memory
-        .evaluate_semantic_retrieval(
-            namespace,
-            &request.cases,
-            request.limit.unwrap_or(10),
-        )
+        .evaluate_semantic_retrieval(namespace, &request.cases, request.limit.unwrap_or(10))
         .await
     {
         Ok(report) => HttpResponse::Ok().json(report),

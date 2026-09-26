@@ -385,6 +385,7 @@ fn tokenize_command(command: &str) -> Result<Vec<String>, ContractError> {
     let mut current = String::new();
     let mut quote = None;
     let mut escaped = false;
+    let mut arg_started = false;
 
     for character in command.chars() {
         if escaped {
@@ -394,6 +395,7 @@ fn tokenize_command(command: &str) -> Result<Vec<String>, ContractError> {
                 current.push('\\');
                 current.push(character);
             }
+            arg_started = true;
             escaped = false;
             continue;
         }
@@ -407,20 +409,25 @@ fn tokenize_command(command: &str) -> Result<Vec<String>, ContractError> {
             }
             Some(_) => {
                 current.push(character);
+                arg_started = true;
             }
             None if character == '\\' => {
                 escaped = true;
+                arg_started = true;
             }
             None if character == '\'' || character == '"' => {
                 quote = Some(character);
+                arg_started = true;
             }
             None if character.is_whitespace() => {
-                if !current.is_empty() {
+                if arg_started {
                     args.push(std::mem::take(&mut current));
+                    arg_started = false;
                 }
             }
             None => {
                 current.push(character);
+                arg_started = true;
             }
         }
     }
@@ -435,7 +442,7 @@ fn tokenize_command(command: &str) -> Result<Vec<String>, ContractError> {
             "command contains an unterminated quote".to_string(),
         ));
     }
-    if !current.is_empty() {
+    if arg_started {
         args.push(current);
     }
 
@@ -527,8 +534,17 @@ mod tests {
                 "printf".to_string(),
                 "hello world".to_string(),
                 "second value".to_string(),
-                "escaped\ value".to_string(),
+                r"escaped\ value".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn preserves_empty_quoted_arguments() {
+        let args = tokenize_command(r#"printf "" ''"#).unwrap();
+        assert_eq!(
+            args,
+            vec!["printf".to_string(), "".to_string(), "".to_string()]
         );
     }
 

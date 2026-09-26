@@ -4311,6 +4311,10 @@ async fn agent_chat(
             let current = match state.kernel.get_or_recover_run(&run_id).await {
                 Ok(run) => run,
                 Err(error) => {
+                    let _ = state
+                        .kernel
+                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                        .await;
                     state.metrics.record_http(true);
                     return HttpResponse::InternalServerError().json(ErrorResponse {
                         error: error.to_string(),
@@ -4318,10 +4322,25 @@ async fn agent_chat(
                     });
                 }
             };
+            if lease_lost {
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await;
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: "run lease was lost before completion".to_string(),
+                    code: "CHAT_RUN_LEASE_LOST",
+                });
+            }
             if current.state == RunState::Cancelling || current.cancellation.is_cancelled() {
                 let _ = state
                     .kernel
                     .transition_run(&run_id, RunState::Cancelled, current.version)
+                    .await;
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
                     .await;
                 state.metrics.record_http(true);
                 return HttpResponse::Conflict().json(ErrorResponse {
@@ -4334,10 +4353,25 @@ async fn agent_chat(
                 .transition_run(&run_id, RunState::Completed, current.version)
                 .await
             {
+                let _ = state
+                    .kernel
+                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                    .await;
                 state.metrics.record_http(true);
                 return HttpResponse::Conflict().json(ErrorResponse {
                     error: error.to_string(),
                     code: "CHAT_RUN_COMPLETE_FAILED",
+                });
+            }
+            if let Err(error) = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await
+            {
+                state.metrics.record_http(true);
+                return HttpResponse::Conflict().json(ErrorResponse {
+                    error: error.to_string(),
+                    code: "CHAT_RUN_LEASE_RELEASE_FAILED",
                 });
             }
             state.metrics.record_http(false);
@@ -4365,17 +4399,27 @@ async fn agent_chat(
                         .kernel
                         .transition_run(&run_id, RunState::Cancelled, current.version)
                         .await;
+                    let _ = state
+                        .kernel
+                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                        .await;
                     state.metrics.record_http(true);
                     return HttpResponse::Conflict().json(ErrorResponse {
                         error: "run was cancelled".to_string(),
                         code: "RUN_CANCELLED",
                     });
                 }
-                let _ = state
-                    .kernel
-                    .transition_run(&run_id, RunState::Failed, current.version)
-                    .await;
+                if !lease_lost {
+                    let _ = state
+                        .kernel
+                        .transition_run(&run_id, RunState::Failed, current.version)
+                        .await;
+                }
             }
+            let _ = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await;
             state.metrics.record_http(true);
             state
                 .metrics

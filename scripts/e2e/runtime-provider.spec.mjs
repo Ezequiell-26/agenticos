@@ -100,6 +100,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
   let tempRoot
   let apiUrl
   let frontendUrl
+  let startApi
   const receivedRequests = []
 
   test.beforeAll(async () => {
@@ -184,7 +185,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
     }
-    const startApi = async (verifyProvider = true) => {
+    startApi = async (verifyProvider = true) => {
       api = startProcess(apiBinary, [], apiEnv)
       await waitForHttp(`${apiUrl}/health`, api)
       if (verifyProvider) {

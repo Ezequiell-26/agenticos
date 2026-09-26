@@ -497,7 +497,8 @@ impl Sandbox for ProcessSandbox {
     async fn execute(&self, request: SandboxRequest) -> Result<SandboxResponse, ContractError> {
         if request.memory_limit_bytes > 0 {
             return Err(ContractError::ParseError(
-                "sandbox memory limits are not supported by the configured process runner".to_string(),
+                "sandbox memory limits are not supported by the configured process runner"
+                    .to_string(),
             ));
         }
 

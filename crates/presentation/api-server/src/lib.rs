@@ -6927,7 +6927,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
             }
             if let Err(error) = kernel_result {
                 tracing::warn!(
-                    run_id = %heartbeat_run_id,
+                    run_id = heartbeat_run_id.as_str(),
                     %error,
                     "subagent run lease heartbeat failed"
                 );

@@ -31,9 +31,13 @@ function run(command, args, options = {}) {
 }
 
 function startProcess(command, args, env) {
+  const childEnv = { ...process.env, ...env }
+  for (const [key, value] of Object.entries(env ?? {})) {
+    if (value === undefined) delete childEnv[key]
+  }
   const child = spawn(command, args, {
     cwd: repoRoot,
-    env: { ...process.env, ...env },
+    env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let stdout = ''

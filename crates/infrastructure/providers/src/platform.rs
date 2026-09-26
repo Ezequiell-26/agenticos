@@ -1796,7 +1796,6 @@ impl Default for ProviderPlatform {
     }
 }
 
-#[derive(Debug)]
 fn is_retryable_provider_error(error: &ContractError) -> bool {
     let message = error.to_string();
     if message.contains("provider_http_status=") {

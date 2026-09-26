@@ -541,9 +541,22 @@ impl PersistentMemoryStore {
         .await
         .map_err(|error| ContractError::ParseError(format!("memory upsert failed: {error}")))?;
 
-        self.get(namespace, key)
+        let record = self
+            .get(namespace, key)
             .await?
-            .ok_or(ContractError::Persistence)
+            .ok_or(ContractError::Persistence)?;
+
+        sqlx::query("DELETE FROM memory_embeddings WHERE memory_id = ?")
+            .bind(&record.memory_id)
+            .execute(&*self.db)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!(
+                    "memory embedding invalidation failed: {error}"
+                ))
+            })?;
+
+        Ok(record)
     }
 
     /// Get a live record by namespace and key.
@@ -1084,6 +1097,63 @@ mod persistent_memory_tests {
             1
         );
         assert!(store.get("project:test", "goal").await.unwrap().is_some());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn upsert_invalidates_stale_embedding() {
+        let path =
+            std::env::temp_dir().join(format!("agenticos-memory-invalidate-{}.db", uuid::Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let first = store
+            .upsert("project:invalidate", "goal", "old value", &[], 0.8, 0)
+            .await
+            .unwrap();
+        store
+            .set_embedding(&first.memory_id, &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .embedding_coverage("project:invalidate")
+                .await
+                .unwrap()
+                .embedded_records,
+            1
+        );
+
+        let updated = store
+            .upsert(
+                "project:invalidate",
+                "goal",
+                "new value",
+                &["updated".to_string()],
+                0.9,
+                0,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(updated.memory_id, first.memory_id);
+        assert_eq!(
+            store
+                .embedding_coverage("project:invalidate")
+                .await
+                .unwrap()
+                .missing_records,
+            1
+        );
+        assert!(
+            store
+                .search_semantic("project:invalidate", &[1.0, 0.0, 0.0], 10)
+                .await
+                .unwrap()
+                .is_empty(),
+            "stale embedding must not remain searchable after memory content changes"
+        );
 
         let _ = std::fs::remove_file(path);
     }

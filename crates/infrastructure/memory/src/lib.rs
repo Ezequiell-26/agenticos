@@ -726,12 +726,14 @@ impl PersistentMemoryStore {
         })?;
         let updated = sqlx::query(
             "INSERT INTO memory_embeddings(memory_id, embedding, dimension)
-             VALUES (?, ?, ?)
+             SELECT ?, ?, ?
+             WHERE EXISTS (SELECT 1 FROM memory_records WHERE memory_id = ?)
              ON CONFLICT(memory_id) DO UPDATE SET embedding = excluded.embedding, dimension = excluded.dimension",
         )
         .bind(memory_id)
         .bind(payload)
         .bind(embedding.len() as i64)
+        .bind(memory_id)
         .execute(&*self.db)
         .await
         .map_err(|error| {
@@ -1036,16 +1038,41 @@ impl PersistentMemoryStore {
         Ok(result.rows_affected() > 0)
     }
 
-    /// Remove expired records.
+    /// Remove expired records and their associated embeddings.
     pub async fn purge_expired(&self) -> Result<u64, ContractError> {
+        let now = unix_time() as i64;
+        let mut transaction = self.db.begin().await.map_err(|error| {
+            ContractError::ParseError(format!("memory purge transaction failed: {error}"))
+        })?;
+
+        sqlx::query(
+            "DELETE FROM memory_embeddings
+             WHERE memory_id IN (
+                 SELECT memory_id
+                 FROM memory_records
+                 WHERE expires_at != 0 AND expires_at <= ?
+             )",
+        )
+        .bind(now)
+        .execute(&mut *transaction)
+        .await
+        .map_err(|error| {
+            ContractError::ParseError(format!("memory embedding purge failed: {error}"))
+        })?;
+
         let result =
             sqlx::query("DELETE FROM memory_records WHERE expires_at != 0 AND expires_at <= ?")
-                .bind(unix_time() as i64)
-                .execute(&*self.db)
+                .bind(now)
+                .execute(&mut *transaction)
                 .await
                 .map_err(|error| {
                     ContractError::ParseError(format!("memory purge failed: {error}"))
                 })?;
+
+        transaction.commit().await.map_err(|error| {
+            ContractError::ParseError(format!("memory purge commit failed: {error}"))
+        })?;
+
         Ok(result.rows_affected())
     }
 }
@@ -1097,6 +1124,23 @@ mod persistent_memory_tests {
             1
         );
         assert!(store.get("project:test", "goal").await.unwrap().is_some());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn set_embedding_rejects_unknown_memory() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-orphan-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let result = store
+            .set_embedding("missing-memory", &[1.0, 0.0, 0.0])
+            .await;
+        assert!(matches!(result, Err(ContractError::Persistence)));
 
         let _ = std::fs::remove_file(path);
     }
@@ -1277,6 +1321,47 @@ mod persistent_memory_tests {
         assert_eq!(report.hit_at_1, 1);
         assert_eq!(report.hit_at_k, 1);
         assert_eq!(report.mean_reciprocal_rank, 1.0);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn purge_expired_removes_embeddings() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-purge-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let now = unix_time() as i64;
+        let record = store
+            .upsert(
+                "project:purge",
+                "expired",
+                "expired memory",
+                &[],
+                0.5,
+                now.saturating_sub(1),
+            )
+            .await
+            .unwrap();
+        store
+            .set_embedding(&record.memory_id, &[1.0, 0.0])
+            .await
+            .unwrap();
+
+        assert_eq!(store.purge_expired().await.unwrap(), 1);
+        assert!(store.get("project:purge", "expired").await.unwrap().is_none());
+
+        let embedding_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM memory_embeddings WHERE memory_id = ?",
+        )
+        .bind(&record.memory_id)
+        .fetch_one(&*store.db)
+        .await
+        .unwrap();
+        assert_eq!(embedding_count, 0);
 
         let _ = std::fs::remove_file(path);
     }

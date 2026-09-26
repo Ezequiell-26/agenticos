@@ -29,6 +29,7 @@ export interface RuntimeProviderStatus {
   name: string
   configured: boolean
   models: string[]
+  capabilities?: string[]
   health: string
   requests_used: number
   requests_per_minute?: number | null

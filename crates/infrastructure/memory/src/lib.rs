@@ -551,9 +551,7 @@ impl PersistentMemoryStore {
             .execute(&*self.db)
             .await
             .map_err(|error| {
-                ContractError::ParseError(format!(
-                    "memory embedding invalidation failed: {error}"
-                ))
+                ContractError::ParseError(format!("memory embedding invalidation failed: {error}"))
             })?;
 
         Ok(record)
@@ -1147,8 +1145,10 @@ mod persistent_memory_tests {
 
     #[tokio::test]
     async fn upsert_invalidates_stale_embedding() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-memory-invalidate-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-invalidate-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = PersistentMemoryStore::new(&url).await.unwrap();
 

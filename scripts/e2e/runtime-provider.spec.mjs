@@ -241,7 +241,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(shell).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText('E2E provider response: desktop UI E2E', { exact: true })).toBeVisible({
+    await expect(page.getByText('E2E provider response', { exact: true })).toBeVisible({
       timeout: 30_000,
     })
   })

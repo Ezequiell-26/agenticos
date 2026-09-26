@@ -4231,6 +4231,12 @@ async fn agent_chat(
     {
         Ok(lease) => lease,
         Err(error) => {
+            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                let _ = state
+                    .kernel
+                    .transition_run(&run_id, RunState::Failed, current.version)
+                    .await;
+            }
             state.metrics.record_http(true);
             return HttpResponse::Conflict().json(ErrorResponse {
                 error: error.to_string(),

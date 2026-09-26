@@ -16,6 +16,7 @@ use tokio::sync::Semaphore;
 use tokio::time::sleep;
 use tracing::Instrument;
 
+#[path = "authenticated_openai.rs"]
 mod authenticated_openai;
 
 use authenticated_openai::AuthenticatedOpenAiProvider;

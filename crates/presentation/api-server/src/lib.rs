@@ -6589,8 +6589,13 @@ async fn worker_complete(
                             WorkflowNodeState::Succeeded,
                         )
                         .await;
-                    // TODO: Fix workflow state type mismatch
-                    // let _ = schedule_workflow_ready_nodes(&state, workflow_id, workflow_state).await;
+                    if let Err(error) = advance_workflow_ready_nodes(&state, workflow_id).await {
+                        tracing::warn!(
+                            workflow_id = %workflow_id,
+                            %error,
+                            "workflow downstream readiness advancement failed"
+                        );
+                    }
                 } else if final_attempt {
                     let _ = state
                         .workflows

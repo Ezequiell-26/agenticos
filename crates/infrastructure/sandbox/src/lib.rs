@@ -128,10 +128,10 @@ impl ProcessSandbox {
             return Err(ContractError::MissingCapability);
         }
 
-        let args: Vec<&str> = command.split_whitespace().collect();
+        let args = tokenize_command(command)?;
         let executable = args
             .first()
-            .copied()
+            .map(String::as_str)
             .ok_or_else(|| ContractError::ParseError("command must not be empty".to_string()))?;
 
         let contains_shell_metachar = command.chars().any(|character| {
@@ -380,6 +380,68 @@ where
     Ok(retained)
 }
 
+fn tokenize_command(command: &str) -> Result<Vec<String>, ContractError> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut quote = None;
+    let mut escaped = false;
+
+    for character in command.chars() {
+        if escaped {
+            if matches!(character, '\\' | '\'' | '"' | ' ' | '\t') {
+                current.push(character);
+            } else {
+                current.push('\\');
+                current.push(character);
+            }
+            escaped = false;
+            continue;
+        }
+
+        match quote {
+            Some(active) if character == active => {
+                quote = None;
+            }
+            Some(_) if character == '\\' => {
+                escaped = true;
+            }
+            Some(_) => {
+                current.push(character);
+            }
+            None if character == '\\' => {
+                escaped = true;
+            }
+            None if character == '\'' || character == '"' => {
+                quote = Some(character);
+            }
+            None if character.is_whitespace() => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            None => {
+                current.push(character);
+            }
+        }
+    }
+
+    if escaped {
+        return Err(ContractError::ParseError(
+            "command must not end with an escape".to_string(),
+        ));
+    }
+    if quote.is_some() {
+        return Err(ContractError::ParseError(
+            "command contains an unterminated quote".to_string(),
+        ));
+    }
+    if !current.is_empty() {
+        args.push(current);
+    }
+
+    Ok(args)
+}
+
 fn reserve_output_bytes(remaining: &AtomicUsize, requested: usize) -> usize {
     loop {
         let available = remaining.load(Ordering::Acquire);
@@ -455,6 +517,57 @@ impl Sandbox for ProcessSandbox {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tokenizes_quoted_and_escaped_arguments_without_shell_expansion() {
+        let args = tokenize_command(r#"printf "hello world" 'second value' escaped\\ value"#).unwrap();
+        assert_eq!(
+            args,
+            vec![
+                "printf".to_string(),
+                "hello world".to_string(),
+                "second value".to_string(),
+                "escaped\\ value".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_unterminated_quotes_and_trailing_escape() {
+        assert!(matches!(
+            tokenize_command(r#"printf "unterminated"#),
+            Err(ContractError::ParseError(_))
+        ));
+        assert!(matches!(
+            tokenize_command(r#"printf trailing\\ "#),
+            Err(ContractError::ParseError(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn executes_allowlisted_command_with_quoted_argument() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 5_000,
+            max_output_bytes: 64,
+            allowed_commands: vec!["printf".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "process".to_string(),
+            isolation_profile: "default".to_string(),
+        });
+        let result = sandbox
+            .execute_command(
+                r#"printf "hello world""#,
+                None,
+                None,
+                &["process.execute".to_string()],
+            )
+            .await
+            .unwrap();
+        assert!(result.success);
+        assert_eq!(result.output, "hello world");
+    }
 
     #[tokio::test]
     async fn rejects_missing_process_capability() {

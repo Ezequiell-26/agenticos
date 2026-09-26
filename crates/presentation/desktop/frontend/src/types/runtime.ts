@@ -201,6 +201,25 @@ export interface RuntimeMemoryRecord {
   created_at?: number
 }
 
+export interface RuntimeMemoryEmbeddingCoverage {
+  namespace: string
+  total_records: number
+  embedded_records: number
+  missing_records: number
+}
+
+export interface RuntimeSemanticRetrievalCase {
+  query_embedding: number[]
+  relevant_memory_ids: string[]
+}
+
+export interface RuntimeSemanticRetrievalReport {
+  evaluated_queries: number
+  hit_at_1: number
+  hit_at_k: number
+  mean_reciprocal_rank: number
+}
+
 export interface RuntimeSearchResult {
   query: string
   results: RuntimeApiRecord[]
@@ -324,6 +343,13 @@ export interface RuntimeServices {
   memory: {
     list(namespace: string, query?: string, limit?: number): Promise<RuntimeMemoryRecord[]>
     upsert(record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>): Promise<RuntimeMemoryRecord>
+    coverage(namespace: string): Promise<RuntimeMemoryEmbeddingCoverage>
+    backfillEmbeddings(namespace: string, limit?: number): Promise<RuntimeApiRecord>
+    evaluateSemantic(
+      namespace: string,
+      cases: RuntimeSemanticRetrievalCase[],
+      limit?: number,
+    ): Promise<RuntimeSemanticRetrievalReport>
     remove(namespace: string, key: string): Promise<void>
     purge(): Promise<{ removed: number }>
   }

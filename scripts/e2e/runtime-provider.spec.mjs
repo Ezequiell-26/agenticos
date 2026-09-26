@@ -308,6 +308,14 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     })
     expect(pythonMemory.status).toBe(200)
 
+    const providersResponse = await fetch(apiUrl + '/api/providers')
+    expect(providersResponse.status).toBe(200)
+    const providersBody = await providersResponse.json()
+    const e2eProvider = providersBody.providers.find((provider) => provider.provider_id === 'e2e-provider')
+    expect(e2eProvider).toBeTruthy()
+    expect(e2eProvider.capabilities).toContain('embeddings')
+    expect(e2eProvider.models).toContain('e2e-embedding')
+
     const backfill = await fetch(apiUrl + '/api/memory/backfill', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

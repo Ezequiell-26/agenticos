@@ -27,6 +27,8 @@ pub struct ProviderStatus {
     pub configured: bool,
     /// Models declared by the provider.
     pub models: Vec<String>,
+    /// Capabilities declared by the provider.
+    pub capabilities: Vec<String>,
     /// Health status.
     pub health: String,
     /// Requests consumed during the active quota window.
@@ -813,6 +815,7 @@ impl ProviderPlatform {
                 name: provider.name,
                 configured,
                 models: provider.models,
+                capabilities: provider.capabilities,
                 health,
                 requests_used: quota.as_ref().map(|value| value.current_usage).unwrap_or(0),
                 requests_per_minute: quota.as_ref().and_then(|value| value.requests_per_minute),

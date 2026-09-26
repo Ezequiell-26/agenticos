@@ -4188,17 +4188,6 @@ async fn agent_chat(
         }
     };
     if let Err(error) = state
-        .kernel
-        .transition_run(&run_id, RunState::Running, admitted.version)
-        .await
-    {
-        state.metrics.record_http(true);
-        return HttpResponse::Conflict().json(ErrorResponse {
-            error: error.to_string(),
-            code: "CHAT_RUN_START_FAILED",
-        });
-    }
-    if let Err(error) = state
         .memory
         .store_message(
             &format!("{}-objective", run_id.as_str()),
@@ -4234,6 +4223,68 @@ async fn agent_chat(
             code: "AGENT_CAPACITY_UNAVAILABLE",
         });
     }
+
+    let lease_seconds = std::env::var("AGENTICOS_RUN_LEASE_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(300)
+        .clamp(10, 3600);
+    let owner_id = format!("api-chat:{}:{}", session_id, run_id.as_str());
+    let lease = match state
+        .kernel
+        .acquire_lease(
+            &run_id,
+            owner_id.clone(),
+            unix_time().saturating_add(lease_seconds),
+        )
+        .await
+    {
+        Ok(lease) => lease,
+        Err(error) => {
+            state.metrics.record_http(true);
+            return HttpResponse::Conflict().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_LEASE_UNAVAILABLE",
+            });
+        }
+    };
+
+    let admitted = match state.kernel.get_or_recover_run(&run_id).await {
+        Ok(run) => run,
+        Err(error) => {
+            let _ = state
+                .kernel
+                .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                .await;
+            state.metrics.record_http(true);
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: error.to_string(),
+                code: "CHAT_RUN_STATE_FAILED",
+            });
+        }
+    };
+    if let Err(error) = state
+        .kernel
+        .transition_run(&run_id, RunState::Running, admitted.version)
+        .await
+    {
+        let _ = state
+            .kernel
+            .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+            .await;
+        state.metrics.record_http(true);
+        return HttpResponse::Conflict().json(ErrorResponse {
+            error: error.to_string(),
+            code: "CHAT_RUN_START_FAILED",
+        });
+    }
+
+    let heartbeat_interval_seconds = (lease_seconds / 3).clamp(1, 60);
+    let mut heartbeat =
+        tokio::time::interval(std::time::Duration::from_secs(heartbeat_interval_seconds));
+    heartbeat.tick().await;
+
+    let mut lease_lost = false;
     let started_at = std::time::Instant::now();
     state.metrics.record_provider(false);
 

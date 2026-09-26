@@ -7197,10 +7197,15 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8080);
-    let worker_state = state.clone();
-    tokio::spawn(async move {
-        scheduler_worker(worker_state).await;
-    });
+    let scheduler_worker_disabled = std::env::var("AGENTICOS_DISABLE_SCHEDULER_WORKER")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if !scheduler_worker_disabled {
+        let worker_state = state.clone();
+        tokio::spawn(async move {
+            scheduler_worker(worker_state).await;
+        });
+    }
 
     let outbox_publisher = state.outbox_publisher.clone();
     let outbox_interval_ms =

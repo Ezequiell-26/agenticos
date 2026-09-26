@@ -19,9 +19,8 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "d11fe6e23369ced48c7e8544d6f09b92095bfc76",
+    "last_update_commit": "6bc83019f764a19c19f6fd3a344f2da9d4d7163c",
     "next_actions": [
-      "verify the latest full CI run and promote only with fresh automated evidence",
       "expand durable worker end-to-end recovery beyond scheduler jobs and run leases",
       "expand runtime end-to-end tests for desktop, subagents, workflows, MCP and skills",
       "strengthen sandbox isolation profiles and resource enforcement",
@@ -169,7 +168,19 @@
     {
       "id": "desktop-api-integration",
       "owner": "api-server/desktop",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36203448033,
+          "run_number": 2519,
+          "commit": "6bc83019f764a19c19f6fd3a344f2da9d4d7163c",
+          "workflow": "AgentiCOS CI",
+          "check": "verify-desktop-e2e",
+          "result": "success",
+          "scope": "React/Vite UI -> runtime.ts -> API -> provider health/models -> OpenAI-compatible chat -> response -> persisted history after reload"
+        }
+      ]
     },
     {
       "id": "github-write-plane",
@@ -293,10 +304,11 @@
       "cargo test --workspace --all-targets",
       "cargo clippy --workspace --all-targets -- -D warnings",
       "npm run architecture:boundaries",
-      "npm run provider:coverage"
+      "npm run provider:coverage",
+      "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-21 historical baseline; latest backend changes still require fresh full CI evidence",
-    "ci_pending": true
+    "last_known_green": "2026-09-26 CI run 2519 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "ci_pending": false
   },
   "backlog": [
     "strengthen sandbox isolation profiles",

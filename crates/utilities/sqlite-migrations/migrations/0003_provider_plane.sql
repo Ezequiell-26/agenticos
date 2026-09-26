@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS provider_credentials (
     credential_type TEXT NOT NULL,
     encrypted_value TEXT NOT NULL,
     expires_at INTEGER NOT NULL DEFAULT 0,
-    scope TEXT,
+    scope TEXT
 );
 
 CREATE TABLE IF NOT EXISTS provider_fallback_configs (

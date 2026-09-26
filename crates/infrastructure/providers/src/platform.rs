@@ -136,75 +136,9 @@ impl ProviderPlatform {
         let db = SqlitePool::connect(database_url).await.map_err(|error| {
             ContractError::ParseError(format!("provider database connection failed: {error}"))
         })?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS providers (
-                provider_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                base_url TEXT NOT NULL,
-                models TEXT NOT NULL,
-                capabilities TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!("provider schema initialization failed: {error}"))
-        })?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS provider_credentials (
-                provider_id TEXT PRIMARY KEY,
-                credential_type TEXT NOT NULL,
-                encrypted_value TEXT NOT NULL,
-                expires_at INTEGER NOT NULL,
-                scope TEXT
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!(
-                "provider credential schema initialization failed: {error}"
-            ))
-        })?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS provider_fallback_configs (
-                primary_provider TEXT PRIMARY KEY,
-                fallback_providers TEXT NOT NULL,
-                auto_failover INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!(
-                "provider fallback schema initialization failed: {error}"
-            ))
-        })?;
-
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS provider_runtime_state (
-                provider_id TEXT PRIMARY KEY,
-                payload TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            ContractError::ParseError(format!(
-                "provider runtime state schema initialization failed: {error}"
-            ))
-        })?;
+        agenticos_sqlite_migrations::migrate_pool(&db)
+            .await
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
 
         let provider_rows = sqlx::query_as::<_, (String, String, String, String, String)>(
             "SELECT provider_id, name, base_url, models, capabilities FROM providers ORDER BY provider_id",
@@ -3739,6 +3673,44 @@ mod tests {
             models,
             vec!["gemini-3.8-flash".to_string(), "gemini-special".to_string()]
         );
+    }
+
+    #[tokio::test]
+    async fn provider_open_uses_canonical_migrations_for_schema() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-provider-migrations-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let _platform = ProviderPlatform::open(&url).await.expect("open provider platform");
+        let db = SqlitePool::connect(&url).await.expect("open provider test database");
+
+        for table in [
+            "providers",
+            "provider_credentials",
+            "provider_fallback_configs",
+            "provider_runtime_state",
+        ] {
+            let exists: Option<String> = sqlx::query_scalar(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+            )
+            .bind(table)
+            .fetch_optional(&db)
+            .await
+            .expect("inspect provider schema");
+            assert_eq!(exists.as_deref(), Some(table));
+        }
+
+        let migration_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM _sqlx_migrations WHERE version = 3",
+        )
+        .fetch_one(&db)
+        .await
+        .expect("inspect provider migration");
+        assert_eq!(migration_count, 1);
+
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

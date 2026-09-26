@@ -1277,12 +1277,7 @@ impl KernelRuntime {
     ) -> Result<(), ContractError> {
         let valid = self
             .lease_store
-            .is_valid(
-                run_id.as_str(),
-                owner_id,
-                fencing_token,
-                unix_time(),
-            )
+            .is_valid(run_id.as_str(), owner_id, fencing_token, unix_time())
             .await?;
         if !valid {
             return Err(ContractError::ParseError(
@@ -4184,8 +4179,10 @@ Test procedure"#;
 
     #[tokio::test]
     async fn fenced_transition_rejects_stale_lease_owner() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-fenced-transition-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-fenced-transition-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
 
         let event_store = Arc::new(SqliteEventStore::new(&url).await.unwrap());

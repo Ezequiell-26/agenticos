@@ -1611,6 +1611,32 @@ impl ProviderPlatform {
             }
         }
 
+        if provider
+            .capabilities
+            .iter()
+            .any(|value| value.eq_ignore_ascii_case("embedding") || value.eq_ignore_ascii_case("embeddings"))
+        {
+            let preferred_embedding_provider = std::env::var("AGENTICOS_EMBEDDING_PROVIDER")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty());
+            let configured_embedding_model = std::env::var("AGENTICOS_EMBEDDING_MODEL")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty() && value.len() <= 256);
+            let provider_is_target = preferred_embedding_provider
+                .as_deref()
+                .map(|preferred| preferred == provider_id)
+                .unwrap_or(true);
+            if provider_is_target {
+                if let Some(embedding_model) = configured_embedding_model {
+                    if seen.insert(embedding_model.clone()) {
+                        unique_models.push(embedding_model);
+                    }
+                }
+            }
+        }
+
         let updated_entry = ProviderEntry {
             models: unique_models.clone(),
             ..provider.clone()

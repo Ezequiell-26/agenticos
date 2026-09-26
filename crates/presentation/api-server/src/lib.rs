@@ -6612,6 +6612,25 @@ async fn worker_complete(
                             "workflow downstream readiness advancement failed"
                         );
                     }
+                    if workflow_state
+                        .nodes
+                        .values()
+                        .all(|status| *status == WorkflowNodeState::Succeeded)
+                    {
+                        if let Ok(run_id) = RunId::new(job.spec.run_id.clone()) {
+                            if let Ok(current) = state.kernel.get_or_recover_run(&run_id).await {
+                                if matches!(
+                                    current.state,
+                                    RunState::Admitted | RunState::Running | RunState::Waiting
+                                ) {
+                                    let _ = state
+                                        .kernel
+                                        .transition_run(&run_id, RunState::Completed, current.version)
+                                        .await;
+                                }
+                            }
+                        }
+                    }
                 } else if final_attempt {
                     let _ = state
                         .workflows

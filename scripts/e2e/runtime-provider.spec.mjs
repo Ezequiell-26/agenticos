@@ -378,12 +378,14 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        workflow_id: 'workflow-e2e',
-        name: 'workflow E2E',
-        nodes: [
-          { id: 'step-a', task: 'workflow step A', depends_on: [] },
-          { id: 'step-b', task: 'workflow step B', depends_on: ['step-a'] },
-        ],
+        workflow: {
+          workflow_id: 'workflow-e2e',
+          name: 'workflow E2E',
+          nodes: [
+            { id: 'step-a', task: 'workflow step A', depends_on: [] },
+            { id: 'step-b', task: 'workflow step B', depends_on: ['step-a'] },
+          ],
+        },
       }),
     })
     expect(workflow.status).toBe(201)

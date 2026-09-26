@@ -17,7 +17,6 @@ use agenticos_kernel::{
     TestIdGenerator,
 };
 use agenticos_providers::HttpModelProvider;
-use agenticos_providers::HttpModelProvider;
 use std::sync::Arc;
 
 fn test_runtime() -> tokio::runtime::Runtime {

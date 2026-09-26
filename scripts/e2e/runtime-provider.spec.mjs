@@ -184,6 +184,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       AGENTICOS_SKILLS_ROOT: 'skills',
       AGENTICOS_OUTBOX_PUBLISH_INTERVAL_MS: '5000',
       AGENTICOS_SESSION_RECOVERY_HISTORY_LIMIT: '16',
+      AGENTICOS_DISABLE_SCHEDULER_WORKER: 'true',
     }
     startApi = async (verifyProvider = true) => {
       api = startProcess(apiBinary, [], apiEnv)
@@ -261,28 +262,19 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
   })
 
   test('recovers an expired worker lease and fences the stale worker', async () => {
-    const createJob = await fetch(`${apiUrl}/api/jobs`, {
+    const createRun = await fetch(`${apiUrl}/api/runs`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        job: {
-          job_id: 'worker-recovery-e2e',
-          run_id: 'worker-recovery-run',
-          task: 'recover worker after restart',
-          dependencies: [],
-          priority: 100,
-          max_attempts: 3,
-          job_type: 'agent',
-          metadata: {},
-        },
+        objective: 'recover worker after restart',
+        run_id: 'worker-recovery-run',
       }),
     })
-    if (!createJob.ok) {
+    if (!createRun.ok) {
       throw new Error(
-        `Job creation failed: HTTP ${createJob.status} ${await createJob.text()}`,
+        `Run creation failed: HTTP ${createRun.status} ${await createRun.text()}`,
       )
     }
-
     const claimA = await fetch(`${apiUrl}/api/workers/claim`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -303,7 +295,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     await startApi(false)
 
     const recoveredBeforeClaim = await fetch(
-      `${apiUrl}/api/jobs/worker-recovery-e2e`,
+      `${apiUrl}/api/jobs/job-worker-recovery-run`,
     )
     if (!recoveredBeforeClaim.ok) {
       throw new Error(
@@ -324,7 +316,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       )
     }
     const readyJobsBody = await readyJobs.json()
-    if (!readyJobsBody.jobs.some((job) => job.spec?.job_id === 'worker-recovery-e2e')) {
+    if (!readyJobsBody.jobs.some((job) => job.spec?.job_id === 'job-worker-recovery-run')) {
       throw new Error(
         `Recovered job was not present in /api/jobs/ready: recovered=${JSON.stringify(recoveredBeforeClaimBody)} ready=${JSON.stringify(readyJobsBody)}`,
       )
@@ -347,7 +339,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     expect(claimBBody.job.lease_token).toBeGreaterThan(staleToken)
 
     const staleHeartbeat = await fetch(
-      `${apiUrl}/api/workers/jobs/worker-recovery-e2e/heartbeat`,
+      `${apiUrl}/api/workers/jobs/job-worker-recovery-run/heartbeat`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -361,7 +353,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     expect(staleHeartbeat.status).toBe(409)
 
     const completion = await fetch(
-      `${apiUrl}/api/workers/jobs/worker-recovery-e2e/complete`,
+      `${apiUrl}/api/workers/jobs/job-worker-recovery-run/complete`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -375,7 +367,7 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     )
     expect(completion.status).toBe(200)
 
-    const recoveredJob = await fetch(`${apiUrl}/api/jobs/worker-recovery-e2e`)
+    const recoveredJob = await fetch(`${apiUrl}/api/jobs/job-worker-recovery-run`)
     expect(recoveredJob.status).toBe(200)
     const recoveredBody = await recoveredJob.json()
     expect(recoveredBody.state).toBe('Succeeded')

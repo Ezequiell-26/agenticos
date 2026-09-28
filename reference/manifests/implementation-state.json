@@ -19,13 +19,12 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "f489e3d5b53a31849c2517ac353d11e6091d4f7e",
+    "last_update_commit": "ccaa4dcc42f0cc8b84d5dd6d79a710ba5bdac8d2",
     "next_actions": [
-      "version and verify SQLite migrations for runtime state",
+      "refactor remaining inline SQLite schema initialization to use canonical migrations without changing domain/infrastructure boundaries",
       "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
       "strengthen sandbox isolation profiles and add destructive-operation regression coverage",
-      "expand runtime end-to-end tests for desktop, subagents, workflows, MCP and skills",
-      "strengthen sandbox isolation profiles and resource enforcement",
+      "expand runtime end-to-end tests for subagents, workflows, MCP and skills",
       "complete evaluation/replay coverage and regression fixtures"
     ],
     "scope": [
@@ -305,6 +304,41 @@
       "id": "skill-registry",
       "owner": "application/skills + api-server + desktop",
       "status": "implemented-unverified"
+    },
+    {
+      "id": "sqlite-schema-authority",
+      "owner": "utilities/sqlite-migrations + CI",
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36369167492,
+          "run_number": 2666,
+          "commit": "76c4de9427125ca34e5126a3a1400dd472dd8bd3",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "canonical migration regression explicitly executed; Rust, TypeScript and desktop UI+API+provider E2E also green"
+        },
+        {
+          "kind": "github_actions",
+          "run_id": 36369513304,
+          "run_number": 2667,
+          "commit": "ccaa4dcc42f0cc8b84d5dd6d79a710ba5bdac8d2",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "post-merge mainline verification"
+        }
+      ]
     }
   ],
   "verification": {
@@ -321,8 +355,8 @@
       "npm run provider:coverage",
       "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-26 CI run 2536 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
-    "ci_pending": true
+    "last_known_green": "2026-09-28 CI run 2667 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "ci_pending": false
   },
   "backlog": [
     "strengthen sandbox isolation profiles",

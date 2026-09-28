@@ -22,8 +22,8 @@ pub use resource_governor::{
     GovernorConfig, ResourceGovernor, ResourceRequest, ResourceState, ResourceUsage,
 };
 pub use source_intelligence::{
-    EngineConfig, RepositoryAnalysis, RepositoryMetadata, RepositoryStatus,
-    SourceIntelligenceEngine,
+    EngineConfig, RepositoryAnalysis, RepositoryMetadata, RepositoryMetadataStore,
+    RepositoryStatus, SourceIntelligenceEngine,
 };
 
 use chrono::{DateTime, Utc};

@@ -307,7 +307,6 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sqlx",
  "thiserror 2.0.20",
  "tokio",
  "uuid",
@@ -595,12 +594,16 @@ dependencies = [
 name = "agenticos-source-forge"
 version = "0.1.0"
 dependencies = [
+ "agenticos-brain",
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
  "async-trait",
  "base64 0.22.1",
+ "chrono",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sqlx",
  "thiserror 2.0.20",
  "tokio",
 ]

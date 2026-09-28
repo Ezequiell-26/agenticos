@@ -122,6 +122,9 @@ jobs:
       - name: Compile Tauri desktop crate
         run: cargo check -p agenticos-desktop --all-targets
 
+      - name: Test SQLite migration authority
+        run: cargo test -p agenticos-sqlite-migrations --lib --test schema_authority
+
       - name: Test workspace
         run: cargo test -p agenticos-brain --lib
 

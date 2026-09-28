@@ -1436,11 +1436,7 @@ impl ReactAgent {
                     code: code.to_string(),
                     timeout_ms: 30000,
                     memory_limit_bytes: 0,
-                    workdir: self
-                        .inner
-                        .lock()
-                        .await
-                        .tool_executor
+                    workdir: tool_executor
                         .as_ref()
                         .map(|executor| executor.workdir.to_string_lossy().into_owned()),
                     allowed_capabilities: vec!["process.execute".to_string()],

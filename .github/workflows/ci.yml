@@ -90,6 +90,11 @@ jobs:
             xdg-utils \
             bubblewrap
 
+      - name: Enable user namespaces for bubblewrap
+        run: |
+          echo "kernel.apparmor_restrict_unprivileged_userns = 0" | sudo tee /etc/sysctl.d/99-agenticos-userns.conf
+          sudo sysctl --system
+
       - name: Cache cargo registry
         uses: actions/cache@v5
         with:

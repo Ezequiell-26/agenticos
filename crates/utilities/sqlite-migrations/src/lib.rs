@@ -81,14 +81,15 @@ async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
     ];
 
     for (table, column, statement) in additions {
-        let exists: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM pragma_table_info(?) WHERE name = ?",
-        )
-        .bind(table)
-        .bind(column)
-        .fetch_optional(pool)
-        .await
-        .map_err(|error| format!("legacy column inspection failed for {table}.{column}: {error}"))?;
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT name FROM pragma_table_info(?) WHERE name = ?")
+                .bind(table)
+                .bind(column)
+                .fetch_optional(pool)
+                .await
+                .map_err(|error| {
+                    format!("legacy column inspection failed for {table}.{column}: {error}")
+                })?;
 
         if exists.is_none() {
             sqlx::query(statement)
@@ -246,5 +247,4 @@ mod tests {
             assert!(exists.is_none(), "unexpected scheduler column {column}");
         }
     }
-
 }

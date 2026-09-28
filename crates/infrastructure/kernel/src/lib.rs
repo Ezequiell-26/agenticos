@@ -4152,7 +4152,7 @@ Test procedure"#;
             .acquire_lease(
                 &run_id,
                 "worker-a".to_string(),
-                unix_time().saturating_add(60),
+                unix_time().saturating_add(1),
             )
             .await
             .unwrap();

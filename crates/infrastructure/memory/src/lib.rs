@@ -1379,8 +1379,10 @@ mod persistent_memory_tests {
 
     #[tokio::test]
     async fn semantic_retrieval_evaluation_reports_ranked_metrics() {
-        let path =
-            std::env::temp_dir().join(format!("agenticos-memory-eval-ranked-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-eval-ranked-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = PersistentMemoryStore::new(&url).await.unwrap();
 
@@ -1389,7 +1391,14 @@ mod persistent_memory_tests {
             .await
             .unwrap();
         let second = store
-            .upsert("project:eval-ranked", "second", "second memory", &[], 0.8, 0)
+            .upsert(
+                "project:eval-ranked",
+                "second",
+                "second memory",
+                &[],
+                0.8,
+                0,
+            )
             .await
             .unwrap();
 

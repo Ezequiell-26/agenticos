@@ -978,6 +978,10 @@ pub struct SandboxRequest {
     pub memory_limit_bytes: u64,
     /// Allowed capabilities.
     pub allowed_capabilities: Vec<String>,
+    /// Optional host working directory to expose as the sandbox workspace.
+    ///
+    /// Strict isolation maps this directory to the private `/workspace` mount.
+    pub workdir: Option<String>,
 }
 
 /// Sandbox execution response.

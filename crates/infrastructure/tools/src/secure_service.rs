@@ -59,6 +59,7 @@ impl SecureToolService {
                 "timeout_ms": timeout_ms,
                 "resource": resource,
                 "permission": permission,
+                "workdir": workdir.map(|path| path.to_string_lossy().into_owned()),
             }),
             session_id.to_string(),
         );
@@ -81,8 +82,11 @@ impl SecureToolService {
                         request_id: format!("sandbox-{}", uuid::Uuid::new_v4()),
                         code: command.clone(),
                         timeout_ms: timeout_ms.unwrap_or(120_000),
-                        memory_limit_bytes: 1024 * 1024 * 100, // 100MB default
+                        memory_limit_bytes: 0,
                         allowed_capabilities: vec!["process.execute".to_string()],
+                        workdir: workdir
+                            .as_deref()
+                            .map(|path| path.to_string_lossy().into_owned()),
                     };
                     match sandbox.execute(request).await {
                         Ok(response) if response.success => {

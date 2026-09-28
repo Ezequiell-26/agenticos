@@ -38,7 +38,7 @@ pub struct SandboxPolicy {
     pub preserved_environment: Vec<String>,
     /// Optional external isolation runner. Supported values: "process" and "bwrap".
     pub isolation_runner: String,
-    /// Isolation profile. "default" preserves compatibility; "strict" requires bwrap.
+    /// Isolation profile. "default" preserves compatibility; "strict" requires bwrap and an explicit workspace.
     pub isolation_profile: String,
 }
 
@@ -112,6 +112,65 @@ impl ProcessSandbox {
         }
     }
 
+    fn validate_execution_context(
+        &self,
+        workdir: Option<&std::path::Path>,
+    ) -> Result<(), ContractError> {
+        if self.policy.isolation_profile != "strict" {
+            return Ok(());
+        }
+
+        let Some(dir) = workdir else {
+            return Err(ContractError::ParseError(
+                "strict sandbox isolation requires an explicit workspace directory".to_string(),
+            ));
+        };
+
+        if !dir.is_absolute() {
+            return Err(ContractError::ParseError(
+                "strict sandbox workspace must be an absolute path".to_string(),
+            ));
+        }
+
+        let metadata = std::fs::metadata(dir).map_err(|error| {
+            ContractError::ParseError(format!(
+                "strict sandbox workspace is not accessible: {error}"
+            ))
+        })?;
+        if !metadata.is_dir() {
+            return Err(ContractError::ParseError(
+                "strict sandbox workspace must be a directory".to_string(),
+            ));
+        }
+
+        let canonical = dir.canonicalize().map_err(|error| {
+            ContractError::ParseError(format!(
+                "strict sandbox workspace could not be canonicalized: {error}"
+            ))
+        })?;
+        const FORBIDDEN_WORKSPACE_ROOTS: &[&str] = &[
+            "/",
+            "/home",
+            "/root",
+            "/mnt",
+            "/media",
+            "/srv",
+            "/opt",
+            "/var/tmp",
+            "/tmp",
+        ];
+        if FORBIDDEN_WORKSPACE_ROOTS
+            .iter()
+            .any(|root| canonical == std::path::Path::new(root))
+        {
+            return Err(ContractError::ParseError(
+                "strict sandbox workspace cannot be a host-sensitive root directory".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Execute a command without shell expansion and with a hard wall-clock timeout.
     pub async fn execute_command(
         &self,
@@ -121,6 +180,7 @@ impl ProcessSandbox {
         capabilities: &[String],
     ) -> Result<SandboxResponse, ContractError> {
         self.validate_policy()?;
+        self.validate_execution_context(workdir)?;
         if !capabilities
             .iter()
             .any(|capability| capability == "process.execute")
@@ -202,13 +262,50 @@ impl ProcessSandbox {
                 "/tmp",
             ]);
             if self.policy.isolation_profile == "strict" {
-                wrapped.args(["--new-session", "--cap-drop", "ALL"]);
+                wrapped.args([
+                    "--new-session",
+                    "--cap-drop",
+                    "ALL",
+                    "--tmpfs",
+                    "/home",
+                    "--tmpfs",
+                    "/root",
+                    "--tmpfs",
+                    "/mnt",
+                    "--tmpfs",
+                    "/media",
+                    "--tmpfs",
+                    "/srv",
+                    "--tmpfs",
+                    "/opt",
+                    "--tmpfs",
+                    "/var/tmp",
+                    "--setenv",
+                    "HOME",
+                    "/tmp",
+                    "--setenv",
+                    "USERPROFILE",
+                    "/tmp",
+                    "--setenv",
+                    "TMPDIR",
+                    "/tmp",
+                    "--setenv",
+                    "TEMP",
+                    "/tmp",
+                    "--setenv",
+                    "TMP",
+                    "/tmp",
+                ]);
             }
             if let Some(dir) = workdir {
                 let dir = dir.to_str().ok_or_else(|| {
                     ContractError::ParseError("sandbox workdir is not UTF-8".to_string())
                 })?;
-                wrapped.args(["--bind", dir, dir, "--chdir", dir]);
+                if self.policy.isolation_profile == "strict" {
+                    wrapped.args(["--dir", "/workspace", "--bind", dir, "/workspace", "--chdir", "/workspace"]);
+                } else {
+                    wrapped.args(["--bind", dir, dir, "--chdir", dir]);
+                }
             }
             wrapped.arg("--").arg(executable);
             wrapped
@@ -502,10 +599,15 @@ impl Sandbox for ProcessSandbox {
             ));
         }
 
+        let workdir = request
+            .workdir
+            .as_deref()
+            .map(std::path::Path::new);
+
         self.execute_command(
             &request.code,
             Some(request.timeout_ms),
-            None,
+            workdir,
             &request.allowed_capabilities,
         )
         .await
@@ -732,6 +834,74 @@ mod tests {
             .unwrap();
         assert!(result.success);
         assert!(result.output.len() <= 32);
+    }
+
+    #[test]
+    fn strict_profile_requires_explicit_workspace() {
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            isolation_runner: "bwrap".to_string(),
+            isolation_profile: "strict".to_string(),
+            ..SandboxPolicy::default()
+        });
+        assert!(sandbox.validate_execution_context(None).is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn strict_profile_confines_writes_to_bound_workspace() {
+        let bwrap = tokio::process::Command::new("bwrap")
+            .arg("--version")
+            .status()
+            .await;
+        if !matches!(bwrap, Ok(status) if status.success()) {
+            return;
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "agenticos-sandbox-strict-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let workspace = root.join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+
+        let sandbox = ProcessSandbox::new(SandboxPolicy {
+            max_timeout_ms: 5_000,
+            max_output_bytes: 2_048,
+            allowed_commands: vec!["python3".to_string()],
+            max_concurrent_processes: 1,
+            clear_environment: true,
+            preserved_environment: vec!["PATH".to_string()],
+            isolation_runner: "bwrap".to_string(),
+            isolation_profile: "strict".to_string(),
+        });
+
+        let inside = sandbox
+            .execute_command(
+                r#"python3 -c "__import__('pathlib').Path('allowed.txt').write_text('ok')""#,
+                None,
+                Some(&workspace),
+                &["process.execute".to_string()],
+            )
+            .await
+            .unwrap();
+        assert!(inside.success);
+        assert_eq!(
+            std::fs::read_to_string(workspace.join("allowed.txt")).unwrap(),
+            "ok"
+        );
+
+        let outside = sandbox
+            .execute_command(
+                r#"python3 -c "__import__('pathlib').Path('/root/agenticos-strict-write-denied').write_text('blocked')""#,
+                None,
+                Some(&workspace),
+                &["process.execute".to_string()],
+            )
+            .await
+            .unwrap();
+        assert!(!outside.success);
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

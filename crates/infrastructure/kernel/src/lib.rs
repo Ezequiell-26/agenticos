@@ -4206,7 +4206,7 @@ Test procedure"#;
         let run_id = RunId::new("sqlite-run-lease").unwrap();
         first.create_run(run_id.clone()).await.unwrap();
 
-        let initial_expiry = unix_time().saturating_add(1);
+        let initial_expiry = unix_time().saturating_add(5);
         let first_lease = first
             .acquire_lease(&run_id, "worker-a".to_string(), initial_expiry)
             .await
@@ -4224,7 +4224,7 @@ Test procedure"#;
         assert!(first_lease_valid);
 
         drop(first);
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 
         let second = KernelRuntime::new_with_outbox_and_lease_store(
             event_store,

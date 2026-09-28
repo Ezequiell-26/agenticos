@@ -4156,6 +4156,8 @@ Test procedure"#;
             )
             .await
             .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+
         let second_lease = runtime
             .acquire_lease(
                 &run_id,

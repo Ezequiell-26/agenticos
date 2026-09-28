@@ -14,6 +14,8 @@ pub struct StepOutcome {
     pub next_prompt: Option<String>,
     /// Whether the agent should exit
     pub should_exit: bool,
+    /// Explicit termination reason, preserving TaskDone vs Exited semantics.
+    pub exit_reason: Option<ExitReason>,
 }
 
 impl StepOutcome {
@@ -23,6 +25,7 @@ impl StepOutcome {
             data: Some(data),
             next_prompt: None,
             should_exit: false,
+            exit_reason: None,
         }
     }
 
@@ -32,6 +35,7 @@ impl StepOutcome {
             data: None,
             next_prompt: Some(next_prompt),
             should_exit: false,
+            exit_reason: None,
         }
     }
 
@@ -41,6 +45,7 @@ impl StepOutcome {
             data: Some(data),
             next_prompt: None,
             should_exit: true,
+            exit_reason: Some(ExitReason::Exited { data: data.clone() }),
         }
     }
 
@@ -224,10 +229,8 @@ impl MinimalAgentLoop {
                     tool_calls.len(),
                 );
 
-                if outcome.should_exit {
-                    exit_reason = Some(ExitReason::Exited {
-                        data: outcome.data.unwrap_or(serde_json::json!(null)),
-                    });
+                if let Some(reason) = outcome.exit_reason {
+                    exit_reason = Some(reason);
                     break;
                 }
 

@@ -62,6 +62,14 @@ async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
             "next_attempt_at",
             "ALTER TABLE scheduler_jobs ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
         ),
+        (
+            "claimed_by",
+            "ALTER TABLE outbox_entries ADD COLUMN claimed_by TEXT",
+        ),
+        (
+            "claimed_until",
+            "ALTER TABLE outbox_entries ADD COLUMN claimed_until INTEGER",
+        ),
     ];
 
     for (column, statement) in additions {
@@ -78,7 +86,7 @@ async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
                 .execute(pool)
                 .await
                 .map_err(|error| {
-                    format!("legacy scheduler column migration failed for {column}: {error}")
+                    format!("legacy column migration failed for {column}: {error}")
                 })?;
         }
     }
@@ -178,4 +186,45 @@ mod tests {
                 .unwrap();
         assert_eq!(migration_versions, vec![1, 2, 3, 4]);
     }
+
+    #[tokio::test]
+    async fn migration_repairs_legacy_outbox_claim_columns() {
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+
+        sqlx::query(
+            "CREATE TABLE outbox_entries (
+                entry_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                event_data TEXT NOT NULL,
+                event_schema_version INTEGER NOT NULL,
+                destination TEXT NOT NULL,
+                attempts INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                processed_at INTEGER
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        migrate_pool(&pool).await.unwrap();
+
+        for column in ["claimed_by", "claimed_until"] {
+            let exists: Option<String> = sqlx::query_scalar(
+                "SELECT name FROM pragma_table_info('outbox_entries') WHERE name = ?",
+            )
+            .bind(column)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+            assert_eq!(exists.as_deref(), Some(column));
+        }
+    }
+
 }

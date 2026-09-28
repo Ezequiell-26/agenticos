@@ -685,4 +685,97 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     const recoveredBody = await recoveredJob.json()
     expect(recoveredBody.state).toBe('Succeeded')
   })
+
+  test('registers and spawns a bounded subagent child run', async () => {
+    const parent = await fetch(apiUrl + '/api/runs', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ objective: 'subagent integration parent', run_id: 'subagent-parent-e2e' }),
+    })
+    expect(parent.status).toBe(201)
+    const registered = await fetch(apiUrl + '/api/subagents', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ agent: {
+        agent_id: 'e2e-subagent', role: 'integration-test-agent', capabilities: ['memory'],
+        providers: ['e2e-provider'], skills: ['agenticos-architecture'], sandbox_profile: 'strict',
+        budget: { max_tokens: 1024, max_wall_seconds: 60, max_tool_calls: 4, max_depth: 2 },
+      } }),
+    })
+    expect(registered.status).toBe(201)
+    const spawned = await fetch(apiUrl + '/api/subagents/subagent-parent-e2e/children', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ agent_id: 'e2e-subagent', parent_depth: 0, objective: 'execute subagent integration test' }),
+    })
+    expect(spawned.status).toBe(201)
+    const spawnedBody = await spawned.json()
+    expect(spawnedBody.state).toBe('Admitted')
+    expect(spawnedBody.child.parent_run_id).toBe('subagent-parent-e2e')
+    expect(spawnedBody.child.agent_id).toBe('e2e-subagent')
+    expect(spawnedBody.child.depth).toBe(1)
+    const children = await fetch(apiUrl + '/api/subagents/subagent-parent-e2e/children')
+    expect(children.status).toBe(200)
+    const childrenBody = await children.json()
+    expect(childrenBody.children).toHaveLength(1)
+    expect(childrenBody.children[0].child_run_id).toBe(spawnedBody.run_id)
+    const childJob = await fetch(apiUrl + '/api/jobs/' + spawnedBody.job_id)
+    expect(childJob.status).toBe(200)
+    const childJobBody = await childJob.json()
+    expect(childJobBody.spec.job_type).toBe('subagent')
+    expect(childJobBody.spec.run_id).toBe(spawnedBody.run_id)
+    expect(childJobBody.spec.task).toBe('execute subagent integration test')
+  })
+
+  test('persists skill activation changes through the runtime API', async () => {
+    const before = await fetch(apiUrl + '/api/skills')
+    expect(before.status).toBe(200)
+    const beforeBody = await before.json()
+    const skill = beforeBody.skills.find((item) => item.skill_id === 'agenticos-architecture')
+    expect(skill).toBeTruthy()
+    expect(skill.source).toContain('skills/agenticos-architecture')
+    const disabled = await fetch(apiUrl + '/api/skills/' + encodeURIComponent(skill.skill_id) + '/enabled', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: false }),
+    })
+    expect(disabled.status).toBe(200)
+    expect((await disabled.json()).enabled).toBe(false)
+    const persistedDisabled = await fetch(apiUrl + '/api/skills')
+    expect((await persistedDisabled.json()).skills.find((item) => item.skill_id === skill.skill_id).enabled).toBe(false)
+    const enabled = await fetch(apiUrl + '/api/skills/' + encodeURIComponent(skill.skill_id) + '/enabled', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: true }),
+    })
+    expect(enabled.status).toBe(200)
+    expect((await enabled.json()).enabled).toBe(true)
+  })
+
+  test('discovers and calls a real MCP stdio server through the capability gate', async () => {
+    const registered = await fetch(apiUrl + '/api/mcp', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ server: {
+        server_id: 'e2e-mcp', name: 'AgentiCOS E2E MCP',
+        transport: { type: 'stdio', command: 'node', args: ['scripts/e2e/mcp-fixture.mjs'] },
+        enabled: false, timeout_ms: 5000,
+      } }),
+    })
+    expect(registered.status).toBe(201)
+    expect((await fetch(apiUrl + '/api/mcp/e2e-mcp/tools')).status).toBe(400)
+    const enabled = await fetch(apiUrl + '/api/mcp/e2e-mcp/enable', { method: 'POST' })
+    expect(enabled.status).toBe(200)
+    const discovered = await fetch(apiUrl + '/api/mcp/e2e-mcp/tools')
+    expect(discovered.status).toBe(200)
+    const discoveredBody = await discovered.json()
+    expect(discoveredBody.tools).toHaveLength(1)
+    expect(discoveredBody.tools[0].name).toBe('echo')
+    const grant = await fetch(apiUrl + '/api/capabilities', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ capability_type: 'execute', resource: 'mcp/e2e-mcp/echo', permission: 'mcp.call', expires_at: 0, grant_id: 'e2e-mcp-grant' }),
+    })
+    expect(grant.status).toBe(201)
+    const called = await fetch(apiUrl + '/api/mcp/e2e-mcp/tools/echo/call', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ grant_id: 'e2e-mcp-grant', arguments: { message: 'hello from AgentiCOS' } }),
+    })
+    expect(called.status).toBe(200)
+    const calledBody = await called.json()
+    expect(calledBody.result.content[0].text).toBe('MCP echo: hello from AgentiCOS')
+    expect((await fetch(apiUrl + '/api/capabilities/e2e-mcp-grant', { method: 'DELETE' })).status).toBe(204)
+    expect((await fetch(apiUrl + '/api/mcp/e2e-mcp', { method: 'DELETE' })).status).toBe(204)
+  })
 })

@@ -79,14 +79,11 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
     setBackfillBusy(true)
     try {
       const result = await runtime.memory.backfillEmbeddings('agenticos', Math.min(128, coverage.missing_records))
-      const generated = typeof result.generated === 'number' ? result.generated : undefined
-      const remaining = typeof result.remaining === 'number' ? result.remaining : undefined
+      const embedded = typeof result.embedded === 'number' ? result.embedded : 0
       const nextCoverage = await runtime.memory.coverage('agenticos')
       setCoverage(nextCoverage)
       onAction(
-        remaining !== undefined
-          ? `Memory embeddings updated: ${generated ?? 0} generated, ${remaining} remaining`
-          : 'Memory embedding backfill completed',
+        `Memory embeddings updated: ${embedded} embedded, ${nextCoverage.missing_records} remaining`,
       )
     } catch (error) {
       onAction(error instanceof Error ? error.message : 'Memory embedding backfill failed')

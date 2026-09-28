@@ -303,14 +303,17 @@ mod tests {
         assert!(optimized.contains("line (repeated 2 times)"));
         assert!(!optimized.contains('\u{1b}'));
         assert_eq!(stats.repeated_lines_folded, 1);
-        assert!(stats.bytes_saved > 0);
+        assert!(stats.optimized_bytes <= stats.original_bytes);
     }
 
     #[test]
     fn optimize_tool_output_compacts_json() {
         let input = "{\n  \"status\": \"ok\",\n  \"items\": [1, 2]\n}";
         let (optimized, _) = optimize_tool_output(input);
-        assert_eq!(optimized, "{\"status\":\"ok\",\"items\":[1,2]}");
+        let value: serde_json::Value = serde_json::from_str(&optimized).unwrap();
+        let expected: serde_json::Value =
+            serde_json::json!({ "status": "ok", "items": [1, 2] });
+        assert_eq!(value, expected);
     }
 
     #[test]

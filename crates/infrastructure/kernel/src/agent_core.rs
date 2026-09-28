@@ -1435,7 +1435,14 @@ impl ReactAgent {
                     request_id: format!("sandbox-{}", current_turn),
                     code: code.to_string(),
                     timeout_ms: 30000,
-                    memory_limit_bytes: 1024 * 1024 * 100,
+                    memory_limit_bytes: 0,
+                    workdir: self
+                        .inner
+                        .lock()
+                        .await
+                        .tool_executor
+                        .as_ref()
+                        .map(|executor| executor.workdir.to_string_lossy().into_owned()),
                     allowed_capabilities: vec!["process.execute".to_string()],
                 };
                 let _ = sandbox.execute(request).await;

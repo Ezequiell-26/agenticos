@@ -19,11 +19,10 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "5082e45d85484fa5c3d36c3bbe6fd44f25d5b53e",
+    "last_update_commit": "ab06178bf1100bf32897e4867639b0153194a378",
     "next_actions": [
-      "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
-      "expand runtime end-to-end tests for subagents, workflows, MCP and skills",
       "complete evaluation/replay coverage and regression fixtures",
+      "close broader runtime integration gaps (agent engine, provider transport, tool capability validation, durable run registry/context)",
       "keep targeted compression round-trip coverage in CI"
     ],
     "scope": [
@@ -128,17 +127,65 @@
     {
       "id": "subagents",
       "owner": "application/agents",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "register subagent, enforce bounded delegation metadata, create durable child run and child job through API"
+        }
+      ]
     },
     {
       "id": "workflows",
       "owner": "application/workflows",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "persist workflow graph, restart API runtime, recover readiness and execute workflow nodes through leased workers"
+        }
+      ]
     },
     {
       "id": "mcp",
       "owner": "infrastructure/mcp",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "register/enable real stdio MCP server, discover tools, enforce capability grant and execute gated echo call"
+        }
+      ]
     },
     {
       "id": "a2a",
@@ -226,7 +273,23 @@
     {
       "id": "ranked-memory-retrieval",
       "owner": "memory + api-server",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "create durable memories, backfill embeddings, evaluate semantic retrieval with deterministic hit@1/hit@k"
+        }
+      ]
     },
     {
       "id": "durable-retry-backoff",
@@ -293,12 +356,44 @@
     {
       "id": "provider-embeddings",
       "owner": "providers + api-server + desktop",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "OpenAI-compatible embedding model discovery and successful embedding-backed memory backfill in deterministic E2E"
+        }
+      ]
     },
     {
       "id": "semantic-memory-embeddings",
       "owner": "memory + providers + api-server",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "provider embeddings discovery plus durable memory embedding backfill and semantic evaluation"
+        }
+      ]
     },
     {
       "id": "outbox-claim-leases",
@@ -318,7 +413,23 @@
     {
       "id": "skill-registry",
       "owner": "application/skills + api-server + desktop",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36447835588,
+          "run_number": 2756,
+          "commit": "ab06178bf1100bf32897e4867639b0153194a378",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "enumerate skill registry and persist enable/disable state through runtime API"
+        }
+      ]
     },
     {
       "id": "sqlite-schema-authority",
@@ -384,13 +495,12 @@
       "npm run provider:coverage",
       "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-28 CI run 2681 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "last_known_green": "2026-09-28 CI run 2756 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
     "ci_pending": false
   },
   "backlog": [
-    "verify strict sandbox isolation and destructive-operation regression coverage",
     "evaluation and replay coverage",
-    "runtime integration coverage for desktop, subagents, workflows, MCP and skills"
+    "broader runtime integration gaps for agent engine, provider transport, tool capability validation and durable run/context paths"
   ],
   "migration": {
     "from_schema": 1,

@@ -8,7 +8,8 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
-- Fresh mainline CI run 2746: **green** across Rust, TypeScript and desktop UI/API/provider E2E.
+- Fresh mainline CI run 2756: **green** across Rust, TypeScript and desktop UI/API/provider E2E, including semantic-memory, subagent, workflow, MCP stdio and skill-registry integration coverage.
+- Strict sandbox isolation was previously verified by mainline CI run 2746.
 - Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, bounded sandbox execution plus strict workspace isolation, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
@@ -32,7 +33,7 @@ The old sequential manifest is preserved in Git history and is not used as the a
 
 ## Verification delta
 
-- Strict MCP/subagent/skill runtime integration coverage is added in commit `43fb33cad016db50645891311286b8e34441e1ed`; fresh mainline E2E evidence is pending.
+- Fresh mainline CI run 2756 verified the new runtime integration coverage added in commit 43fb33cad016db50645891311286b8e34441e1ed, including semantic-memory backfill/evaluation, subagent child-run creation, workflow restart recovery, MCP stdio discovery/call gating, and persisted skill activation.
 
 ## Active workstreams
 
@@ -84,8 +85,8 @@ A2A is implemented in its dedicated infrastructure crate and exposed through the
 
 The first desktop integration vertical slice is now verified: the React/Vite surface reaches the typed `runtime.ts` boundary, calls the Rust API, reaches an OpenAI-compatible provider fixture, receives the assistant response, and reloads with the persisted conversation history.
 
-The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, strict sandbox workspace isolation, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. Auxiliary SQLite persistence schemas are versioned under migration 0004 and now use a canonical bootstrap path across runtime infrastructure; source-intelligence persistence is behind a domain port with its SQLite adapter in source-forge. Mainline CI run 2681 is green across Rust, TypeScript and desktop UI+API+provider E2E.
+The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, strict sandbox workspace isolation, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. Auxiliary SQLite persistence schemas are versioned under migration 0004 and now use a canonical bootstrap path across runtime infrastructure; source-intelligence persistence is behind a domain port with its SQLite adapter in source-forge. Mainline CI run 2756 is green across Rust, TypeScript and desktop UI+API+provider E2E.
 
 ## Next actions
 
-Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. The SQLite migration authority and source-intelligence persistence boundaries are also complete and verified in mainline CI. The strict sandbox boundary is now freshly verified by mainline CI run 2746. Next prioritize semantic-memory retrieval evaluation/backfill, broader runtime integration tests for subagents/workflows/MCP/skills, and evaluation/replay fixtures. Promote individual capabilities to verified only after fresh evidence exists.
+Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. The SQLite migration authority and source-intelligence persistence boundaries are also complete and verified in mainline CI. The strict sandbox boundary is now freshly verified by mainline CI run 2746. Semantic-memory retrieval/backfill and the targeted runtime integration coverage for subagents, workflows, MCP and skills now have fresh CI evidence. Next prioritize evaluation/replay fixtures and the broader runtime integration gaps for the AgentEngine, provider transport, tool capability validation and durable run/context paths. Promote individual capabilities to verified only after fresh evidence exists.

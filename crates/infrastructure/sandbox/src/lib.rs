@@ -313,12 +313,12 @@ impl ProcessSandbox {
                 if self.policy.isolation_profile == "strict" {
                     wrapped.args([
                         "--dir",
-                        "/workspace",
+                        "/tmp/agenticos-workspace",
                         "--bind",
                         dir,
-                        "/workspace",
+                        "/tmp/agenticos-workspace",
                         "--chdir",
-                        "/workspace",
+                        "/tmp/agenticos-workspace",
                     ]);
                 } else {
                     wrapped.args(["--bind", dir, dir, "--chdir", dir]);

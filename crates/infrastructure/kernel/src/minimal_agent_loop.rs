@@ -42,19 +42,20 @@ impl StepOutcome {
     /// Create an outcome that exits the loop
     pub fn exit(data: serde_json::Value) -> Self {
         Self {
-            data: Some(data),
+            data: Some(data.clone()),
             next_prompt: None,
             should_exit: true,
-            exit_reason: Some(ExitReason::Exited { data: data.clone() }),
+            exit_reason: Some(ExitReason::Exited { data }),
         }
     }
 
     /// Create an outcome indicating the current task is done
     pub fn task_done(data: serde_json::Value) -> Self {
         Self {
-            data: Some(data),
+            data: Some(data.clone()),
             next_prompt: None,
             should_exit: true,
+            exit_reason: Some(ExitReason::TaskDone { data }),
         }
     }
 }

@@ -134,6 +134,9 @@ jobs:
       - name: Test semantic memory retrieval and backfill
         run: cargo test -p agenticos-memory --tests -- --nocapture
 
+      - name: Test AgentEngine runtime boundary
+        run: cargo test -p agenticos-execution --lib -- --nocapture
+
       - name: Test subagent runtime boundaries
         run: cargo test -p agenticos-agents --lib -- --nocapture
 

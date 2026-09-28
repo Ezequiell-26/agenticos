@@ -390,6 +390,24 @@ impl AgentEngine for BasicAgentEngine {
 
         match self.model_provider.execute(request).await {
             Ok(response) => {
+                let expected_request_id = format!("{}-model-req", run_id.as_str());
+                if response.request_id != expected_request_id {
+                    let current = self.runtime.get_or_recover_run(&run_id).await?;
+                    if current.state == RunState::Running {
+                        let _ = self
+                            .runtime
+                            .transition_run(&run_id, RunState::Failed, current.version)
+                            .await;
+                    }
+                    let _ = self
+                        .runtime
+                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+                        .await;
+                    return Err(ContractError::ParseError(format!(
+                        "model provider returned mismatched request_id: expected {expected_request_id}, got {}",
+                        response.request_id
+                    )));
+                }
                 let output = response.output.clone();
                 let timestamp = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -471,6 +489,25 @@ mod tests {
 
     fn test_runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Runtime::new().unwrap()
+    }
+
+    #[derive(Debug, Default)]
+    struct MismatchedModelProvider;
+
+    #[async_trait::async_trait]
+    impl ModelProvider for MismatchedModelProvider {
+        fn provider_id(&self) -> &str {
+            "mismatched-provider"
+        }
+
+        async fn execute(&self, _request: ModelRequest) -> Result<ModelResponse, ContractError> {
+            Ok(ModelResponse {
+                request_id: "wrong-request-id".to_string(),
+                output: "mismatched".to_string(),
+                metadata: Some("test".to_string()),
+                tokens_used: Some(1),
+            })
+        }
     }
 
     #[tokio::test]
@@ -564,6 +601,47 @@ mod tests {
             let state = engine.get_run_state(run_id.clone()).await.unwrap();
             assert_eq!(state, RunState::Completed);
         });
+    }
+
+    #[tokio::test]
+    async fn basic_agent_engine_rejects_response_identity_mismatch() {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer =
+            std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+        let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+            std::sync::Arc::new(
+                agenticos_brain::capability_registry::CapabilityRegistry::default(),
+            ),
+        ));
+        let engine = BasicAgentEngine::new(
+            "identity-check-engine".to_string(),
+            runtime,
+            std::sync::Arc::new(MismatchedModelProvider),
+            std::sync::Arc::new(InMemoryContextManager::new()),
+        );
+        let run_id = RunId::new("test-request-identity").unwrap();
+
+        engine
+            .start_run(run_id.clone(), "Identity check".to_string())
+            .await
+            .unwrap();
+        let result = engine.resume_run(run_id.clone()).await;
+        assert!(matches!(
+            result,
+            Err(ContractError::ParseError(message)) if message.contains("mismatched request_id")
+        ));
+        assert_eq!(
+            engine.get_run_state(run_id).await.unwrap(),
+            RunState::Failed
+        );
     }
 
     #[test]

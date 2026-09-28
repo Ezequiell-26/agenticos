@@ -25,14 +25,17 @@ async fn canonical_migrations_create_all_persisted_runtime_tables() {
     ];
 
     for table in expected {
-        let exists: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sqlite_master WHERE name = ?",
-        )
-        .bind(table)
-        .fetch_optional(&pool)
-        .await
-        .expect("schema lookup");
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT name FROM sqlite_master WHERE name = ?")
+                .bind(table)
+                .fetch_optional(&pool)
+                .await
+                .expect("schema lookup");
 
-        assert_eq!(exists.as_deref(), Some(table), "missing migrated table: {table}");
+        assert_eq!(
+            exists.as_deref(),
+            Some(table),
+            "missing migrated table: {table}"
+        );
     }
 }

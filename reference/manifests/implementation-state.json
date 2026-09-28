@@ -19,9 +19,8 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "ccaa4dcc42f0cc8b84d5dd6d79a710ba5bdac8d2",
+    "last_update_commit": "5ae9b614247d1abc183e7faf699b54c0df9cedd1",
     "next_actions": [
-      "refactor remaining inline SQLite schema initialization to use canonical migrations without changing domain/infrastructure boundaries",
       "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
       "strengthen sandbox isolation profiles and add destructive-operation regression coverage",
       "expand runtime end-to-end tests for subagents, workflows, MCP and skills",
@@ -322,7 +321,7 @@
             "verify-desktop-e2e"
           ],
           "result": "success",
-          "scope": "canonical migration regression explicitly executed; Rust, TypeScript and desktop UI+API+provider E2E also green"
+          "scope": "canonical migration regression explicitly executed; auxiliary persistence boundaries verified through Rust tests and desktop UI+API+provider E2E"
         },
         {
           "kind": "github_actions",
@@ -337,6 +336,20 @@
           ],
           "result": "success",
           "scope": "post-merge mainline verification"
+        },
+        {
+          "kind": "github_actions",
+          "run_id": 36373066057,
+          "run_number": 2681,
+          "commit": "5ae9b614247d1abc183e7faf699b54c0df9cedd1",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "mainline verification after SQLite/source-intelligence architecture cleanup and DAG manifest correction"
         }
       ]
     }
@@ -355,7 +368,7 @@
       "npm run provider:coverage",
       "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-28 CI run 2667 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "last_known_green": "2026-09-28 CI run 2681 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
     "ci_pending": false
   },
   "backlog": [

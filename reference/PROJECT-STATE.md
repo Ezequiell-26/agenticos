@@ -11,7 +11,7 @@
 - Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, sandbox limits, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
-- Desktop/API/provider vertical slice: verified by CI run 2519, including UI request, provider response and persisted history after reload.
+- Desktop/API/provider vertical slice: verified by current mainline CI run 2667, including UI request, provider response and persisted history after reload.
 - Third-party canonical source policy: MIT/compatible license + provenance + exact revision before integration
 - Destructive AI operations: disabled by default
 - Parallel workstreams: enabled
@@ -79,8 +79,8 @@ A2A is implemented in its dedicated infrastructure crate and exposed through the
 
 The first desktop integration vertical slice is now verified: the React/Vite surface reaches the typed `runtime.ts` boundary, calls the Rust API, reaches an OpenAI-compatible provider fixture, receives the assistant response, and reloads with the persisted conversation history.
 
-The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection.
+The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, sandbox hardening, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. Auxiliary SQLite persistence schemas are now versioned under migration 0004 and explicitly covered by CI, with post-merge mainline verification green in run 2667.
 
 ## Next actions
 
-Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. Prioritize versioned SQLite migrations, semantic-memory retrieval evaluation/backfill, stronger sandbox isolation, durable worker end-to-end recovery, and runtime integration tests. Promote individual capabilities to verified only after fresh evidence exists.
+Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. The auxiliary SQLite migration authority slice is also complete and verified. Next prioritize removing remaining inline schema initialization, semantic-memory retrieval evaluation/backfill, stronger sandbox isolation, durable worker end-to-end recovery, runtime integration tests and evaluation/replay fixtures. Promote individual capabilities to verified only after fresh evidence exists.

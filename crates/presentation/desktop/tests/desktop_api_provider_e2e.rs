@@ -70,9 +70,16 @@ async fn serve_fake_provider(listener: TcpListener) {
         serde_json::from_slice(body).expect("provider body must be valid JSON");
 
     assert_eq!(payload["model"], "e2e-model");
-    let user_input = payload["messages"][0]["content"]
-        .as_str()
-        .expect("provider request should contain user content");
+    let user_input = payload["messages"]
+        .as_array()
+        .and_then(|messages| {
+            messages.iter().find_map(|message| {
+                (message["role"] == "user" && message["content"] == "desktop API provider E2E")
+                    .then_some(message["content"].as_str())
+                    .flatten()
+            })
+        })
+        .expect("provider request should contain the expected user message");
     assert_eq!(user_input, "desktop API provider E2E");
 
     let response_body = serde_json::json!({

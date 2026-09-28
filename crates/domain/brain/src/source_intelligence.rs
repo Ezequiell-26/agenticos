@@ -164,18 +164,12 @@ impl SourceIntelligenceEngine {
         store: Arc<dyn RepositoryMetadataStore>,
         config: EngineConfig,
     ) -> Result<Self, BrainError> {
+        let rows = store.list().await.map_err(|error| {
+            BrainError::SourceIntelligenceError(format!(
+                "source intelligence recovery failed: {error}"
+            ))
+        })?;
         let engine = Self::with_store(config, store);
-        let rows = engine
-            .store
-            .as_ref()
-            .expect("source repository store is configured")
-            .list()
-            .await
-            .map_err(|error| {
-                BrainError::SourceIntelligenceError(format!(
-                    "source intelligence recovery failed: {error}"
-                ))
-            })?;
 
         let mut registry = engine.registry.write().await;
         for metadata in rows {

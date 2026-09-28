@@ -176,6 +176,6 @@ mod tests {
                 .fetch_all(&pool)
                 .await
                 .unwrap();
-        assert_eq!(migration_versions, vec![1, 2, 3]);
+        assert_eq!(migration_versions, vec![1, 2, 3, 4]);
     }
 }

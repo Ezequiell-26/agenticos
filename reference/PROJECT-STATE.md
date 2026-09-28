@@ -30,6 +30,10 @@ The new model separates:
 
 The old sequential manifest is preserved in Git history and is not used as the active development lock.
 
+## Verification delta
+
+- Strict MCP/subagent/skill runtime integration coverage is added in commit `43fb33cad016db50645891311286b8e34441e1ed`; fresh mainline E2E evidence is pending.
+
 ## Active workstreams
 
 - **backend-runtime (P0):** durable runs, jobs, workers, ownership leases, recovery and API control plane.

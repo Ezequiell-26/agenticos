@@ -258,6 +258,7 @@ impl ProcessSandbox {
                     "--new-session",
                     "--cap-drop",
                     "ALL",
+                    "--unshare-user",
                     "--disable-userns",
                     "--assert-userns-disabled",
                     "--tmpfs",

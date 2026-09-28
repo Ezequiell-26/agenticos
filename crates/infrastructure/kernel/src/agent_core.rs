@@ -1214,6 +1214,10 @@ impl ReactAgent {
                     });
                 }
 
+                let sandbox_workdir = tool_executor
+                    .as_ref()
+                    .map(|executor| executor.workdir.to_string_lossy().into_owned());
+
                 let executor = |ctx: ToolExecutionContext| async move {
                     self.act_inner(
                         tool_executor.as_ref(),
@@ -1436,9 +1440,7 @@ impl ReactAgent {
                     code: code.to_string(),
                     timeout_ms: 30000,
                     memory_limit_bytes: 0,
-                    workdir: tool_executor
-                        .as_ref()
-                        .map(|executor| executor.workdir.to_string_lossy().into_owned()),
+                    workdir: sandbox_workdir,
                     allowed_capabilities: vec!["process.execute".to_string()],
                 };
                 let _ = sandbox.execute(request).await;

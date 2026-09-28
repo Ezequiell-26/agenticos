@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../components/Icon'
 import { MetricCard, Panel, Tag } from './PlatformPrimitives'
 import { runtime } from '../../services/runtime'
@@ -64,12 +64,20 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   const [enabledContextSources, setEnabledContextSources] = useState<string[]>(contextSources.slice(0, 4))
   const [runtimeRunId, setRuntimeRunId] = useState<string | null>(null)
   const [runtimeBusy, setRuntimeBusy] = useState(false)
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<Array<Record<string, unknown>>>([])
+  const [runtimeTools, setRuntimeTools] = useState<Array<Record<string, unknown>>>([])
 
   const activeMode = useMemo(() => modes.find(([id]) => id === mode) ?? modes[2], [mode])
 
-  function preview(action: string) {
-    onAction(action + ' staged in preview')
-  }
+  useEffect(() => {
+    let cancelled = false
+    void Promise.allSettled([runtime.capabilities.list(), runtime.tools.list()]).then(([capabilities, tools]) => {
+      if (cancelled) return
+      if (capabilities.status === 'fulfilled') setRuntimeCapabilities(capabilities.value)
+      if (tools.status === 'fulfilled') setRuntimeTools(tools.value)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   function toggleContextSource(source: string) {
     setEnabledContextSources((current) => current.includes(source) ? current.filter((item) => item !== source) : [...current, source])
@@ -78,7 +86,7 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   async function runPreflight() {
     if (query.trim().length < 24) {
       setMissionStatus('Blocked')
-      preview('Preflight blocked: provide a concrete mission objective')
+      onAction('Preflight blocked: provide a concrete mission objective')
       return
     }
     setRuntimeBusy(true)
@@ -97,7 +105,7 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
   async function launchMission() {
     if (query.trim().length < 24) {
       setMissionStatus('Blocked')
-      preview('Mission launch blocked: objective is too short')
+      onAction('Mission launch blocked: objective is too short')
       return
     }
     setRuntimeBusy(true)
@@ -200,8 +208,14 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
 
       <div className="mission-control__config-grid">
         <Panel title="5 · Tools & permissions">
-          <div className="mission-control__tool-list">{toolGroups.map(([name, detail, allowed]) => <div key={name}><div><strong>{name}</strong><span>{detail}</span></div><span className={allowed ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{allowed ? 'Allowed' : 'Approval'}</span></div>)}</div>
-          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => preview('Permission profile opened')}>Edit policy</button><button className="studio-button" type="button" onClick={() => preview('Toolset picker opened')}>Choose toolset</button></div>
+          <div className="mission-control__tool-list">{toolGroups.map(([name, detail, allowed]) => {
+            const needle = name.toLowerCase()
+            const matching = runtimeTools.filter((tool) => JSON.stringify(tool).toLowerCase().includes(needle))
+            const runtimeKnown = runtimeTools.length > 0
+            const effective = runtimeKnown ? matching.length > 0 : allowed
+            return <div key={name}><div><strong>{name}</strong><span>{runtimeKnown ? `${matching.length} runtime tool${matching.length === 1 ? '' : 's'} exposed` : detail}</span></div><span className={effective ? 'state-pill state-pill--completed' : 'state-pill state-pill--pending'}>{effective ? 'Available' : allowed ? 'Configured' : 'Approval'}</span></div>
+          })}</div>
+          <div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction(`${runtimeCapabilities.length} capability grant${runtimeCapabilities.length === 1 ? '' : 's'} reported by runtime`)}>Inspect policy</button><button className="studio-button" type="button" onClick={() => onAction(`${runtimeTools.length} registered runtime tool${runtimeTools.length === 1 ? '' : 's'} reported`)}>Inspect toolset</button></div>
         </Panel>
 
         <Panel title="6 · Isolation & collaboration">
@@ -251,7 +265,7 @@ export function AgentMissionControl({ onAction }: { onAction: (message: string) 
           <div><span className="eyebrow">{missionName || 'Unnamed mission'} · {missionStatus}</span><strong>{schedule ? 'Scheduled mission' : parallel ? 'Parallel mission' : 'Single mission'} · {mode} · {selectedModel}</strong><small>{isolation} · {contextPreset} context · {route} · {approvalProfile} · {verificationProfile}</small></div>
           <div className="platform-actions"><button className="studio-button" type="button" onClick={() => void runtime.reasoning.plan(query.trim()).then(() => onAction('Runtime mission plan generated')).catch((error) => onAction(error instanceof Error ? error.message : 'Runtime planning failed'))}>Plan</button><button className="studio-button" type="button" disabled={runtimeBusy} onClick={() => void runPreflight()}>Preflight</button>{runtimeRunId && <button className="studio-button" type="button" disabled={runtimeBusy} onClick={() => void cancelMission()}><Icon name="stop" size={12} /> Cancel</button>}<button className="studio-button studio-button--active" type="button" disabled={runtimeBusy} onClick={() => void launchMission()}>{schedule ? 'Queue mission' : 'Launch mission'}</button></div>
         </div>
-        <div className="mission-control__boundary"><Icon name="shield" size={13} /><span>Runs and planning are runtime-backed. Model routing, tool authorization and repository isolation remain governed by their respective backend contracts.</span></div>
+        <div className="mission-control__boundary"><Icon name="shield" size={13} /><span>Runs and planning are runtime-backed. Current tool availability and capability grants are read from the runtime; repository isolation remains governed by its backend contract.</span></div>
       </Panel>
     </div>
   )

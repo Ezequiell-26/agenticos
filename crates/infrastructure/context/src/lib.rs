@@ -297,8 +297,7 @@ mod tests {
 
     #[test]
     fn optimize_tool_output_removes_noise() {
-        let input =
-            "écho\n\u{1b}[32mOK\u{1b}[0m\nline\nline\nline\nline\nline\nline\n\n\n";
+        let input = "écho\n\u{1b}[32mOK\u{1b}[0m\nline\nline\nline\nline\nline\nline\n\n\n";
         let (optimized, stats) = optimize_tool_output(input);
         assert!(optimized.contains("écho"));
         assert!(optimized.contains("line (repeated 6 times)"));
@@ -312,8 +311,7 @@ mod tests {
         let input = "{\n  \"status\": \"ok\",\n  \"items\": [1, 2]\n}";
         let (optimized, _) = optimize_tool_output(input);
         let value: serde_json::Value = serde_json::from_str(&optimized).unwrap();
-        let expected: serde_json::Value =
-            serde_json::json!({ "status": "ok", "items": [1, 2] });
+        let expected: serde_json::Value = serde_json::json!({ "status": "ok", "items": [1, 2] });
         assert_eq!(value, expected);
     }
 

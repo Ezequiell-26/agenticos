@@ -11,12 +11,12 @@ use agenticos_contracts::{
 };
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
-use tokio::time::{Duration, timeout};
+use tokio::time::{timeout, Duration};
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-sandbox";

@@ -423,7 +423,12 @@ mod tests {
             .await
             .unwrap());
         assert!(!manager
-            .authorize("grant-1", CapabilityType::Execute, "workspace/src", "execute")
+            .authorize(
+                "grant-1",
+                CapabilityType::Execute,
+                "workspace/src",
+                "execute",
+            )
             .await
             .unwrap());
     }

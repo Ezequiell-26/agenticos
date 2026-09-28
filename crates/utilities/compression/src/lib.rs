@@ -207,7 +207,10 @@ mod tests {
     fn test_compress_decompress() {
         let data = b"aaaaabbbbbcccccddddd";
         let compressed = Compressor::compress(data).unwrap();
-        assert_eq!(&compressed[..3], &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE]);
+        assert_eq!(
+            &compressed[..3],
+            &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE]
+        );
         let decompressed = Compressor::decompress(&compressed).unwrap();
         assert_eq!(data, decompressed.as_slice());
     }
@@ -230,7 +233,10 @@ mod tests {
     fn test_raw_fallback_round_trip() {
         let data = b"hello world";
         let compressed = Compressor::compress(data).unwrap();
-        assert_eq!(&compressed[..3], &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RAW]);
+        assert_eq!(
+            &compressed[..3],
+            &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RAW]
+        );
         let decompressed = Compressor::decompress(&compressed).unwrap();
         assert_eq!(data, decompressed.as_slice());
     }
@@ -280,6 +286,8 @@ mod tests {
     fn test_invalid_decompress() {
         assert!(Compressor::decompress(&[1, 2, 3]).is_err());
         assert!(Compressor::decompress(&[FORMAT_MAGIC[0], FORMAT_MAGIC[1], 9]).is_err());
-        assert!(Compressor::decompress(&[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE, 1]).is_err());
+        assert!(
+            Compressor::decompress(&[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE, 1]).is_err()
+        );
     }
 }

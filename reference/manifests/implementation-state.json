@@ -19,12 +19,12 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "83e7dcb6e8b6ba71c824a928abd88beb2eea1ad0",
+    "last_update_commit": "5082e45d85484fa5c3d36c3bbe6fd44f25d5b53e",
     "next_actions": [
-      "verify sandbox isolation and destructive-operation regressions in fresh CI",
       "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
       "expand runtime end-to-end tests for subagents, workflows, MCP and skills",
-      "complete evaluation/replay coverage and regression fixtures"
+      "complete evaluation/replay coverage and regression fixtures",
+      "keep targeted compression round-trip coverage in CI"
     ],
     "scope": [
       "capability-driven governance",
@@ -190,7 +190,23 @@
     {
       "id": "sandbox-hardening",
       "owner": "infrastructure/sandbox",
-      "status": "implemented-unverified"
+      "status": "verified",
+      "verification_evidence": [
+        {
+          "kind": "github_actions",
+          "run_id": 36444947101,
+          "run_number": 2746,
+          "commit": "5082e45d85484fa5c3d36c3bbe6fd44f25d5b53e",
+          "workflow": "AgentiCOS CI",
+          "checks": [
+            "verify-rust",
+            "verify-typescript",
+            "verify-desktop-e2e"
+          ],
+          "result": "success",
+          "scope": "strict Bubblewrap sandbox requires explicit workspace, isolates it under private /tmp/agenticos-workspace, hides sensitive host roots, rejects out-of-workspace writes, and the full Rust/TypeScript/desktop E2E pipeline passed"
+        }
+      ]
     },
     {
       "id": "request-correlation",

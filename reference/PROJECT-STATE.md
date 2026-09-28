@@ -8,6 +8,7 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
+- Fresh mainline CI run 2746: **green** across Rust, TypeScript and desktop UI/API/provider E2E.
 - Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, bounded sandbox execution plus strict workspace isolation, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
 - Desktop surface: Tauri 2 + React + TypeScript + Vite
@@ -83,4 +84,4 @@ The active operation is the backend architecture refactor and runtime hardening.
 
 ## Next actions
 
-Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. The SQLite migration authority and source-intelligence persistence boundaries are also complete and verified in mainline CI. Next verify the new strict sandbox boundary in fresh CI, then prioritize semantic-memory retrieval evaluation/backfill, broader runtime integration tests for subagents/workflows/MCP/skills, and evaluation/replay fixtures. Promote individual capabilities to verified only after fresh evidence exists.
+Continue backend work by capability rather than by numbered implementation step. Step 1 (desktop + API + provider end-to-end) is complete and verified. The SQLite migration authority and source-intelligence persistence boundaries are also complete and verified in mainline CI. The strict sandbox boundary is now freshly verified by mainline CI run 2746. Next prioritize semantic-memory retrieval evaluation/backfill, broader runtime integration tests for subagents/workflows/MCP/skills, and evaluation/replay fixtures. Promote individual capabilities to verified only after fresh evidence exists.

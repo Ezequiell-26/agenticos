@@ -135,6 +135,9 @@ jobs:
         run: cargo test -p agenticos-brain --lib
       - name: Test sandbox isolation boundary
         run: cargo test -p agenticos-sandbox --lib
+      - name: Test compression round-trip
+        run: cargo test -p compression --lib
+
 
 
       - name: Build API runtime binary

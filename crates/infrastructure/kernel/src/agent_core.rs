@@ -1187,6 +1187,10 @@ impl ReactAgent {
         // Step 2: Action
         let action = thought.clone();
 
+        let sandbox_workdir = tool_executor
+            .as_ref()
+            .map(|executor| executor.workdir.to_string_lossy().into_owned());
+
         // Step 3: Observation
         let observation = if let Some(pipeline) = &tool_pipeline {
             if !is_structured_tool_action(&action) {
@@ -1213,10 +1217,6 @@ impl ReactAgent {
                             .as_secs(),
                     });
                 }
-
-                let sandbox_workdir = tool_executor
-                    .as_ref()
-                    .map(|executor| executor.workdir.to_string_lossy().into_owned());
 
                 let executor = |ctx: ToolExecutionContext| async move {
                     self.act_inner(

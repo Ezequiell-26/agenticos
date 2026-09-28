@@ -381,10 +381,9 @@ fn scope_matches(scope: &str, resource: &str) -> bool {
         || scope == resource
         || (scope.ends_with("/*") && {
             let prefix = scope.trim_end_matches("/*");
-            resource == prefix
-                || resource
-                    .strip_prefix(prefix)
-                    .is_some_and(|suffix| suffix.starts_with('/'))
+            resource
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| suffix.starts_with('/') && suffix.len() > 1)
         })
         || resource.starts_with(&format!("{scope}:"))
 }

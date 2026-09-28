@@ -94,6 +94,7 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
   const [usage, setUsage] = useState<UsageRow[]>([])
   const [usageCost, setUsageCost] = useState(0)
   const [syncing, setSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
   const [policySyncing, setPolicySyncing] = useState(false)
 
   const visibleModels = useMemo(
@@ -113,6 +114,9 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
       const mapped = providerRows(providerResult.value)
       setProviders(mapped)
       setProviderId((current) => mapped.some((provider) => provider.id === current) ? current : mapped[0].id)
+      setRuntimeBacked(true)
+    } else {
+      setRuntimeBacked(false)
     }
 
     if (modelResult.status === 'fulfilled' && modelResult.value.length > 0) {
@@ -131,7 +135,10 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
   }, [])
 
   useEffect(() => {
-    if (!activeProvider?.id) return
+    if (!runtimeBacked || !activeProvider?.id) {
+      setPolicySyncing(false)
+      return
+    }
     let cancelled = false
     setPolicySyncing(true)
     void runtime.providers.fallback(activeProvider.id)
@@ -150,45 +157,52 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
         if (!cancelled) setPolicySyncing(false)
       })
     return () => { cancelled = true }
-  }, [activeProvider?.id])
+  }, [activeProvider?.id, runtimeBacked])
+
+  const loadUsage = async () => {
+    const [summary, records] = await Promise.allSettled([
+      runtime.usage.summary(),
+      runtime.usage.records(),
+    ])
+
+    if (summary.status === 'fulfilled') {
+      setUsageCost(typeof summary.value.cost_usd === 'number' ? summary.value.cost_usd : 0)
+    }
+
+    if (records.status === 'fulfilled') {
+      const grouped = new Map<string, UsageRow>()
+      for (const record of records.value) {
+        const provider = typeof record.provider_id === 'string' ? record.provider_id : 'unknown'
+        const tokens = typeof record.tokens_used === 'number' ? record.tokens_used : 0
+        const cost = typeof record.cost_usd === 'number' ? record.cost_usd : 0
+        const current = grouped.get(provider)
+        grouped.set(provider, {
+          providerId: provider,
+          provider,
+          tokens: (current?.tokens ?? 0) + tokens,
+          cost: (current?.cost ?? 0) + cost,
+        })
+      }
+      setUsage([...grouped.values()])
+    } else {
+      setUsage([])
+    }
+  }
 
   useEffect(() => {
     if (tab !== 'usage') return
     let cancelled = false
-    void Promise.allSettled([runtime.usage.summary(), runtime.usage.records()]).then(([summary, records]) => {
-      if (cancelled) return
-      if (summary.status === 'fulfilled') {
-        const tokens = typeof summary.value.tokens === 'number' ? summary.value.tokens : 0
-        const cost = typeof summary.value.cost_usd === 'number' ? summary.value.cost_usd : 0
-        setUsageCost(cost)
-        if (tokens > 0 && usage.length === 0) {
-          setUsage([{ providerId: 'aggregate', provider: 'All providers', tokens, cost }])
-        }
-      }
-      if (records.status === 'fulfilled') {
-        const grouped = new Map<string, UsageRow>()
-        for (const record of records.value) {
-          const provider = typeof record.provider_id === 'string' ? record.provider_id : 'unknown'
-          const model = typeof record.model_id === 'string' ? record.model_id : 'unknown'
-          const tokens = typeof record.tokens_used === 'number' ? record.tokens_used : 0
-          const cost = typeof record.cost_usd === 'number' ? record.cost_usd : 0
-          const current = grouped.get(provider)
-          grouped.set(provider, {
-            providerId: provider,
-            provider: provider,
-            tokens: (current?.tokens ?? 0) + tokens,
-            cost: (current?.cost ?? 0) + cost,
-          })
-          void model
-        }
-        setUsage([...grouped.values()])
+    void loadUsage().catch(() => {
+      if (!cancelled) {
+        setUsage([])
+        setUsageCost(0)
       }
     })
     return () => { cancelled = true }
   }, [tab])
 
   async function toggleFallback() {
-    if (!activeProvider?.id || policySyncing) return
+    if (!runtimeBacked || !activeProvider?.id || policySyncing) return
     const next = !fallback
     setPolicySyncing(true)
     try {
@@ -239,7 +253,7 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
       </div>
       <div className="model-control__actions">
         <Tag label={syncing ? 'Syncing' : 'Runtime-backed'} />
-        <button className={fallback ? 'studio-button studio-button--active' : 'studio-button'} type="button" disabled={policySyncing || !activeProvider?.id} onClick={() => void toggleFallback()}>
+        <button className={fallback ? 'studio-button studio-button--active' : 'studio-button'} type="button" disabled={policySyncing || !runtimeBacked || !activeProvider?.id} onClick={() => void toggleFallback()}>
           <Icon name="shield" size={13} />{policySyncing ? 'Syncing…' : fallback ? 'Fallback armed' : 'Fallback off'}
         </button>
         <button className="studio-button studio-button--active" type="button" disabled={syncing} onClick={() => void refresh()}>
@@ -340,7 +354,7 @@ export function ModelControlCenter({ onAction }: { onAction: (message: string) =
           <div><span>Providers with usage</span><strong>{String(usage.length)}</strong></div>
           <div><span>Runtime source</span><strong>Authoritative</strong></div>
         </div>
-        <div className="platform-actions"><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.usage.records().then(() => onAction('Usage records refreshed from runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Usage refresh failed'))}>Refresh usage</button></div>
+        <div className="platform-actions"><button className="studio-button studio-button--active" type="button" onClick={() => void loadUsage().then(() => onAction('Usage records refreshed from runtime')).catch((error) => onAction(error instanceof Error ? error.message : 'Usage refresh failed'))}>Refresh usage</button></div>
       </Panel>
     </div>}
 

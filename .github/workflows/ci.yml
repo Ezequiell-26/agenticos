@@ -131,14 +131,29 @@ jobs:
       - name: Test SQLite migration authority
         run: cargo test -p agenticos-sqlite-migrations --lib --test schema_authority
 
-      - name: Test workspace
+      - name: Test semantic memory retrieval and backfill
+        run: cargo test -p agenticos-memory --tests -- --nocapture
+
+      - name: Test subagent runtime boundaries
+        run: cargo test -p agenticos-agents --lib -- --nocapture
+
+      - name: Test workflow runtime boundaries
+        run: cargo test -p agenticos-workflows --lib -- --nocapture
+
+      - name: Test MCP runtime boundaries
+        run: cargo test -p agenticos-mcp --lib -- --nocapture
+
+      - name: Test skill registry boundaries
+        run: cargo test -p agenticos-skills --lib -- --nocapture
+
+      - name: Test brain workspace
         run: cargo test -p agenticos-brain --lib
+
       - name: Test sandbox isolation boundary
         run: cargo test -p agenticos-sandbox --lib
+
       - name: Test compression round-trip
         run: cargo test -p compression --lib
-
-
 
       - name: Build API runtime binary
         run: cargo build -p agenticos-api-server

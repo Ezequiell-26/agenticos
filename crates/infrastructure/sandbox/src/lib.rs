@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 /// Returns the architectural owner of this crate.
 pub const OWNER: &str = "agenticos-sandbox";
@@ -149,15 +149,7 @@ impl ProcessSandbox {
             ))
         })?;
         const FORBIDDEN_WORKSPACE_ROOTS: &[&str] = &[
-            "/",
-            "/home",
-            "/root",
-            "/mnt",
-            "/media",
-            "/srv",
-            "/opt",
-            "/var/tmp",
-            "/tmp",
+            "/", "/home", "/root", "/mnt", "/media", "/srv", "/opt", "/var/tmp", "/tmp",
         ];
         if FORBIDDEN_WORKSPACE_ROOTS
             .iter()
@@ -318,7 +310,15 @@ impl ProcessSandbox {
                     ContractError::ParseError("sandbox workdir is not UTF-8".to_string())
                 })?;
                 if self.policy.isolation_profile == "strict" {
-                    wrapped.args(["--dir", "/workspace", "--bind", dir, "/workspace", "--chdir", "/workspace"]);
+                    wrapped.args([
+                        "--dir",
+                        "/workspace",
+                        "--bind",
+                        dir,
+                        "/workspace",
+                        "--chdir",
+                        "/workspace",
+                    ]);
                 } else {
                     wrapped.args(["--bind", dir, dir, "--chdir", dir]);
                 }
@@ -615,10 +615,7 @@ impl Sandbox for ProcessSandbox {
             ));
         }
 
-        let workdir = request
-            .workdir
-            .as_deref()
-            .map(std::path::Path::new);
+        let workdir = request.workdir.as_deref().map(std::path::Path::new);
 
         self.execute_command(
             &request.code,
@@ -874,10 +871,8 @@ mod tests {
             return;
         }
 
-        let root = std::env::temp_dir().join(format!(
-            "agenticos-sandbox-strict-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("agenticos-sandbox-strict-{}", uuid::Uuid::new_v4()));
         let workspace = root.join("workspace");
         std::fs::create_dir_all(&workspace).unwrap();
 

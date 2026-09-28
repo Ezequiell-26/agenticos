@@ -355,9 +355,18 @@ fn capability_type_allows(granted: CapabilityType, required: CapabilityType) -> 
 }
 
 fn scope_matches(scope: &str, resource: &str) -> bool {
+    let scope = scope.trim();
+    let resource = resource.trim();
+
     scope == "*"
         || scope == resource
-        || (scope.ends_with("/*") && resource.starts_with(scope.trim_end_matches('*')))
+        || (scope.ends_with("/*") && {
+            let prefix = scope.trim_end_matches("/*");
+            resource == prefix
+                || resource
+                    .strip_prefix(prefix)
+                    .is_some_and(|suffix| suffix.starts_with('/'))
+        })
         || resource.starts_with(&format!("{scope}:"))
 }
 
@@ -395,6 +404,15 @@ mod tests {
             .authorize("grant-1", CapabilityType::Write, "secrets", "write")
             .await
             .unwrap());
+    }
+
+    #[tokio::test]
+    async fn scope_matching_respects_path_boundaries() {
+        assert!(scope_matches("workspace/*", "workspace/src"));
+        assert!(scope_matches("workspace/*", "workspace/src/lib.rs"));
+        assert!(!scope_matches("workspace/*", "workspace"));
+        assert!(!scope_matches("workspace/*", "workspace2/src"));
+        assert!(!scope_matches("workspace/*", "other/workspace/src"));
     }
 
     #[tokio::test]

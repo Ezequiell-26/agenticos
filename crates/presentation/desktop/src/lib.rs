@@ -95,7 +95,19 @@ pub async fn get_backend_health() -> Result<BackendHealth, String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendHealth {
     pub status: String,
-    pub version: String,
+    #[serde(default)]
+    pub service: Option<String>,
+    #[serde(default)]
+    pub backend: Option<String>,
+    #[serde(default)]
+    pub database: Option<String>,
+    #[serde(default)]
+    pub provider_configured: Option<bool>,
+    #[serde(default)]
+    pub sandbox: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
     pub uptime_seconds: u64,
 }
 

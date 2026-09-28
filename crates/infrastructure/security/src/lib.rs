@@ -197,7 +197,11 @@ impl CapabilityManager {
             return Ok(false);
         }
 
-        Ok(grant.permission == permission || grant.permission == "*" || permission == "*")
+        Ok(permission_allows(
+            grant.capability_type,
+            &grant.permission,
+            permission,
+        ))
     }
 
     /// Create a new approval request.
@@ -354,7 +358,22 @@ fn capability_type_allows(granted: CapabilityType, required: CapabilityType) -> 
         || (matches!(granted, CapabilityType::Execute) && matches!(required, CapabilityType::Read))
 }
 
-fn scope_matches(scope: &str, resource: &str) -> bool {
+fn permission_allows(
+    granted_type: CapabilityType,
+    granted_permission: &str,
+    required_permission: &str,
+) -> bool {
+    granted_permission == "*"
+        || required_permission == "*"
+        || granted_permission == required_permission
+        || (required_permission == "read"
+            && matches!(
+                granted_type,
+                CapabilityType::Write | CapabilityType::Execute | CapabilityType::Admin
+            ))
+}
+
+fn scope_matches(scope: &str, resource: &str) {
     let scope = scope.trim();
     let resource = resource.trim();
 
@@ -402,6 +421,10 @@ mod tests {
             .unwrap());
         assert!(!manager
             .authorize("grant-1", CapabilityType::Write, "secrets", "write")
+            .await
+            .unwrap());
+        assert!(!manager
+            .authorize("grant-1", CapabilityType::Execute, "workspace/src", "execute")
             .await
             .unwrap());
     }

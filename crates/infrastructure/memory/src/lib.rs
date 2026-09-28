@@ -640,9 +640,9 @@ impl PersistentMemoryStore {
             WHERE namespace = ?
               AND (expires_at = 0 OR expires_at > ?)
               AND (
-                    key LIKE ? ESCAPE '\\'
-                    OR value LIKE ? ESCAPE '\\'
-                    OR tags LIKE ? ESCAPE '\\'
+                    key LIKE ? ESCAPE '\'
+                    OR value LIKE ? ESCAPE '\'
+                    OR tags LIKE ? ESCAPE '\'
               )
             ORDER BY importance DESC, created_at DESC
             LIMIT 500

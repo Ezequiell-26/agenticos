@@ -6,6 +6,10 @@
 
 use thiserror::Error;
 
+const FORMAT_MAGIC: [u8; 2] = [0xAC, 0x05];
+const FORMAT_RAW: u8 = 0;
+const FORMAT_RLE: u8 = 1;
+
 #[derive(Error, Debug)]
 pub enum CompressionError {
     #[error("Compression failed: {0}")]
@@ -46,35 +50,56 @@ impl Compressor {
             i += count as usize;
         }
 
-        // Only return compressed if it's smaller
-        if compressed.len() < data.len() {
-            Ok(compressed)
+        let mut encoded = Vec::with_capacity(3 + compressed.len().max(data.len()));
+        encoded.extend_from_slice(&FORMAT_MAGIC);
+
+        // RLE is worthwhile only when the full encoded representation is smaller
+        // than the equivalent RAW representation.
+        if compressed.len() + 3 < data.len() + 3 {
+            encoded.push(FORMAT_RLE);
+            encoded.extend_from_slice(&compressed);
         } else {
-            Ok(data.to_vec())
+            encoded.push(FORMAT_RAW);
+            encoded.extend_from_slice(data);
         }
+
+        Ok(encoded)
     }
 
-    /// Decompress RLE data
+    /// Decompress encoded data.
     pub fn decompress(data: &[u8]) -> Result<Vec<u8>, CompressionError> {
         if data.is_empty() {
             return Ok(Vec::new());
         }
 
-        if data.len() % 2 != 0 {
+        if data.len() < 3 || data[..2] != FORMAT_MAGIC {
             return Err(CompressionError::InvalidData);
         }
 
-        let mut decompressed = Vec::new();
+        match data[2] {
+            FORMAT_RAW => Ok(data[3..].to_vec()),
+            FORMAT_RLE => {
+                let encoded = &data[3..];
+                if encoded.len() % 2 != 0 {
+                    return Err(CompressionError::InvalidData);
+                }
 
-        for chunk in data.chunks(2) {
-            let count = chunk[0] as usize;
-            let byte = chunk[1];
-            for _ in 0..count {
-                decompressed.push(byte);
+                let mut decompressed = Vec::new();
+                for chunk in encoded.chunks(2) {
+                    let count = chunk[0] as usize;
+                    if count == 0 {
+                        return Err(CompressionError::InvalidData);
+                    }
+                    let byte = chunk[1];
+                    for _ in 0..count {
+                        decompressed.push(byte);
+                    }
+                }
+
+                Ok(decompressed)
             }
+            _ => Err(CompressionError::InvalidData),
         }
-
-        Ok(decompressed)
     }
 
     /// Compress string
@@ -182,6 +207,7 @@ mod tests {
     fn test_compress_decompress() {
         let data = b"aaaaabbbbbcccccddddd";
         let compressed = Compressor::compress(data).unwrap();
+        assert_eq!(&compressed[..3], &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE]);
         let decompressed = Compressor::decompress(&compressed).unwrap();
         assert_eq!(data, decompressed.as_slice());
     }
@@ -198,6 +224,15 @@ mod tests {
         let data = b"";
         let decompressed = Compressor::decompress(data).unwrap();
         assert_eq!(decompressed.len(), 0);
+    }
+
+    #[test]
+    fn test_raw_fallback_round_trip() {
+        let data = b"hello world";
+        let compressed = Compressor::compress(data).unwrap();
+        assert_eq!(&compressed[..3], &[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RAW]);
+        let decompressed = Compressor::decompress(&compressed).unwrap();
+        assert_eq!(data, decompressed.as_slice());
     }
 
     #[test]
@@ -243,8 +278,8 @@ mod tests {
 
     #[test]
     fn test_invalid_decompress() {
-        let data = vec![1, 2, 3]; // Odd length
-        let result = Compressor::decompress(&data);
-        assert!(result.is_err());
+        assert!(Compressor::decompress(&[1, 2, 3]).is_err());
+        assert!(Compressor::decompress(&[FORMAT_MAGIC[0], FORMAT_MAGIC[1], 9]).is_err());
+        assert!(Compressor::decompress(&[FORMAT_MAGIC[0], FORMAT_MAGIC[1], FORMAT_RLE, 1]).is_err());
     }
 }

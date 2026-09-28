@@ -1,6 +1,5 @@
 use super::{
-    normalize_chat_url, openai_chat_message_content, openai_chat_messages,
-    shared_http_client, StreamUsageRecorder,
+    normalize_chat_url, openai_chat_messages, shared_http_client, StreamUsageRecorder,
 };
 use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
 pub(super) struct AuthenticatedOpenAiProvider {

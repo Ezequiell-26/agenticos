@@ -204,7 +204,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
       <aside className="provider-studio__sidebar">
         <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{providers.length}</span></div>
         {liveProviders.map((item) => <button type="button" key={item.id} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
-        <button className="studio-button" type="button" onClick={() => onAction('Provider route creation opened in preview')}><Icon name="plus" size={13} /> Add route</button>
+        <button className="studio-button" type="button" onClick={() => { setTab('Accounts'); setShowRegister(true) }}><Icon name="plus" size={13} /> Add route</button>
       </aside>
 
       <section className="provider-studio__main">

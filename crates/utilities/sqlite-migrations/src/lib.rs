@@ -27,6 +27,11 @@ pub async fn migrate(database_url: &str) -> Result<(), String> {
 /// Using the caller's pool keeps SQLite in-memory databases on the same
 /// connection and avoids opening a redundant migration connection.
 pub async fn migrate_pool(pool: &sqlx::SqlitePool) -> Result<(), String> {
+    // Some legacy databases have outbox columns missing before migration 0001
+    // attempts to create an index that references them. Repair those columns
+    // before running the embedded migrations, then verify again afterward.
+    ensure_legacy_columns(pool).await?;
+
     MIGRATOR
         .run(pool)
         .await
@@ -81,6 +86,17 @@ async fn ensure_legacy_columns(pool: &sqlx::SqlitePool) -> Result<(), String> {
     ];
 
     for (table, column, statement) in additions {
+        let table_exists: Option<i64> =
+            sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+                .bind(table)
+                .fetch_optional(pool)
+                .await
+                .map_err(|error| format!("legacy table inspection failed for {table}: {error}"))?;
+
+        if table_exists.is_none() {
+            continue;
+        }
+
         let exists: Option<String> =
             sqlx::query_scalar("SELECT name FROM pragma_table_info(?) WHERE name = ?")
                 .bind(table)
@@ -153,9 +169,8 @@ mod tests {
         .await
         .unwrap();
 
-        MIGRATOR.run(&pool).await.unwrap();
-        ensure_legacy_columns(&pool).await.unwrap();
-        MIGRATOR.run(&pool).await.unwrap();
+        migrate_pool(&pool).await.unwrap();
+        migrate_pool(&pool).await.unwrap();
 
         for column in [
             "job_type",

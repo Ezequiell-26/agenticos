@@ -297,13 +297,14 @@ mod tests {
 
     #[test]
     fn optimize_tool_output_removes_noise() {
-        let input = "écho\n\u{1b}[32mOK\u{1b}[0m\nline\nline\n\n\n";
+        let input =
+            "écho\n\u{1b}[32mOK\u{1b}[0m\nline\nline\nline\nline\nline\nline\n\n\n";
         let (optimized, stats) = optimize_tool_output(input);
         assert!(optimized.contains("écho"));
-        assert!(optimized.contains("line (repeated 2 times)"));
+        assert!(optimized.contains("line (repeated 6 times)"));
         assert!(!optimized.contains('\u{1b}'));
-        assert_eq!(stats.repeated_lines_folded, 1);
-        assert!(stats.optimized_bytes <= stats.original_bytes);
+        assert_eq!(stats.repeated_lines_folded, 5);
+        assert!(stats.bytes_saved > 0);
     }
 
     #[test]

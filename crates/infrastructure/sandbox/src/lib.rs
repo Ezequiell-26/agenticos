@@ -705,6 +705,7 @@ mod tests {
                 timeout_ms: 1_000,
                 memory_limit_bytes: 64 * 1024 * 1024,
                 allowed_capabilities: vec!["process.execute".to_string()],
+                workdir: None,
             })
             .await;
 

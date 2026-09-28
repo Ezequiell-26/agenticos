@@ -3060,6 +3060,41 @@ fn normalized_input_parts(
     Ok(Some(normalized))
 }
 
+pub(super) fn openai_chat_messages(
+    input: &str,
+    parameters: Option<&str>,
+) -> Result<Vec<serde_json::Value>, ContractError> {
+    let content = openai_chat_message_content(input, parameters)?;
+    let mut messages = Vec::with_capacity(2);
+    if let Some(system_prompt) = system_prompt_from_parameters(parameters)? {
+        messages.push(serde_json::json!({
+            "role": "system",
+            "content": system_prompt,
+        }));
+    }
+    messages.push(serde_json::json!({
+        "role": "user",
+        "content": content,
+    }));
+    Ok(messages)
+}
+
+pub(super) fn system_prompt_from_parameters(
+    parameters: Option<&str>,
+) -> Result<Option<String>, ContractError> {
+    let Some(raw) = parameters.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let value = serde_json::from_str::<serde_json::Value>(raw).map_err(|error| {
+        ContractError::ParseError(format!("invalid provider parameters: {error}"))
+    })?;
+    Ok(value
+        .get("system_prompt")
+        .and_then(|value| value.as_str())
+        .map(str::to_owned)
+        .filter(|value| !value.trim().is_empty()))
+}
+
 fn openai_chat_message_content(
     input: &str,
     parameters: Option<&str>,

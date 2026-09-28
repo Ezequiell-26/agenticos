@@ -19,10 +19,10 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "5ae9b614247d1abc183e7faf699b54c0df9cedd1",
+    "last_update_commit": "83e7dcb6e8b6ba71c824a928abd88beb2eea1ad0",
     "next_actions": [
+      "verify sandbox isolation and destructive-operation regressions in fresh CI",
       "evaluate semantic-memory retrieval/backfill with deterministic regression cases",
-      "strengthen sandbox isolation profiles and add destructive-operation regression coverage",
       "expand runtime end-to-end tests for subagents, workflows, MCP and skills",
       "complete evaluation/replay coverage and regression fixtures"
     ],
@@ -372,7 +372,7 @@
     "ci_pending": false
   },
   "backlog": [
-    "strengthen sandbox isolation profiles",
+    "verify strict sandbox isolation and destructive-operation regression coverage",
     "evaluation and replay coverage",
     "runtime integration coverage for desktop, subagents, workflows, MCP and skills"
   ],

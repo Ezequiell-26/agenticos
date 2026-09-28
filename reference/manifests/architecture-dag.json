@@ -10,6 +10,7 @@
       "agents",
       "execution",
       "scheduler",
+      "skills",
       "workflows"
     ],
     "infrastructure": [

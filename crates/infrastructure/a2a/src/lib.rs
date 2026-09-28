@@ -277,15 +277,9 @@ impl A2aTaskStore {
             .connect(database_url)
             .await
             .map_err(|error| format!("A2A database connection failed: {error}"))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS a2a_tasks (
-                task_id TEXT PRIMARY KEY,
-                payload TEXT NOT NULL
-            )",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|error| format!("A2A schema initialization failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate_pool(&pool)
+            .await
+            .map_err(|error| format!("A2A SQLite migrations failed: {error}"))?;
 
         let rows = sqlx::query_as::<_, (String, String)>(
             "SELECT task_id, payload FROM a2a_tasks ORDER BY task_id",

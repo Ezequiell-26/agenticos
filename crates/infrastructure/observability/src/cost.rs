@@ -48,10 +48,9 @@ impl CostLedger {
             .connect(database_url)
             .await
             .map_err(|e| format!("cost ledger connection failed: {e}"))?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS model_pricing (provider_id TEXT NOT NULL, model_id TEXT NOT NULL, usd_per_million_tokens REAL NOT NULL, PRIMARY KEY(provider_id, model_id))")
-            .execute(&pool).await.map_err(|e| format!("pricing schema failed: {e}"))?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS model_usage (request_id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, model_id TEXT NOT NULL, tokens_used INTEGER NOT NULL, cost_usd REAL NOT NULL, recorded_at INTEGER NOT NULL)")
-            .execute(&pool).await.map_err(|e| format!("usage schema failed: {e}"))?;
+        agenticos_sqlite_migrations::migrate_pool(&pool)
+            .await
+            .map_err(|error| format!("cost SQLite migrations failed: {error}"))?;
         Ok(Self {
             pool: Arc::new(pool),
         })

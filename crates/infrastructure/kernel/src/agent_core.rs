@@ -1753,83 +1753,13 @@ impl SqliteMemory {
                 ContractError::ParseError(format!("Failed to connect to SQLite: {}", e))
             })?;
 
-        // Create tables
-        Self::initialize_schema(&pool).await?;
+        agenticos_sqlite_migrations::migrate_pool(&pool)
+            .await
+            .map_err(|error| {
+                ContractError::ParseError(format!("SQLite migrations failed: {error}"))
+            })?;
 
         Ok(Self { db: Arc::new(pool) })
-    }
-
-    /// Initialize database schema.
-    async fn initialize_schema(pool: &sqlx::SqlitePool) -> Result<(), ContractError> {
-        // Create conversations table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                session_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                timestamp INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            ContractError::ParseError(format!("Failed to create conversations table: {}", e))
-        })?;
-
-        // Create FTS5 virtual table for full-text search
-        sqlx::query(
-            r#"
-            CREATE VIRTUAL TABLE IF NOT EXISTS conversations_fts USING fts5(
-                id,
-                session_id,
-                role,
-                content,
-                timestamp
-            )
-            "#,
-        )
-        .execute(pool)
-        .await
-        .map_err(|e| ContractError::ParseError(format!("Failed to create FTS5 table: {}", e)))?;
-
-        // Create summaries table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS summaries (
-                session_id TEXT PRIMARY KEY,
-                summary TEXT NOT NULL,
-                updated_at INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            ContractError::ParseError(format!("Failed to create summaries table: {}", e))
-        })?;
-
-        // Create checkpoints table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS checkpoints (
-                checkpoint_id TEXT PRIMARY KEY,
-                thread_id TEXT NOT NULL,
-                state TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                timestamp INTEGER NOT NULL
-            )
-            "#,
-        )
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            ContractError::ParseError(format!("Failed to create checkpoints table: {}", e))
-        })?;
-
-        Ok(())
     }
 
     /// Store a conversation message.

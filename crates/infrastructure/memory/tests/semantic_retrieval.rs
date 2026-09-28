@@ -125,7 +125,9 @@ async fn semantic_retrieval_isolated_by_namespace() {
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].memory_id, local.memory_id);
-    assert!(results.iter().all(|record| record.namespace == "project:local"));
+    assert!(results
+        .iter()
+        .all(|record| record.namespace == "project:local"));
 
     let _ = std::fs::remove_file(path);
 }
@@ -173,10 +175,7 @@ async fn embedding_backfill_has_complete_and_deterministic_coverage() {
         .await
         .unwrap();
 
-    let coverage = store
-        .embedding_coverage("project:backfill")
-        .await
-        .unwrap();
+    let coverage = store.embedding_coverage("project:backfill").await.unwrap();
     assert_eq!(coverage.total_records, 3);
     assert_eq!(coverage.embedded_records, 1);
     assert_eq!(coverage.missing_records, 2);
@@ -195,13 +194,13 @@ async fn embedding_backfill_has_complete_and_deterministic_coverage() {
         } else {
             vec![0.5, 0.5]
         };
-        store.set_embedding(&record.memory_id, &embedding).await.unwrap();
+        store
+            .set_embedding(&record.memory_id, &embedding)
+            .await
+            .unwrap();
     }
 
-    let complete = store
-        .embedding_coverage("project:backfill")
-        .await
-        .unwrap();
+    let complete = store.embedding_coverage("project:backfill").await.unwrap();
     assert_eq!(complete.total_records, 3);
     assert_eq!(complete.embedded_records, 3);
     assert_eq!(complete.missing_records, 0);

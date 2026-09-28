@@ -392,12 +392,13 @@ impl AgentEngine for BasicAgentEngine {
             Ok(response) => {
                 let expected_request_id = format!("{}-model-req", run_id.as_str());
                 if response.request_id != expected_request_id {
-                    let current = self.runtime.get_or_recover_run(&run_id).await?;
-                    if current.state == RunState::Running {
-                        let _ = self
-                            .runtime
-                            .transition_run(&run_id, RunState::Failed, current.version)
-                            .await;
+                    if let Ok(current) = self.runtime.get_or_recover_run(&run_id).await {
+                        if current.state == RunState::Running {
+                            let _ = self
+                                .runtime
+                                .transition_run(&run_id, RunState::Failed, current.version)
+                                .await;
+                        }
                     }
                     let _ = self
                         .runtime

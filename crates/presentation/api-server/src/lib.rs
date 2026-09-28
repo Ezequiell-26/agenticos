@@ -529,6 +529,12 @@ impl RuntimeState {
             .await
             .map_err(ContractError::ParseError)?;
 
+        let source_repository_store = Arc::new(
+            agenticos_source_forge::SqliteRepositoryMetadataStore::open(&database_url)
+                .await
+                .map_err(|error| ContractError::ParseError(error.to_string()))?,
+        );
+
         Ok(Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             session_cache_capacity,
@@ -564,8 +570,8 @@ impl RuntimeState {
                 selection_strategy: SelectionStrategy::Balanced,
             })),
             source_intelligence: Arc::new(
-                agenticos_brain::SourceIntelligenceEngine::open(
-                    &database_url,
+                agenticos_brain::SourceIntelligenceEngine::open_with_store(
+                    source_repository_store,
                     agenticos_brain::EngineConfig::default(),
                 )
                 .await

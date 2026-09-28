@@ -6,9 +6,11 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 
+use agenticos_brain::{RepositoryMetadata, RepositoryMetadataStore, RepositoryStatus};
 use agenticos_contracts::{
     ContractError, ResourceUsage, Sandbox, SandboxRequest, SandboxResponse, SandboxStatus,
 };
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -419,6 +421,119 @@ pub struct GitHubWriteResult {
     pub url: Option<String>,
 }
 
+/// SQLite-backed repository metadata store for Source Intelligence.
+#[derive(Clone, Debug)]
+pub struct SqliteRepositoryMetadataStore {
+    pool: Arc<SqlitePool>,
+}
+
+impl SqliteRepositoryMetadataStore {
+    /// Open the store and apply the canonical SQLite migrations.
+    pub async fn open(database_url: &str) -> Result<Self, SourceForgeError> {
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect(database_url)
+            .await
+            .map_err(|error| SourceForgeError::Database(error.to_string()))?;
+
+        agenticos_sqlite_migrations::migrate_pool(&pool)
+            .await
+            .map_err(SourceForgeError::Database)?;
+
+        Ok(Self {
+            pool: Arc::new(pool),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl RepositoryMetadataStore for SqliteRepositoryMetadataStore {
+    async fn list(&self) -> Result<Vec<RepositoryMetadata>, String> {
+        let rows = sqlx::query_as::<
+            _,
+            (
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                Option<String>,
+                i64,
+                String,
+            ),
+        >(
+            "SELECT repo_id, url, default_branch, last_indexed, license, language, stars, status
+             FROM source_repositories ORDER BY repo_id",
+        )
+        .fetch_all(self.pool.as_ref())
+        .await
+        .map_err(|error| format!("source repository recovery failed: {error}"))?;
+
+        rows.into_iter()
+            .map(
+                |(repo_id, url, default_branch, last_indexed, license, language, stars, status)| {
+                    let last_indexed = chrono::DateTime::parse_from_rfc3339(&last_indexed)
+                        .map(|value| value.with_timezone(&chrono::Utc))
+                        .map_err(|error| format!("invalid source repository timestamp: {error}"))?;
+
+                    let status = match status.as_str() {
+                        "indexing" => RepositoryStatus::Indexing,
+                        "indexed" => RepositoryStatus::Indexed,
+                        "failed" => RepositoryStatus::Failed,
+                        _ => RepositoryStatus::Discovered,
+                    };
+
+                    Ok(RepositoryMetadata {
+                        repo_id,
+                        url,
+                        default_branch,
+                        last_indexed,
+                        license,
+                        language,
+                        stars: stars.max(0) as u64,
+                        status,
+                    })
+                },
+            )
+            .collect()
+    }
+
+    async fn upsert(&self, metadata: &RepositoryMetadata) -> Result<(), String> {
+        sqlx::query(
+            "INSERT INTO source_repositories
+             (repo_id, url, default_branch, last_indexed, license, language, stars, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(repo_id) DO UPDATE SET
+                url = excluded.url,
+                default_branch = excluded.default_branch,
+                last_indexed = excluded.last_indexed,
+                license = excluded.license,
+                language = excluded.language,
+                stars = excluded.stars,
+                status = excluded.status",
+        )
+        .bind(&metadata.repo_id)
+        .bind(&metadata.url)
+        .bind(&metadata.default_branch)
+        .bind(metadata.last_indexed.to_rfc3339())
+        .bind(&metadata.license)
+        .bind(&metadata.language)
+        .bind(metadata.stars as i64)
+        .bind(match &metadata.status {
+            RepositoryStatus::Discovered => "discovered",
+            RepositoryStatus::Indexing => "indexing",
+            RepositoryStatus::Indexed => "indexed",
+            RepositoryStatus::Failed => "failed",
+        })
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|error| format!("source repository persistence failed: {error}"))?;
+
+        Ok(())
+    }
+}
+
 /// A bounded source-file response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceFile {
@@ -460,6 +575,9 @@ pub enum SourceForgeError {
     /// Authentication required.
     #[error("authentication required")]
     AuthenticationRequired,
+    /// Database persistence failed.
+    #[error("database error: {0}")]
+    Database(String),
     /// Conflict error.
     #[error("conflict")]
     Conflict,
@@ -909,6 +1027,41 @@ mod github_source_tests {
         assert!(normalize_source_path("/etc/passwd").is_err());
         assert!(normalize_source_path("src//lib.rs").is_err());
         assert_eq!(normalize_source_path("src/lib.rs").unwrap(), "src/lib.rs");
+    }
+
+    #[tokio::test]
+    async fn sqlite_repository_store_round_trip() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("agenticos-source-forge-{unique}.db"));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        let store = SqliteRepositoryMetadataStore::open(&url)
+            .await
+            .expect("SQLite source store should open");
+        let metadata = RepositoryMetadata {
+            repo_id: "owner/repo".to_string(),
+            url: "https://github.com/owner/repo".to_string(),
+            default_branch: "main".to_string(),
+            last_indexed: chrono::Utc::now(),
+            license: Some("MIT".to_string()),
+            language: Some("Rust".to_string()),
+            stars: 42,
+            status: RepositoryStatus::Indexed,
+        };
+
+        store.upsert(&metadata).await.unwrap();
+        let rows = store.list().await.unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].repo_id, metadata.repo_id);
+        assert_eq!(rows[0].stars, 42);
+        assert_eq!(rows[0].status, RepositoryStatus::Indexed);
+
+        drop(store);
+        let _ = std::fs::remove_file(path);
     }
 }
 

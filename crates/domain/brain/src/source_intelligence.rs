@@ -4,9 +4,9 @@ use super::{
     BrainError, Capability, CapabilityOrigin, CapabilityStatus, CommitHash, License,
     ProvenanceEvidence, RepoId,
 };
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -18,7 +18,7 @@ pub struct SourceIntelligenceEngine {
     config: EngineConfig,
     /// Registry for discovered capabilities
     registry: Arc<RwLock<HashMap<RepoId, RepositoryMetadata>>>,
-    db: Option<Arc<SqlitePool>>,
+    store: Option<Arc<dyn RepositoryMetadataStore>>,
 }
 
 /// Engine configuration
@@ -114,6 +114,16 @@ pub enum RepositoryStatus {
     Failed,
 }
 
+/// Persistence port for repository metadata owned by the domain.
+#[async_trait]
+pub trait RepositoryMetadataStore: Send + Sync + std::fmt::Debug {
+    /// Load all persisted repository metadata in stable order.
+    async fn list(&self) -> Result<Vec<RepositoryMetadata>, String>;
+
+    /// Insert or replace repository metadata.
+    async fn upsert(&self, metadata: &RepositoryMetadata) -> Result<(), String>;
+}
+
 impl SourceIntelligenceEngine {
     /// Create a new source intelligence engine
     pub fn new(config: EngineConfig) -> Self {
@@ -138,111 +148,42 @@ impl SourceIntelligenceEngine {
             discovery: Arc::new(RwLock::new(discovery)),
             config,
             registry: Arc::new(RwLock::new(HashMap::new())),
-            db: None,
+            store: None,
         }
     }
 
-    /// Open a SQLite-backed source intelligence registry and recover repository metadata.
-    pub async fn open(database_url: &str, config: EngineConfig) -> Result<Self, BrainError> {
-        let engine = Self::new(config);
-        let db = SqlitePool::connect(database_url).await.map_err(|error| {
-            BrainError::SourceIntelligenceError(format!(
-                "source intelligence database connection failed: {error}"
-            ))
-        })?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS source_repositories (
-                repo_id TEXT PRIMARY KEY,
-                url TEXT NOT NULL,
-                default_branch TEXT NOT NULL,
-                last_indexed TEXT NOT NULL,
-                license TEXT,
-                language TEXT,
-                stars INTEGER NOT NULL,
-                status TEXT NOT NULL
-            )",
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| {
-            BrainError::SourceIntelligenceError(format!(
-                "source intelligence schema initialization failed: {error}"
-            ))
-        })?;
-
-        let rows = sqlx::query_as::<
-            _,
-            (
-                String,
-                String,
-                String,
-                String,
-                Option<String>,
-                Option<String>,
-                i64,
-                String,
-            ),
-        >(
-            "SELECT repo_id, url, default_branch, last_indexed, license, language, stars, status
-             FROM source_repositories ORDER BY repo_id",
-        )
-        .fetch_all(&db)
-        .await
-        .map_err(|error| {
-            BrainError::SourceIntelligenceError(format!(
-                "source intelligence recovery failed: {error}"
-            ))
-        })?;
-
-        {
-            let mut registry = engine.registry.write().await;
-            for (repo_id, url, default_branch, last_indexed, license, language, stars, status) in
-                rows
-            {
-                let parsed_time = DateTime::parse_from_rfc3339(&last_indexed)
-                    .map(|value| value.with_timezone(&Utc))
-                    .unwrap_or_else(|_| Utc::now());
-                registry.insert(
-                    repo_id.clone(),
-                    RepositoryMetadata {
-                        repo_id,
-                        url,
-                        default_branch,
-                        last_indexed: parsed_time,
-                        license,
-                        language,
-                        stars: stars.max(0) as u64,
-                        status: Self::parse_repository_status(&status),
-                    },
-                );
-            }
-        }
-
-        Ok(Self {
-            discovery: engine.discovery,
-            config: engine.config,
-            registry: engine.registry,
-            db: Some(Arc::new(db)),
-        })
+    /// Create a source intelligence engine backed by a domain repository store.
+    pub fn with_store(config: EngineConfig, store: Arc<dyn RepositoryMetadataStore>) -> Self {
+        let mut engine = Self::new(config);
+        engine.store = Some(store);
+        engine
     }
 
-    fn repository_status_name(status: &RepositoryStatus) -> &'static str {
-        match status {
-            RepositoryStatus::Discovered => "discovered",
-            RepositoryStatus::Indexing => "indexing",
-            RepositoryStatus::Indexed => "indexed",
-            RepositoryStatus::Failed => "failed",
-        }
-    }
+    /// Open a store-backed source intelligence registry and recover repository metadata.
+    pub async fn open_with_store(
+        store: Arc<dyn RepositoryMetadataStore>,
+        config: EngineConfig,
+    ) -> Result<Self, BrainError> {
+        let engine = Self::with_store(config, store);
+        let rows = engine
+            .store
+            .as_ref()
+            .expect("source repository store is configured")
+            .list()
+            .await
+            .map_err(|error| {
+                BrainError::SourceIntelligenceError(format!(
+                    "source intelligence recovery failed: {error}"
+                ))
+            })?;
 
-    fn parse_repository_status(status: &str) -> RepositoryStatus {
-        match status {
-            "indexing" => RepositoryStatus::Indexing,
-            "indexed" => RepositoryStatus::Indexed,
-            "failed" => RepositoryStatus::Failed,
-            _ => RepositoryStatus::Discovered,
+        let mut registry = engine.registry.write().await;
+        for metadata in rows {
+            registry.insert(metadata.repo_id.clone(), metadata);
         }
+        drop(registry);
+
+        Ok(engine)
     }
 
     /// Discover repositories from a source (GitHub, GitLab, local git, etc.)
@@ -283,31 +224,8 @@ impl SourceIntelligenceEngine {
             ));
         }
 
-        if let Some(db) = &self.db {
-            sqlx::query(
-                "INSERT INTO source_repositories
-                 (repo_id, url, default_branch, last_indexed, license, language, stars, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(repo_id) DO UPDATE SET
-                    url = excluded.url,
-                    default_branch = excluded.default_branch,
-                    last_indexed = excluded.last_indexed,
-                    license = excluded.license,
-                    language = excluded.language,
-                    stars = excluded.stars,
-                    status = excluded.status",
-            )
-            .bind(&metadata.repo_id)
-            .bind(&metadata.url)
-            .bind(&metadata.default_branch)
-            .bind(metadata.last_indexed.to_rfc3339())
-            .bind(&metadata.license)
-            .bind(&metadata.language)
-            .bind(metadata.stars as i64)
-            .bind(Self::repository_status_name(&metadata.status))
-            .execute(db.as_ref())
-            .await
-            .map_err(|error| {
+        if let Some(store) = &self.store {
+            store.upsert(&metadata).await.map_err(|error| {
                 BrainError::SourceIntelligenceError(format!(
                     "source metadata persistence failed: {error}"
                 ))
@@ -759,15 +677,34 @@ mod tests {
         assert!(capabilities.iter().any(|cap| cap.name == "mcp"));
     }
 
-    #[tokio::test]
-    async fn test_repository_metadata_survives_reopen() {
-        let db_path =
-            std::env::temp_dir().join(format!("agenticos-brain-{}.db", uuid::Uuid::new_v4()));
-        let url = format!("sqlite://{}?mode=rwc", db_path.display());
+    #[derive(Debug, Default, Clone)]
+    struct InMemoryRepositoryStore {
+        rows: Arc<RwLock<HashMap<RepoId, RepositoryMetadata>>>,
+    }
 
-        let first = SourceIntelligenceEngine::open(&url, EngineConfig::default())
-            .await
-            .unwrap();
+    #[async_trait::async_trait]
+    impl RepositoryMetadataStore for InMemoryRepositoryStore {
+        async fn list(&self) -> Result<Vec<RepositoryMetadata>, String> {
+            Ok(self.rows.read().await.values().cloned().collect())
+        }
+
+        async fn upsert(&self, metadata: &RepositoryMetadata) -> Result<(), String> {
+            self.rows
+                .write()
+                .await
+                .insert(metadata.repo_id.clone(), metadata.clone());
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_repository_metadata_survives_reopen_through_store() {
+        let store = Arc::new(InMemoryRepositoryStore::default());
+
+        let first =
+            SourceIntelligenceEngine::open_with_store(store.clone(), EngineConfig::default())
+                .await
+                .unwrap();
         first
             .register_metadata(RepositoryMetadata {
                 repo_id: "owner/repo".to_string(),
@@ -783,7 +720,7 @@ mod tests {
             .unwrap();
         drop(first);
 
-        let second = SourceIntelligenceEngine::open(&url, EngineConfig::default())
+        let second = SourceIntelligenceEngine::open_with_store(store, EngineConfig::default())
             .await
             .unwrap();
         let metadata = second.get_metadata("owner/repo").await.unwrap();
@@ -792,8 +729,6 @@ mod tests {
         assert_eq!(metadata.license.as_deref(), Some("MIT"));
         assert_eq!(metadata.language.as_deref(), Some("Rust"));
         assert_eq!(metadata.status, RepositoryStatus::Indexed);
-
-        let _ = std::fs::remove_file(db_path);
     }
 
     #[tokio::test]

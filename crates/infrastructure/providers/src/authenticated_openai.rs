@@ -1,5 +1,6 @@
 use super::{
-    normalize_chat_url, openai_chat_message_content, shared_http_client, StreamUsageRecorder,
+    normalize_chat_url, openai_chat_message_content, openai_chat_messages,
+    shared_http_client, StreamUsageRecorder,
 };
 use agenticos_contracts::{ContractError, ModelProvider, ModelRequest, ModelResponse};
 pub(super) struct AuthenticatedOpenAiProvider {
@@ -94,10 +95,7 @@ impl AuthenticatedOpenAiProvider {
         let request_id = request.request_id.clone();
         let mut payload = serde_json::json!({
             "model": request.model,
-            "messages": [{
-                "role": "user",
-                "content": openai_chat_message_content(&request.input, request.parameters.as_deref())?,
-            }],
+            "messages": openai_chat_messages(&request.input, request.parameters.as_deref())?,
             "stream": true,
         });
 
@@ -114,7 +112,10 @@ impl AuthenticatedOpenAiProvider {
                 ContractError::ParseError("provider request payload is not an object".to_string())
             })?;
             for (key, value) in extra_object {
-                if !matches!(key.as_str(), "model" | "messages" | "stream" | "request_id") {
+                if !matches!(
+                    key.as_str(),
+                    "model" | "messages" | "stream" | "request_id" | "system_prompt"
+                ) {
                     payload_object.insert(key.clone(), value.clone());
                 }
             }
@@ -301,7 +302,7 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
         let request_id = request.request_id.clone();
         let mut payload = serde_json::json!({
             "model": request.model,
-            "messages": [{"role": "user", "content": request.input}],
+            "messages": openai_chat_messages(&request.input, request.parameters.as_deref())?,
             "stream": false
         });
 
@@ -318,7 +319,10 @@ impl ModelProvider for AuthenticatedOpenAiProvider {
                 ContractError::ParseError("provider request payload is not an object".to_string())
             })?;
             for (key, value) in extra_object {
-                if !matches!(key.as_str(), "model" | "messages" | "stream" | "request_id") {
+                if !matches!(
+                    key.as_str(),
+                    "model" | "messages" | "stream" | "request_id" | "system_prompt"
+                ) {
                     payload_object.insert(key.clone(), value.clone());
                 }
             }

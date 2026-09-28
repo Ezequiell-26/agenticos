@@ -1961,12 +1961,6 @@ impl SqliteOutboxStore {
                 ContractError::ParseError(format!("sqlite migrations failed: {error}"))
             })?;
 
-
-
-
-
-
-
         Ok(Self {
             pool: Arc::new(pool),
         })

@@ -479,8 +479,8 @@ dependencies = [
 name = "agenticos-observability"
 version = "0.1.0"
 dependencies = [
- "agenticos-sqlite-migrations",
  "agenticos-contracts",
+ "agenticos-sqlite-migrations",
  "serde",
  "serde_json",
  "sqlx",

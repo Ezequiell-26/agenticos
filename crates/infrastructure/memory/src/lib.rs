@@ -1378,6 +1378,71 @@ mod persistent_memory_tests {
     }
 
     #[tokio::test]
+    async fn semantic_search_enforces_limit_and_skips_wrong_dimensions() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-semantic-limits-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let first = store
+            .upsert("project:semantic", "first", "first memory", &[], 0.5, 0)
+            .await
+            .unwrap();
+        let second = store
+            .upsert("project:semantic", "second", "second memory", &[], 0.9, 0)
+            .await
+            .unwrap();
+        let wrong_dimension = store
+            .upsert("project:semantic", "wrong", "wrong dimension", &[], 1.0, 0)
+            .await
+            .unwrap();
+
+        store
+            .set_embedding(&first.memory_id, &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .set_embedding(&second.memory_id, &[0.9, 0.1])
+            .await
+            .unwrap();
+        store
+            .set_embedding(&wrong_dimension.memory_id, &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
+
+        let results = store
+            .search_semantic("project:semantic", &[1.0, 0.0], 1)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_ne!(results[0].memory_id, wrong_dimension.memory_id);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn semantic_search_rejects_zero_query_embedding() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-semantic-invalid-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let error = store
+            .search_semantic("project:semantic", &[0.0, 0.0], 5)
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("zero magnitude"));
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn purge_expired_removes_embeddings() {
         let path = std::env::temp_dir().join(format!(
             "agenticos-memory-purge-{}.db",

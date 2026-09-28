@@ -300,6 +300,7 @@ mod tests {
                 timeout_ms: 5000,
                 memory_limit_bytes: 1024 * 1024,
                 allowed_capabilities: vec!["execute".to_string()],
+                workdir: None,
             };
 
             let response = sandbox.execute(request).await.unwrap();

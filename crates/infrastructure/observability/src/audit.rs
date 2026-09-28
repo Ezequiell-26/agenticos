@@ -69,24 +69,9 @@ impl AuditStore {
             .await
             .map_err(|error| format!("audit database connection failed: {error}"))?;
 
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS audit_events (
-                event_id TEXT PRIMARY KEY,
-                timestamp INTEGER NOT NULL,
-                category TEXT NOT NULL,
-                action TEXT NOT NULL,
-                actor TEXT,
-                resource TEXT NOT NULL,
-                correlation_id TEXT,
-                outcome TEXT NOT NULL,
-                metadata TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&db)
-        .await
-        .map_err(|error| format!("audit schema initialization failed: {error}"))?;
+        agenticos_sqlite_migrations::migrate_pool(&db)
+            .await
+            .map_err(|error| format!("audit SQLite migrations failed: {error}"))?;
 
         Ok(Self { db: Arc::new(db) })
     }

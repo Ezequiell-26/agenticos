@@ -351,8 +351,9 @@ mod tests {
 
     #[test]
     fn validates_screenshot_output_paths() {
-        assert!(validate_output_path(Path::new("/tmp/agenticos.png")).is_ok());
+        let temp_dir = std::env::temp_dir();
+        assert!(validate_output_path(&temp_dir.join("agenticos.png")).is_ok());
         assert!(validate_output_path(Path::new("relative.png")).is_err());
-        assert!(validate_output_path(Path::new("/tmp/bad\npath.png")).is_err());
+        assert!(validate_output_path(&temp_dir.join("bad\npath.png")).is_err());
     }
 }

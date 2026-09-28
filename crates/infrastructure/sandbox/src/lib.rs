@@ -899,8 +899,7 @@ mod tests {
         assert!(
             inside.success,
             "strict sandbox in-workspace execution failed: error={:?}, output={}",
-            inside.error,
-            inside.output
+            inside.error, inside.output
         );
         assert_eq!(
             std::fs::read_to_string(workspace.join("allowed.txt")).unwrap(),

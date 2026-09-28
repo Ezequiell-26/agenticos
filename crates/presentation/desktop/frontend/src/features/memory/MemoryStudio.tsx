@@ -32,27 +32,65 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(items[0].id)
   const [runtimeLoading, setRuntimeLoading] = useState(true)
+  const [coverage, setCoverage] = useState<{ total_records: number; embedded_records: number; missing_records: number } | null>(null)
+  const [backfillBusy, setBackfillBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    void runtime.memory.list('agenticos', query || undefined, 100).then((records) => {
-      if (cancelled || records.length === 0) return
-      setItems(records.map((record, index) => ({
-        id: `${record.namespace}:${record.key}`,
-        title: record.key,
-        detail: record.value,
-        scope: (record.tags?.find((tag) => ['Workspace', 'Project', 'Agent', 'Session'].includes(tag)) as MemoryScope | undefined) ?? 'Project',
-        priority: (record.importance ?? 0.5) >= 0.75 ? 'High' : (record.importance ?? 0.5) >= 0.4 ? 'Medium' : 'Low',
-        tokens: String(Math.max(1, Math.ceil(record.value.length / 4))),
-        pinned: record.tags?.includes('pinned') ?? false,
-        updated: record.updated_at ? new Date(record.updated_at * 1000).toLocaleString() : `remote ${index + 1}`,
-      })))
-      setSelected((current) => records.some((record) => `${record.namespace}:${record.key}` === current) ? current : `${records[0].namespace}:${records[0].key}`)
-    }).catch(() => {
-      // Keep the local presentation fallback when runtime memory is unavailable.
-    }).finally(() => { if (!cancelled) setRuntimeLoading(false) })
+    const syncRuntime = async () => {
+      const [recordsResult, coverageResult] = await Promise.allSettled([
+        runtime.memory.list('agenticos', query || undefined, 100),
+        runtime.memory.coverage('agenticos'),
+      ])
+
+      if (cancelled) return
+
+      if (recordsResult.status === 'fulfilled' && recordsResult.value.length > 0) {
+        const records = recordsResult.value
+        setItems(records.map((record, index) => ({
+          id: `${record.namespace}:${record.key}`,
+          title: record.key,
+          detail: record.value,
+          scope: (record.tags?.find((tag) => ['Workspace', 'Project', 'Agent', 'Session'].includes(tag)) as MemoryScope | undefined) ?? 'Project',
+          priority: (record.importance ?? 0.5) >= 0.75 ? 'High' : (record.importance ?? 0.5) >= 0.4 ? 'Medium' : 'Low',
+          tokens: String(Math.max(1, Math.ceil(record.value.length / 4))),
+          pinned: record.tags?.includes('pinned') ?? false,
+          updated: record.updated_at ? new Date(record.updated_at * 1000).toLocaleString() : `remote ${index + 1}`,
+        })))
+        setSelected((current) => records.some((record) => `${record.namespace}:${record.key}` === current) ? current : `${records[0].namespace}:${records[0].key}`)
+      }
+
+      if (coverageResult.status === 'fulfilled') {
+        setCoverage(coverageResult.value)
+      }
+
+      setRuntimeLoading(false)
+    }
+
+    void syncRuntime().catch(() => {
+      if (!cancelled) setRuntimeLoading(false)
+    })
+
     return () => { cancelled = true }
   }, [query])
+
+  async function backfillEmbeddings() {
+    if (backfillBusy || !coverage || coverage.missing_records === 0) return
+    setBackfillBusy(true)
+    try {
+      const result = await runtime.memory.backfillEmbeddings('agenticos', Math.min(128, coverage.missing_records))
+      const embedded = typeof result.embedded === 'number' ? result.embedded : 0
+      const nextCoverage = await runtime.memory.coverage('agenticos')
+      setCoverage(nextCoverage)
+      onAction(
+        `Memory embeddings updated: ${embedded} embedded, ${nextCoverage.missing_records} remaining`,
+      )
+    } catch (error) {
+      onAction(error instanceof Error ? error.message : 'Memory embedding backfill failed')
+    } finally {
+      setBackfillBusy(false)
+    }
+  }
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -113,6 +151,12 @@ export default function MemoryStudio({ onAction }: { onAction: (message: string)
           }}>{item}</button>)}
         </div>
         <div id="memory-list-panel" className="memory-list" role="tabpanel" aria-labelledby={'memory-tab-' + tab.toLowerCase()} tabIndex={0}><span>{runtimeLoading ? 'Syncing…' : `${items.length} items`}</span><span>{items.filter((item) => item.pinned).length} pinned</span><span>{items.reduce((sum, item) => sum + Number(item.tokens), 0)} tokens</span></div>
+        <div className="memory-content-actions">
+          <span className="mono-text">{coverage ? `Embeddings ${coverage.embedded_records}/${coverage.total_records}` : 'Embeddings unavailable'}</span>
+          <button className="studio-button" type="button" disabled={backfillBusy || !coverage || coverage.missing_records === 0} onClick={() => void backfillEmbeddings()}>
+            {backfillBusy ? 'Backfilling…' : coverage?.missing_records ? `Backfill ${coverage.missing_records}` : 'Embeddings ready'}
+          </button>
+        </div>
         <div className="memory-list">
           {visible.length === 0 ? <div className="memory-empty">No memory matches the current filters.</div> : visible.map((item) => <button type="button" key={item.id} className={active.id === item.id ? 'memory-item memory-item--active' : 'memory-item'} onClick={() => setSelected(item.id)}><div className="memory-item__icon"><Icon name={item.pinned ? 'archive' : 'history'} size={13} /></div><div><strong>{item.title}</strong><span>{item.scope} · {item.priority}</span></div><small>{item.tokens}</small></button>)}
         </div>

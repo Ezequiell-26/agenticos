@@ -306,7 +306,7 @@ mod tests {
             .unwrap();
 
         let child = manager
-            .spawn_child("reviewer", "parent-run", 0)
+            .spawn_child("parent-run", "reviewer", 0)
             .await
             .unwrap();
 
@@ -337,9 +337,9 @@ mod tests {
             .await
             .unwrap();
 
-        manager.spawn_child("bounded", "parent", 0).await.unwrap();
+        manager.spawn_child("parent", "bounded", 0).await.unwrap();
         assert!(manager.spawn_child("bounded", "parent", 0).await.is_err());
-        assert!(manager.spawn_child("bounded", "another", 1).await.is_err());
+        assert!(manager.spawn_child("another", "bounded", 1).await.is_err());
     }
 
     #[tokio::test]
@@ -361,7 +361,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let child = first.spawn_child("persistent", "parent", 0).await.unwrap();
+        let child = first.spawn_child("parent", "persistent", 0).await.unwrap();
         drop(first);
 
         let reopened = SubagentManager::open(&url, 4).await.unwrap();

@@ -709,11 +709,26 @@ impl ReactAgent {
     ) -> Result<String, ContractError> {
         if let Some(provider) = model_provider {
             let system_prompt = self.build_system_prompt_with_input(Some(input)).await;
+            let mut provider_parameters = match parameters {
+                Some(raw) => serde_json::from_str::<serde_json::Value>(raw).map_err(|error| {
+                    ContractError::ParseError(format!(
+                        "provider parameters must be valid JSON: {error}"
+                    ))
+                })?,
+                None => serde_json::json!({}),
+            };
+            let parameters_object = provider_parameters.as_object_mut().ok_or_else(|| {
+                ContractError::ParseError("provider parameters must be a JSON object".to_string())
+            })?;
+            parameters_object.insert(
+                "system_prompt".to_string(),
+                serde_json::Value::String(system_prompt),
+            );
             let request = ModelRequest {
                 request_id: format!("think-{}", current_turn),
                 model: preferred_model.unwrap_or("default").to_string(),
-                input: format!("{}\n\nUser: {}", system_prompt, input),
-                parameters: parameters.map(ToOwned::to_owned),
+                input: input.to_string(),
+                parameters: Some(provider_parameters.to_string()),
             };
 
             match provider.execute(request).await {

@@ -373,7 +373,7 @@ fn permission_allows(
             ))
 }
 
-fn scope_matches(scope: &str, resource: &str) {
+fn scope_matches(scope: &str, resource: &str) -> bool {
     let scope = scope.trim();
     let resource = resource.trim();
 

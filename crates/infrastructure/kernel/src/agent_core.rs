@@ -2443,6 +2443,18 @@ impl ToolExecutor {
             return ToolResult::failure("Command must not be empty".to_string());
         }
 
+        // `echo` is a shell builtin on Windows and many POSIX environments, not a
+        // portable executable. Handle it as data instead of invoking a shell, which
+        // would weaken the command allow-list's injection boundary.
+        if args[0] == "echo" {
+            let output = command
+                .trim_start()
+                .strip_prefix("echo")
+                .unwrap_or_default()
+                .trim_start();
+            return ToolResult::success(output.to_string());
+        }
+
         let output = std::process::Command::new(args[0])
             .args(&args[1..])
             .current_dir(&self.workdir)
@@ -3170,6 +3182,21 @@ mod tool_recovery_tests {
 
     fn tool_action() -> &'static str {
         r#"{"tool":"missing.tool","arguments":{}}"#
+    }
+
+    #[test]
+    fn echo_command_is_platform_independent_without_shell() {
+        let executor = ToolExecutor::new(std::env::current_dir().unwrap());
+
+        for (command, expected) in [
+            ("echo AgentiCOS portability", "AgentiCOS portability"),
+            ("echo & whoami", "& whoami"),
+        ] {
+            let result = executor.execute_command(command);
+
+            assert!(result.success, "{:?}", result.error);
+            assert_eq!(result.output, expected);
+        }
     }
 
     #[tokio::test]

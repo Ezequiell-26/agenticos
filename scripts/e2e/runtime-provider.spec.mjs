@@ -216,15 +216,8 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
       api = startProcess(apiBinary, [], apiEnv)
       await waitForHttp(`${apiUrl}/health`, api)
       if (verifyProvider) {
-        const providerHealth = await fetch(
-          `${apiUrl}/api/providers/e2e-provider/health`,
-          { method: 'POST' },
-        )
-        if (!providerHealth.ok) {
-          throw new Error(
-            `Provider health check failed: HTTP ${providerHealth.status} ${await providerHealth.text()}`,
-          )
-        }
+        // Startup must probe configured providers itself; readiness must not
+        // depend on a manual POST to the provider-health endpoint.
         await waitForHttp(`${apiUrl}/ready`, api)
       }
     }

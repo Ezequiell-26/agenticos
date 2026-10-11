@@ -3188,10 +3188,15 @@ mod tool_recovery_tests {
     fn echo_command_is_platform_independent_without_shell() {
         let executor = ToolExecutor::new(std::env::current_dir().unwrap());
 
-        let result = executor.execute_command("echo AgentiCOS portability");
+        for (command, expected) in [
+            ("echo AgentiCOS portability", "AgentiCOS portability"),
+            ("echo & whoami", "& whoami"),
+        ] {
+            let result = executor.execute_command(command);
 
-        assert!(result.success, "{:?}", result.error);
-        assert_eq!(result.output, "AgentiCOS portability");
+            assert!(result.success, "{:?}", result.error);
+            assert_eq!(result.output, expected);
+        }
     }
 
     #[tokio::test]

@@ -3238,8 +3238,10 @@ mod tool_recovery_tests {
 
     #[test]
     fn empty_observation_does_not_claim_success() {
-        let answer =
-            user_facing_response_from_tool_observation(r#"{"tool":"missing.tool","arguments":{}}"#, "");
+        let answer = user_facing_response_from_tool_observation(
+            r#"{"tool":"missing.tool","arguments":{}}"#,
+            "",
+        );
 
         assert_eq!(
             answer,
@@ -3254,9 +3256,7 @@ mod tool_recovery_tests {
             &ContractError::ParseError("database connection reset".to_string())
         ));
         assert!(is_recoverable_tool_execution_error(
-            &ContractError::ParseError(
-                "tool execution denied: Tool not found".to_string()
-            )
+            &ContractError::ParseError("tool execution denied: Tool not found".to_string())
         ));
         assert!(is_recoverable_tool_execution_error(
             &ContractError::ParseError(

@@ -480,50 +480,6 @@
           "scope": "mainline verification after SQLite/source-intelligence architecture cleanup and DAG manifest correction"
         }
       ]
-    },
-    {
-      "id": "windows-echo-portability",
-      "owner": "kernel/tool-execution",
-      "status": "verified",
-      "verification_evidence": [
-        {
-          "kind": "windows_local_tests",
-          "command": "cargo test -p agenticos-kernel --lib",
-          "commit": "02adb94d309275126e9e90994e4b547d2fd2ef7c",
-          "result": "success",
-          "passed": 103,
-          "failed": 0,
-          "scope": "Full Kernel library suite on Windows, including previously failing echo executor tests and regression coverage that shell metacharacters are returned as literal echo text."
-        },
-        {
-          "kind": "github_actions",
-          "run_id": 38171860953,
-          "run_number": 2770,
-          "commit": "95a7e05bf9a0a9d6ffced57a67f33df71f5ad38",
-          "workflow": "AgentiCOS CI",
-          "checks": [
-            "verify-rust",
-            "verify-typescript",
-            "verify-desktop-e2e"
-          ],
-          "result": "success",
-          "scope": "Portable shell-free implementation of the allow-listed echo command and literal handling of shell metacharacters."
-        },
-        {
-          "kind": "github_actions",
-          "run_id": 38172240336,
-          "run_number": 2771,
-          "commit": "3f766a8dcb543c45afaf0d10bb56c2a05477be38",
-          "workflow": "AgentiCOS CI",
-          "checks": [
-            "verify-rust",
-            "verify-typescript",
-            "verify-desktop-e2e"
-          ],
-          "result": "success",
-          "scope": "Post-merge mainline verification of the Windows echo portability fix."
-        }
-      ]
     }
   ],
   "verification": {

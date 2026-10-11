@@ -565,6 +565,9 @@ impl ReactAgent {
             prompt.push_str("## Instructions\n");
             prompt.push_str("Use ReAct pattern: Thought → Action → Observation → repeat.\n");
             prompt.push_str("Be concise and precise.\n");
+            prompt.push_str(
+                "For greetings, simple questions and plain conversation, answer directly in text without tools.\n",
+            );
             prompt.push_str("When a tool is needed, emit ONLY JSON in the form {\"tool\":\"tool.id\",\"arguments\":{...}}.\n");
             prompt.push_str("Never invent tool IDs; use only the registered tool IDs supplied by the runtime.\n");
 
@@ -794,15 +797,20 @@ impl ReactAgent {
                         agent_id: self.identity.clone(),
                         grant_id,
                     };
-                    let response = runtime.execute(request).await?;
+                    let response = match runtime.execute(request).await {
+                        Ok(response) => response,
+                        Err(error) if is_recoverable_tool_execution_error(&error) => {
+                            return Ok(format!("[tool error] {}", error));
+                        }
+                        Err(error) => return Err(error),
+                    };
                     if response.success {
                         return Ok(response.result);
                     }
-                    return Err(ContractError::ParseError(
-                        response
-                            .error
-                            .unwrap_or_else(|| "tool execution failed".to_string()),
-                    ));
+                    let error = response
+                        .error
+                        .unwrap_or_else(|| "tool execution failed".to_string());
+                    return Ok(format!("[tool error] {error}"));
                 }
             }
         }
@@ -1246,13 +1254,18 @@ impl ReactAgent {
                 };
 
                 let result = pipeline.execute(context, executor).await;
+                let tool_execution_succeeded = result.success
+                    && !result
+                        .output
+                        .as_deref()
+                        .is_some_and(is_tool_error_observation);
 
                 // Log tool call result event
                 if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
                     log.append(SessionEvent::ToolCallResult {
                         tool_id: "react_action".to_string(),
                         step_id: SessionEvent::generate_id("step"),
-                        success: result.success,
+                        success: tool_execution_succeeded,
                         output: result.output.clone(),
                         error: result.error.clone(),
                         timestamp: SystemTime::now()
@@ -1262,8 +1275,8 @@ impl ReactAgent {
                     });
                 }
 
-                // Update SOUL memory with successful tool execution
-                if result.success {
+                // Do not learn a denied or invalid tool proposal as a successful action.
+                if tool_execution_succeeded {
                     let new_memory = format!(
                         "Successfully executed tool: {}. Result: {}",
                         action,
@@ -1287,10 +1300,13 @@ impl ReactAgent {
                 }
 
                 if result.success {
-                    // Record success and reset circuit breaker
-                    let mut inner = self.inner.lock().unwrap();
-                    inner.recovery_state.record_success();
-                    result.output.unwrap_or("Execution completed".to_string())
+                    let output = result.output.unwrap_or("Execution completed".to_string());
+                    if !is_tool_error_observation(&output) {
+                        // Only a real successful action resets the circuit breaker.
+                        let mut inner = self.inner.lock().unwrap();
+                        inner.recovery_state.record_success();
+                    }
+                    output
                 } else {
                     // Log error event
                     let error_msg = result
@@ -1487,7 +1503,7 @@ impl ReactAgent {
             while attempts < max_followups {
                 attempts += 1;
                 followup_prompt.push_str(
-                    "Use the tool observation to produce the final user-facing answer. Return another tool JSON only when another tool call is strictly necessary.",
+                    "Use the tool observation to produce the final user-facing answer in plain text. Return another tool JSON only when another tool call is strictly necessary.",
                 );
                 let followup = self
                     .think_inner(
@@ -1506,7 +1522,7 @@ impl ReactAgent {
                     // Surface an additional tool request without executing it recursively.
                     result = followup;
                     if attempts < max_followups {
-                        followup_prompt.push_str("\n\nThe previous response requested another tool call. Do not execute it; refine or return the final answer.");
+                        followup_prompt.push_str("\n\nThe previous response was another tool JSON. The user needs a final answer NOW: reply in plain text summarizing the tool observation. Do not emit JSON.");
                         continue;
                     }
                     break;
@@ -1514,6 +1530,10 @@ impl ReactAgent {
                 result = followup;
                 break;
             }
+        }
+
+        if is_structured_tool_action(&result) {
+            result = user_facing_response_from_tool_observation(&result, &observation);
         }
 
         // Persist the final user-facing answer separately from the model's tool-call thought.
@@ -3069,5 +3089,179 @@ impl Supervisor {
 impl Default for Supervisor {
     fn default() -> Self {
         Self::new()
+    }
+}
+/// Errors caused by a model-selected tool request that can be safely shown to the ReAct
+/// loop as an observation. Unexpected runtime/transport/storage failures remain fatal.
+fn is_recoverable_tool_execution_error(error: &ContractError) -> bool {
+    match error {
+        ContractError::ParseError(message) => {
+            let message = message.to_ascii_lowercase();
+            message.contains("tool execution denied:")
+                || message.contains("tool execution requires approval:")
+                || message.contains("invalid mcp tool arguments:")
+        }
+        _ => false,
+    }
+}
+
+fn is_tool_error_observation(output: &str) -> bool {
+    output.starts_with("[tool error] ")
+}
+
+/// Convert a repeated structured tool proposal into text when the model does not
+/// produce a final answer after the bounded tool-observation follow-up.
+fn user_facing_response_from_tool_observation(model_output: &str, observation: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(model_output) {
+        let answer = value
+            .get("arguments")
+            .and_then(|args| {
+                ["content", "text", "answer", "message"]
+                    .iter()
+                    .find_map(|field| args.get(*field).and_then(serde_json::Value::as_str))
+            })
+            .map(str::trim)
+            .filter(|text| !text.is_empty());
+        if let Some(answer) = answer {
+            return answer.to_string();
+        }
+    }
+
+    let observation = observation.trim();
+    if observation.is_empty() {
+        "The model emitted another tool request without a final answer.".to_string()
+    } else {
+        observation.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tool_recovery_tests {
+    use super::*;
+    use agenticos_contracts::{ToolEntry, ToolRequest, ToolResponse, ToolRuntimePort};
+    use std::sync::Arc;
+
+    struct StubToolRuntime {
+        outcome: Result<ToolResponse, ContractError>,
+    }
+
+    #[async_trait::async_trait]
+    impl ToolRuntimePort for StubToolRuntime {
+        async fn list_tools(&self) -> Result<Vec<ToolEntry>, ContractError> {
+            Ok(Vec::new())
+        }
+
+        async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+            match self.outcome.clone() {
+                Ok(response) => Ok(ToolResponse {
+                    request_id: request.request_id,
+                    ..response
+                }),
+                Err(error) => Err(error),
+            }
+        }
+    }
+
+    fn agent_with_outcome(outcome: Result<ToolResponse, ContractError>) -> ReactAgent {
+        let agent = ReactAgent::new("tool-recovery-test".to_string());
+        agent.set_tool_runtime(Arc::new(StubToolRuntime { outcome }));
+        agent
+    }
+
+    fn tool_action() -> &'static str {
+        r#"{"tool":"missing.tool","arguments":{}}"#
+    }
+
+    #[tokio::test]
+    async fn unknown_tool_denial_becomes_react_observation() {
+        let agent = agent_with_outcome(Err(ContractError::ParseError(
+            "tool execution denied: Tool not found".to_string(),
+        )));
+
+        let observation = agent.act(tool_action()).await.unwrap();
+
+        assert!(observation.starts_with("[tool error] "));
+        assert!(observation.to_ascii_lowercase().contains("tool not found"));
+    }
+
+    #[tokio::test]
+    async fn explicit_tool_failure_response_becomes_react_observation() {
+        let agent = agent_with_outcome(Ok(ToolResponse {
+            request_id: "stub".to_string(),
+            result: String::new(),
+            success: false,
+            error: Some("required permission not granted".to_string()),
+            metadata: None,
+        }));
+
+        let observation = agent.act(tool_action()).await.unwrap();
+
+        assert_eq!(observation, "[tool error] required permission not granted");
+    }
+
+    #[tokio::test]
+    async fn unexpected_runtime_failure_still_aborts_tool_execution() {
+        let agent = agent_with_outcome(Err(ContractError::ParseError(
+            "provider transport connection reset".to_string(),
+        )));
+
+        let error = agent.act(tool_action()).await.unwrap_err();
+
+        assert_eq!(
+            error,
+            ContractError::ParseError("provider transport connection reset".to_string())
+        );
+    }
+
+    #[test]
+    fn repeated_tool_json_uses_readable_payload_instead_of_raw_json() {
+        let answer = user_facing_response_from_tool_observation(
+            r#"{"tool":"missing.tool","arguments":{"answer":"That tool is unavailable."}}"#,
+            "[tool error] Tool not found",
+        );
+
+        assert_eq!(answer, "That tool is unavailable.");
+        assert!(!is_structured_tool_action(&answer));
+    }
+
+    #[test]
+    fn repeated_tool_json_falls_back_to_observation_without_leaking_json() {
+        let observation = "[tool error] Tool not found";
+        let answer = user_facing_response_from_tool_observation(
+            r#"{"tool":"missing.tool","arguments":{}}"#,
+            observation,
+        );
+
+        assert_eq!(answer, observation);
+        assert!(!is_structured_tool_action(&answer));
+    }
+
+    #[test]
+    fn empty_observation_does_not_claim_success() {
+        let answer = user_facing_response_from_tool_observation(
+            r#"{"tool":"missing.tool","arguments":{}}"#,
+            "",
+        );
+
+        assert_eq!(
+            answer,
+            "The model emitted another tool request without a final answer."
+        );
+        assert!(!is_structured_tool_action(&answer));
+    }
+
+    #[test]
+    fn non_policy_parse_errors_are_not_marked_recoverable() {
+        assert!(!is_recoverable_tool_execution_error(
+            &ContractError::ParseError("database connection reset".to_string())
+        ));
+        assert!(is_recoverable_tool_execution_error(
+            &ContractError::ParseError("tool execution denied: Tool not found".to_string())
+        ));
+        assert!(is_recoverable_tool_execution_error(
+            &ContractError::ParseError(
+                "tool execution requires approval: grant missing".to_string()
+            )
+        ));
     }
 }

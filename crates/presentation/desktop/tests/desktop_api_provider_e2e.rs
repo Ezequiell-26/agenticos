@@ -105,8 +105,7 @@ async fn serve_fake_provider(listener: TcpListener) {
             .as_array()
             .and_then(|messages| {
                 messages.iter().find_map(|message| {
-                    (message["role"] == "user"
-                        && message["content"] == "desktop API provider E2E")
+                    (message["role"] == "user" && message["content"] == "desktop API provider E2E")
                         .then_some(message["content"].as_str())
                         .flatten()
                 })

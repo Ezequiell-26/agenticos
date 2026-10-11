@@ -3787,7 +3787,13 @@ async fn a2a_rpc(
                 id: request.id.clone(),
                 result: Some(serde_json::to_value(view).unwrap_or_else(|_| serde_json::json!({}))),
                 error: None,
-            })async fn refresh_provider_health_on_startup(provider: &ProviderPlatform) {
+            })
+        }
+        _ => a2a_error(request.id.clone(), -32601, "A2A method not supported"),
+    }
+}
+
+async fn refresh_provider_health_on_startup(provider: &ProviderPlatform) {
     let configured_providers = provider
         .list_status()
         .await
@@ -3814,12 +3820,6 @@ async fn a2a_rpc(
                 "provider startup health check failed; API will start but readiness remains unavailable until a provider is healthy"
             );
         }
-    }
-}
-
-
-        }
-        _ => a2a_error(request.id.clone(), -32601, "A2A method not supported"),
     }
 }
 

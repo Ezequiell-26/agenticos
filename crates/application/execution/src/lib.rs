@@ -700,8 +700,7 @@ mod tests {
         let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
         let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
         let capability_issuer =
-            std::sync
-::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+            std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
         let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
             event_store,
             snapshot_store,

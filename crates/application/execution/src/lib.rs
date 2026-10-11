@@ -601,14 +601,7 @@ mod tests {
         });
     }
 
-    #[tokio::test]
-    async fn basic_agent_engine_rejects_response_identity_mismatch() {
-        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
-        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
-        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
-        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
-        let capability_issuer =
-            std::sync    #[derive(Debug, Default)]
+    #[derive(Debug, Default)]
     struct FailingContextManager;
 
     #[async_trait::async_trait]
@@ -700,6 +693,14 @@ mod tests {
             .unwrap();
     }
 
+    #[tokio::test]
+    async fn basic_agent_engine_rejects_response_identity_mismatch() {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer =
+            std::sync
 ::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
         let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
             event_store,

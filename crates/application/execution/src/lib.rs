@@ -374,100 +374,97 @@ impl AgentEngine for BasicAgentEngine {
             return Err(error);
         }
 
-        let context = self.context_manager.get_context(run_id.clone()).await?;
-        let input = context
-            .last()
-            .map(|message| message.content.clone())
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "Process run".to_string());
+        let execution_result = async {
+            let context = self.context_manager.get_context(run_id.clone()).await?;
+            let input = context
+                .last()
+                .map(|message| message.content.clone())
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| "Process run".to_string());
 
-        let request = ModelRequest {
-            request_id: format!("{}-model-req", run_id.as_str()),
-            model: "default-model".to_string(),
-            input,
-            parameters: None,
-        };
-
-        match self.model_provider.execute(request).await {
-            Ok(response) => {
-                let expected_request_id = format!("{}-model-req", run_id.as_str());
-                if response.request_id != expected_request_id {
-                    if let Ok(current) = self.runtime.get_or_recover_run(&run_id).await {
-                        if current.state == RunState::Running {
-                            let _ = self
-                                .runtime
-                                .transition_run(&run_id, RunState::Failed, current.version)
-                                .await;
-                        }
-                    }
-                    let _ = self
-                        .runtime
-                        .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
-                        .await;
-                    return Err(ContractError::ParseError(format!(
-                        "model provider returned mismatched request_id: expected {expected_request_id}, got {}",
-                        response.request_id
-                    )));
-                }
-                let output = response.output.clone();
-                let timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_err(|_| ContractError::Persistence)?
-                    .as_secs();
-
-                self.runtime
-                    .logger
-                    .log(agenticos_contracts::LogEntry {
-                        level: agenticos_contracts::LogLevel::Info,
-                        timestamp,
-                        component: "AgentEngine".to_string(),
-                        message: format!("Model execution: {output}"),
-                        fields: vec![
-                            ("run_id".to_string(), run_id.as_str().to_string()),
-                            (
-                                "tokens_used".to_string(),
-                                response.tokens_used.unwrap_or(0).to_string(),
-                            ),
-                        ],
-                        correlation_id: Some(run_id.as_str().to_string()),
-                    })
-                    .await?;
-
-                self.context_manager
-                    .add_message(agenticos_contracts::Message {
-                        message_id: format!("{}-assistant-{}", run_id.as_str(), timestamp),
-                        role: "assistant".to_string(),
-                        content: output,
-                        timestamp,
-                        token_count: response.output.len() as u32,
-                        run_id: run_id.clone(),
-                    })
-                    .await?;
-
-                let current = self.runtime.get_or_recover_run(&run_id).await?;
-                if current.state == RunState::Running {
-                    self.runtime
-                        .transition_run(&run_id, RunState::Completed, current.version)
-                        .await?;
-                }
-                self.runtime
-                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
-                    .await?;
-                Ok(())
+            let request = ModelRequest {
+                request_id: format!("{}-model-req", run_id.as_str()),
+                model: "default-model".to_string(),
+                input,
+                parameters: None,
+            };
+            let response = self.model_provider.execute(request).await?;
+            let expected_request_id = format!("{}-model-req", run_id.as_str());
+            if response.request_id != expected_request_id {
+                return Err(ContractError::ParseError(format!(
+                    "model provider returned mismatched request_id: expected {expected_request_id}, got {}",
+                    response.request_id
+                )));
             }
-            Err(error) => {
-                let current = self.runtime.get_or_recover_run(&run_id).await?;
+
+            let output = response.output.clone();
+            let output_token_count = response.output.len() as u32;
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| ContractError::Persistence)?
+                .as_secs();
+
+            self.runtime
+                .logger
+                .log(agenticos_contracts::LogEntry {
+                    level: agenticos_contracts::LogLevel::Info,
+                    timestamp,
+                    component: "AgentEngine".to_string(),
+                    message: format!("Model execution: {output}"),
+                    fields: vec![
+                        ("run_id".to_string(), run_id.as_str().to_string()),
+                        (
+                            "tokens_used".to_string(),
+                            response.tokens_used.unwrap_or(0).to_string(),
+                        ),
+                    ],
+                    correlation_id: Some(run_id.as_str().to_string()),
+                })
+                .await?;
+
+            self.context_manager
+                .add_message(agenticos_contracts::Message {
+                    message_id: format!("{}-assistant-{}", run_id.as_str(), timestamp),
+                    role: "assistant".to_string(),
+                    content: output,
+                    timestamp,
+                    token_count: output_token_count,
+                    run_id: run_id.clone(),
+                })
+                .await?;
+
+            let current = self.runtime.get_or_recover_run(&run_id).await?;
+            if current.state == RunState::Running {
+                self.runtime
+                    .transition_run(&run_id, RunState::Completed, current.version)
+                    .await?;
+            }
+            Ok(())
+        }
+        .await;
+
+        // All post-acquisition errors share one cleanup path so a failed context,
+        // provider, logging, persistence, or state transition cannot strand a lease.
+        if execution_result.is_err() {
+            if let Ok(current) = self.runtime.get_or_recover_run(&run_id).await {
                 if current.state == RunState::Running {
                     let _ = self
                         .runtime
                         .transition_run(&run_id, RunState::Failed, current.version)
                         .await;
                 }
-                let _ = self
-                    .runtime
-                    .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
-                    .await;
-                Err(error)
+            }
+        }
+
+        let release_result = self
+            .runtime
+            .release_lease(&run_id, &lease.owner_id, lease.fencing_token)
+            .await;
+        match execution_result {
+            Err(error) => Err(error),
+            Ok(()) => {
+                release_result?;
+                Ok(())
             }
         }
     }
@@ -602,6 +599,98 @@ mod tests {
             let state = engine.get_run_state(run_id.clone()).await.unwrap();
             assert_eq!(state, RunState::Completed);
         });
+    }
+
+    #[derive(Debug, Default)]
+    struct FailingContextManager;
+
+    #[async_trait::async_trait]
+    impl ContextManager for FailingContextManager {
+        async fn add_message(
+            &self,
+            _message: agenticos_contracts::Message,
+        ) -> Result<(), ContractError> {
+            Ok(())
+        }
+
+        async fn get_context(
+            &self,
+            _run_id: RunId,
+        ) -> Result<Vec<agenticos_contracts::Message>, ContractError> {
+            Err(ContractError::ParseError(
+                "synthetic context read failure".to_string(),
+            ))
+        }
+
+        async fn trim_context(
+            &self,
+            _run_id: RunId,
+            _max_tokens: u32,
+        ) -> Result<(), ContractError> {
+            Ok(())
+        }
+
+        async fn get_token_count(&self, _run_id: RunId) -> Result<u32, ContractError> {
+            Ok(0)
+        }
+    }
+
+    #[tokio::test]
+    async fn basic_agent_engine_releases_lease_when_context_read_fails() {
+        let event_store = std::sync::Arc::new(InMemoryEventStore::new());
+        let snapshot_store = std::sync::Arc::new(InMemorySnapshotStore::new());
+        let logger = std::sync::Arc::new(InMemoryLogger::new(LogLevel::Info));
+        let config = std::sync::Arc::new(tokio::sync::RwLock::new(InMemoryConfig::default()));
+        let capability_issuer =
+            std::sync::Arc::new(agenticos_kernel::InMemoryCapabilityIssuer::new());
+        let runtime = std::sync::Arc::new(agenticos_kernel::KernelRuntime::new(
+            event_store,
+            snapshot_store,
+            logger,
+            config,
+            capability_issuer,
+            std::sync::Arc::new(
+                agenticos_brain::capability_registry::CapabilityRegistry::default(),
+            ),
+        ));
+        let engine = BasicAgentEngine::new(
+            "context-failure-engine".to_string(),
+            runtime.clone(),
+            std::sync::Arc::new(InMemoryModelProvider::default()),
+            std::sync::Arc::new(FailingContextManager),
+        );
+        let run_id = RunId::new("test-context-read-failure").unwrap();
+
+        engine
+            .start_run(run_id.clone(), "Context failure regression".to_string())
+            .await
+            .unwrap();
+        let result = engine.resume_run(run_id.clone()).await;
+        assert!(matches!(
+            result,
+            Err(ContractError::ParseError(message)) if message.contains("synthetic context read failure")
+        ));
+        assert_eq!(
+            engine.get_run_state(run_id.clone()).await.unwrap(),
+            RunState::Failed
+        );
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let probe_lease = runtime
+            .acquire_lease(
+                &run_id,
+                "lease-release-regression-probe".to_string(),
+                now.saturating_add(60),
+            )
+            .await
+            .expect("a failed run must not retain its previous lease");
+        runtime
+            .release_lease(&run_id, &probe_lease.owner_id, probe_lease.fencing_token)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

@@ -159,6 +159,19 @@ async fn wait_for_health(api_url: &str) {
     panic!("AgentiCOS API did not become healthy in time");
 }
 
+async fn wait_for_readiness(api_url: &str) {
+    let client = reqwest::Client::new();
+    for _ in 0..120 {
+        if let Ok(response) = client.get(format!("{api_url}/ready")).send().await {
+            if response.status().is_success() {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    panic!("AgentiCOS provider readiness did not become ready after startup probing");
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn desktop_to_api_to_provider_to_persistence_e2e() {
     let provider_listener = TcpListener::bind(("127.0.0.1", 0))
@@ -220,6 +233,7 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
 
             let api_url = format!("http://127.0.0.1:{api_port}");
             wait_for_health(&api_url).await;
+            wait_for_readiness(&api_url).await;
 
             let health = get_backend_health()
                 .await

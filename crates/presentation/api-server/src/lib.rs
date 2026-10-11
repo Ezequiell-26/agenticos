@@ -609,7 +609,10 @@ impl RuntimeState {
                 .and_then(|value| value.parse::<u16>().ok())
                 .unwrap_or(8080),
         };
-        refresh_provider_health_on_startup(&runtime.provider).await;
+        let startup_provider = runtime.provider.clone();
+        tokio::spawn(async move {
+            refresh_provider_health_on_startup(&startup_provider).await;
+        });
         Ok(runtime)
     }
 
@@ -3792,11 +3795,15 @@ async fn a2a_rpc(
         .filter(|entry| entry.configured)
         .collect::<Vec<_>>();
 
-    let health_results = futures::future::join_all(configured_providers.into_iter().map(|entry| async move {
-        let provider_id = entry.provider_id;
-        let result = provider.check_health(&provider_id).await;
-        (provider_id, result)
-    }))
+    let health_results = futures::future::join_all(
+        configured_providers
+            .into_iter()
+            .map(|entry| async move {
+                let provider_id = entry.provider_id;
+                let result = provider.check_health(&provider_id).await;
+                (provider_id, result)
+            }),
+    )
     .await;
 
     for (provider_id, result) in health_results {

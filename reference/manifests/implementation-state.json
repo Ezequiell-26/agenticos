@@ -19,10 +19,11 @@
     "focus": "backend-runtime",
     "objective": "Refactor the execution architecture so capabilities can be implemented and verified independently without sequential-step deadlocks.",
     "started_from": "f5cb1ce5d56839e0124a8d65b672e446cbbcf213",
-    "last_update_commit": "ab06178bf1100bf32897e4867639b0153194a378",
+    "last_update_commit": "3f766a8dcb543c45afaf0d10bb56c2a05477be38",
     "next_actions": [
+      "verify provider health/readiness is refreshed automatically at API startup and when provider configuration changes",
       "complete evaluation/replay coverage and regression fixtures",
-      "close broader runtime integration gaps (agent engine, provider transport, tool capability validation, durable run registry/context)",
+      "close broader runtime integration gaps (agent engine/model loop, provider transport, tool capability validation, durable run registry/context)",
       "keep targeted compression round-trip coverage in CI"
     ],
     "scope": [
@@ -495,12 +496,13 @@
       "npm run provider:coverage",
       "npm run e2e:desktop"
     ],
-    "last_known_green": "2026-09-28 CI run 2756 (AgentiCOS CI), including verify-rust, verify-typescript and verify-desktop-e2e",
+    "last_known_green": "2026-10-11 UTC mainline CI run 2771 (AgentiCOS CI), commit 3f766a8dcb543c45afaf0d10bb56c2a05477be38; verify-rust, verify-typescript and verify-desktop-e2e passed",
     "ci_pending": false
   },
   "backlog": [
     "evaluation and replay coverage",
-    "broader runtime integration gaps for agent engine, provider transport, tool capability validation and durable run/context paths"
+    "broader runtime integration gaps for agent engine, provider transport, tool capability validation and durable run/context paths",
+    "provider startup readiness/health refresh behavior"
   ],
   "migration": {
     "from_schema": 1,

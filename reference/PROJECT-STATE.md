@@ -8,7 +8,7 @@
 - Architecture mode: **capability-driven-continuous**
 - Current focus: backend-runtime
 - Current operation status: in_progress
-- Fresh mainline CI run 2756: **green** across Rust, TypeScript and desktop UI/API/provider E2E, including semantic-memory, subagent, workflow, MCP stdio and skill-registry integration coverage.
+- Fresh mainline CI run #2773 (`38172981703`) on commit `8659f3860012eaf798c7a4d83f9c207658fe8a08`: **green** across `verify-rust` (31/31 steps), `verify-typescript` (18/18) and `verify-desktop-e2e` (20/20). This is current-head evidence; historical run #2756 remains recorded below.
 - Strict sandbox isolation was previously verified by mainline CI run 2746.
 - Backend hardening now includes durable run ownership leases/recovery, durable retry backoff, GitHub write authorization, bounded sandbox execution plus strict workspace isolation, request correlation, token-aware quotas and ranked memory retrieval.
 - Canonical runtime: Rust + Tokio
@@ -34,6 +34,8 @@ The old sequential manifest is preserved in Git history and is not used as the a
 ## Verification delta
 
 - Fresh mainline CI run 2756 verified the new runtime integration coverage added in commit 43fb33cad016db50645891311286b8e34441e1ed, including semantic-memory backfill/evaluation, subagent child-run creation, workflow restart recovery, MCP stdio discovery/call gating, and persisted skill activation.
+
+- Runtime hardening is now merged on main: PR #103 closes AgentEngine lease cleanup on failure paths; PR #104 converts model-selected unknown/denied tools into recoverable ReAct observations and adds an explicit kernel regression-test step to CI; PR #106 makes the allow-listed `echo` command shell-free and portable on Windows. The Windows kernel suite passed 103/103 tests, and CI runs #2772 (PR head) and #2773 (main head) passed Rust, TypeScript and desktop E2E.
 
 ## Active workstreams
 
@@ -85,7 +87,7 @@ A2A is implemented in its dedicated infrastructure crate and exposed through the
 
 The first desktop integration vertical slice is now verified: the React/Vite surface reaches the typed `runtime.ts` boundary, calls the Rust API, reaches an OpenAI-compatible provider fixture, receives the assistant response, and reloads with the persisted conversation history.
 
-The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, strict sandbox workspace isolation, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. Auxiliary SQLite persistence schemas are versioned under migration 0004 and now use a canonical bootstrap path across runtime infrastructure; source-intelligence persistence is behind a domain port with its SQLite adapter in source-forge. Mainline CI run 2756 is green across Rust, TypeScript and desktop UI+API+provider E2E.
+The active operation is the backend architecture refactor and runtime hardening. The current main branch includes workflow/subagent execution, capability-gated approvals/tools, multi-provider routing and streaming token accounting, durable scheduler retries/lease recovery, durable run-level leases with restart recovery, ranked memory retrieval, optional real browser automation, GitHub write/delete operations, request correlation, strict sandbox workspace isolation, durable outbox persistence with idempotent retries/dead-letter, A2A and CQRS run projection. Auxiliary SQLite persistence schemas are versioned under migration 0004 and now use a canonical bootstrap path across runtime infrastructure; source-intelligence persistence is behind a domain port with its SQLite adapter in source-forge. Mainline CI run #2773 (`38172981703`) is green across Rust, TypeScript and desktop UI+API+provider E2E on `8659f3860012eaf798c7a4d83f9c207658fe8a08`.
 
 ## Next actions
 

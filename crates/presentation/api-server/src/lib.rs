@@ -3801,16 +3801,13 @@ async fn refresh_provider_health_on_startup(provider: &ProviderPlatform) {
         .filter(|entry| entry.configured)
         .collect::<Vec<_>>();
 
-    let health_results = futures::future::join_all(
-        configured_providers
-            .into_iter()
-            .map(|entry| async move {
-                let provider_id = entry.provider_id;
-                let result = provider.check_health(&provider_id).await;
-                (provider_id, result)
-            }),
-    )
-    .await;
+    let health_results =
+        futures::future::join_all(configured_providers.into_iter().map(|entry| async move {
+            let provider_id = entry.provider_id;
+            let result = provider.check_health(&provider_id).await;
+            (provider_id, result)
+        }))
+        .await;
 
     for (provider_id, result) in health_results {
         if let Err(error) = result {

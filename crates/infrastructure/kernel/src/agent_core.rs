@@ -1258,7 +1258,7 @@ impl ReactAgent {
                     && !result
                         .output
                         .as_deref()
-                        .is_some_and(|output| is_tool_error_observation(output));
+                        .is_some_and(is_tool_error_observation);
 
                 // Log tool call result event
                 if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {

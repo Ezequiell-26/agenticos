@@ -1707,6 +1707,7 @@ impl ReactAgent {
             }
         }
 
+        let mut followup_error = None;
         if is_structured_tool_action(&thought) && model_provider.is_some() {
             let max_followups = max_tool_followups_per_turn();
             let max_tool_calls = max_tool_calls_per_turn();
@@ -1720,7 +1721,7 @@ impl ReactAgent {
                 followup_prompt.push_str(
                     "Use all prior tool observations to produce the final user-facing answer in plain text. Request another tool only when a further action is necessary.",
                 );
-                let followup = self
+                let followup = match self
                     .think_inner(
                         model_provider.as_ref(),
                         current_turn.saturating_add(followup_model_calls),
@@ -1728,7 +1729,14 @@ impl ReactAgent {
                         preferred_model.as_deref(),
                         parameters.as_deref(),
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(followup) => followup,
+                    Err(error) => {
+                        followup_error = Some(error);
+                        break;
+                    }
+                };
 
                 if !is_structured_tool_action(&followup) {
                     result = followup;
@@ -1779,7 +1787,7 @@ impl ReactAgent {
                     continue;
                 }
 
-                let tool_output = self
+                let tool_output = match self
                     .execute_followup_tool_action(
                         &followup,
                         current_turn,
@@ -1792,7 +1800,14 @@ impl ReactAgent {
                         tool_grant_id.as_deref(),
                         pipeline,
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(output) => output,
+                    Err(error) => {
+                        followup_error = Some(error);
+                        break;
+                    }
+                };
 
                 tool_calls_executed += 1;
                 last_executed_tool_action = Some(proposed_action.clone());
@@ -1805,7 +1820,7 @@ impl ReactAgent {
                 result = self.observe(&last_tool_observation);
             }
 
-            if !final_answer_produced {
+            if !final_answer_produced && followup_error.is_none() {
                 result =
                     user_facing_response_from_tool_observation(&result, &last_tool_observation);
             }
@@ -1831,6 +1846,12 @@ impl ReactAgent {
                 step_count: 2 + followup_model_calls + tool_calls_executed.saturating_sub(1),
                 latency_ms,
             });
+        }
+
+        // Close the event lifecycle before propagating follow-up errors. A failed provider
+        // request must not leave a TurnStart without a matching TurnEnd.
+        if let Some(error) = followup_error {
+            return Err(error);
         }
 
         // Persist the final user-facing answer separately from the model's tool-call thought.
@@ -3745,6 +3766,26 @@ mod multi_step_tool_tests {
         let requests = runtime.requests();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].tool_id, "tool.repeat");
+    }
+
+    #[tokio::test]
+    async fn followup_model_failure_still_closes_turn_event() {
+        let (agent, _provider, _runtime) = build_agent(vec![tool_call("tool.first")]);
+        let event_log = SessionEventLog::new("multi-step-test".to_string());
+        agent.set_event_log(event_log.clone());
+
+        let error = agent
+            .execute_turn("Execute a tool, then synthesize an answer")
+            .await
+            .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("test model response queue exhausted"),
+            "unexpected error: {error}"
+        );
+        assert_eq!(event_log.get_events_by_type("TurnEnd").len(), 1);
     }
 
     #[tokio::test]

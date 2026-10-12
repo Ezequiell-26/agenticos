@@ -60,8 +60,11 @@ pub struct AgentDefinition {
 pub struct ChildRun {
     /// Stable child run identifier.
     pub child_run_id: String,
-    /// Parent run.
+    /// Parent durable run ID, or parent session ID for interactive chat delegation.
     pub parent_run_id: String,
+    /// Parent chat session when the child was dispatched from an interactive session.
+    #[serde(default)]
+    pub parent_session_id: Option<String>,
     /// Agent definition used.
     pub agent_id: String,
     /// Delegation depth.
@@ -211,10 +214,40 @@ impl SubagentManager {
         self.children.read().await.get(child_run_id).cloned()
     }
 
-    /// Spawn a bounded child run.
+    /// Spawn a bounded child run from a durable parent run.
     pub async fn spawn_child(
         &self,
         parent_run_id: &str,
+        agent_id: &str,
+        parent_depth: u16,
+    ) -> Result<ChildRun, String> {
+        self.spawn_child_with_lineage(parent_run_id, None, agent_id, parent_depth)
+            .await
+    }
+
+    /// Spawn a bounded child run from an interactive chat session.
+    pub async fn spawn_child_for_session(
+        &self,
+        parent_session_id: &str,
+        agent_id: &str,
+        parent_depth: u16,
+    ) -> Result<ChildRun, String> {
+        if parent_session_id.trim().is_empty() {
+            return Err("parent_session_id is required".to_string());
+        }
+        self.spawn_child_with_lineage(
+            parent_session_id,
+            Some(parent_session_id.to_string()),
+            agent_id,
+            parent_depth,
+        )
+        .await
+    }
+
+    async fn spawn_child_with_lineage(
+        &self,
+        parent_key: &str,
+        parent_session_id: Option<String>,
         agent_id: &str,
         parent_depth: u16,
     ) -> Result<ChildRun, String> {
@@ -226,8 +259,8 @@ impl SubagentManager {
             .cloned()
             .ok_or_else(|| format!("agent '{}' is not registered", agent_id))?;
 
-        if parent_run_id.trim().is_empty() {
-            return Err("parent_run_id is required".to_string());
+        if parent_key.trim().is_empty() {
+            return Err("parent run/session identifier is required".to_string());
         }
         if parent_depth >= definition.budget.max_depth {
             return Err("delegation depth budget exceeded".to_string());
@@ -236,7 +269,7 @@ impl SubagentManager {
         let mut children = self.children.write().await;
         if children
             .values()
-            .filter(|child| child.parent_run_id == parent_run_id)
+            .filter(|child| child.parent_run_id == parent_key)
             .count()
             >= self.max_children_per_parent
         {
@@ -245,7 +278,8 @@ impl SubagentManager {
 
         let child = ChildRun {
             child_run_id: format!("run-{}", uuid::Uuid::new_v4()),
-            parent_run_id: parent_run_id.to_string(),
+            parent_run_id: parent_key.to_string(),
+            parent_session_id,
             agent_id: agent_id.to_string(),
             depth: parent_depth + 1,
             budget: definition.budget.clone(),
@@ -259,14 +293,17 @@ impl SubagentManager {
         Ok(child)
     }
 
-    /// List child runs for a parent.
+    /// List child runs for a durable parent run or interactive chat session.
     pub async fn children_of(&self, parent_run_id: &str) -> Vec<ChildRun> {
         let mut children: Vec<_> = self
             .children
             .read()
             .await
             .values()
-            .filter(|child| child.parent_run_id == parent_run_id)
+            .filter(|child| {
+                child.parent_run_id == parent_run_id
+                    || child.parent_session_id.as_deref() == Some(parent_run_id)
+            })
             .cloned()
             .collect();
         children.sort_by(|left, right| left.child_run_id.cmp(&right.child_run_id));
@@ -370,5 +407,39 @@ mod tests {
         assert_eq!(recovered.agent_id, "persistent");
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn interactive_children_persist_parent_session_lineage() {
+        let manager = SubagentManager::new(2);
+        manager
+            .register(AgentDefinition {
+                agent_id: "researcher".to_string(),
+                role: "Research".to_string(),
+                capabilities: vec!["filesystem.read".to_string()],
+                providers: Vec::new(),
+                skills: Vec::new(),
+                sandbox_profile: "default".to_string(),
+                budget: AgentBudget {
+                    max_tool_calls: 4,
+                    max_tokens: 500,
+                    max_depth: 2,
+                    max_wall_seconds: 30,
+                },
+            })
+            .await
+            .unwrap();
+
+        let child = manager
+            .spawn_child_for_session("chat-session-1", "researcher", 0)
+            .await
+            .unwrap();
+
+        assert_eq!(child.parent_run_id, "chat-session-1");
+        assert_eq!(child.parent_session_id.as_deref(), Some("chat-session-1"));
+        assert_eq!(child.depth, 1);
+        let listed = manager.children_of("chat-session-1").await;
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].child_run_id, child.child_run_id);
     }
 }

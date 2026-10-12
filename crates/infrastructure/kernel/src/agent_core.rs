@@ -1463,15 +1463,20 @@ impl ReactAgent {
                     });
                 }
 
+                // Keep the turn's tool handles available for subsequent model-proposed
+                // calls; the first pipeline invocation consumes only these local clones.
+                let initial_tool_executor = tool_executor.clone();
+                let initial_tool_runtime = tool_runtime.clone();
+                let initial_tool_grant_id = tool_grant_id.clone();
                 let executor = |ctx: ToolExecutionContext| async move {
                     self.act_inner(
-                        tool_executor.as_ref(),
-                        tool_runtime.as_ref(),
-                        tool_grant_id.as_deref(),
+                        initial_tool_executor.as_ref(),
+                        initial_tool_runtime.as_ref(),
+                        initial_tool_grant_id.as_deref(),
                         &ctx.args["action"].as_str().unwrap_or(""),
                     )
                     .await
-                    .map(|o| ToolExecutionResult::success(o))
+                    .map(ToolExecutionResult::success)
                     .unwrap_or_else(|e| ToolExecutionResult::failure(e.to_string()))
                 };
 

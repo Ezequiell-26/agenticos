@@ -535,7 +535,7 @@ impl RuntimeState {
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
 
-        Ok(Self {
+        let runtime = Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             session_cache_capacity,
             agent_execution_concurrency,
@@ -608,7 +608,12 @@ impl RuntimeState {
                 .ok()
                 .and_then(|value| value.parse::<u16>().ok())
                 .unwrap_or(8080),
-        })
+        };
+        let startup_provider = runtime.provider.clone();
+        tokio::spawn(async move {
+            refresh_provider_health_on_startup(&startup_provider).await;
+        });
+        Ok(runtime)
     }
 
     async fn load_skills(registry: &SkillRegistry) -> Vec<Skill> {
@@ -3785,6 +3790,33 @@ async fn a2a_rpc(
             })
         }
         _ => a2a_error(request.id.clone(), -32601, "A2A method not supported"),
+    }
+}
+
+async fn refresh_provider_health_on_startup(provider: &ProviderPlatform) {
+    let configured_providers = provider
+        .list_status()
+        .await
+        .into_iter()
+        .filter(|entry| entry.configured)
+        .collect::<Vec<_>>();
+
+    let health_results =
+        futures::future::join_all(configured_providers.into_iter().map(|entry| async move {
+            let provider_id = entry.provider_id;
+            let result = provider.check_health(&provider_id).await;
+            (provider_id, result)
+        }))
+        .await;
+
+    for (provider_id, result) in health_results {
+        if let Err(error) = result {
+            tracing::warn!(
+                provider = %provider_id,
+                %error,
+                "provider startup health check failed; API will start but readiness remains unavailable until a provider is healthy"
+            );
+        }
     }
 }
 

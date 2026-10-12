@@ -38,78 +38,111 @@ fn content_length(headers: &[u8]) -> usize {
 }
 
 async fn serve_fake_provider(listener: TcpListener) {
-    let (mut socket, _) = listener.accept().await.expect("accept provider request");
-    let mut request = Vec::with_capacity(8192);
-    let mut buffer = [0_u8; 4096];
+    loop {
+        let (mut socket, _) = listener.accept().await.expect("accept provider request");
+        let mut request = Vec::with_capacity(8192);
+        let mut buffer = [0_u8; 4096];
 
-    let body_start = loop {
-        let read = socket
-            .read(&mut buffer)
-            .await
-            .expect("read provider request");
-        assert!(read > 0, "provider connection closed before headers");
-        request.extend_from_slice(&buffer[..read]);
-        if let Some(boundary) = header_body_boundary(&request) {
-            break boundary;
+        let body_start = loop {
+            let read = socket
+                .read(&mut buffer)
+                .await
+                .expect("read provider request");
+            assert!(read > 0, "provider connection closed before headers");
+            request.extend_from_slice(&buffer[..read]);
+            if let Some(boundary) = header_body_boundary(&request) {
+                break boundary;
+            }
+            assert!(
+                request.len() < 128 * 1024,
+                "provider request headers too large"
+            );
+        };
+
+        let request_head = String::from_utf8_lossy(&request[..body_start]).to_string();
+        let request_line = request_head.lines().next().unwrap_or_default().to_string();
+        let expected_body_len = content_length(&request[..body_start - 4]);
+        while request.len() < body_start + expected_body_len {
+            let read = socket.read(&mut buffer).await.expect("read provider body");
+            assert!(read > 0, "provider connection closed before body");
+            request.extend_from_slice(&buffer[..read]);
         }
-        assert!(
-            request.len() < 128 * 1024,
-            "provider request headers too large"
-        );
-    };
 
-    let expected_body_len = content_length(&request[..body_start - 4]);
-    while request.len() < body_start + expected_body_len {
-        let read = socket.read(&mut buffer).await.expect("read provider body");
-        assert!(read > 0, "provider connection closed before body");
-        request.extend_from_slice(&buffer[..read]);
-    }
-
-    let body = &request[body_start..body_start + expected_body_len];
-    let payload: serde_json::Value =
-        serde_json::from_slice(body).expect("provider body must be valid JSON");
-
-    assert_eq!(payload["model"], "e2e-model");
-    let user_input = payload["messages"]
-        .as_array()
-        .and_then(|messages| {
-            messages.iter().find_map(|message| {
-                (message["role"] == "user" && message["content"] == "desktop API provider E2E")
-                    .then_some(message["content"].as_str())
-                    .flatten()
+        // RuntimeState::from_env probes configured providers before the API is
+        // considered ready. Answer the model-catalog probe, then continue
+        // serving the real chat request used by this E2E test.
+        if request_line.starts_with("GET /v1/models ") {
+            let response_body = serde_json::json!({
+                "object": "list",
+                "data": [
+                    {"id": "e2e-model", "object": "model"},
+                    {"id": "e2e-embedding", "object": "model"}
+                ]
             })
-        })
-        .expect("provider request should contain the expected user message");
-    assert_eq!(user_input, "desktop API provider E2E");
-
-    let response_body = serde_json::json!({
-        "id": "chatcmpl-agenticos-e2e",
-        "object": "chat.completion",
-        "choices": [{
-            "index": 0,
-            "message": {
-                "role": "assistant",
-                "content": "E2E provider response"
-            },
-            "finish_reason": "stop"
-        }],
-        "usage": {
-            "prompt_tokens": 4,
-            "completion_tokens": 3,
-            "total_tokens": 7
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            socket
+                .write_all(response.as_bytes())
+                .await
+                .expect("write model catalog response");
+            continue;
         }
-    })
-    .to_string();
 
-    let response = format!(
-        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-        response_body.len(),
-        response_body
-    );
-    socket
-        .write_all(response.as_bytes())
-        .await
-        .expect("write provider response");
+        assert!(
+            request_line.starts_with("POST /v1/chat/completions "),
+            "unexpected fake-provider request: {request_line}"
+        );
+        let body = &request[body_start..body_start + expected_body_len];
+        let payload: serde_json::Value =
+            serde_json::from_slice(body).expect("provider body must be valid JSON");
+
+        assert_eq!(payload["model"], "e2e-model");
+        let user_input = payload["messages"]
+            .as_array()
+            .and_then(|messages| {
+                messages.iter().find_map(|message| {
+                    (message["role"] == "user" && message["content"] == "desktop API provider E2E")
+                        .then_some(message["content"].as_str())
+                        .flatten()
+                })
+            })
+            .expect("provider request should contain the expected user message");
+        assert_eq!(user_input, "desktop API provider E2E");
+
+        let response_body = serde_json::json!({
+            "id": "chatcmpl-agenticos-e2e",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "E2E provider response"
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 3,
+                "total_tokens": 7
+            }
+        })
+        .to_string();
+
+        let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        socket
+            .write_all(response.as_bytes())
+            .await
+            .expect("write provider response");
+        break;
+    }
 }
 
 async fn wait_for_health(api_url: &str) {
@@ -123,6 +156,19 @@ async fn wait_for_health(api_url: &str) {
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
     panic!("AgentiCOS API did not become healthy in time");
+}
+
+async fn wait_for_readiness(api_url: &str) {
+    let client = reqwest::Client::new();
+    for _ in 0..120 {
+        if let Ok(response) = client.get(format!("{api_url}/ready")).send().await {
+            if response.status().is_success() {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    panic!("AgentiCOS provider readiness did not become ready after startup probing");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -186,6 +232,7 @@ async fn desktop_to_api_to_provider_to_persistence_e2e() {
 
             let api_url = format!("http://127.0.0.1:{api_port}");
             wait_for_health(&api_url).await;
+            wait_for_readiness(&api_url).await;
 
             let health = get_backend_health()
                 .await

@@ -696,6 +696,9 @@ impl ProviderPlatform {
                 })
                 .await?;
         }
+        // Provider metadata or credentials may have changed; never reuse a
+        // health result produced for the previous configuration.
+        self.health_cache.write().await.remove(&provider_id);
         self.update_health(&provider_id, HealthStatus::Unknown, None)
             .await?;
         Ok(())
@@ -3452,6 +3455,60 @@ mod tests {
         assert_eq!(statuses.len(), 1);
         assert_eq!(statuses[0].name, "Updated Provider");
         assert!(statuses[0].configured);
+    }
+
+    #[tokio::test]
+    async fn provider_reregistration_invalidates_cached_health() {
+        let platform = ProviderPlatform::new();
+        let entry = ProviderEntry {
+            provider_id: "cache-test-provider".to_string(),
+            name: "Cache Test Provider".to_string(),
+            base_url: "https://api.example.com/v1".to_string(),
+            models: vec!["model-a".to_string()],
+            capabilities: vec!["chat".to_string()],
+        };
+
+        platform.register(entry.clone(), None).await.unwrap();
+        platform.health_cache.write().await.insert(
+            entry.provider_id.clone(),
+            (
+                Instant::now(),
+                HealthCheck {
+                    provider_id: entry.provider_id.clone(),
+                    status: HealthStatus::Healthy,
+                    last_check: unix_time(),
+                    message: Some("cached before provider update".to_string()),
+                },
+            ),
+        );
+
+        platform
+            .register(
+                ProviderEntry {
+                    name: "Updated Cache Test Provider".to_string(),
+                    base_url: "https://api.changed.example/v1".to_string(),
+                    models: vec!["model-b".to_string()],
+                    ..entry.clone()
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(
+            !platform
+                .health_cache
+                .read()
+                .await
+                .contains_key(&entry.provider_id),
+            "health from the previous provider configuration must not be reused"
+        );
+        let health = platform
+            .health
+            .get(&entry.provider_id)
+            .await
+            .expect("re-registration should record an Unknown health state");
+        assert_eq!(health.status, HealthStatus::Unknown);
     }
 
     #[test]

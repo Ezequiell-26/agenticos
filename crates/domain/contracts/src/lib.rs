@@ -219,6 +219,48 @@ pub trait ToolRuntimePort: Send + Sync + 'static {
     async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError>;
 }
 
+/// Request to dispatch a task to a registered subagent.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SubagentTaskRequest {
+    /// Correlation identifier for this delegation.
+    pub request_id: String,
+    /// Parent chat/session identifier.
+    pub parent_session_id: String,
+    /// Registered subagent identifier.
+    pub agent_id: String,
+    /// Task delegated to the subagent.
+    pub task: String,
+    /// Parent delegation depth (zero for a root session).
+    pub parent_depth: u16,
+}
+
+/// Result returned by a completed subagent execution.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SubagentTaskResponse {
+    /// Correlation identifier copied from the request.
+    pub request_id: String,
+    /// Durable child run identifier.
+    pub child_run_id: String,
+    /// Isolated child session identifier used for its conversation.
+    pub child_session_id: String,
+    /// Actual output produced by the child agent.
+    pub output: String,
+}
+
+/// Runtime boundary for real, isolated subagent execution.
+///
+/// The implementation owns child-run persistence, execution budgets, sandbox/tool
+/// scoping, and cleanup. The kernel never executes a selected subagent inline by
+/// bypassing this boundary.
+#[async_trait::async_trait]
+pub trait SubagentRuntimePort: Send + Sync + 'static {
+    /// Execute a registered subagent task and return its actual result.
+    async fn execute_subagent(
+        &self,
+        request: SubagentTaskRequest,
+    ) -> Result<SubagentTaskResponse, ContractError>;
+}
+
 /// Durable event storage contract.
 #[async_trait::async_trait]
 pub trait EventStore: Send + Sync {

@@ -4,7 +4,10 @@
 //! support that historically lived inline in lib.rs.
 
 use super::*;
-use agenticos_contracts::{ModelRequest, Sandbox, SandboxRequest, ToolRequest, ToolRuntimePort};
+use agenticos_contracts::{
+    ModelRequest, Sandbox, SandboxRequest, SubagentRuntimePort, SubagentTaskRequest,
+    SubagentTaskResponse, ToolRequest, ToolRuntimePort,
+};
 
 /// Recovery state for failed tool executions with retry logic.
 #[derive(Debug, Clone)]
@@ -174,6 +177,12 @@ struct ReactAgentInner {
     tool_registry: Option<ToolRegistry>,
     /// Optional supervisor for subagent coordination
     supervisor: Option<Supervisor>,
+    /// Runtime boundary for isolated, bounded child-agent execution.
+    subagent_runtime: Option<Arc<dyn SubagentRuntimePort>>,
+    /// Current delegation depth, used to enforce child nesting budgets.
+    delegation_depth: u16,
+    /// Optional per-agent cap on tool calls performed in a single turn.
+    tool_call_budget_override: Option<usize>,
     /// Optional sandbox for secure tool execution
     sandbox: Option<Arc<dyn Sandbox>>,
     /// Session event log for durable event tracking
@@ -217,6 +226,9 @@ impl ReactAgent {
                 current_plan: None,
                 tool_registry: None,
                 supervisor: None,
+                subagent_runtime: None,
+                delegation_depth: 0,
+                tool_call_budget_override: None,
                 sandbox: None,
                 event_log: None,
                 tool_pipeline: None::<Arc<ToolExecutionPipeline>>,
@@ -257,6 +269,9 @@ impl ReactAgent {
                 current_plan: None,
                 tool_registry: None,
                 supervisor: None,
+                subagent_runtime: None,
+                delegation_depth: 0,
+                tool_call_budget_override: None,
                 sandbox: None,
                 event_log: None,
                 tool_pipeline: None::<Arc<ToolExecutionPipeline>>,
@@ -353,6 +368,21 @@ impl ReactAgent {
     /// Set the supervisor for subagent coordination.
     pub fn set_supervisor(&self, supervisor: Supervisor) {
         self.inner.lock().unwrap().supervisor = Some(supervisor);
+    }
+
+    /// Set the runtime boundary for real, isolated subagent execution.
+    pub fn set_subagent_runtime(&self, runtime: Arc<dyn SubagentRuntimePort>) {
+        self.inner.lock().unwrap().subagent_runtime = Some(runtime);
+    }
+
+    /// Set the current delegation depth for this agent session.
+    pub fn set_delegation_depth(&self, depth: u16) {
+        self.inner.lock().unwrap().delegation_depth = depth;
+    }
+
+    /// Set a per-agent tool-call budget; the kernel enforces at most eight calls per turn.
+    pub fn set_tool_call_budget(&self, budget: usize) {
+        self.inner.lock().unwrap().tool_call_budget_override = Some(budget.clamp(1, 8));
     }
 
     /// Set the model provider for Planner and Supervisor LLM integration.
@@ -1284,6 +1314,9 @@ impl ReactAgent {
             tool_grant_id,
             checkpoint_store,
             supervisor,
+            subagent_runtime,
+            delegation_depth,
+            tool_call_budget_override,
             sandbox,
             event_log,
             tool_pipeline,
@@ -1305,6 +1338,9 @@ impl ReactAgent {
                 inner.tool_grant_id.clone(),
                 inner.checkpoint_store.clone(),
                 inner.supervisor.clone(),
+                inner.subagent_runtime.clone(),
+                inner.delegation_depth,
+                inner.tool_call_budget_override,
                 inner.sandbox.clone(),
                 inner.event_log.clone(),
                 inner.tool_pipeline.clone(),
@@ -1391,16 +1427,68 @@ impl ReactAgent {
             None
         };
 
-        // Step 1: Thought/Reasoning
-        let thought = self
-            .think_inner(
+        // Select and dispatch a real child run before asking the parent model to act.
+        // Delegation is enabled only when both a registered supervisor and an execution
+        // runtime are configured; a selected name is never treated as a result by itself.
+        let mut delegated_subagent: Option<(String, Result<SubagentTaskResponse, ContractError>)> =
+            None;
+        let mut supervisor_was_consulted = false;
+        if let (Some(supervisor), Some(runtime)) = (&supervisor, &subagent_runtime) {
+            if model_provider.is_some() {
+                supervisor_was_consulted = true;
+                if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
+                    log.append(SessionEvent::AgentRequest {
+                        request_id: uuid::Uuid::new_v4().to_string(),
+                        model: preferred_model
+                            .as_deref()
+                            .unwrap_or("default")
+                            .to_string(),
+                        prompt_length: input.len(),
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    });
+                }
+                if let Some(agent_id) = supervisor
+                    .decide_subagent(input, model_provider.as_ref())
+                    .await
+                {
+                    let dispatch = runtime
+                        .execute_subagent(SubagentTaskRequest {
+                            request_id: uuid::Uuid::new_v4().to_string(),
+                            parent_session_id: session_id.clone(),
+                            agent_id: agent_id.clone(),
+                            task: input.to_string(),
+                            parent_depth: delegation_depth,
+                        })
+                        .await;
+                    delegated_subagent = Some((agent_id, dispatch));
+                }
+            }
+        }
+
+        // Record a truthful delegation summary as the assistant's intermediate action.
+        // The child output itself is passed as the observation below and the parent model
+        // must synthesize the user-facing answer rather than echoing a child ID.
+        let thought = if let Some((agent_id, dispatch)) = &delegated_subagent {
+            match dispatch {
+                Ok(child) => format!(
+                    "Delegated the request to subagent '{}' (child run {}).",
+                    agent_id, child.child_run_id
+                ),
+                Err(error) => format!("Delegation to subagent '{}' failed: {}.", agent_id, error),
+            }
+        } else {
+            self.think_inner(
                 model_provider.as_ref(),
                 current_turn,
                 input,
                 preferred_model.as_deref(),
                 parameters.as_deref(),
             )
-            .await?;
+            .await?
+        };
 
         // Store assistant thought in SQLite memory if available
         if let Some(memory) = &memory {
@@ -1437,7 +1525,19 @@ impl ReactAgent {
             .map(|executor| executor.workdir.to_string_lossy().into_owned());
 
         // Step 3: Observation
-        let observation = if let Some(pipeline) = &tool_pipeline {
+        let observation = if let Some((agent_id, dispatch)) = &delegated_subagent {
+            match dispatch {
+                Ok(child) if !child.output.trim().is_empty() => child.output.clone(),
+                Ok(_) => format!(
+                    "[subagent error] registered agent '{}' returned an empty result; no child output is available",
+                    agent_id
+                ),
+                Err(error) => format!(
+                    "[subagent error] dispatch to registered agent '{}' failed: {}",
+                    agent_id, error
+                ),
+            }
+        } else if let Some(pipeline) = &tool_pipeline {
             if !is_structured_tool_action(&action) {
                 action.clone()
             } else {
@@ -1660,16 +1760,6 @@ impl ReactAgent {
             action.clone()
         };
 
-        // Delegate to subagent if supervisor is configured
-        if let Some(supervisor) = &supervisor {
-            if let Some(subagent_name) = supervisor
-                .decide_subagent(input, model_provider.as_ref())
-                .await
-            {
-                let _ = subagent_name;
-            }
-        }
-
         // Execute code in sandbox if sandbox is configured and action is code execution
         if let Some(sandbox) = &sandbox {
             if action.starts_with("execute_code:") {
@@ -1689,7 +1779,9 @@ impl ReactAgent {
         // Step 4: Complete the ReAct turn. Every proposed tool call after the
         // initial action is routed through the same capability-gated pipeline.
         // Both model follow-ups and actual tool executions have hard per-turn limits.
-        let mut result = if is_structured_tool_action(&thought) && tool_pipeline.is_some() {
+        let mut result = if (is_structured_tool_action(&thought) && tool_pipeline.is_some())
+            || delegated_subagent.is_some()
+        {
             self.observe(&observation)
         } else {
             observation.clone()
@@ -1708,13 +1800,22 @@ impl ReactAgent {
         }
 
         let mut followup_error = None;
-        if is_structured_tool_action(&thought) && model_provider.is_some() {
+        if ((is_structured_tool_action(&thought) && tool_pipeline.is_some())
+            || delegated_subagent.is_some())
+            && model_provider.is_some()
+        {
             let max_followups = max_tool_followups_per_turn();
-            let max_tool_calls = max_tool_calls_per_turn();
+            let max_tool_calls = tool_call_budget_override.unwrap_or_else(max_tool_calls_per_turn);
             let mut followup_prompt = format!(
-                "Original user request:\n{}\n\nTool observation:\n{}\n\n",
+                "Original user request:\n{}\n\nExecution observation:\n{}\n\n",
                 input, observation
             );
+            if let Some((agent_id, Ok(child))) = &delegated_subagent {
+                followup_prompt.push_str(&format!(
+                    "Delegated agent: {}\nChild run: {}\nUse the child result as evidence, then answer the original user.\n\n",
+                    agent_id, child.child_run_id
+                ));
+            }
             let mut final_answer_produced = false;
             while followup_model_calls < max_followups {
                 followup_model_calls += 1;
@@ -1843,7 +1944,11 @@ impl ReactAgent {
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs(),
-                step_count: 2 + followup_model_calls + tool_calls_executed.saturating_sub(1),
+                step_count: 2
+                    + followup_model_calls
+                    + tool_calls_executed.saturating_sub(1)
+                    + usize::from(supervisor_was_consulted)
+                    + usize::from(delegated_subagent.is_some()),
                 latency_ms,
             });
         }
@@ -1884,6 +1989,22 @@ impl ReactAgent {
                     "tool_calls_executed": tool_calls_executed,
                     "followup_model_calls": followup_model_calls,
                     "executed_tool_actions": executed_tool_actions,
+                    "supervisor_was_consulted": supervisor_was_consulted,
+                    "subagent_dispatch": delegated_subagent.as_ref().map(|(agent_id, dispatch)| {
+                        match dispatch {
+                            Ok(child) => serde_json::json!({
+                                "agent_id": agent_id,
+                                "child_run_id": child.child_run_id,
+                                "child_session_id": child.child_session_id,
+                                "success": true
+                            }),
+                            Err(error) => serde_json::json!({
+                                "agent_id": agent_id,
+                                "success": false,
+                                "error": error.to_string()
+                            }),
+                        }
+                    }),
                     "result": result,
                     "plan": plan
                 }),
@@ -3388,7 +3509,7 @@ impl Supervisor {
                 "You are a task coordination AI. Given the following task and available subagents, \
                  select the most appropriate subagent to handle this task. \
                  Available subagents:\n{}\n\nTask: {}\n\n \
-                 Return only the name of the selected subagent as a JSON string.",
+                 Return JSON null when the task does not need delegation. Otherwise return only the exact selected agent_id as a JSON string.",
                 subagents_info, task
             );
 
@@ -3401,13 +3522,15 @@ impl Supervisor {
 
             match provider.execute(request).await {
                 Ok(response) => {
-                    // Try to parse LLM response as JSON string
-                    if let Ok(subagent_name) = serde_json::from_str::<String>(&response.output) {
+                    // A model may explicitly decline delegation. Only registered IDs are accepted.
+                    if let Ok(Some(subagent_name)) =
+                        serde_json::from_str::<Option<String>>(&response.output)
+                    {
                         if self.subagents.contains_key(&subagent_name) {
                             return Some(subagent_name);
                         }
                     }
-                    // Fallback if parsing fails or subagent not found
+                    // Invalid JSON, null, and unknown IDs all fall back to the parent agent.
                 }
                 Err(_) => {
                     // Fallback on error
@@ -3693,6 +3816,67 @@ mod multi_step_tool_tests {
         }
     }
 
+    #[derive(Default)]
+    struct RecordingSubagentRuntime {
+        requests: StdMutex<Vec<SubagentTaskRequest>>,
+        output: String,
+        fail: bool,
+    }
+
+    impl RecordingSubagentRuntime {
+        fn success(output: &str) -> Self {
+            Self {
+                requests: StdMutex::new(Vec::new()),
+                output: output.to_string(),
+                fail: false,
+            }
+        }
+
+        fn failure() -> Self {
+            Self {
+                requests: StdMutex::new(Vec::new()),
+                output: String::new(),
+                fail: true,
+            }
+        }
+
+        fn requests(&self) -> Vec<SubagentTaskRequest> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl SubagentRuntimePort for RecordingSubagentRuntime {
+        async fn execute_subagent(
+            &self,
+            request: SubagentTaskRequest,
+        ) -> Result<SubagentTaskResponse, ContractError> {
+            self.requests.lock().unwrap().push(request.clone());
+            if self.fail {
+                return Err(ContractError::ParseError(
+                    "child run failed to execute".to_string(),
+                ));
+            }
+            Ok(SubagentTaskResponse {
+                request_id: request.request_id,
+                child_run_id: "run-child-123".to_string(),
+                child_session_id: "subagent:run-child-123".to_string(),
+                output: self.output.clone(),
+            })
+        }
+    }
+
+    fn registered_research_supervisor() -> Supervisor {
+        let mut supervisor = Supervisor::new();
+        supervisor.register_subagent(Subagent {
+            name: "researcher".to_string(),
+            description: "Reads source material and reports evidence".to_string(),
+            role: "Research".to_string(),
+            tools: vec!["file.read".to_string()],
+        });
+        supervisor
+    }
+
     fn tool_call(tool_id: &str) -> String {
         serde_json::json!({
             "tool": tool_id,
@@ -3810,5 +3994,112 @@ mod multi_step_tool_tests {
             runtime.requests().len(),
             budget
         );
+    }
+
+    #[tokio::test]
+    async fn selected_subagent_executes_and_parent_synthesizes_result() {
+        let (agent, provider, _tool_runtime) = build_agent(vec![
+            serde_json::to_string("researcher").unwrap(),
+            "The report says the measured value is 42.".to_string(),
+        ]);
+        agent.set_supervisor(registered_research_supervisor());
+        let child_runtime = Arc::new(RecordingSubagentRuntime::success(
+            "Primary source reports a measured value of 42.",
+        ));
+        agent.set_subagent_runtime(child_runtime.clone());
+        let event_log = SessionEventLog::new("multi-step-test".to_string());
+        agent.set_event_log(event_log.clone());
+
+        let answer = agent
+            .execute_turn("Read the report and explain its conclusion")
+            .await
+            .unwrap();
+
+        assert_eq!(answer, "The report says the measured value is 42.");
+        assert!(!is_structured_tool_action(&answer));
+        let child_requests = child_runtime.requests();
+        assert_eq!(child_requests.len(), 1);
+        assert_eq!(child_requests[0].agent_id, "researcher");
+        assert_eq!(
+            child_requests[0].task,
+            "Read the report and explain its conclusion"
+        );
+        assert_eq!(child_requests[0].parent_depth, 0);
+        assert!(!child_requests[0].parent_session_id.trim().is_empty());
+
+        let model_requests = provider.requests();
+        assert_eq!(model_requests.len(), 2);
+        assert!(model_requests[1]
+            .input
+            .contains("Primary source reports a measured value of 42."));
+        assert!(model_requests[1].input.contains("Child run: run-child-123"));
+        assert_eq!(event_log.get_events_by_type("TurnEnd").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn supervisor_null_decision_falls_back_to_parent_without_dispatch() {
+        let (agent, provider, _tool_runtime) = build_agent(vec![
+            "null".to_string(),
+            "I can answer this directly without delegation.".to_string(),
+        ]);
+        agent.set_supervisor(registered_research_supervisor());
+        let child_runtime = Arc::new(RecordingSubagentRuntime::success("must not be used"));
+        agent.set_subagent_runtime(child_runtime.clone());
+
+        let answer = agent.execute_turn("What is two plus two?").await.unwrap();
+
+        assert_eq!(answer, "I can answer this directly without delegation.");
+        assert!(child_runtime.requests().is_empty());
+        assert_eq!(provider.requests().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn unknown_subagent_selection_falls_back_without_dispatch() {
+        let (agent, provider, _tool_runtime) = build_agent(vec![
+            serde_json::to_string("not-registered").unwrap(),
+            "I will handle the task directly.".to_string(),
+        ]);
+        agent.set_supervisor(registered_research_supervisor());
+        let child_runtime = Arc::new(RecordingSubagentRuntime::success("must not be used"));
+        agent.set_subagent_runtime(child_runtime.clone());
+
+        let answer = agent
+            .execute_turn("Summarize a short paragraph")
+            .await
+            .unwrap();
+
+        assert_eq!(answer, "I will handle the task directly.");
+        assert!(child_runtime.requests().is_empty());
+        assert_eq!(provider.requests().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn failed_subagent_dispatch_is_an_observation_not_a_fake_result() {
+        let (agent, provider, _tool_runtime) = build_agent(vec![
+            serde_json::to_string("researcher").unwrap(),
+            "The child was unavailable, so I will explain the limitation.".to_string(),
+        ]);
+        agent.set_supervisor(registered_research_supervisor());
+        let child_runtime = Arc::new(RecordingSubagentRuntime::failure());
+        agent.set_subagent_runtime(child_runtime.clone());
+        let event_log = SessionEventLog::new("multi-step-test".to_string());
+        agent.set_event_log(event_log.clone());
+
+        let answer = agent
+            .execute_turn("Research the current source")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            answer,
+            "The child was unavailable, so I will explain the limitation."
+        );
+        assert_eq!(child_runtime.requests().len(), 1);
+        let model_requests = provider.requests();
+        assert!(model_requests[1].input.contains("[subagent error]"));
+        assert!(model_requests[1]
+            .input
+            .contains("child run failed to execute"));
+        assert_eq!(event_log.get_events_by_type("TurnEnd").len(), 1);
     }
 }

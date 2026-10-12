@@ -27,7 +27,8 @@ use agenticos_browser::{BrowserActionResult, BrowserRuntime};
 use agenticos_channels::{ChannelDefinition, ChannelRegistry};
 use agenticos_contracts::{
     CapabilityGrant, CapabilityIssuer, CapabilityType, ContractError, EmbeddingRequest,
-    ModelProvider, RunId, RunState, Sandbox, SandboxStatus, ToolEntry, ToolRequest, ToolResponse,
+    ModelProvider, RunId, RunState, Sandbox, SandboxStatus, SubagentRuntimePort,
+    SubagentTaskRequest, SubagentTaskResponse, ToolEntry, ToolRequest, ToolResponse,
 };
 
 /// Get current Unix timestamp in seconds.
@@ -66,7 +67,7 @@ use agenticos_kernel::{
     BackgroundEventPublisher, BroadcastOutboxTransport, CompositeOutboxTransport, InMemoryConfig,
     InMemoryLogger, KernelRuntime, PermissionPolicyHook, ReactAgent, Skill, SqliteEventStore,
     SqliteIdempotencyStore, SqliteLeaseStore, SqliteMemory, SqliteOutboxStore, SqliteSnapshotStore,
-    ToolExecutionPipeline,
+    Subagent, Supervisor, ToolExecutionPipeline,
 };
 use agenticos_mcp::{McpManager, McpServerDefinition};
 use agenticos_memory::{PersistentMemoryStore, SemanticRetrievalCase};
@@ -90,7 +91,7 @@ use agenticos_tools::{
 use agenticos_workflows::{WorkflowDefinition, WorkflowEngine, WorkflowNodeState};
 use agenticos_workspace::WorkspaceFs;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore};
 use tracing::Instrument;
@@ -100,15 +101,57 @@ const DEFAULT_DATABASE_URL: &str = "sqlite://agenticos.db?mode=rwc";
 #[derive(Clone)]
 struct RuntimeToolBridge {
     runtime: Arc<ToolRuntime>,
+    /// None grants the parent session its normal runtime view. Some is an
+    /// explicit allowlist of tool IDs resolved from a child's declared capabilities.
+    allowed_tool_ids: Option<Arc<HashSet<String>>>,
+}
+
+fn resolve_subagent_tool_ids(entries: &[ToolEntry], capabilities: &[String]) -> HashSet<String> {
+    entries
+        .iter()
+        .filter(|entry| {
+            capabilities.iter().any(|capability| {
+                capability == &entry.tool_id
+                    || capability == &entry.name
+                    || entry.capabilities.iter().any(|value| value == capability)
+                    || entry
+                        .required_permissions
+                        .iter()
+                        .any(|value| value == capability)
+            })
+        })
+        .map(|entry| entry.tool_id.clone())
+        .collect()
+}
+
+fn ensure_tool_in_scope(
+    tool_id: &str,
+    allowed_tool_ids: Option<&HashSet<String>>,
+) -> Result<(), ContractError> {
+    if allowed_tool_ids.is_some_and(|allowed| !allowed.contains(tool_id)) {
+        return Err(ContractError::ParseError(format!(
+            "tool execution denied: tool '{}' is outside the subagent capability scope",
+            tool_id
+        )));
+    }
+    Ok(())
 }
 
 #[async_trait::async_trait]
 impl agenticos_contracts::ToolRuntimePort for RuntimeToolBridge {
     async fn list_tools(&self) -> Result<Vec<ToolEntry>, ContractError> {
-        Ok(self.runtime.list().await)
+        let entries = self.runtime.list().await;
+        Ok(match &self.allowed_tool_ids {
+            Some(allowed) => entries
+                .into_iter()
+                .filter(|entry| allowed.contains(&entry.tool_id))
+                .collect(),
+            None => entries,
+        })
     }
 
     async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+        ensure_tool_in_scope(&request.tool_id, self.allowed_tool_ids.as_deref())?;
         self.runtime.execute(request).await
     }
 }
@@ -170,6 +213,179 @@ impl std::fmt::Debug for RuntimeState {
             .field("provider", &self.model)
             .field("kernel", &"<kernel>")
             .finish()
+    }
+}
+
+#[async_trait::async_trait]
+impl SubagentRuntimePort for RuntimeState {
+    async fn execute_subagent(
+        &self,
+        request: SubagentTaskRequest,
+    ) -> Result<SubagentTaskResponse, ContractError> {
+        if request.parent_session_id.trim().is_empty() || request.task.trim().is_empty() {
+            return Err(ContractError::ParseError(
+                "parent session ID and delegated task are required".to_string(),
+            ));
+        }
+        if request.task.len() > 100_000 {
+            return Err(ContractError::ParseError(
+                "subagent task exceeds the supported size limit".to_string(),
+            ));
+        }
+
+        let definition = self
+            .subagents
+            .definition(&request.agent_id)
+            .await
+            .ok_or_else(|| {
+                ContractError::ParseError(format!(
+                    "subagent '{}' is not registered",
+                    request.agent_id
+                ))
+            })?;
+        let child = self
+            .subagents
+            .spawn_child_for_session(
+                &request.parent_session_id,
+                &request.agent_id,
+                request.parent_depth,
+            )
+            .await
+            .map_err(ContractError::ParseError)?;
+        let run_id = RunId::new(child.child_run_id.clone())
+            .map_err(|error| ContractError::ParseError(error.to_string()))?;
+        let child_session_id = format!("subagent:{}", child.child_run_id);
+        let wall_seconds = definition.budget.max_wall_seconds.clamp(1, 3600);
+        let lease_owner = format!("subagent-dispatch:{}", uuid::Uuid::new_v4());
+
+        let mut run_created = false;
+        let mut lease_info: Option<(String, u64)> = None;
+        let execution: Result<String, ContractError> = async {
+            let created = self.kernel.create_run(run_id.clone()).await?;
+            run_created = true;
+            self.kernel
+                .transition_run(&run_id, RunState::Admitted, created.version)
+                .await?;
+            let lease = self
+                .kernel
+                .acquire_lease(
+                    &run_id,
+                    lease_owner,
+                    unix_time().saturating_add(wall_seconds).saturating_add(30),
+                )
+                .await?;
+            lease_info = Some((lease.owner_id.clone(), lease.fencing_token));
+
+            let current = self.kernel.get_or_recover_run(&run_id).await?;
+            if current.state == RunState::Admitted {
+                self.kernel
+                    .transition_run_with_lease(
+                        &run_id,
+                        RunState::Running,
+                        current.version,
+                        &lease.owner_id,
+                        lease.fencing_token,
+                    )
+                    .await?;
+            } else {
+                return Err(ContractError::ParseError(format!(
+                    "child run cannot start from state {:?}",
+                    current.state
+                )));
+            }
+
+            let agent = self
+                .session_agent_with_definition(&child_session_id, None, Some(&definition))
+                .await;
+            agent.set_delegation_depth(child.depth);
+            agent.set_tool_call_budget(definition.budget.max_tool_calls.max(1) as usize);
+            let parameters = RuntimeState::agent_execution_parameters(Some(&definition));
+            tokio::time::timeout(
+                std::time::Duration::from_secs(wall_seconds),
+                agent.execute_turn_with_parameters(&request.task, parameters),
+            )
+            .await
+            .map_err(|_| {
+                ContractError::ParseError(format!(
+                    "subagent exceeded its wall-clock budget of {wall_seconds}s"
+                ))
+            })?
+            .and_then(|output| {
+                if output.trim().is_empty() {
+                    Err(ContractError::ParseError(
+                        "subagent completed without producing a result".to_string(),
+                    ))
+                } else {
+                    Ok(output)
+                }
+            })
+        }
+        .await;
+
+        if run_created {
+            if let Ok(current) = self.kernel.get_or_recover_run(&run_id).await {
+                if !matches!(
+                    current.state,
+                    RunState::Completed | RunState::Failed | RunState::Cancelled
+                ) {
+                    let target = if execution.is_ok() {
+                        RunState::Completed
+                    } else {
+                        RunState::Failed
+                    };
+                    let transition = if current.state == RunState::Running {
+                        if let Some((owner_id, fencing_token)) = &lease_info {
+                            self.kernel
+                                .transition_run_with_lease(
+                                    &run_id,
+                                    target,
+                                    current.version,
+                                    owner_id,
+                                    *fencing_token,
+                                )
+                                .await
+                        } else {
+                            self.kernel
+                                .transition_run(&run_id, target, current.version)
+                                .await
+                        }
+                    } else {
+                        self.kernel
+                            .transition_run(&run_id, target, current.version)
+                            .await
+                    };
+                    if let Err(error) = transition {
+                        tracing::warn!(
+                            run_id = %run_id.as_str(),
+                            %error,
+                            "subagent terminal-state transition failed"
+                        );
+                    }
+                }
+            }
+        }
+
+        if let Some((owner_id, fencing_token)) = lease_info {
+            if let Err(error) = self
+                .kernel
+                .release_lease(&run_id, &owner_id, fencing_token)
+                .await
+            {
+                tracing::warn!(
+                    run_id = %run_id.as_str(),
+                    %error,
+                    "subagent run lease release failed; lease will expire"
+                );
+            }
+        }
+
+        let output = execution?;
+        Ok(SubagentTaskResponse {
+            request_id: request.request_id,
+            child_run_id: child.child_run_id,
+            child_session_id,
+            output,
+        })
     }
 }
 
@@ -642,6 +858,28 @@ impl RuntimeState {
             .await
     }
 
+    async fn configure_subagent_supervisor(&self, agent: &ReactAgent) {
+        let definitions = self.subagents.definitions().await;
+        if definitions.is_empty() {
+            return;
+        }
+        let mut supervisor = Supervisor::new();
+        for definition in definitions {
+            supervisor.register_subagent(Subagent {
+                name: definition.agent_id.clone(),
+                description: format!(
+                    "Role: {}. Declared capabilities: {}",
+                    definition.role,
+                    definition.capabilities.join(", ")
+                ),
+                role: definition.role,
+                tools: definition.capabilities,
+            });
+        }
+        agent.set_supervisor(supervisor);
+        agent.set_subagent_runtime(Arc::new(self.clone()));
+    }
+
     async fn session_agent_with_definition(
         &self,
         session_id: &str,
@@ -658,14 +896,29 @@ impl RuntimeState {
             (None, None) => session_id.to_string(),
         };
         let now = unix_time();
-        {
+        let cached_agent = {
             let mut sessions = self.sessions.write().await;
-            if let Some(entry) = sessions.get_mut(&agent_key) {
+            sessions.get_mut(&agent_key).map(|entry| {
                 entry.last_used_at = now;
-                return entry.agent.clone();
+                entry.agent.clone()
+            })
+        };
+        if let Some(agent) = cached_agent {
+            if definition.is_none() {
+                self.configure_subagent_supervisor(&agent).await;
             }
+            return agent;
         }
 
+        let allowed_tool_ids = if let Some(definition) = definition {
+            let entries = self.tool_runtime.list().await;
+            Some(Arc::new(resolve_subagent_tool_ids(
+                &entries,
+                &definition.capabilities,
+            )))
+        } else {
+            None
+        };
         let max_turns = definition
             .map(|value| value.budget.max_tool_calls.max(1) as usize)
             .unwrap_or(90)
@@ -680,9 +933,14 @@ impl RuntimeState {
         }
         agent.set_memory(self.memory.clone());
         agent.set_model_provider(self.provider.clone());
+        agent.set_sandbox(self.sandbox.clone());
         agent.set_tool_runtime(Arc::new(RuntimeToolBridge {
             runtime: self.tool_runtime.clone(),
+            allowed_tool_ids,
         }));
+        if let Some(definition) = definition {
+            agent.set_tool_call_budget(definition.budget.max_tool_calls.max(1) as usize);
+        }
         agent.set_tool_pipeline(ToolExecutionPipeline::new().add_pre_hook(Arc::new(
             PermissionPolicyHook::new().allow_tool("react_action".to_string()),
         )));
@@ -718,6 +976,10 @@ impl RuntimeState {
             if include {
                 agent.add_skill(skill);
             }
+        }
+
+        if definition.is_none() {
+            self.configure_subagent_supervisor(&agent).await;
         }
 
         let recovery_history_limit =
@@ -7140,6 +7402,7 @@ async fn execute_subagent_job(state: RuntimeState, worker_id: String, started_jo
     let agent = state
         .session_agent_with_definition(&session_id, None, definition.as_ref())
         .await;
+    agent.set_delegation_depth(child.depth);
     let parameters = RuntimeState::agent_execution_parameters(definition.as_ref());
     let timeout_seconds = definition
         .as_ref()
@@ -8151,4 +8414,61 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     .map_err(|error| std::io::Error::other(error.to_string()))?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod subagent_tool_scope_tests {
+    use super::*;
+
+    fn tool(tool_id: &str, name: &str, capabilities: &[&str], permissions: &[&str]) -> ToolEntry {
+        ToolEntry {
+            tool_id: tool_id.to_string(),
+            name: name.to_string(),
+            description: String::new(),
+            capabilities: capabilities.iter().map(|value| value.to_string()).collect(),
+            required_permissions: permissions.iter().map(|value| value.to_string()).collect(),
+            context_requirements: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn declared_capabilities_resolve_only_matching_tool_ids() {
+        let entries = vec![
+            tool(
+                "workspace.read_file",
+                "read_file",
+                &["filesystem.read"],
+                &["file.read"],
+            ),
+            tool(
+                "terminal.execute",
+                "execute_command",
+                &["process.execute"],
+                &["command.exec"],
+            ),
+        ];
+        let allowed = resolve_subagent_tool_ids(&entries, &["filesystem.read".to_string()]);
+
+        assert_eq!(allowed, HashSet::from(["workspace.read_file".to_string()]));
+        assert!(ensure_tool_in_scope("workspace.read_file", Some(&allowed)).is_ok());
+        let denied = ensure_tool_in_scope("terminal.execute", Some(&allowed)).unwrap_err();
+        assert!(denied
+            .to_string()
+            .contains("outside the subagent capability scope"));
+    }
+
+    #[test]
+    fn empty_child_capability_list_denies_every_tool_but_parent_scope_is_unchanged() {
+        let entries = vec![tool(
+            "terminal.execute",
+            "execute_command",
+            &["process.execute"],
+            &["command.exec"],
+        )];
+        let child_allowlist = resolve_subagent_tool_ids(&entries, &[]);
+
+        assert!(child_allowlist.is_empty());
+        assert!(ensure_tool_in_scope("terminal.execute", Some(&child_allowlist)).is_err());
+        assert!(ensure_tool_in_scope("terminal.execute", None).is_ok());
+    }
 }

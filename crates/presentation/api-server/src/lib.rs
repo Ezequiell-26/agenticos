@@ -535,7 +535,7 @@ impl RuntimeState {
                 .map_err(|error| ContractError::ParseError(error.to_string()))?,
         );
 
-        Ok(Self {
+        let state = Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             session_cache_capacity,
             agent_execution_concurrency,
@@ -608,7 +608,36 @@ impl RuntimeState {
                 .ok()
                 .and_then(|value| value.parse::<u16>().ok())
                 .unwrap_or(8080),
-        })
+        };
+
+        // Recovered provider health is stale by definition after a process restart.
+        // Mark it unknown first, then probe providers in the background so API startup
+        // does not block on network calls and readiness never relies on the old process.
+        state.provider.reset_health_for_startup().await?;
+        let health_platform = state.provider.clone();
+        tokio::spawn(async move {
+            let mut checks = tokio::task::JoinSet::new();
+            for provider_status in health_platform.list_status().await {
+                let provider = health_platform.clone();
+                let provider_id = provider_status.provider_id;
+                checks.spawn(async move {
+                    if let Err(error) = provider.check_health(&provider_id).await {
+                        tracing::warn!(
+                            provider_id = %provider_id,
+                            error = %error,
+                            "provider startup health check failed"
+                        );
+                    }
+                });
+            }
+            while let Some(result) = checks.join_next().await {
+                if let Err(error) = result {
+                    tracing::warn!(error = %error, "provider startup health task failed");
+                }
+            }
+        });
+
+        Ok(state)
     }
 
     async fn load_skills(registry: &SkillRegistry) -> Vec<Skill> {
@@ -4855,6 +4884,20 @@ async fn register_provider(
         .await
     {
         Ok(()) => {
+            // Provider configuration changes invalidate prior health; probe the new endpoint
+            // asynchronously so saving a provider stays responsive.
+            let health_platform = state.provider.clone();
+            let health_provider_id = provider_id.to_string();
+            tokio::spawn(async move {
+                if let Err(error) = health_platform.check_health(&health_provider_id).await {
+                    tracing::warn!(
+                        provider_id = %health_provider_id,
+                        error = %error,
+                        "provider health check after configuration change failed"
+                    );
+                }
+            });
+
             let provider = state
                 .provider
                 .list_status()

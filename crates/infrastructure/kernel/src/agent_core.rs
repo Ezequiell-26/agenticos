@@ -115,6 +115,24 @@ pub(crate) fn is_structured_tool_action(action: &str) -> bool {
         .is_some_and(|value| !value.trim().is_empty())
 }
 
+/// Maximum tool executions allowed in one model turn, including the initial call.
+fn max_tool_calls_per_turn() -> usize {
+    std::env::var("AGENTICOS_MAX_TOOL_CALLS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(4)
+        .clamp(1, 8)
+}
+
+/// Maximum model follow-up requests allowed after the initial tool proposal.
+fn max_tool_followups_per_turn() -> usize {
+    std::env::var("AGENTICOS_MAX_TOOL_FOLLOWUPS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(8)
+        .clamp(1, 12)
+}
+
 /// ReAct agent core loop implementation.
 #[allow(missing_debug_implementations)]
 pub struct ReactAgent {
@@ -1032,6 +1050,210 @@ impl ReactAgent {
         format!("Observation: {}", observation)
     }
 
+    /// Execute a subsequent model-proposed tool call through the same authorized pipeline.
+    async fn execute_followup_tool_action(
+        &self,
+        action: &str,
+        current_turn: usize,
+        tool_call_number: usize,
+        session_id: &str,
+        turn_id: Option<&str>,
+        event_log: Option<&SessionEventLog>,
+        tool_executor: Option<&ToolExecutor>,
+        tool_runtime: Option<&Arc<dyn ToolRuntimePort>>,
+        default_grant_id: Option<&str>,
+        pipeline: &ToolExecutionPipeline,
+    ) -> Result<String, ContractError> {
+        let step_id = SessionEvent::generate_id("step");
+        let context = ToolExecutionContext::new(
+            "react_action".to_string(),
+            serde_json::json!({"action": action}),
+            session_id.to_string(),
+        )
+        .with_turn_id(turn_id.unwrap_or("unknown").to_string());
+
+        if let (Some(log), Some(_tid)) = (event_log, turn_id) {
+            log.append(SessionEvent::ToolCallStart {
+                tool_id: "react_action".to_string(),
+                step_id: step_id.clone(),
+                tool_name: "react_action".to_string(),
+                args: serde_json::json!({"action": action}),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            });
+        }
+
+        let executor_tool = tool_executor.cloned();
+        let runtime_tool = tool_runtime.cloned();
+        let grant_id = default_grant_id.map(str::to_owned);
+        let agent = self;
+        let executor = move |ctx: ToolExecutionContext| async move {
+            agent
+                .act_inner(
+                    executor_tool.as_ref(),
+                    runtime_tool.as_ref(),
+                    grant_id.as_deref(),
+                    ctx.args["action"].as_str().unwrap_or(""),
+                )
+                .await
+                .map(ToolExecutionResult::success)
+                .unwrap_or_else(|error| ToolExecutionResult::failure(error.to_string()))
+        };
+
+        let result = pipeline.execute(context, executor).await;
+        let tool_execution_succeeded = result.success
+            && !result
+                .output
+                .as_deref()
+                .is_some_and(is_tool_error_observation);
+
+        if let (Some(log), Some(_tid)) = (event_log, turn_id) {
+            log.append(SessionEvent::ToolCallResult {
+                tool_id: "react_action".to_string(),
+                step_id,
+                success: tool_execution_succeeded,
+                output: result.output.clone(),
+                error: result.error.clone(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            });
+        }
+
+        if !result.success {
+            let error_msg = result
+                .error
+                .clone()
+                .unwrap_or_else(|| "Tool execution failed".to_string());
+            if let (Some(log), Some(_tid)) = (event_log, turn_id) {
+                log.append(SessionEvent::Error {
+                    error_id: SessionEvent::generate_id("error"),
+                    context: "tool_execution".to_string(),
+                    message: error_msg.clone(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                });
+            }
+
+            let recovery_id = SessionEvent::generate_id("recovery");
+            if let (Some(log), Some(tid)) = (event_log, turn_id) {
+                log.append(SessionEvent::RecoveryStart {
+                    recovery_id: recovery_id.clone(),
+                    turn_id: tid.to_string(),
+                    context: "tool_execution".to_string(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                });
+            }
+
+            let (circuit_breaker_open, failure_triggered, retry) = {
+                let mut inner = self.inner.lock().unwrap();
+                if inner.recovery_state.is_circuit_breaker_open() {
+                    (true, false, None)
+                } else if !inner.recovery_state.record_failure(error_msg.clone()) {
+                    (false, true, None)
+                } else if inner.recovery_state.increment_retry() {
+                    (
+                        false,
+                        false,
+                        Some((
+                            inner.recovery_state.retry_count,
+                            inner.recovery_state.calculate_backoff_ms(),
+                        )),
+                    )
+                } else {
+                    (false, false, None)
+                }
+            };
+
+            if let Some(log) = event_log {
+                if let Some(tid) = turn_id {
+                    if circuit_breaker_open || failure_triggered {
+                        log.append(SessionEvent::RecoveryEnd {
+                            recovery_id: recovery_id.clone(),
+                            turn_id: tid.to_string(),
+                            success: false,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs(),
+                        });
+                    }
+                }
+            }
+            if circuit_breaker_open {
+                return Err(ContractError::ParseError(
+                    "Circuit breaker is open, tool execution blocked".to_string(),
+                ));
+            }
+            if failure_triggered {
+                return Err(ContractError::ParseError(
+                    "Circuit breaker triggered by consecutive failures".to_string(),
+                ));
+            }
+
+            if let Some((attempt_number, backoff_ms)) = retry {
+                if let (Some(log), Some(_tid)) = (event_log, turn_id) {
+                    log.append(SessionEvent::RecoveryAttempt {
+                        recovery_id: recovery_id.clone(),
+                        attempt_number,
+                        action: format!("retry_tool_execution: {}", action),
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    });
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+            }
+
+            if let (Some(log), Some(tid)) = (event_log, turn_id) {
+                log.append(SessionEvent::RecoveryEnd {
+                    recovery_id,
+                    turn_id: tid.to_string(),
+                    success: false,
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                });
+            }
+            return Err(ContractError::ParseError(error_msg));
+        }
+
+        let output = result
+            .output
+            .unwrap_or_else(|| "Execution completed".to_string());
+        if tool_execution_succeeded {
+            let new_memory = format!("Successfully executed tool: {}. Result: {}", action, output);
+            let _ = self.update_soul_memory(new_memory).await;
+
+            if action.len() > 50 {
+                let skill = SkillEntry {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: format!("Skill from turn {} tool {}", current_turn, tool_call_number),
+                    description: format!("Automatically crystallized from: {}", action),
+                    created_at: chrono::Utc::now(),
+                    usage_count: 1,
+                    success_rate: 1.0,
+                    origin_task: action.to_string(),
+                };
+                let _ = self.add_skill_to_soul(skill).await;
+            }
+
+            self.inner.lock().unwrap().recovery_state.record_success();
+        }
+
+        Ok(output)
+    }
+
     /// Execute one full ReAct loop turn using default model parameters.
     pub async fn execute_turn(&self, input: &str) -> Result<String, ContractError> {
         self.execute_turn_with_parameters(input, None).await
@@ -1433,25 +1655,6 @@ impl ReactAgent {
             action.clone()
         };
 
-        // Log turn end event with latency and step count
-        let turn_end_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        let latency_ms = turn_end_time.saturating_sub(turn_start_time);
-
-        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
-            log.append(SessionEvent::TurnEnd {
-                turn_id: tid.clone(),
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                step_count: 2, // thought + action
-                latency_ms,
-            });
-        }
-
         // Delegate to subagent if supervisor is configured
         if let Some(supervisor) = &supervisor {
             if let Some(subagent_name) = supervisor
@@ -1478,62 +1681,151 @@ impl ReactAgent {
             }
         }
 
-        // Step 4: Complete the ReAct turn.
-        //
-        // When the model emitted a structured tool call, execute it and make one
-        // bounded follow-up model call so the user receives a final answer rather
-        // than the raw tool observation. Plain model responses are returned directly.
+        // Step 4: Complete the ReAct turn. Every proposed tool call after the
+        // initial action is routed through the same capability-gated pipeline.
+        // Both model follow-ups and actual tool executions have hard per-turn limits.
         let mut result = if is_structured_tool_action(&thought) && tool_pipeline.is_some() {
             self.observe(&observation)
         } else {
             observation.clone()
         };
+        let mut last_tool_observation = observation.clone();
+        let mut tool_calls_executed =
+            usize::from(is_structured_tool_action(&thought) && tool_pipeline.is_some());
+        let mut followup_model_calls = 0usize;
+        let mut executed_tool_actions: Vec<serde_json::Value> = Vec::new();
+        let mut last_executed_tool_action = None;
+        if tool_calls_executed > 0 {
+            if let Ok(action) = serde_json::from_str::<serde_json::Value>(&thought) {
+                last_executed_tool_action = Some(action.clone());
+                executed_tool_actions.push(action);
+            }
+        }
 
         if is_structured_tool_action(&thought) && model_provider.is_some() {
-            let max_followups = std::env::var("AGENTICOS_MAX_TOOL_FOLLOWUPS")
-                .ok()
-                .and_then(|value| value.parse::<usize>().ok())
-                .unwrap_or(1)
-                .clamp(1, 4);
+            let max_followups = max_tool_followups_per_turn();
+            let max_tool_calls = max_tool_calls_per_turn();
             let mut followup_prompt = format!(
                 "Original user request:\n{}\n\nTool observation:\n{}\n\n",
                 input, observation
             );
-            let mut attempts = 0;
-            while attempts < max_followups {
-                attempts += 1;
+            let mut final_answer_produced = false;
+            while followup_model_calls < max_followups {
+                followup_model_calls += 1;
                 followup_prompt.push_str(
-                    "Use the tool observation to produce the final user-facing answer in plain text. Return another tool JSON only when another tool call is strictly necessary.",
+                    "Use all prior tool observations to produce the final user-facing answer in plain text. Request another tool only when a further action is necessary.",
                 );
                 let followup = self
                     .think_inner(
                         model_provider.as_ref(),
-                        current_turn.saturating_add(attempts),
+                        current_turn.saturating_add(followup_model_calls),
                         &followup_prompt,
                         preferred_model.as_deref(),
                         parameters.as_deref(),
                     )
                     .await?;
-                if is_structured_tool_action(&followup) {
-                    if followup == thought {
-                        result = followup;
-                        break;
-                    }
-                    // Surface an additional tool request without executing it recursively.
+
+                if !is_structured_tool_action(&followup) {
                     result = followup;
-                    if attempts < max_followups {
-                        followup_prompt.push_str("\n\nThe previous response was another tool JSON. The user needs a final answer NOW: reply in plain text summarizing the tool observation. Do not emit JSON.");
-                        continue;
-                    }
+                    final_answer_produced = true;
                     break;
                 }
-                result = followup;
-                break;
+
+                let Some(pipeline) = tool_pipeline.as_ref() else {
+                    result = "A tool was requested, but no authorized tool pipeline is configured for this turn; no tool was executed.".to_string();
+                    final_answer_produced = true;
+                    break;
+                };
+
+                let proposed_action = match serde_json::from_str::<serde_json::Value>(&followup) {
+                    Ok(action) => action,
+                    Err(_) => {
+                        result = user_facing_response_from_tool_observation(
+                            &followup,
+                            &last_tool_observation,
+                        );
+                        final_answer_produced = true;
+                        break;
+                    }
+                };
+
+                let retrying_last_failed_action = last_executed_tool_action
+                    .as_ref()
+                    .is_some_and(|previous| previous == &proposed_action)
+                    && is_tool_error_observation(&last_tool_observation);
+                if executed_tool_actions
+                    .iter()
+                    .any(|previous| previous == &proposed_action)
+                    && !retrying_last_failed_action
+                {
+                    followup_prompt.push_str(
+                        "\n\nThis exact tool request was already executed. Do not repeat it. Use the available observations and give a plain-text answer.",
+                    );
+                    result = self.observe(&last_tool_observation);
+                    continue;
+                }
+
+                if tool_calls_executed >= max_tool_calls {
+                    followup_prompt.push_str(&format!(
+                        "\n\nThe per-turn tool-call budget ({}) is exhausted. Do not request more tools. Synthesize a plain-text answer from the observations already available.",
+                        max_tool_calls
+                    ));
+                    result = self.observe(&last_tool_observation);
+                    continue;
+                }
+
+                let tool_output = self
+                    .execute_followup_tool_action(
+                        &followup,
+                        current_turn,
+                        tool_calls_executed.saturating_add(1),
+                        &session_id,
+                        turn_id.as_deref(),
+                        event_log.as_ref(),
+                        tool_executor.as_ref(),
+                        tool_runtime.as_ref(),
+                        tool_grant_id.as_deref(),
+                        pipeline,
+                    )
+                    .await?;
+
+                tool_calls_executed += 1;
+                last_executed_tool_action = Some(proposed_action.clone());
+                executed_tool_actions.push(proposed_action);
+                last_tool_observation = tool_output.clone();
+                followup_prompt.push_str(&format!(
+                    "\n\nModel tool request:\n{}\nTool observation:\n{}\n",
+                    followup, tool_output
+                ));
+                result = self.observe(&last_tool_observation);
+            }
+
+            if !final_answer_produced {
+                result =
+                    user_facing_response_from_tool_observation(&result, &last_tool_observation);
             }
         }
 
         if is_structured_tool_action(&result) {
-            result = user_facing_response_from_tool_observation(&result, &observation);
+            result = user_facing_response_from_tool_observation(&result, &last_tool_observation);
+        }
+
+        // End the turn only after all bounded follow-up calls and tool executions finish.
+        let turn_end_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let latency_ms = turn_end_time.saturating_sub(turn_start_time);
+        if let (Some(log), Some(tid)) = (&event_log, &turn_id) {
+            log.append(SessionEvent::TurnEnd {
+                turn_id: tid.clone(),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                step_count: 2 + followup_model_calls + tool_calls_executed.saturating_sub(1),
+                latency_ms,
+            });
         }
 
         // Persist the final user-facing answer separately from the model's tool-call thought.
@@ -1562,6 +1854,10 @@ impl ReactAgent {
                     "thought": thought,
                     "action": action,
                     "observation": observation,
+                    "last_tool_observation": last_tool_observation,
+                    "tool_calls_executed": tool_calls_executed,
+                    "followup_model_calls": followup_model_calls,
+                    "executed_tool_actions": executed_tool_actions,
                     "result": result,
                     "plan": plan
                 }),
@@ -3290,5 +3586,183 @@ mod tool_recovery_tests {
                 "tool execution requires approval: grant missing".to_string()
             )
         ));
+    }
+}
+
+#[cfg(test)]
+mod multi_step_tool_tests {
+    use super::*;
+    use agenticos_contracts::{
+        ContractError, ModelProvider, ModelRequest, ModelResponse, ToolEntry, ToolRequest,
+        ToolResponse, ToolRuntimePort,
+    };
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex as StdMutex};
+
+    struct SequenceModelProvider {
+        outputs: StdMutex<VecDeque<String>>,
+        requests: StdMutex<Vec<ModelRequest>>,
+    }
+
+    impl SequenceModelProvider {
+        fn new(outputs: Vec<String>) -> Self {
+            Self {
+                outputs: StdMutex::new(outputs.into()),
+                requests: StdMutex::new(Vec::new()),
+            }
+        }
+
+        fn requests(&self) -> Vec<ModelRequest> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ModelProvider for SequenceModelProvider {
+        fn provider_id(&self) -> &str {
+            "multi-step-test"
+        }
+
+        async fn execute(&self, request: ModelRequest) -> Result<ModelResponse, ContractError> {
+            self.requests.lock().unwrap().push(request.clone());
+            let output = self.outputs.lock().unwrap().pop_front().ok_or_else(|| {
+                ContractError::ParseError("test model response queue exhausted".to_string())
+            })?;
+
+            Ok(ModelResponse {
+                request_id: request.request_id,
+                output,
+                metadata: None,
+                tokens_used: None,
+            })
+        }
+    }
+
+    #[derive(Default)]
+    struct RecordingToolRuntime {
+        requests: StdMutex<Vec<ToolRequest>>,
+    }
+
+    impl RecordingToolRuntime {
+        fn requests(&self) -> Vec<ToolRequest> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ToolRuntimePort for RecordingToolRuntime {
+        async fn list_tools(&self) -> Result<Vec<ToolEntry>, ContractError> {
+            Ok(Vec::new())
+        }
+
+        async fn execute(&self, request: ToolRequest) -> Result<ToolResponse, ContractError> {
+            self.requests.lock().unwrap().push(request.clone());
+            Ok(ToolResponse {
+                request_id: request.request_id.clone(),
+                result: format!("result from {}", request.tool_id),
+                success: true,
+                error: None,
+                metadata: None,
+            })
+        }
+    }
+
+    fn tool_call(tool_id: &str) -> String {
+        serde_json::json!({
+            "tool": tool_id,
+            "arguments": {"input": tool_id}
+        })
+        .to_string()
+    }
+
+    fn build_agent(
+        outputs: Vec<String>,
+    ) -> (
+        ReactAgent,
+        Arc<SequenceModelProvider>,
+        Arc<RecordingToolRuntime>,
+    ) {
+        let provider = Arc::new(SequenceModelProvider::new(outputs));
+        let runtime = Arc::new(RecordingToolRuntime::default());
+        let agent = ReactAgent::with_max_turns("multi-step-test".to_string(), 10);
+        agent.set_model_provider(provider.clone());
+        agent.set_model("test-model".to_string());
+        agent.set_tool_runtime(runtime.clone());
+        agent.set_tool_grant_id("test-grant".to_string());
+        agent.set_tool_pipeline(ToolExecutionPipeline::new());
+        (agent, provider, runtime)
+    }
+
+    #[tokio::test]
+    async fn executes_sequential_tool_calls_and_returns_final_text() {
+        let (agent, provider, runtime) = build_agent(vec![
+            tool_call("tool.first"),
+            tool_call("tool.second"),
+            "Both tool results confirm completion.".to_string(),
+        ]);
+
+        let result = agent.execute_turn("Use both tools in order").await.unwrap();
+
+        assert_eq!(result, "Both tool results confirm completion.");
+        assert!(!is_structured_tool_action(&result));
+
+        let tool_requests = runtime.requests();
+        assert_eq!(tool_requests.len(), 2);
+        assert_eq!(tool_requests[0].tool_id, "tool.first");
+        assert_eq!(tool_requests[1].tool_id, "tool.second");
+        assert!(tool_requests
+            .iter()
+            .all(|request| request.grant_id == "test-grant"));
+
+        let model_requests = provider.requests();
+        assert_eq!(model_requests.len(), 3);
+        assert!(model_requests[1].input.contains("result from tool.first"));
+        assert!(model_requests[2].input.contains("result from tool.first"));
+        assert!(model_requests[2].input.contains("result from tool.second"));
+    }
+
+    #[tokio::test]
+    async fn repeated_structured_tool_request_is_not_executed_twice() {
+        let repeated = tool_call("tool.repeat");
+        let (agent, _provider, runtime) = build_agent(vec![
+            repeated.clone(),
+            format!("  \n{}\n  ", repeated),
+            "The available tool result was reused.".to_string(),
+        ]);
+
+        let result = agent
+            .execute_turn("Use the tool and summarize it")
+            .await
+            .unwrap();
+
+        assert_eq!(result, "The available tool result was reused.");
+        assert!(!is_structured_tool_action(&result));
+        let requests = runtime.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].tool_id, "tool.repeat");
+    }
+
+    #[tokio::test]
+    async fn per_turn_tool_budget_bounds_execution() {
+        let budget = max_tool_calls_per_turn();
+        let mut outputs = vec![tool_call("tool.initial")];
+        for index in 1..=budget {
+            outputs.push(tool_call(&format!("tool.extra_{index}")));
+        }
+        outputs.push("Finished with the available tool results.".to_string());
+
+        let (agent, _provider, runtime) = build_agent(outputs);
+        let result = agent
+            .execute_turn("Run tools until the budget is reached")
+            .await
+            .unwrap();
+
+        assert!(!is_structured_tool_action(&result));
+        assert!(
+            runtime.requests().len() <= budget,
+            "executed {} calls despite a configured budget of {}",
+            runtime.requests().len(),
+            budget
+        );
     }
 }

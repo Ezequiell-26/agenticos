@@ -1378,6 +1378,66 @@ mod persistent_memory_tests {
     }
 
     #[tokio::test]
+    async fn semantic_retrieval_evaluation_reports_ranked_metrics() {
+        let path = std::env::temp_dir().join(format!(
+            "agenticos-memory-eval-ranked-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = PersistentMemoryStore::new(&url).await.unwrap();
+
+        let first = store
+            .upsert("project:eval-ranked", "first", "first memory", &[], 0.8, 0)
+            .await
+            .unwrap();
+        let second = store
+            .upsert(
+                "project:eval-ranked",
+                "second",
+                "second memory",
+                &[],
+                0.8,
+                0,
+            )
+            .await
+            .unwrap();
+
+        store
+            .set_embedding(&first.memory_id, &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .set_embedding(&second.memory_id, &[0.8, 0.6])
+            .await
+            .unwrap();
+
+        let report = store
+            .evaluate_semantic_retrieval(
+                "project:eval-ranked",
+                &[
+                    SemanticRetrievalCase {
+                        query_embedding: vec![0.8, 0.6],
+                        relevant_memory_ids: vec![second.memory_id.clone()],
+                    },
+                    SemanticRetrievalCase {
+                        query_embedding: vec![0.8, 0.6],
+                        relevant_memory_ids: vec![first.memory_id.clone()],
+                    },
+                ],
+                2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(report.evaluated_queries, 2);
+        assert_eq!(report.hit_at_1, 1);
+        assert_eq!(report.hit_at_k, 2);
+        assert_eq!(report.mean_reciprocal_rank, 0.75);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn semantic_search_enforces_limit_and_skips_wrong_dimensions() {
         let path = std::env::temp_dir().join(format!(
             "agenticos-memory-semantic-limits-{}.db",

@@ -81,10 +81,10 @@ jobs:
         working-directory: crates/presentation/desktop/frontend
 
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
+        run: npm install --global "@tauri-apps/cli@^2" --no-audit --no-fund
 
       - name: Build and bundle AgentiCOS for Windows
-        run: cargo tauri build
+        run: tauri build
         working-directory: crates/presentation/desktop
         env:
           VITE_AGENTICOS_API_URL: http://127.0.0.1:8080

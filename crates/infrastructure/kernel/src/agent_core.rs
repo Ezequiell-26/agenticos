@@ -1439,10 +1439,7 @@ impl ReactAgent {
                 if let (Some(log), Some(_tid)) = (&event_log, &turn_id) {
                     log.append(SessionEvent::AgentRequest {
                         request_id: uuid::Uuid::new_v4().to_string(),
-                        model: preferred_model
-                            .as_deref()
-                            .unwrap_or("default")
-                            .to_string(),
+                        model: preferred_model.as_deref().unwrap_or("default").to_string(),
                         prompt_length: input.len(),
                         timestamp: SystemTime::now()
                             .duration_since(UNIX_EPOCH)

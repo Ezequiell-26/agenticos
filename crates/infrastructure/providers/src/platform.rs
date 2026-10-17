@@ -983,11 +983,18 @@ impl ProviderPlatform {
         request: ModelRequest,
     ) -> Result<ModelResponse, ContractError> {
         let providers = self.registry.list().await;
-        let requested_provider_ids = request
+        let agenticos_parameters = request
             .parameters
             .as_deref()
             .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
-            .and_then(|value| value.get("agenticos").cloned())
+            .and_then(|value| value.get("agenticos").cloned());
+        let strict_provider_scope = agenticos_parameters
+            .as_ref()
+            .and_then(|value| value.get("strict_provider_scope"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        let requested_provider_ids = agenticos_parameters
+            .as_ref()
             .and_then(|value| value.get("providers").cloned())
             .and_then(|value| value.as_array().cloned())
             .map(|values| {
@@ -1004,8 +1011,15 @@ impl ProviderPlatform {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        if strict_provider_scope && requested_provider_ids.is_empty() {
+            return Err(ContractError::ParseError(
+                "strict provider scope requires at least one provider ID".to_string(),
+            ));
+        }
         let primary_provider = if let Some(first) = requested_provider_ids.first() {
             Some(first.clone())
+        } else if strict_provider_scope {
+            None
         } else {
             match std::env::var("AGENTICOS_PRIMARY_PROVIDER")
                 .ok()
@@ -1023,7 +1037,6 @@ impl ProviderPlatform {
                     }),
             }
         };
-
         let mut ordered_ids = Vec::new();
         let mut seen = std::collections::HashSet::new();
         let mut push_provider = |provider_id: String| {
@@ -1034,12 +1047,14 @@ impl ProviderPlatform {
         let mut allow_discovered_fallbacks = true;
         if let Some(primary) = primary_provider.as_deref() {
             push_provider(primary.to_string());
-            if let Some(config) = self.fallbacks.get_config(primary).await {
-                allow_discovered_fallbacks = config.auto_failover;
-                if config.auto_failover {
-                    for fallback in config.fallback_providers {
-                        if fallback != primary {
-                            push_provider(fallback);
+            if !strict_provider_scope {
+                if let Some(config) = self.fallbacks.get_config(primary).await {
+                    allow_discovered_fallbacks = config.auto_failover;
+                    if config.auto_failover {
+                        for fallback in config.fallback_providers {
+                            if fallback != primary {
+                                push_provider(fallback);
+                            }
                         }
                     }
                 }
@@ -1049,7 +1064,7 @@ impl ProviderPlatform {
             for provider_id in &requested_provider_ids {
                 push_provider(provider_id.clone());
             }
-        } else if allow_discovered_fallbacks {
+        } else if !strict_provider_scope && allow_discovered_fallbacks {
             for provider in &providers {
                 push_provider(provider.provider_id.clone());
             }

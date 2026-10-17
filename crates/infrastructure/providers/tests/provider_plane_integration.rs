@@ -103,6 +103,51 @@ fn spawn_http_response_server(response_body: &'static str) -> (String, thread::J
     spawn_http_response_server_with_status("200 OK", response_body)
 }
 
+fn spawn_observed_http_response_server(
+    status_line: &'static str,
+    response_body: &'static str,
+) -> (
+    String,
+    thread::JoinHandle<bool>,
+    std::sync::mpsc::Sender<()>,
+) {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind observed test HTTP server");
+    let address = listener.local_addr().expect("read observed local address");
+    listener
+        .set_nonblocking(true)
+        .expect("set observed test listener nonblocking");
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+
+    let handle = thread::spawn(move || loop {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+                let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(2)));
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request);
+                let response = format!(
+                    "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+                return true;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                match stop_rx.try_recv() {
+                    Ok(()) | Err(std::sync::mpsc::TryRecvError::Disconnected) => return false,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        thread::sleep(std::time::Duration::from_millis(5));
+                    }
+                }
+            }
+            Err(_) => return false,
+        }
+    });
+
+    (format!("http://{}", address), handle, stop_tx)
+}
 fn spawn_authenticated_models_server(
     expected_auth: &'static str,
 ) -> (String, thread::JoinHandle<()>) {
@@ -953,4 +998,124 @@ async fn provider_platform_persists_active_quota_window_across_restart() {
     assert_eq!(recovered.tokens_per_minute, Some(10_000));
 
     let _ = std::fs::remove_file(path);
+}
+
+#[tokio::test]
+async fn strict_agent_provider_scope_ignores_global_fallbacks_outside_allowlist() {
+    let (primary_url, primary_server) = spawn_http_response_server_with_status(
+        "503 Service Unavailable",
+        r#"{"error":{"message":"primary unavailable"}}"#,
+    );
+    let (allowed_url, allowed_server) = spawn_http_response_server(
+        r#"{"choices":[{"message":{"content":"allowed-provider-was-used"}}],"usage":{"total_tokens":7}}"#,
+    );
+    let (out_of_scope_url, out_of_scope_server, stop_out_of_scope_server) =
+        spawn_observed_http_response_server(
+            "200 OK",
+            r#"{"choices":[{"message":{"content":"out-of-scope-provider-was-used"}}],"usage":{"total_tokens":9}}"#,
+        );
+
+    let platform = ProviderPlatform::new();
+    platform
+        .register(
+            provider_with_base_url("scope-primary", primary_url, &["model-primary"]),
+            None,
+        )
+        .await
+        .expect("register primary provider");
+    platform
+        .register(
+            provider_with_base_url("scope-allowed", allowed_url, &["model-allowed"]),
+            None,
+        )
+        .await
+        .expect("register allowed provider");
+    platform
+        .register(
+            provider_with_base_url(
+                "scope-out-of-scope",
+                out_of_scope_url,
+                &["model-out-of-scope"],
+            ),
+            None,
+        )
+        .await
+        .expect("register out-of-scope provider");
+    platform
+        .set_retry_policy(
+            "scope-primary".to_string(),
+            RetryPolicy {
+                max_attempts: 1,
+                initial_backoff_ms: 1,
+                max_backoff_ms: 1,
+                exponential_backoff: false,
+            },
+        )
+        .await
+        .expect("limit primary retries for deterministic failover test");
+    platform
+        .set_fallback_config(FallbackConfig {
+            primary_provider: "scope-primary".to_string(),
+            fallback_providers: vec!["scope-out-of-scope".to_string()],
+            auto_failover: true,
+        })
+        .await
+        .expect("configure a global fallback outside the agent scope");
+
+    let response = platform
+        .execute(ModelRequest {
+            request_id: "strict-provider-scope-1".to_string(),
+            model: "default".to_string(),
+            input: "test scoped provider routing".to_string(),
+            parameters: Some(
+                serde_json::json!({
+                    "agenticos": {
+                        "providers": ["scope-primary", "scope-allowed"],
+                        "strict_provider_scope": true
+                    }
+                })
+                .to_string(),
+            ),
+        })
+        .await
+        .expect("routing should remain inside the explicitly allowed provider list");
+
+    let _ = stop_out_of_scope_server.send(());
+    let out_of_scope_was_used = out_of_scope_server
+        .join()
+        .expect("join out-of-scope provider server");
+    primary_server.join().expect("join primary provider server");
+    allowed_server.join().expect("join allowed provider server");
+
+    assert_eq!(response.output, "allowed-provider-was-used");
+    assert!(
+        !out_of_scope_was_used,
+        "global fallback escaped the agent provider scope"
+    );
+}
+
+#[tokio::test]
+async fn strict_agent_provider_scope_with_empty_allowlist_fails_closed() {
+    let platform = ProviderPlatform::new();
+    let error = platform
+        .execute(ModelRequest {
+            request_id: "strict-provider-scope-empty-1".to_string(),
+            model: "default".to_string(),
+            input: "this request must not fall back to a default provider".to_string(),
+            parameters: Some(
+                serde_json::json!({
+                    "agenticos": {
+                        "providers": [],
+                        "strict_provider_scope": true
+                    }
+                })
+                .to_string(),
+            ),
+        })
+        .await
+        .expect_err("an empty strict provider scope must be rejected");
+
+    assert!(error
+        .to_string()
+        .contains("strict provider scope requires at least one provider ID"));
 }

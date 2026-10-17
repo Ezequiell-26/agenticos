@@ -1046,18 +1046,26 @@ impl RuntimeState {
         let definition = definition?;
         let mut agenticos = serde_json::Map::new();
         if !definition.providers.is_empty() {
+            let allowed_providers: Vec<_> = definition
+                .providers
+                .iter()
+                .map(|provider| provider.trim())
+                .filter(|provider| !provider.is_empty())
+                .take(32)
+                .map(ToOwned::to_owned)
+                .collect();
             agenticos.insert(
                 "providers".to_string(),
                 serde_json::Value::Array(
-                    definition
-                        .providers
-                        .iter()
-                        .filter(|provider| !provider.trim().is_empty())
-                        .take(32)
-                        .cloned()
+                    allowed_providers
+                        .into_iter()
                         .map(serde_json::Value::String)
                         .collect(),
                 ),
+            );
+            agenticos.insert(
+                "strict_provider_scope".to_string(),
+                serde_json::Value::Bool(true),
             );
         }
         if definition.budget.max_tokens > 0 {
@@ -8470,5 +8478,48 @@ mod subagent_tool_scope_tests {
         assert!(child_allowlist.is_empty());
         assert!(ensure_tool_in_scope("terminal.execute", Some(&child_allowlist)).is_err());
         assert!(ensure_tool_in_scope("terminal.execute", None).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod subagent_provider_scope_tests {
+    use super::*;
+
+    fn definition(providers: Vec<&str>) -> AgentDefinition {
+        AgentDefinition {
+            agent_id: "provider-scoped-agent".to_string(),
+            role: "researcher".to_string(),
+            capabilities: Vec::new(),
+            providers: providers.into_iter().map(ToOwned::to_owned).collect(),
+            skills: Vec::new(),
+            sandbox_profile: "default".to_string(),
+            budget: AgentBudget::default(),
+        }
+    }
+
+    #[test]
+    fn explicit_provider_list_is_trimmed_and_marked_strict() {
+        let definition = definition(vec![" primary ", "", "secondary"]);
+        let raw = RuntimeState::agent_execution_parameters(Some(&definition)).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+
+        assert_eq!(
+            value["agenticos"]["providers"],
+            serde_json::json!(["primary", "secondary"])
+        );
+        assert_eq!(
+            value["agenticos"]["strict_provider_scope"],
+            serde_json::Value::Bool(true)
+        );
+    }
+
+    #[test]
+    fn absent_provider_list_preserves_default_provider_routing() {
+        let definition = definition(Vec::new());
+        let raw = RuntimeState::agent_execution_parameters(Some(&definition)).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+
+        assert!(value["agenticos"].get("providers").is_none());
+        assert!(value["agenticos"].get("strict_provider_scope").is_none());
     }
 }

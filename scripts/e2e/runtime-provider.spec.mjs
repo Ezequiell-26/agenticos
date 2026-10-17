@@ -167,6 +167,31 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
 
       receivedRequests.push(payload)
       const serializedPayload = JSON.stringify(payload)
+
+      // Interactive chat may make an additional, explicit model call to decide whether
+      // a registered subagent is needed. Give that coordinator request a valid "no
+      // delegation" result so this E2E tests both the coordinator and the user-facing call.
+      const isCoordinatorRequest = serializedPayload.includes('You are a task coordination AI')
+      if (isCoordinatorRequest) {
+        const coordinatorBody = JSON.stringify({
+          id: 'chatcmpl-agenticos-ui-coordinator',
+          object: 'chat.completion',
+          choices: [{
+            index: 0,
+            message: { role: 'assistant', content: 'null' },
+            finish_reason: 'stop',
+          }],
+          usage: { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 },
+        })
+        response.writeHead(200, {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(coordinatorBody),
+          connection: 'close',
+        })
+        response.end(coordinatorBody)
+        return
+      }
+
       if (!serializedPayload.includes('desktop UI E2E')) {
         response.writeHead(400, { 'content-type': 'application/json' })
         response.end(JSON.stringify({ error: { message: 'expected E2E input was not present' } }))
@@ -276,9 +301,12 @@ test.describe('AgentiCOS desktop runtime E2E', () => {
     }
     await expect.poll(async () => shell.getAttribute('data-runtime'), { timeout: 10_000 }).toBe('connected')
 
-    expect(receivedRequests).toHaveLength(1)
+    expect(receivedRequests).toHaveLength(2)
     expect(receivedRequests[0]?.model).toBe('e2e-model')
-    expect(JSON.stringify(receivedRequests[0])).toContain('desktop UI E2E')
+    expect(JSON.stringify(receivedRequests[0])).toContain('You are a task coordination AI')
+    expect(receivedRequests[0]?.messages?.[0]?.content).toContain('Return JSON null')
+    expect(receivedRequests[1]?.model).toBe('e2e-model')
+    expect(JSON.stringify(receivedRequests[1])).toContain('desktop UI E2E')
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(shell).toBeVisible({ timeout: 30_000 })

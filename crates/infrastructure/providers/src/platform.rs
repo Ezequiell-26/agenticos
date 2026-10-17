@@ -696,6 +696,8 @@ impl ProviderPlatform {
                 })
                 .await?;
         }
+        // A provider reconfiguration invalidates any probe result obtained for its old endpoint.
+        self.health_cache.write().await.remove(&provider_id);
         self.update_health(&provider_id, HealthStatus::Unknown, None)
             .await?;
         Ok(())
@@ -1698,6 +1700,32 @@ impl ProviderPlatform {
         .await?;
 
         Ok(unique_models)
+    }
+
+    /// Clear recovered health and cached probes before live startup checks.
+    ///
+    /// Persisted provider health is historical evidence, not proof that the provider is reachable
+    /// by the current process. Reset it before the API starts its asynchronous probes so /ready
+    /// cannot report a stale healthy provider after a restart.
+    pub async fn reset_health_for_startup(&self) -> Result<(), ContractError> {
+        self.health_cache.write().await.clear();
+        let provider_ids = self
+            .registry
+            .list()
+            .await
+            .into_iter()
+            .map(|provider| provider.provider_id)
+            .collect::<Vec<_>>();
+
+        for provider_id in provider_ids {
+            self.update_health(
+                &provider_id,
+                HealthStatus::Unknown,
+                Some("Waiting for live provider health check".to_string()),
+            )
+            .await?;
+        }
+        Ok(())
     }
 
     /// Probe an OpenAI-compatible provider and update its health state.
@@ -3467,6 +3495,91 @@ mod tests {
         assert_eq!(statuses.len(), 1);
         assert_eq!(statuses[0].name, "Updated Provider");
         assert!(statuses[0].configured);
+    }
+
+    #[tokio::test]
+    async fn provider_reconfiguration_invalidates_cached_health() {
+        let platform = ProviderPlatform::new();
+        let entry = ProviderEntry {
+            provider_id: "cache-provider".to_string(),
+            name: "Cache Provider".to_string(),
+            base_url: "http://localhost:9222/v1".to_string(),
+            models: vec!["model-old".to_string()],
+            capabilities: vec!["chat".to_string()],
+        };
+        platform.register(entry.clone(), None).await.unwrap();
+        platform.health_cache.write().await.insert(
+            "cache-provider".to_string(),
+            (
+                Instant::now(),
+                HealthCheck {
+                    provider_id: "cache-provider".to_string(),
+                    status: HealthStatus::Healthy,
+                    last_check: unix_time(),
+                    message: Some("stale endpoint result".to_string()),
+                },
+            ),
+        );
+
+        platform
+            .register(
+                ProviderEntry {
+                    name: "Cache Provider Updated".to_string(),
+                    base_url: "http://localhost:9223/v1".to_string(),
+                    models: vec!["model-new".to_string()],
+                    ..entry
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(!platform
+            .health_cache
+            .read()
+            .await
+            .contains_key("cache-provider"));
+        let status = platform.list_status().await;
+        assert_eq!(status[0].health, "Unknown");
+    }
+
+    #[tokio::test]
+    async fn startup_health_reset_does_not_trust_recovered_healthy_state() {
+        let platform = ProviderPlatform::new();
+        let entry = ProviderEntry {
+            provider_id: "startup-provider".to_string(),
+            name: "Startup Provider".to_string(),
+            base_url: "http://localhost:9224/v1".to_string(),
+            models: vec!["model-a".to_string()],
+            capabilities: vec!["chat".to_string()],
+        };
+        platform.register(entry, None).await.unwrap();
+        platform
+            .update_health("startup-provider", HealthStatus::Healthy, None)
+            .await
+            .unwrap();
+        platform.health_cache.write().await.insert(
+            "startup-provider".to_string(),
+            (
+                Instant::now(),
+                HealthCheck {
+                    provider_id: "startup-provider".to_string(),
+                    status: HealthStatus::Healthy,
+                    last_check: unix_time(),
+                    message: Some("previous process".to_string()),
+                },
+            ),
+        );
+
+        platform.reset_health_for_startup().await.unwrap();
+
+        let status = platform.list_status().await;
+        assert_eq!(status[0].health, "Unknown");
+        assert!(!platform
+            .health_cache
+            .read()
+            .await
+            .contains_key("startup-provider"));
     }
 
     #[test]

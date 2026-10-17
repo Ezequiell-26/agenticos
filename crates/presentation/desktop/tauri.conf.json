@@ -3,8 +3,14 @@
   "version": "0.1.0",
   "identifier": "com.agenticos.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "frontend"
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "frontend"
+    },
     "devUrl": "http://localhost:5173",
     "frontendDist": "frontend/dist"
   },

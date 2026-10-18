@@ -46,14 +46,18 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
   const [readiness, setReadiness] = useState<RuntimeApiRecord | null>(null)
   const [sandbox, setSandbox] = useState<RuntimeApiRecord | null>(null)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void runtime.projects.list()
       .then((remote) => {
-        if (cancelled || remote.length === 0) return
+        if (cancelled) return
         setRuntimeProjects(remote)
-        setProject((current) => remote.some((item) => item.name === current) ? current : remote[0].name)
+        // An empty answer is still an answer, and the reselection only has a first
+        // row to fall back to when the runtime actually returned one.
+        setProject((current) => remote.some((item) => item.name === current) ? current : remote[0]?.name ?? current)
+        setRuntimeBacked(true)
       })
       .catch(() => {})
       .finally(() => {
@@ -89,7 +93,9 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
   const liveProject = runtimeProjects.find((item) => item.name === project)
   const selected = liveProject
     ? ([liveProject.name, liveProject.description, liveProject.default_branch, liveProject.status] as const)
-    : (projects.find((item) => item[0] === project) ?? projects[0])
+    : runtimeBacked
+      ? (['No runtime project', 'The runtime holds no projects yet', '—', 'Empty'] as const)
+      : (projects.find((item) => item[0] === project) ?? projects[0])
   const runningJobs = runtimeJobs.filter((job) => ['running', 'in_progress', 'claimed', 'executing'].includes(String(job.state ?? job.status).toLowerCase())).length
   const blockedJobs = runtimeJobs.filter((job) => ['blocked', 'failed', 'error'].includes(String(job.state ?? job.status).toLowerCase())).length
   const activeProviders = runtimeProviders.filter((provider) => provider.configured === true).length
@@ -100,7 +106,7 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
     <div className="project-control">
       <header className="project-control__hero">
         <div>
-          <span className="eyebrow">{runtimeSyncing ? 'Workspace control · syncing' : 'Workspace control · runtime'}</span>
+          <span className="eyebrow">{runtimeSyncing ? 'Workspace control · syncing' : runtimeBacked ? 'Workspace control · runtime' : 'Workspace control · preview, runtime offline'}</span>
           <h1>Project Control Center</h1>
           <p>One workspace view for project identity, agent profile, current branch, tasks, environment and recovery state.</p>
         </div>
@@ -168,7 +174,9 @@ export function ProjectControlCenter({ onAction }: { onAction: (message: string)
       {tab === 'projects' && (
         <Panel title="Project registry">
           <div className="project-list">
-            {(runtimeProjects.length ? runtimeProjects.map((item) => [item.name, item.description, item.default_branch, item.status] as const) : projects).map((item) => (
+            {runtimeBacked && runtimeProjects.length === 0 ? (
+              <div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="folder" size={18} /></span><strong>No runtime projects</strong><p>Workspaces appear here once the runtime registers one.</p></div>
+            ) : (runtimeProjects.length ? runtimeProjects.map((item) => [item.name, item.description, item.default_branch, item.status] as const) : projects).map((item) => (
               <button type="button" key={item[0]} className={project === item[0] ? 'project-row project-row--active' : 'project-row'} onClick={() => setProject(item[0])}>
                 <span><strong>{item[0]}</strong><small>{item[1]} · {item[2]}</small></span>
                 <Tag label={item[3]} /><Icon name="chevron-right" size={12} />

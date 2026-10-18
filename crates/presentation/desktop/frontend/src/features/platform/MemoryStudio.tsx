@@ -13,11 +13,12 @@ const initial: Memory[] = [
 export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
   const [items,setItems]=useState(initial); const [selected,setSelected]=useState(initial[0].id); const [query,setQuery]=useState(''); const [kind,setKind]=useState('All'); const [view,setView]=useState<'list'|'grid'>('list')
   const [runtimeSyncing,setRuntimeSyncing]=useState(true)
+  const [runtimeBacked,setRuntimeBacked]=useState(false)
 
   useEffect(()=>{
     let cancelled=false
     void runtime.memory.list('agenticos', undefined, 100).then((records)=>{
-      if(cancelled || records.length===0) return
+      if(cancelled) return
       const mapped=records.map((record)=>({
         id: record.key,
         title: record.key,
@@ -28,8 +29,11 @@ export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
         ttl: record.expires_at ? new Date(record.expires_at * 1000).toLocaleDateString() : 'Permanent',
         status: 'Active',
       }))
+      // An empty answer is still an answer: it replaces the preview rows rather
+      // than leaving them standing behind a "Runtime memory" header.
       setItems(mapped)
-      setSelected((currentId)=>mapped.some(item=>item.id===currentId)?currentId:mapped[0].id)
+      setRuntimeBacked(true)
+      setSelected((currentId)=>mapped.some(item=>item.id===currentId)?currentId:mapped[0]?.id ?? '')
     }).catch(()=>{}).finally(()=>{if(!cancelled)setRuntimeSyncing(false)})
     return ()=>{cancelled=true}
   },[])
@@ -54,11 +58,11 @@ export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
       await runtime.memory.upsert({namespace:'agenticos',key,value,tags:['source:desktop'],importance:0.7})
       const records=await runtime.memory.list('agenticos',undefined,100)
       const mapped=records.map(record=>({id:record.key,title:record.key,type:record.tags?.some(tag=>tag.toLowerCase().includes('semantic'))?'Semantic':'Episodic',scope:record.namespace,importance:(record.importance??0.5)>=0.8?'High':(record.importance??0.5)>=0.5?'Medium':'Low',source:record.tags?.find(tag=>tag.toLowerCase().startsWith('source:'))?.slice(7)??'Runtime',ttl:record.expires_at?new Date(record.expires_at*1000).toLocaleDateString():'Permanent',status:'Active'}))
-      setItems(mapped); setSelected(key); onAction('Memory created in runtime')
+      setItems(mapped); setRuntimeBacked(true); setSelected(key); onAction('Memory created in runtime')
     }catch(error){onAction(error instanceof Error?error.message:'Runtime memory creation failed')}
   }
   return <div className="memory-studio">
-    <div className="memory-toolbar"><span className="mono-text">{runtimeSyncing?'Syncing runtime memory…':'Runtime memory · agenticos'}</span><input className="global-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search memories, sources, concepts…" /><div className="segmented-control">{['All','Semantic','Episodic'].map(v=><button type="button" key={v} className={kind===v?'is-active':''} onClick={()=>setKind(v)}>{v}</button>)}</div><button className="studio-button studio-button--active" type="button" onClick={()=>void create()}><Icon name="plus" size={13}/> Add memory</button><div className="qoder-view-toggle" role="group" aria-label="Knowledge item view"><button type="button" aria-pressed={view==='list'} title="List view" onClick={()=>setView('list')}><Icon name="layers" size={13}/></button><button type="button" aria-pressed={view==='grid'} title="Grid view" onClick={()=>setView('grid')}><Icon name="layout" size={13}/></button></div></div>
+    <div className="memory-toolbar"><span className="mono-text">{runtimeSyncing?'Syncing runtime memory…':runtimeBacked?'Runtime memory · agenticos':'Preview memory · runtime offline'}</span><input className="global-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search memories, sources, concepts…" /><div className="segmented-control">{['All','Semantic','Episodic'].map(v=><button type="button" key={v} className={kind===v?'is-active':''} onClick={()=>setKind(v)}>{v}</button>)}</div><button className="studio-button studio-button--active" type="button" onClick={()=>void create()}><Icon name="plus" size={13}/> Add memory</button><div className="qoder-view-toggle" role="group" aria-label="Knowledge item view"><button type="button" aria-pressed={view==='list'} title="List view" onClick={()=>setView('list')}><Icon name="layers" size={13}/></button><button type="button" aria-pressed={view==='grid'} title="Grid view" onClick={()=>setView('grid')}><Icon name="layout" size={13}/></button></div></div>
     <div className="memory-layout">
       {filtered.length===0?<div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="search" size={18}/></span><strong>No knowledge items match</strong><p>{filtersActive?'Adjust the search or the type filter to see the rest of the stored memory.':'Memory items appear here once the runtime stores them.'}</p>{filtersActive&&<button type="button" onClick={()=>{setQuery('');setKind('All')}}>Clear filters</button>}</div>:view==='grid'?<div className="memory-grid">{filtered.map(m=><button type="button" key={m.id} className={selected===m.id?'memory-card memory-card--active':'memory-card'} onClick={()=>setSelected(m.id)}><span className="memory-card__head"><Icon name={m.type==='Semantic'?'database':'history'} size={13}/><strong>{m.title}</strong></span><span>{m.id} · {m.scope}</span><p>{m.type} memory · importance {m.importance.toLowerCase()} · {m.ttl}</p></button>)}</div>:<div className="memory-list">{filtered.map(m=><button type="button" key={m.id} className={selected===m.id?'memory-row memory-row--active':'memory-row'} onClick={()=>setSelected(m.id)}><span className="memory-row__icon"><Icon name={m.type==='Semantic'?'database':'history'} size={14}/></span><div><strong>{m.title}</strong><span>{m.id} · {m.scope}</span></div><Tag label={m.importance}/></button>)}</div>}
       <Panel title={current?.title ?? 'Memory'}>

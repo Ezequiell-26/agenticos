@@ -185,6 +185,24 @@ function arrayOfStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
+// The runtime persists memory tags as a JSON string, so the declared string[] is
+// not what actually arrives. Consumers call .some()/.find() on it, and the
+// resulting throw was swallowed by a catch that then rendered the offline
+// preview while the server was connected and answering.
+function memoryRecordOf(value: RuntimeApiRecord): RuntimeMemoryRecord {
+  const entry = value as unknown as RuntimeMemoryRecord
+  const rawTags: unknown = entry.tags
+  if (typeof rawTags !== 'string') return entry
+  const trimmed = rawTags.trim()
+  let parsed: unknown
+  try {
+    parsed = trimmed ? JSON.parse(trimmed) : []
+  } catch {
+    parsed = [trimmed]
+  }
+  return { ...entry, tags: Array.isArray(parsed) ? arrayOfStrings(parsed) : [trimmed] }
+}
+
 function unwrapArray(data: unknown, key: string): RuntimeApiRecord[] {
   return isRecord(data) ? arrayOfRecords(data[key]) : []
 }
@@ -601,7 +619,7 @@ export class AgenticosRuntime implements RuntimeServices {
       const params = new URLSearchParams({ namespace, limit: String(Math.min(500, Math.max(1, limit))) })
       if (query?.trim()) params.set('q', query.trim())
       const data = await this.transport.get<RuntimeApiRecord>(`/api/memory?${params.toString()}`)
-      return arrayOfRecords(data.records).map((entry) => entry as unknown as RuntimeMemoryRecord)
+      return arrayOfRecords(data.records).map(memoryRecordOf)
     },
     upsert: async (record: Omit<RuntimeMemoryRecord, 'updated_at' | 'created_at'>) => this.transport.post<RuntimeMemoryRecord>('/api/memory', record),
     coverage: async (namespace: string): Promise<RuntimeMemoryEmbeddingCoverage> => {

@@ -104,6 +104,11 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   }, [])
 
   useEffect(() => {
+    // The seed catalog is a placeholder until the runtime answers: its ids do
+    // not exist server-side, so querying them 404s on every mount. `providers`
+    // is the module array itself and every real update replaces it with a new
+    // one, so reference equality is what distinguishes the two states.
+    if (liveProviders === providers) return
     const current = liveProviders.find((item) => item.name === selected)
     if (!current) return
     void loadProviderModels(current.id)
@@ -202,7 +207,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   return (
     <div className="provider-studio">
       <aside className="provider-studio__sidebar">
-        <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{providers.length}</span></div>
+        <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{liveProviders.length}</span></div>
         {liveProviders.map((item) => <button type="button" key={item.id} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
         <button className="studio-button" type="button" onClick={() => { setTab('Accounts'); setShowRegister(true) }}><Icon name="plus" size={13} /> Add route</button>
       </aside>

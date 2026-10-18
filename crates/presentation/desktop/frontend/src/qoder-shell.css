@@ -1210,7 +1210,7 @@ input.global-search:focus { border-color: var(--q-accent); box-shadow: 0 0 0 2px
    se cubrio: 42 hits neutros en Cloud Agents, 66 en Computer Use, 50 en
    Integrations. Ningun selector de la familia lleva !important, asi que la
    hoja posterior gana con repetir la misma forma de selector. Mismo mapeo que
-   las pasadas 9, 10 y 16, sin colours nuevos: #333333/#3d3d3d -> --q-border,
+   las pasadas 9, 10 y 16, sin colores nuevos: #333333/#3d3d3d -> --q-border,
    rgba(228,228,228,.07) -> --q-border-soft, #181818 -> --q-surface,
    #1a1a1a/#1e1e1e -> --q-raised, fila activa y hover -> --q-hover,
    texto .72 -> --q-text-2 y .34/.42/.50/.60 -> --q-text-3. */
@@ -1219,6 +1219,9 @@ input.global-search:focus { border-color: var(--q-accent); box-shadow: 0 0 0 2px
 .capability-row:hover, .capability-row--active { border-color: var(--q-border); background: var(--q-hover); }
 .capability-row strong { color: var(--q-text-2); }
 .capability-row small { color: var(--q-text-3); }
+/* workspace-enhancements.css:1063 declara la variante con hijo directo, a (0,2,1);
+   la forma simple de la pasada 17 le pierde por especificidad, no por orden. */
+.capability-row > div small { color: var(--q-text-3); }
 .capability-icon { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
 .capability-head { border-bottom-color: var(--q-border-soft); }
 .capability-head p { color: var(--q-text-3); }
@@ -1254,3 +1257,95 @@ input.global-search:focus { border-color: var(--q-accent); box-shadow: 0 0 0 2px
 .subagent-streams > div span, .integration-steps > div span, .computer-action-log > div span { color: var(--q-text-3); font-size: 11px; }
 .subagent-streams strong, .integration-steps strong, .computer-action-log strong { color: var(--q-text-3); }
 .subagent-streams small, .integration-steps small, .computer-action-log small { color: var(--q-text-3); }
+
+/* --- Familia capability: los tres consumidores restantes -------------------
+   Medida en la pasada 18. Quedaban tres superficies que comparten capability-*
+   y nunca se barrieron: Canvas y Commands (raíz .capability-studio) y el
+   Capability Registry de Settings. El barrido confirmó que la piel de la
+   pasada 17 sí llega al registry (sus filas ya calculan --q-raised), pero la
+   raíz .capability-studio nunca entró en la regla de index.css:1677 porque es
+   otra regla con los mismos literales. Mismo mapeo, sin colores nuevos:
+   .command-variable-row span bajaba a 6px, como los 7px y 8px de las pasadas
+   9 y 10, y ahora usa los 11px del resto de la familia. El 8px de
+   .code-preview ya lo había resuelto una hoja perezosa, ver abajo. */
+.capability-studio { border-color: var(--q-border); background: var(--q-surface); }
+.capability-list__head { color: var(--q-text-3); }
+.capability-tabs { border-bottom-color: var(--q-border-soft); }
+.capability-tab { color: var(--q-text-3); }
+.capability-tab:hover, .capability-tab--active { background: var(--q-raised); color: var(--q-text-2); }
+.command-search { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.command-search input { color: var(--q-text-2); }
+.capability-field { color: var(--q-text-3); }
+.capability-field textarea, .capability-field select { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-2); }
+.capability-field textarea:focus, .capability-field select:focus { border-color: var(--q-accent); }
+.command-variable-row span { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); font-size: 11px; }
+/* .code-preview también la declara features/platform/DeveloperWorkspace.css,
+   hoja perezosa que aterriza DESPUÉS de esta y gana por orden a igual
+   especificidad: allí fija `background: var(--code)` (indefinida, cae a
+   transparente) y `font: 12px/1.7`. Por eso solo se declaran aquí las dos
+   propiedades que esa hoja no toca; el fondo y el tamaño quedan pendientes. */
+.code-preview { border-color: var(--q-border); color: var(--q-text-2); }
+.capability-summary > div { border-color: var(--q-border); background: var(--q-raised); }
+.capability-summary small { color: var(--q-text-3); }
+.capability-summary strong { color: var(--q-text); }
+.capability-pill { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-2); }
+.capability-pill--available { color: var(--q-text); }
+.capability-pill--requires-setup { color: var(--q-text-2); }
+.capability-pill--unavailable, .capability-pill--disabled { color: var(--q-text-3); }
+.capability-latency { color: var(--q-text-3); }
+.canvas-toolbar { color: var(--q-text-3); }
+.canvas-grid { border-color: var(--q-border); background-image: radial-gradient(circle at 50% 0, var(--q-raised), var(--q-surface) 60%); }
+.canvas-card { border-color: var(--q-border); background: var(--q-raised); }
+.canvas-card--primary { border-color: var(--q-border); }
+.canvas-card strong { color: var(--q-text-2); }
+.canvas-card small { color: var(--q-text-3); }
+.canvas-connector { background: var(--q-border); }
+.canvas-preview { border-color: var(--q-border); background: var(--q-surface); }
+.canvas-preview__hero strong { color: var(--q-text); }
+.canvas-preview__hero p { color: var(--q-text-3); }
+
+/* --- Familia control-center / customize / keymap ---------------------------
+   Medida en la pasada 19 sobre las tres superficies donde se usa: el Capability
+   Registry (56 hits sobre 167 elementos), Customizations (112 sobre 129) y el
+   Keymap editor del panel Advanced (91 sobre 83). Todo vive en
+   workspace-enhancements.css:815-1052 con literales de la paleta vieja y ningun
+   !important, asi que la hoja posterior gana por orden. Mismo mapeo que las
+   pasadas 9, 10, 16, 17 y 18, sin colores nuevos: #333333/#3d3d3d -> --q-border,
+   rgba(228,228,228,.07) -> --q-border-soft, #1a1a1a/#1e1e1e -> --q-raised,
+   #212121 (hover y fila activa) -> --q-hover, .85/.72 -> --q-text-2,
+   #e4e4e4 -> --q-text y .34/.42/.50/.60 -> --q-text-3.
+   Quinto defecto de la clase 6px/7px/8px: .keycap declara `font: 600 8px` y las
+   nueve teclas del editor (Ctrl+K, Ctrl+N, Esc...) salian a 8px; ahora 11px, el
+   tamano que la misma fila usa para strong, small y .keymap-state. */
+.control-center-search { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.control-center-search input { color: var(--q-text); }
+.customize-manager__toolbar select, .keymap-editor__toolbar select, .capability-toolbar select, .customize-manager select { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text); }
+.customize-filter { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.customize-filter:hover { background: var(--q-hover); color: var(--q-text-2); }
+.customize-filter--active { border-color: var(--q-border); background: var(--q-hover); color: var(--q-text); }
+.customize-manager__body { border-color: var(--q-border); }
+.customize-manager__list { border-right-color: var(--q-border); }
+.customize-row { border-bottom-color: var(--q-border-soft); background: var(--q-raised); color: var(--q-text-3); }
+.customize-row:hover { background: var(--q-hover); color: var(--q-text); }
+.customize-row--active { background: var(--q-hover); color: var(--q-text); }
+.customize-row__icon { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.customize-row small { color: var(--q-text-3); }
+.customize-manager__detail { background: var(--q-surface); }
+.customize-detail__header h3 { color: var(--q-text); }
+.customize-detail__header p { color: var(--q-text-3); }
+.customize-detail__grid > div { border-color: var(--q-border-soft); background: var(--q-raised); }
+.customize-detail__grid span { color: var(--q-text-3); }
+.customize-detail__grid strong { color: var(--q-text-2); }
+.customize-empty { color: var(--q-text-3); }
+.control-info-callout { border-color: var(--q-border); background: var(--q-raised); }
+.control-info-line > span, .control-info-callout > span { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.control-info-line strong, .control-info-callout strong { color: var(--q-text-2); }
+.control-info-line small, .control-info-callout small { color: var(--q-text-3); }
+.keymap-table { border-color: var(--q-border); }
+.keymap-table__head { border-bottom-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.keymap-row { border-bottom-color: var(--q-border-soft); background: var(--q-raised); color: var(--q-text-3); }
+.keymap-row strong { color: var(--q-text-2); }
+.keymap-row small { color: var(--q-text-3); }
+.keycap { border-color: var(--q-border); background: var(--q-hover); color: var(--q-text); font-size: 11px; }
+.keymap-state { color: var(--q-text-3); }
+.settings-lazy-panel { color: var(--q-text-3); }

@@ -68,15 +68,20 @@ Clients may receive queued/deferred state rather than blocking indefinitely.
 
 ## Scheduling
 
-The scheduler supports:
+This section is a target list, and it was previously readable as a status list. Corrected against `crates/application/scheduler/src/lib.rs` on 2026-10-19; see backlog item R10 for the measurement.
+
+Implemented today:
 - immediate execution;
-- delayed execution;
-- cron-like schedules;
-- dependency-triggered execution;
-- webhook/event triggers;
-- retry with backoff;
-- pause/resume;
-- cancellation.
+- dependency-triggered execution (`JobSpec.dependencies`, evaluated in `next_ready`);
+- retry with backoff (`scheduler_retry_backoff_ms`, gated by `JobRecord.next_attempt_at`);
+- cancellation (`JobScheduler::cancel`).
+
+Not implemented — no code exists for these:
+- delayed execution and cron-like schedules: `JobSpec` carries no scheduled time and no recurrence field, and `next_ready` admits a job as soon as `next_attempt_at <= now`, which is a **retry** timestamp, not a requested start time;
+- webhook/event triggers: `webhook` appears only in `infrastructure/channels`, `infrastructure/kernel` and `utilities/notifications`, never as a job source in the scheduler;
+- pause/resume: `JobState` is `Pending | Ready | Running | Succeeded | Failed` (plus cancellation) with no paused state, and the string `pause` does not occur in the crate.
+
+The consequence is that the runtime cannot fire work on a clock. Hermes is the useful reference here: `hermes cron`, `hermes webhook` and `hermes self-wake` are separate first-class commands on the installed binary, so scheduling is a runtime capability rather than a UI field.
 
 ## Distributed execution
 

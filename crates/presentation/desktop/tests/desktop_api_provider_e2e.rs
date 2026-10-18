@@ -6,7 +6,7 @@ use agenticos_desktop::{
 use sqlx::sqlite::SqlitePoolOptions;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
 async fn free_port() -> u16 {
     let listener = TcpListener::bind(("127.0.0.1", 0))
@@ -37,79 +37,119 @@ fn content_length(headers: &[u8]) -> usize {
         .unwrap_or(0)
 }
 
-async fn serve_fake_provider(listener: TcpListener) {
-    let (mut socket, _) = listener.accept().await.expect("accept provider request");
-    let mut request = Vec::with_capacity(8192);
-    let mut buffer = [0_u8; 4096];
-
-    let body_start = loop {
-        let read = socket
-            .read(&mut buffer)
-            .await
-            .expect("read provider request");
-        assert!(read > 0, "provider connection closed before headers");
-        request.extend_from_slice(&buffer[..read]);
-        if let Some(boundary) = header_body_boundary(&request) {
-            break boundary;
-        }
-        assert!(
-            request.len() < 128 * 1024,
-            "provider request headers too large"
-        );
-    };
-
-    let expected_body_len = content_length(&request[..body_start - 4]);
-    while request.len() < body_start + expected_body_len {
-        let read = socket.read(&mut buffer).await.expect("read provider body");
-        assert!(read > 0, "provider connection closed before body");
-        request.extend_from_slice(&buffer[..read]);
-    }
-
-    let body = &request[body_start..body_start + expected_body_len];
-    let payload: serde_json::Value =
-        serde_json::from_slice(body).expect("provider body must be valid JSON");
-
-    assert_eq!(payload["model"], "e2e-model");
-    let user_input = payload["messages"]
-        .as_array()
-        .and_then(|messages| {
-            messages.iter().find_map(|message| {
-                (message["role"] == "user" && message["content"] == "desktop API provider E2E")
-                    .then_some(message["content"].as_str())
-                    .flatten()
-            })
-        })
-        .expect("provider request should contain the expected user message");
-    assert_eq!(user_input, "desktop API provider E2E");
-
-    let response_body = serde_json::json!({
-        "id": "chatcmpl-agenticos-e2e",
-        "object": "chat.completion",
-        "choices": [{
-            "index": 0,
-            "message": {
-                "role": "assistant",
-                "content": "E2E provider response"
-            },
-            "finish_reason": "stop"
-        }],
-        "usage": {
-            "prompt_tokens": 4,
-            "completion_tokens": 3,
-            "total_tokens": 7
-        }
-    })
-    .to_string();
-
+async fn write_json_response(socket: &mut TcpStream, body: &str) {
     let response = format!(
         "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-        response_body.len(),
-        response_body
+        body.len(),
+        body
     );
     socket
         .write_all(response.as_bytes())
         .await
         .expect("write provider response");
+}
+
+async fn serve_fake_provider(listener: TcpListener) {
+    // The runtime health-checks providers at startup, so the first connection on
+    // this socket is model discovery - a bodyless GET /v1/models - and not the
+    // chat completion. Serving exactly one request made this task parse an empty
+    // body and panic before the real completion ever arrived.
+    let mut served_completion = false;
+    while !served_completion {
+        let (mut socket, _) = listener.accept().await.expect("accept provider request");
+        let mut request = Vec::with_capacity(8192);
+        let mut buffer = [0_u8; 4096];
+
+        let body_start = loop {
+            let read = socket
+                .read(&mut buffer)
+                .await
+                .expect("read provider request");
+            assert!(read > 0, "provider connection closed before headers");
+            request.extend_from_slice(&buffer[..read]);
+            if let Some(boundary) = header_body_boundary(&request) {
+                break boundary;
+            }
+            assert!(
+                request.len() < 128 * 1024,
+                "provider request headers too large"
+            );
+        };
+
+        let expected_body_len = content_length(&request[..body_start - 4]);
+        while request.len() < body_start + expected_body_len {
+            let read = socket.read(&mut buffer).await.expect("read provider body");
+            assert!(read > 0, "provider connection closed before body");
+            request.extend_from_slice(&buffer[..read]);
+        }
+
+        let head = String::from_utf8_lossy(&request[..body_start - 4]).to_string();
+        let method = head
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().next())
+            .unwrap_or_default()
+            .to_string();
+        let body = &request[body_start..body_start + expected_body_len];
+
+        if method != "POST" {
+            let catalog = serde_json::json!({ "data": [{ "id": "e2e-model" }] }).to_string();
+            write_json_response(&mut socket, &catalog).await;
+            continue;
+        }
+
+        let payload: serde_json::Value =
+            serde_json::from_slice(body).expect("provider body must be valid JSON");
+
+        assert_eq!(payload["model"], "e2e-model");
+        let is_expected_turn = payload["messages"].as_array().is_some_and(|messages| {
+            messages.iter().any(|message| {
+                message["role"] == "user" && message["content"] == "desktop API provider E2E"
+            })
+        });
+
+        if !is_expected_turn {
+            // Before it runs the turn the runtime asks the provider to decide
+            // whether to delegate to a subagent, so the first completion it wants
+            // back is a routing answer rather than the reply. Say "no delegation"
+            // and keep listening for the real turn.
+            let routing = serde_json::json!({
+                "id": "chatcmpl-agenticos-e2e-routing",
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": { "role": "assistant", "content": "null" },
+                    "finish_reason": "stop"
+                }],
+                "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+            })
+            .to_string();
+            write_json_response(&mut socket, &routing).await;
+            continue;
+        }
+
+        let response_body = serde_json::json!({
+            "id": "chatcmpl-agenticos-e2e",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "E2E provider response"
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 3,
+                "total_tokens": 7
+            }
+        })
+        .to_string();
+
+        write_json_response(&mut socket, &response_body).await;
+        served_completion = true;
+    }
 }
 
 async fn wait_for_health(api_url: &str) {

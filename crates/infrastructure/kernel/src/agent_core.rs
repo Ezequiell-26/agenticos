@@ -205,6 +205,18 @@ struct ReactAgentInner {
     static_system_prompt: Option<Arc<str>>,
 }
 
+/// The per-turn tool-execution state snapshotted once at turn start, bundled so
+/// follow-up tool calls take one context argument instead of seven.
+struct FollowupToolContext<'a> {
+    session_id: &'a str,
+    turn_id: Option<&'a str>,
+    event_log: Option<&'a SessionEventLog>,
+    tool_executor: Option<&'a ToolExecutor>,
+    tool_runtime: Option<&'a Arc<dyn ToolRuntimePort>>,
+    default_grant_id: Option<&'a str>,
+    pipeline: &'a ToolExecutionPipeline,
+}
+
 impl ReactAgent {
     /// Create a new ReAct agent with default configuration.
     pub fn new(identity: String) -> Self {
@@ -1086,14 +1098,17 @@ impl ReactAgent {
         action: &str,
         current_turn: usize,
         tool_call_number: usize,
-        session_id: &str,
-        turn_id: Option<&str>,
-        event_log: Option<&SessionEventLog>,
-        tool_executor: Option<&ToolExecutor>,
-        tool_runtime: Option<&Arc<dyn ToolRuntimePort>>,
-        default_grant_id: Option<&str>,
-        pipeline: &ToolExecutionPipeline,
+        followup_context: FollowupToolContext<'_>,
     ) -> Result<String, ContractError> {
+        let FollowupToolContext {
+            session_id,
+            turn_id,
+            event_log,
+            tool_executor,
+            tool_runtime,
+            default_grant_id,
+            pipeline,
+        } = followup_context;
         let step_id = SessionEvent::generate_id("step");
         let context = ToolExecutionContext::new(
             "react_action".to_string(),
@@ -1890,13 +1905,15 @@ impl ReactAgent {
                         &followup,
                         current_turn,
                         tool_calls_executed.saturating_add(1),
-                        &session_id,
-                        turn_id.as_deref(),
-                        event_log.as_ref(),
-                        tool_executor.as_ref(),
-                        tool_runtime.as_ref(),
-                        tool_grant_id.as_deref(),
-                        pipeline,
+                        FollowupToolContext {
+                            session_id: &session_id,
+                            turn_id: turn_id.as_deref(),
+                            event_log: event_log.as_ref(),
+                            tool_executor: tool_executor.as_ref(),
+                            tool_runtime: tool_runtime.as_ref(),
+                            default_grant_id: tool_grant_id.as_deref(),
+                            pipeline,
+                        },
                     )
                     .await
                 {

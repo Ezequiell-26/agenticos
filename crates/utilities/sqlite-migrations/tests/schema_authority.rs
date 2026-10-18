@@ -1,3 +1,6 @@
+//! Asserts the canonical migration set creates every table the persisted
+//! runtime depends on, so schema drift fails here rather than at boot.
+
 use agenticos_sqlite_migrations::migrate_pool;
 use sqlx::sqlite::SqlitePoolOptions;
 

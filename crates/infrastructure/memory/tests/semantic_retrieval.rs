@@ -1,3 +1,6 @@
+//! Regression coverage for semantic retrieval over the persistent memory store:
+//! ranking, namespace isolation and the evaluation contract.
+
 use agenticos_contracts::ContractError;
 use agenticos_memory::{PersistentMemoryStore, SemanticRetrievalCase};
 

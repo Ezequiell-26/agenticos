@@ -360,6 +360,7 @@ impl AgentTool for WorkspaceTool {
     }
 }
 
+/// Capability-gated terminal tool bound to one stable operation identifier.
 #[derive(Clone, Debug)]
 pub struct TerminalTool {
     terminal: Arc<TerminalManager>,
@@ -539,12 +540,18 @@ impl AgentTool for TerminalTool {
     }
 }
 
+/// Capability-gated GitHub source inspection tool.
 #[derive(Clone, Debug)]
 pub struct GitHubSourceTool {
+    /// Client used to reach the GitHub source API.
     pub source_forge: Arc<GitHubSourceClient>,
+    /// Grants the caller must hold before the operation runs.
     pub capabilities: Arc<CapabilityManager>,
+    /// Store that records each invocation for audit.
     pub audit: Arc<AuditStore>,
+    /// Counters for invocations, latency and failures.
     pub metrics: Arc<RuntimeMetrics>,
+    /// Stable tool identifier exposed to the model.
     pub operation: &'static str,
 }
 
@@ -684,13 +691,20 @@ impl AgentTool for GitHubSourceTool {
     }
 }
 
+/// Capability-gated browser automation tool.
 #[derive(Clone, Debug)]
 pub struct BrowserTool {
+    /// Runtime that owns the live browser session.
     pub browser: Arc<BrowserRuntime>,
+    /// Grants the caller must hold before the operation runs.
     pub capabilities: Arc<CapabilityManager>,
+    /// Store that records each invocation for audit.
     pub audit: Arc<AuditStore>,
+    /// Counters for invocations, latency and failures.
     pub metrics: Arc<RuntimeMetrics>,
+    /// Store for screenshots and downloaded content.
     pub artifacts: Arc<ArtifactStore>,
+    /// Stable tool identifier exposed to the model.
     pub operation: &'static str,
 }
 

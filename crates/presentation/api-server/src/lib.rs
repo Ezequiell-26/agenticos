@@ -7228,7 +7228,7 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
         workflow_state.nodes.get(&node_id),
         Some(WorkflowNodeState::Ready)
     ) {
-        if state
+        let entered_running = state
             .workflows
             .transition_node(
                 &workflow_id,
@@ -7236,9 +7236,8 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
                 &node_id,
                 WorkflowNodeState::Running,
             )
-            .await
-            .is_err()
-        {
+            .await;
+        if entered_running.is_err() {
             let _ = state
                 .scheduler
                 .complete_as(
@@ -7343,12 +7342,6 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
             let any_failed = related_jobs
                 .iter()
                 .any(|candidate| candidate.state == JobState::Failed);
-            let any_active = related_jobs.iter().any(|candidate| {
-                matches!(
-                    candidate.state,
-                    JobState::Pending | JobState::Ready | JobState::Running
-                )
-            });
             let all_succeeded = !related_jobs.is_empty()
                 && related_jobs
                     .iter()
@@ -7358,9 +7351,8 @@ async fn execute_workflow_job(state: RuntimeState, _worker_id: String, started_j
                 RunState::Failed
             } else if all_succeeded {
                 RunState::Completed
-            } else if any_active {
-                RunState::Waiting
             } else {
+                // Neither failed nor fully succeeded: still in flight or queued.
                 RunState::Waiting
             };
 
@@ -8049,6 +8041,9 @@ async fn api_auth_middleware(
     Ok(next.call(req).await?.map_into_right_body())
 }
 
+/// Start the HTTP API on the configured host and port. Binds to loopback unless
+/// `AGENTICOS_BIND_HOST` says otherwise, and refuses a non-loopback host unless
+/// `AGENTICOS_ALLOW_REMOTE` is set together with CORS origins.
 pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
     let host = std::env::var("AGENTICOS_BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
@@ -8080,10 +8075,6 @@ pub async fn run_server(state: RuntimeState) -> std::io::Result<()> {
         token
     };
 
-    let port = std::env::var("AGENTICOS_BIND_PORT")
-        .ok()
-        .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(8080);
     let scheduler_worker_disabled = std::env::var("AGENTICOS_DISABLE_SCHEDULER_WORKER")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);

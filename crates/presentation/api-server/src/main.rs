@@ -1,3 +1,6 @@
+//! Entry point for the AgentiCOS API server binary: builds the runtime state
+//! from the environment and hands it to the HTTP server.
+
 #![forbid(unsafe_code)]
 
 #[actix_web::main]

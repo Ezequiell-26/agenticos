@@ -17,11 +17,12 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
   const [policy, setPolicy] = useState<FleetPolicy>('Balanced')
   const [runtimeAgents, setRuntimeAgents] = useState<ReadonlyArray<readonly [string, string, string, string, string]>>(fleetLanes)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void runtime.subagents.list().then((agents) => {
-      if (cancelled || agents.length === 0) return
+      if (cancelled) return
       const mapped = agents.map((agent, index) => {
         const name = typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1)
         const role = typeof agent.role === 'string' ? agent.role : 'Runtime specialist'
@@ -32,6 +33,9 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
         return [name, role, 'Runtime', 'Ready', budget + ' · ' + capabilityCount + ' capabilities'] as const
       })
       setRuntimeAgents(mapped)
+      // An empty answer is still an answer: replacing the preview lanes with zero rows
+      // is what lets the header say "runtime" truthfully.
+      setRuntimeBacked(true)
     }).catch(() => {
       // Keep the presentation catalog while the runtime is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
@@ -58,10 +62,10 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
       </header>
 
       <div className="platform-metrics">
-        <div className="platform-metric"><span>Specialists</span><strong>{runtimeAgents.length}</strong><small>{runtimeAgents.length} runtime definitions available</small></div>
-        <div className="platform-metric"><span>Parallelism</span><strong>{parallelism}</strong><small>of 4 lanes allowed in preview</small></div>
-        <div className="platform-metric"><span>Context budget</span><strong>102k</strong><small>across active workers</small></div>
-        <div className="platform-metric"><span>Handoff policy</span><strong>{autoHandoff ? 'Automatic' : 'Manual'}</strong><small>Explicit package required</small></div>
+        <div className="platform-metric-card"><span>Specialists</span><strong>{runtimeAgents.length}</strong><small>{runtimeSyncing ? 'Syncing runtime definitions' : runtimeBacked ? 'Sourced from the runtime' : 'Preview lanes · runtime offline'}</small></div>
+        <div className="platform-metric-card"><span>Parallelism</span><strong>{parallelism}</strong><small>of 4 lanes allowed in preview</small></div>
+        <div className="platform-metric-card"><span>Context budget</span><strong>102k</strong><small>across active workers</small></div>
+        <div className="platform-metric-card"><span>Handoff policy</span><strong>{autoHandoff ? 'Automatic' : 'Manual'}</strong><small>Explicit package required</small></div>
       </div>
 
       <section className="subagent-fleet__control-grid">
@@ -84,8 +88,10 @@ export default function SubagentFleet({ onAction }: { onAction: (message: string
         </article>
 
         <article className="subagent-fleet__lanes">
-          <div className="surface-block__heading"><span>Live lanes</span><span className="mono-text">{runtimeAgents.length} runtime configured</span></div>
-          {runtimeAgents.map(([lane, name, model, status, budget]) => (
+          <div className="surface-block__heading"><span>Live lanes</span><span className="mono-text">{runtimeSyncing ? 'Syncing runtime' : runtimeBacked ? 'Runtime configured' : 'Preview · runtime offline'}</span></div>
+          {runtimeAgents.length === 0 ? (
+            <div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="branch" size={18} /></span><strong>No runtime specialists</strong><p>Subagent definitions appear here once the runtime registers them.</p></div>
+          ) : runtimeAgents.map(([lane, name, model, status, budget]) => (
             <button type="button" className="fleet-lane" key={lane} onClick={() => onAction(name + ' opened in specialist builder preview')}>
               <span className={'fleet-lane__status fleet-lane__status--' + status.toLowerCase()}><Icon name={status === 'Running' ? 'activity' : status === 'Ready' ? 'check' : 'clock'} size={11} /></span>
               <span><strong>{lane} · {name}</strong><small>{model} · {budget} · {status}</small></span>

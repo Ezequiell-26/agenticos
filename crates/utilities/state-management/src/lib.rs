@@ -232,8 +232,13 @@ impl StateMachine {
             .get(current_id)
             .ok_or_else(|| StateError::StateNotFound(current_id.clone()))?;
 
-        let mut context = self.context.write().await;
-        let next_state = state.handler.handle_event(&event, &mut context).await;
+        // The context guard must be released before transition() re-enters it:
+        // tokio's RwLock is not reentrant, so holding it across that call
+        // self-deadlocks on every event that actually requests a transition.
+        let next_state = {
+            let mut context = self.context.write().await;
+            state.handler.handle_event(&event, &mut context).await
+        };
 
         if let Some(next_id) = next_state {
             drop(current);

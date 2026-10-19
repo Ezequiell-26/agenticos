@@ -38,6 +38,7 @@ export function AgentControlPlane({ onAction }: Props) {
   const [armed, setArmed] = useState(false)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
   const [runtimeBacked, setRuntimeBacked] = useState(false)
+  const [runtimeBudgets, setRuntimeBudgets] = useState<Record<string, { tokens?: number; tools?: number; seconds?: number; depth?: number }>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -50,6 +51,18 @@ export function AgentControlPlane({ onAction }: Props) {
         return [id, role, 'Runtime-selected', String(toolCount), 'Runtime', 'Runtime'] as const
       })
       setLiveAgents(mapped)
+      const budgetsById: Record<string, { tokens?: number; tools?: number; seconds?: number; depth?: number }> = {}
+      remote.forEach((agent, index) => {
+        const id = typeof agent.agent_id === 'string' ? agent.agent_id : `runtime-${index + 1}`
+        const budget = (agent.budget && typeof agent.budget === 'object' ? agent.budget : {}) as Record<string, unknown>
+        budgetsById[id] = {
+          tokens: typeof budget.max_tokens === 'number' ? budget.max_tokens : undefined,
+          tools: typeof budget.max_tool_calls === 'number' ? budget.max_tool_calls : undefined,
+          seconds: typeof budget.max_wall_seconds === 'number' ? budget.max_wall_seconds : undefined,
+          depth: typeof budget.max_depth === 'number' ? budget.max_depth : undefined,
+        }
+      })
+      setRuntimeBudgets(budgetsById)
       setSelected((currentId) => mapped.some((agent) => agent[0] === currentId) ? currentId : mapped[0]?.[0] ?? currentId)
       setRuntimeBacked(true)
     }).catch(() => {}).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
@@ -65,14 +78,23 @@ export function AgentControlPlane({ onAction }: Props) {
     }
   }
   const selectedAgent = useMemo(() => liveAgents.find((item) => item[0] === selected) ?? liveAgents[0], [liveAgents, selected])
+  const runtimeBudget = runtimeBacked ? runtimeBudgets[selectedAgent?.[0] ?? ''] : undefined
+  const budgetCards: string[][] = runtimeBudget
+    ? [
+        ['Context window', runtimeBudget.tokens !== undefined ? `${Math.round(runtimeBudget.tokens / 1000)}k` : '—', 'max tokens · runtime'],
+        ['Tool turns', runtimeBudget.tools !== undefined ? String(runtimeBudget.tools) : '—', 'max tool calls · runtime'],
+        ['Wall time', runtimeBudget.seconds !== undefined ? `${Math.round(runtimeBudget.seconds / 60)}m` : '—', 'max wall time · runtime'],
+        ['Max depth', runtimeBudget.depth !== undefined ? String(runtimeBudget.depth) : '—', 'max depth · runtime'],
+      ]
+    : budgets
 
   return (
     <section className="agent-control-plane">
       <div className="platform-grid platform-grid--4">
         <Metric label="Active agents" value={String(liveAgents.length)} />
-        <Metric label="Guarded actions" value="17" />
+        <Metric label="Guarded actions" value={runtimeBacked ? '—' : '17'} />
         <Metric label="Pending approvals" value="Runtime" />
-        <Metric label="Context headroom" value="28%" />
+        <Metric label="Context headroom" value={runtimeBacked ? '—' : '28%'} />
       </div>
 
       <div className="agent-control-layout">
@@ -99,9 +121,9 @@ export function AgentControlPlane({ onAction }: Props) {
             ))}
           </div>
 
-          {tab === 'policy' && <div className="agent-control-fields">{controls.map(([label, detail, value]) => <div className="agent-control-field" key={label}><div><strong>{label}</strong><span>{detail}</span></div><button type="button" className="studio-button" onClick={() => onAction(label + ' editor opened in preview')}>{value}<Icon name="chevron-right" size={12} /></button></div>)}</div>}
+          {tab === 'policy' && (runtimeBacked ? <div className="review-empty">Per-agent policy is not exposed by the runtime yet.</div> : <div className="agent-control-fields">{controls.map(([label, detail, value]) => <div className="agent-control-field" key={label}><div><strong>{label}</strong><span>{detail}</span></div><button type="button" className="studio-button" onClick={() => onAction(label + ' editor opened in preview')}>{value}<Icon name="chevron-right" size={12} /></button></div>)}</div>)}
 
-          {tab === 'budget' && <div className="platform-grid platform-grid--2">{budgets.map(([label, value, detail]) => <div className="agent-budget-card" key={label}><span>{label}</span><strong>{value}</strong><small>{detail}</small><div className="agent-budget-bar"><i style={{ width: label === 'Context window' ? '72%' : label === 'Output budget' ? '59%' : label === 'Tool turns' ? '65%' : '40%' }} /></div></div>)}</div>}
+          {tab === 'budget' && <div className="platform-grid platform-grid--2">{budgetCards.map(([label, value, detail]) => <div className="agent-budget-card" key={label}><span>{label}</span><strong>{value}</strong><small>{detail}</small>{!runtimeBacked && <div className="agent-budget-bar"><i style={{ width: label === 'Context window' ? '72%' : label === 'Output budget' ? '59%' : label === 'Tool turns' ? '65%' : '40%' }} /></div>}</div>)}</div>}
 
           {tab === 'behavior' && <div className="agent-behavior-stack"><div><strong>Before action</strong><span>Resolve scope → inspect policy → estimate risk → request approval when required.</span></div><div><strong>After action</strong><span>Capture result → attach artifact → update task state → emit audit event.</span></div><div><strong>On failure</strong><span>Stop unsafe continuation → preserve evidence → propose recovery → checkpoint before retry.</span></div></div>}
 

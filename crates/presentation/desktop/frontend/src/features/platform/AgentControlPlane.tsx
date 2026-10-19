@@ -37,11 +37,12 @@ export function AgentControlPlane({ onAction }: Props) {
   const [tab, setTab] = useState<'policy' | 'budget' | 'behavior'>('policy')
   const [armed, setArmed] = useState(false)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void runtime.subagents.list().then((remote) => {
-      if (cancelled || remote.length === 0) return
+      if (cancelled) return
       const mapped = remote.map((agent, index) => {
         const id = typeof agent.agent_id === 'string' ? agent.agent_id : 'runtime-' + (index + 1)
         const role = typeof agent.role === 'string' ? agent.role : 'Runtime agent'
@@ -49,7 +50,8 @@ export function AgentControlPlane({ onAction }: Props) {
         return [id, role, 'Runtime-selected', String(toolCount), 'Runtime', 'Runtime'] as const
       })
       setLiveAgents(mapped)
-      setSelected((currentId) => mapped.some((agent) => agent[0] === currentId) ? currentId : mapped[0][0])
+      setSelected((currentId) => mapped.some((agent) => agent[0] === currentId) ? currentId : mapped[0]?.[0] ?? currentId)
+      setRuntimeBacked(true)
     }).catch(() => {}).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
     return () => { cancelled = true }
   }, [])
@@ -75,7 +77,7 @@ export function AgentControlPlane({ onAction }: Props) {
 
       <div className="agent-control-layout">
         <Panel title="Agent fleet">
-          <div className="platform-list">
+          {liveAgents.length === 0 ? <div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="bot" size={18} /></span><strong>No runtime agents</strong><p>The runtime answered with no subagent definitions, so there is no profile to configure yet.</p></div> : <div className="platform-list">
             {liveAgents.map(([name, role, model, tools, mode, scope]) => (
               <button type="button" key={name} className={selected === name ? 'agent-control-row agent-control-row--active' : 'agent-control-row'} onClick={() => setSelected(name)}>
                 <span className="agent-control-row__icon"><Icon name="bot" size={14} /></span>
@@ -83,13 +85,13 @@ export function AgentControlPlane({ onAction }: Props) {
                 <span className="agent-control-row__meta"><Tag label={mode} /><small>{tools} tools · {scope}</small></span>
               </button>
             ))}
-          </div>
+          </div>}
         </Panel>
 
-        <Panel title={selectedAgent[0]}>
+        {selectedAgent ? <Panel title={selectedAgent[0]}>
           <div className="agent-control-identity">
             <div><span className="eyebrow">{selectedAgent[1]}</span><h2>{selectedAgent[0]}</h2><p>Explicit execution profile. Runtime enforcement remains outside this presentation layer.</p></div>
-            <span className="state-pill state-pill--completed">{runtimeSyncing ? 'Syncing' : 'Runtime configured'}</span>
+            <span className="state-pill state-pill--completed">{runtimeSyncing ? 'Syncing' : runtimeBacked ? 'Runtime configured' : 'Preview agents · offline'}</span>
           </div>
           <div className="agent-control-tabs" role="tablist" aria-label="Agent configuration">
             {(['policy', 'budget', 'behavior'] as const).map((item) => (
@@ -108,7 +110,7 @@ export function AgentControlPlane({ onAction }: Props) {
             <button className="studio-button" type="button" onClick={() => void testAgent()}><Icon name="play" size={13} /> Test agent</button>
             <button className={armed ? 'studio-button studio-button--active' : 'studio-button'} type="button" onClick={() => { setArmed((value) => !value); onAction(armed ? 'Deployment preview disarmed' : 'Deployment preview armed') }}><Icon name="shield" size={13} /> {armed ? 'Disarm release' : 'Arm release preview'}</button>
           </div>
-        </Panel>
+        </Panel> : <Panel title="No runtime agents"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="bot" size={18} /></span><strong>No execution profile</strong><p>The runtime answered with no agents, so there is no profile, policy or budget to show.</p></div></Panel>}
       </div>
 
       <div className="platform-grid platform-grid--2">

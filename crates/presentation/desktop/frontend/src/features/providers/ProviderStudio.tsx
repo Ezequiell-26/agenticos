@@ -74,6 +74,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   const [retryData, setRetryData] = useState({ max_attempts: 3, initial_backoff_ms: 250, max_backoff_ms: 4000, exponential_backoff: true })
   const [fallbackData, setFallbackData] = useState({ primary_provider: '', fallback_providers: [] as string[], auto_failover: false })
   const [runtimePolicySyncing, setRuntimePolicySyncing] = useState(false)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   const provider = liveProviders.find((item) => item.name === selected) ?? liveProviders[0]
   const visibleModels = useMemo(() => liveModels.filter((model) => !query || model.join(' ').toLowerCase().includes(query.toLowerCase())), [liveModels, query])
@@ -81,7 +82,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   useEffect(() => {
     let cancelled = false
     void runtime.providers.list().then((remoteProviders) => {
-      if (cancelled || remoteProviders.length === 0) return
+      if (cancelled) return
       const mapped = remoteProviders.map((item) => ({
         id: item.provider_id,
         name: item.name || item.provider_id,
@@ -93,10 +94,11 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
         quota: item.requests_per_minute ? `${Math.min(100, Math.round((item.requests_used / item.requests_per_minute) * 100))}%` : '—',
       }))
       setLiveProviders(mapped)
-      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
-      setSelectedAccount((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0]?.name ?? current)
+      setSelectedAccount((current) => mapped.some((item) => item.name === current) ? current : mapped[0]?.name ?? current)
       const first = mapped[0]
       void loadProviderModels(first?.id)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Static catalog stays available when the local runtime has not started.
     })
@@ -180,6 +182,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   }
 
   async function testProvider() {
+    if (!provider) return
     try {
       const health = await runtime.providers.health(provider.id)
       setLiveProviders((current) => current.map((item) => item.id === provider.id ? { ...item, health: health.status } : item))
@@ -190,6 +193,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   }
 
   async function refreshProviderModels() {
+    if (!provider) return
     try {
       const refreshed = await runtime.providers.refreshModels(provider.id)
       if (refreshed.length > 0) setLiveModels(refreshed.map((name) => [name, 'Runtime', 'Auto', 'Live', provider.name]))
@@ -207,12 +211,12 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
   return (
     <div className="provider-studio">
       <aside className="provider-studio__sidebar">
-        <div className="provider-studio__sidebar-head"><span>Routes</span><span className="count-pill">{liveProviders.length}</span></div>
+        <div className="provider-studio__sidebar-head"><span>Routes · {runtimeBacked ? 'runtime' : 'preview'}</span><span className="count-pill">{liveProviders.length}</span></div>
         {liveProviders.map((item) => <button type="button" key={item.id} className={selected === item.name ? 'provider-studio__route provider-studio__route--active' : 'provider-studio__route'} onClick={() => setSelected(item.name)}><div className="provider-studio__route-icon"><Icon name="bot" size={14} /></div><div><strong>{item.name}</strong><small>{item.type} · {item.models} models</small></div><span className={item.health === 'Healthy' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
         <button className="studio-button" type="button" onClick={() => { setTab('Accounts'); setShowRegister(true) }}><Icon name="plus" size={13} /> Add route</button>
       </aside>
 
-      <section className="provider-studio__main">
+      {provider ? <section className="provider-studio__main">
         <div className="provider-studio__head">
           <div><span className="eyebrow">{provider.type}</span><h2>{provider.name}</h2><small>{provider.health} · {provider.models} models · {provider.latency}</small></div>
           <div className="provider-studio__actions"><button className="studio-button" type="button" onClick={() => void testProvider()}><Icon name="play" size={13} /> Test</button><button className="studio-button studio-button--active" type="button" onClick={() => void refreshProviderModels()}><Icon name="refresh" size={13} /> Refresh models</button></div>
@@ -426,7 +430,7 @@ export default function ProviderStudio({ onAction }: { onAction: (message: strin
             </div>
           </div>}
         </div>
-      </section>
+      </section> : <section className="provider-studio__main"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="network" size={18} /></span><strong>No runtime providers</strong><p>The runtime answered with no provider routes, so there is nothing to inspect or test yet.</p></div></section>}
     </div>
   )
 }

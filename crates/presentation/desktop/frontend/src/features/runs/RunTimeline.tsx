@@ -21,35 +21,12 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
   const [view, setView] = useState<'Timeline' | 'Tools' | 'Changes'>('Timeline')
   const [liveRuns, setLiveRuns] = useState(runs)
   const [runtimeLoading, setRuntimeLoading] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   const refreshRuns = async () => {
     setRuntimeLoading(true)
     try {
       const remoteRuns = await runtime.runs.list()
-      if (remoteRuns.length > 0) {
-        const mapped = remoteRuns.map((run) => ({
-          id: run.run_id,
-          title: run.objective ?? run.run_id,
-          state: normalizeRunState(run.state),
-          duration: 'Runtime',
-          agent: 'Runtime',
-          model: 'Auto route',
-          tools: 0,
-          tokens: '—',
-          changes: '—',
-        }))
-        setLiveRuns(mapped)
-        setSelectedId((current) => mapped.some((item) => item.id === current) ? current : mapped[0].id)
-      }
-    } finally {
-      setRuntimeLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    void runtime.runs.list().then((remoteRuns) => {
-      if (cancelled || remoteRuns.length === 0) return
       const mapped = remoteRuns.map((run) => ({
         id: run.run_id,
         title: run.objective ?? run.run_id,
@@ -62,7 +39,31 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
         changes: '—',
       }))
       setLiveRuns(mapped)
-      setSelectedId((current) => mapped.some((item) => item.id === current) ? current : mapped[0].id)
+      setSelectedId((current) => mapped.some((item) => item.id === current) ? current : mapped[0]?.id ?? current)
+      setRuntimeBacked(true)
+    } finally {
+      setRuntimeLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    void runtime.runs.list().then((remoteRuns) => {
+      if (cancelled) return
+      const mapped = remoteRuns.map((run) => ({
+        id: run.run_id,
+        title: run.objective ?? run.run_id,
+        state: normalizeRunState(run.state),
+        duration: 'Runtime',
+        agent: 'Runtime',
+        model: 'Auto route',
+        tools: 0,
+        tokens: '—',
+        changes: '—',
+      }))
+      setLiveRuns(mapped)
+      setSelectedId((current) => mapped.some((item) => item.id === current) ? current : mapped[0]?.id ?? current)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Keep the local fixture when the runtime is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeLoading(false) })
@@ -75,20 +76,20 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
     <div className="run-timeline">
       <div className="run-timeline__toolbar">
         <div><span className="eyebrow">Execution control plane</span><h2>Run Timeline</h2><p>Inspect lifecycle, tool activity, changes, approvals and verification for each agent run.</p></div>
-        <div className="run-timeline__toolbar-actions"><span className="mono-text">{runtimeLoading ? 'Syncing runtime…' : `${liveRuns.length} runs`}</span><button className="studio-button" type="button" onClick={() => void refreshRuns().then(() => onAction('Runtime runs refreshed')).catch((error) => onAction(error instanceof Error ? error.message : 'Run refresh failed'))} disabled={runtimeLoading}><Icon name="refresh" size={13} /> Refresh</button><button className="studio-button" type="button" onClick={() => onAction('Run export is not exposed by the runtime yet')}><Icon name="download" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.runs.create('New AgentiCOS run').then((run) => { const next = { id: run.run_id, title: 'New AgentiCOS run', state: normalizeRunState(run.state), duration: 'Runtime', agent: 'Runtime', model: 'Auto route', tools: 0, tokens: '—', changes: '—' }; setLiveRuns((current) => [next, ...current]); setSelectedId(run.run_id); onAction('New runtime run created') }).catch((error) => onAction(error instanceof Error ? error.message : 'Run creation failed'))}><Icon name="plus" size={13} /> New run</button></div>
+        <div className="run-timeline__toolbar-actions"><span className="mono-text">{runtimeLoading ? 'Syncing runtime…' : runtimeBacked ? `${liveRuns.length} runtime runs` : `${liveRuns.length} preview · offline`}</span><button className="studio-button" type="button" onClick={() => void refreshRuns().then(() => onAction('Runtime runs refreshed')).catch((error) => onAction(error instanceof Error ? error.message : 'Run refresh failed'))} disabled={runtimeLoading}><Icon name="refresh" size={13} /> Refresh</button><button className="studio-button" type="button" onClick={() => onAction('Run export is not exposed by the runtime yet')}><Icon name="download" size={13} /> Export</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.runs.create('New AgentiCOS run').then((run) => { const next = { id: run.run_id, title: 'New AgentiCOS run', state: normalizeRunState(run.state), duration: 'Runtime', agent: 'Runtime', model: 'Auto route', tools: 0, tokens: '—', changes: '—' }; setLiveRuns((current) => [next, ...current]); setSelectedId(run.run_id); onAction('New runtime run created') }).catch((error) => onAction(error instanceof Error ? error.message : 'Run creation failed'))}><Icon name="plus" size={13} /> New run</button></div>
       </div>
       <div className="run-timeline__filters"><div className="segmented">{(['All','Active','Completed','Failed','Cancelled'] as Filter[]).map((item) => <button type="button" key={item} className={filter === item ? 'segmented--active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><span className="mono-text">{visible.length} runs</span></div>
 
       <div className="run-timeline__layout">
         <aside className="run-timeline__list">
-          {visible.map((run) => <button type="button" key={run.id} className={selected.id === run.id ? 'run-timeline__run run-timeline__run--active' : 'run-timeline__run'} onClick={() => setSelectedId(run.id)}>
+          {visible.map((run) => <button type="button" key={run.id} className={selected?.id === run.id ? 'run-timeline__run run-timeline__run--active' : 'run-timeline__run'} onClick={() => setSelectedId(run.id)}>
             <span className={run.state === 'Active' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} />
             <span><strong>{run.id} · {run.title}</strong><small>{run.agent} · {run.duration} · {run.model}</small></span>
             <span className={`state-pill state-pill--${run.state.toLowerCase()}`}>{run.state}</span>
           </button>)}
         </aside>
 
-        <section className="run-timeline__detail">
+        {selected ? <section className="run-timeline__detail">
           <header className="run-timeline__detail-head"><div><span className="eyebrow">{selected.state}</span><h3>{selected.id}</h3><p>{selected.title} · {selected.agent}</p></div><div><button className="icon-button" type="button" title="Copy run id" aria-label="Copy run id" onClick={() => onAction(selected.id + ' copied')}><Icon name="copy" size={14} /></button>{selected.state === 'Active' && <button className="studio-button" type="button" onClick={() => void runtime.runs.cancel(selected.id).then(() => { setLiveRuns((current) => current.map((run) => run.id === selected.id ? { ...run, state: 'Cancelled' } : run)); onAction(selected.id + ' cancelled in runtime') }).catch((error) => onAction(error instanceof Error ? error.message : 'Run cancellation failed'))}><Icon name="stop" size={13} /> Cancel</button>}<button className="studio-button" type="button" onClick={() => onAction(selected.id + ' re-run is not exposed by the runtime yet')}><Icon name="play" size={13} /> Re-run</button></div></header>
           <div className="run-timeline__stats"><Stat label="Duration" value={selected.duration + ' 32s'} /><Stat label="Tools" value={String(selected.tools)} /><Stat label="Tokens" value={selected.tokens} /><Stat label="Changes" value={selected.changes} /></div>
           <div className="run-timeline__tabs" role="tablist">{(['Timeline','Tools','Changes'] as const).map((item) => <button type="button" key={item} role="tab" aria-selected={view === item} className={view === item ? 'run-timeline__tab run-timeline__tab--active' : 'run-timeline__tab'} onClick={() => setView(item)}>{item}</button>)}</div>
@@ -104,7 +105,7 @@ export default function RunTimeline({ onAction }: { onAction: (message: string) 
 + profile settings and scoped policies
 @@ src/features/subagents/SubagentBuilder.tsx
 + isolation and handoff controls</pre><div className="platform-actions"><button className="studio-button" type="button" onClick={() => onAction('Diff inspector opened in preview')}>Inspect diff</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction('Checkpoint staged in preview')}><Icon name="git" size={13} /> Checkpoint</button></div></div>}
-        </section>
+        </section> : <section className="run-timeline__detail"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="activity" size={18} /></span><strong>No runtime runs</strong><p>The runtime answered with no runs. Create one with New run to start a lifecycle.</p></div></section>}
       </div>
     </div>
   )

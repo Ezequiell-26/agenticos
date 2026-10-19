@@ -6,7 +6,7 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return <div className="platform-panel"><div className="platform-panel__head"><strong>{title}</strong><span className="mono-text">preview</span></div><div className="platform-panel__body">{children}</div></div>
+  return <div className="platform-panel"><div className="platform-panel__head"><strong>{title}</strong></div><div className="platform-panel__body">{children}</div></div>
 }
 
 export function Metric({ label, value }: { label: string; value: string }) {

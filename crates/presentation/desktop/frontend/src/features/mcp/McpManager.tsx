@@ -35,11 +35,13 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
   const [search, setSearch] = useState('')
   const [serverTools, setServerTools] = useState<RuntimeApiRecord[]>([])
   const [toolsSyncing, setToolsSyncing] = useState(false)
+  const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void runtime.mcp.list().then((remoteServers) => {
-      if (cancelled || remoteServers.length === 0) return
+      if (cancelled) return
       const mapped = remoteServers.map((server, index) => {
         const name = typeof server.server_id === 'string' ? server.server_id : typeof server.name === 'string' ? server.name : `server-${index + 1}`
         const enabled = server.enabled !== false
@@ -48,10 +50,11 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
         return { name, detail, tools: typeof server.tool_count === 'number' ? server.tool_count : 0, state: enabled ? 'Connected' : 'Disabled', transport, auth: typeof server.auth === 'string' ? server.auth : 'Runtime', resources: typeof server.resource_count === 'number' ? server.resource_count : 0, risk: 'Review' }
       })
       setServers(mapped)
-      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0].name)
+      setSelected((current) => mapped.some((item) => item.name === current) ? current : mapped[0]?.name ?? current)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Keep the local catalog available while the runtime is offline.
-    })
+    }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
     return () => { cancelled = true }
   }, [])
   const current = servers.find((server) => server.name === selected) ?? servers[0]
@@ -117,11 +120,11 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
       <aside className="mcp-manager__rail">
         <div className="mcp-manager__rail-head"><div><span className="eyebrow">Tool gateway</span><strong>MCP Servers</strong></div><button className="icon-button" type="button" aria-label="Add MCP server" title="Add MCP server" onClick={addServer}><Icon name="plus" size={15} /></button></div>
         <div className="mcp-manager__search"><Icon name="search" size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search servers…" /></div>
-        <div className="mcp-manager__list">{visible.map((server) => <button type="button" key={server.name} className={server.name === current.name ? 'mcp-manager__server mcp-manager__server--active' : 'mcp-manager__server'} onClick={() => setSelected(server.name)}><span className="mcp-manager__icon"><Icon name="network" size={14} /></span><span><strong>{server.name}</strong><small>{server.tools} tools · {server.auth}</small></span><span className={server.state === 'Connected' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}</div>
-        <div className="mcp-manager__rail-foot"><span className="mono-text">{servers.length} servers</span><span className="state-pill state-pill--pending">Runtime-owned</span></div>
+        <div className="mcp-manager__list">{visible.map((server) => <button type="button" key={server.name} className={server.name === current?.name ? 'mcp-manager__server mcp-manager__server--active' : 'mcp-manager__server'} onClick={() => setSelected(server.name)}><span className="mcp-manager__icon"><Icon name="network" size={14} /></span><span><strong>{server.name}</strong><small>{server.tools} tools · {server.auth}</small></span><span className={server.state === 'Connected' ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}</div>
+        <div className="mcp-manager__rail-foot"><span className="mono-text">{servers.length} servers</span><span className="state-pill state-pill--pending">{runtimeSyncing ? 'Syncing' : runtimeBacked ? 'Runtime-owned' : 'Preview servers · offline'}</span></div>
       </aside>
 
-      <section className="mcp-manager__workspace">
+      {current ? <section className="mcp-manager__workspace">
         <header className="mcp-manager__header"><div><span className="eyebrow">{current.state} · {current.transport}</span><h2>{current.name}</h2><p>{current.detail}</p></div><div className="mcp-manager__actions"><button className="studio-button" type="button" onClick={() => void runtime.mcp.sync(current.name).then(() => runtime.mcp.tools(current.name)).then((tools) => { setServerTools(tools); onAction(current.name + ' tool catalog synced in runtime') }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP sync failed'))}><Icon name="refresh" size={13} /> Sync tools</button><button className="studio-button studio-button--active" type="button" onClick={() => void runtime.mcp.setEnabled(current.name, current.state !== 'Connected').then(() => { setServers((items) => items.map((item) => item.name === current.name ? { ...item, state: current.state === 'Connected' ? 'Disabled' : 'Connected' } : item)); onAction(`${current.name} state updated`) }).catch((error) => onAction(error instanceof Error ? error.message : 'MCP update failed'))}><Icon name="check" size={13} /> {current.state === 'Connected' ? 'Disable' : 'Enable'}</button></div></header>
         <nav className="mcp-manager__tabs" role="tablist" aria-label="MCP server details">{(['Overview','Tools','Resources','Auth','Policy'] as Tab[]).map((item) => <button type="button" key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'mcp-manager__tab mcp-manager__tab--active' : 'mcp-manager__tab'} onClick={() => setTab(item)}>{item}</button>)}</nav>
         <div className="mcp-manager__content">
@@ -135,7 +138,7 @@ export default function McpManager({ onAction }: { onAction: (message: string) =
 
           {tab === 'Policy' && <Section title="Server policy" description="Preview which classes of MCP operation are allowed, gated or denied."><div className="mcp-manager__policy-list">{[['Read tools','Allow'],['Write tools','Ask'],['Network resources','Ask'],['Credentials access','Deny'],['Destructive operations','Deny']].map(([name,value])=><div key={name}><span><strong>{name}</strong><small>Runtime authorization remains authoritative.</small></span><Select value={value} onChange={(next) => onAction(name + ' set to ' + next + ' in preview')} /></div>)}</div></Section>}
         </div>
-      </section>
+      </section> : <section className="mcp-manager__workspace"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="network" size={18} /></span><strong>No runtime MCP servers</strong><p>The runtime answered with no servers, so there is no tool catalog to inspect yet.</p></div></section>}
     </div>
   )
 }

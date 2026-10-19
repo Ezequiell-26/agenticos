@@ -20,6 +20,7 @@ export default function StatusBar({ status, messageCount, leading }: StatusBarPr
       <div className="status-bar__left">
         {leading}
         <span className="qoder-status__local"><Icon name="globe" size={11} /> Local</span>
+        {!connected && <span className="state-pill state-pill--failed">Runtime offline · start the API server</span>}
       </div>
       <div className="status-bar__right">
         <span className="qoder-status__meter" aria-hidden="true">

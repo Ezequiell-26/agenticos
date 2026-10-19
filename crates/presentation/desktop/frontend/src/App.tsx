@@ -292,7 +292,7 @@ function App() {
         {
           id: `system-error-${Date.now()}`,
           role: 'system',
-          content: cancelled ? 'Run cancelled.' : `Request failed: ${detail}`,
+          content: cancelled ? 'Run cancelled.' : /credential|PROVIDER_NOT_CONFIGURED/i.test(detail) ? `Request failed: ${detail}. Add a provider credential to .env and restart the runtime.` : `Request failed: ${detail}`,
           timestamp: Date.now(),
         },
       ])
@@ -386,7 +386,7 @@ function App() {
 
       <a className="skip-link" href="#workspace-content">Skip to workspace</a>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {running ? 'Agent run in progress.' : `Runtime ${status.provider === 'Runtime offline' ? 'offline' : 'connected'}; agent state ${status.state}.`}
+        {running ? 'Agent run in progress.' : status.provider === 'Runtime offline' ? 'Runtime offline; start the API server to reconnect.' : `Runtime connected; agent state ${status.state}.`}
       </div>
       <main id="workspace-content" className="workspace-main" aria-label="AgentiCOS workspace">
         {runtimeError && (

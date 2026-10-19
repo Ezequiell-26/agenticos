@@ -81,6 +81,14 @@ starts Vite from the `agenticos-desktop-frontend` package. Without the install a
 step fails before Rust ever compiles. The desktop application starts the Rust backend
 runtime in-process and launches the React/Vite frontend using the Tauri configuration.
 
+The desktop application keeps its SQLite database **outside the checkout**, in the Tauri
+application-data directory for the `com.agenticos.app` identifier —
+`%APPDATA%\com.agenticos.app\agenticos.db` on Windows — and it only chooses that path when
+`AGENTICOS_DATABASE_URL` is not already set. Every clone, copy and worktree on one machine
+therefore shares the same database. To run against a separate one, set
+`AGENTICOS_DATABASE_URL` in the environment before `cargo tauri dev`; the application honours
+it and leaves the shared file untouched.
+
 For a production bundle:
 
 ```bash
@@ -98,6 +106,11 @@ Binary:
 ```text
 target/release/agenticos
 ```
+
+On Windows the file is `target/release\agenticos.exe`. Measured on a cold clone: the release
+build exits 0 and produces a 5,511,680-byte binary, and `--version` is **not** accepted
+(`error: unexpected argument '--version' found`, item **R13**) — use `--help`, which works and
+lists `run`, `agent`, `status`, `config`, `flags` and `chat`.
 
 The CLI is a separate diagnostic/demo surface. The Tauri desktop and API runtime are the canonical product surfaces.
 
@@ -132,13 +145,23 @@ cargo check --workspace --all-targets
 cargo test --workspace
 ```
 
-Expect `cargo check --workspace --all-targets` to pass with zero compile errors, and
-`cargo test --workspace` to **exit 101 today**: the last measured full run was 58 test
-binaries, **503 passed and 9 failed**, and all nine failures sit in `crates/utilities/`
-packages that nothing in the product links against. That is a known open decision rather
-than a new regression; see item **R8b** in `docs/architecture/READINESS-BACKLOG.md`. Do not
-read a red workspace test run as the product being broken, and do not "fix" it by deleting
-those crates without that decision being made.
+Expect `cargo check --workspace --all-targets` to pass with zero compile errors — measured
+**exit 0** on a cold clone from GitHub on 2026-10-19.
+
+Expect `cargo test --workspace` to **exit 101 today**, and expect it to **stop early**: cargo is
+fail-fast for test binaries, so the first crate that fails ends the run. Measured literally, on
+that cold clone, it reached **13 of 58** test binaries and reported **61 passed, 1 failed**. The
+failure that stopped it is `crates/presentation/desktop/src/lib.rs:298`, which calls
+`get_agent_status("http://127.0.0.1:8080")` and asserts the call errors — so it only passes on a
+machine where **nothing is listening on 8080**, and it fails on any machine that already has the
+API server running. See item **R12** in `docs/architecture/READINESS-BACKLOG.md`.
+
+The full picture needs the flag the documented command omits: `cargo test --workspace
+--no-fail-fast` measured **503 passed and 9 failed** across the 58 binaries, and those nine sit
+in `crates/utilities/` packages that nothing in the product links against (**R8b**). Neither
+class is a new regression. Do not read a red workspace test run as the product being broken, do
+not read the 61/1 stop as the whole count, and do not "fix" it by deleting those crates without
+that decision being made.
 
 ## Troubleshooting
 
@@ -163,5 +186,15 @@ checkout. Re-clone, or refresh the working copy after confirming the tree is cle
 If `cargo tauri dev` fails immediately in `BeforeDevCommand`, it did not find the frontend
 dependencies. Run `npm install` inside `crates/presentation/desktop/frontend` first; the root
 `npm ci` does not cover it.
+
+If the desktop window never appears and the terminal ends with `Failed to setup app: ... sqlite
+migration failed: migration 1 was previously applied but has been modified` (process exits with
+code 101 after a successful build), the shared application-data database on that machine was
+created from an older copy of the files in
+`crates/utilities/sqlite-migrations/migrations/`. sqlx refuses to migrate against it by design —
+applied migrations are immutable. Pointing `AGENTICOS_DATABASE_URL` at a fresh file starts the
+application immediately and leaves the old database untouched; deciding what to do with the old
+one is item **R14** in `docs/architecture/READINESS-BACKLOG.md`, not something to resolve by
+deleting files.
 
 See [Canonical Architecture](docs/architecture/CANONICAL-ARCHITECTURE.md), [Repository Structure](docs/architecture/REPOSITORY-STRUCTURE.md), and [Project State](reference/PROJECT-STATE.md) for the deeper implementation status.

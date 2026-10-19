@@ -106,6 +106,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   const [tab, setTab] = useState<Tab>('Task')
   const [query, setQuery] = useState('')
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
   const [runtimeChildRuns, setRuntimeChildRuns] = useState<Record<string, string>>({})
 
   const current = items.find((item) => item.id === selectedId) ?? items[0]
@@ -113,7 +114,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
   useEffect(() => {
     let cancelled = false
     void runtime.subagents.list().then((agents) => {
-      if (cancelled || agents.length === 0) return
+      if (cancelled) return
       const mapped = agents.map((agent, index) => ({
         id: typeof agent.agent_id === 'string' ? agent.agent_id : typeof agent.id === 'string' ? agent.id : `remote-${index + 1}`,
         name: typeof agent.name === 'string' ? agent.name : `Runtime specialist ${index + 1}`,
@@ -133,7 +134,8 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
         requiresApproval: agent.requires_approval !== false,
       }))
       setItems(mapped)
-      setSelectedId((currentId) => mapped.some((item) => item.id === currentId) ? currentId : mapped[0].id)
+      setSelectedId((currentId) => mapped.some((item) => item.id === currentId) ? currentId : mapped[0]?.id ?? currentId)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Keep the local specialist catalog while runtime is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
@@ -143,6 +145,12 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     const q = query.trim().toLowerCase()
     return q ? items.filter((item) => [item.name, item.role, item.model, item.task].join(' ').toLowerCase().includes(q)) : items
   }, [items, query])
+
+  if (!current) return (
+    <div className="subagent-builder">
+      <section className="subagent-builder__workspace"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="bot" size={18} /></span><strong>No runtime specialists</strong><p>The runtime answered with no subagents, so there is no specialist profile to configure.</p><button className="studio-button studio-button--active" type="button" onClick={create}>Create specialist</button></div></section>
+    </div>
+  )
 
   function patch(value: Partial<SubagentDraft>) {
     setItems((list) => list.map((item) => item.id === current.id ? { ...item, ...value } : item))
@@ -227,7 +235,7 @@ export default function SubagentBuilder({ onAction }: { onAction: (message: stri
     <div className="subagent-builder">
       <aside className="subagent-builder__rail">
         <div className="subagent-builder__rail-head">
-          <div><span className="eyebrow">Delegation control · {runtimeSyncing ? 'syncing' : 'runtime'}</span><strong>Specialists</strong></div>
+          <div><span className="eyebrow">Delegation control · {runtimeSyncing ? 'syncing' : runtimeBacked ? 'runtime' : 'preview, runtime offline'}</span><strong>Specialists</strong></div>
           <button className="icon-button" type="button" aria-label="Create subagent" title="Create subagent" onClick={create}><Icon name="plus" size={15} /></button>
         </div>
         <div className="subagent-builder__search"><Icon name="search" size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search specialists…" /></div>

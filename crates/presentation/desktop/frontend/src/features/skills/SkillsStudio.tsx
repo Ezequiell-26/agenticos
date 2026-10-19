@@ -55,13 +55,14 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
   const [enabled, setEnabled] = useState(() => new Set(skillCatalog.filter((skill) => skill.installed).map((skill) => skill.name)))
   const [liveSkills, setLiveSkills] = useState(skillCatalog)
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState<SkillSort>('newest')
 
   useEffect(() => {
     let cancelled = false
     void runtime.skills.list().then((skills) => {
-      if (cancelled || skills.length === 0) return
+      if (cancelled) return
       const mapped = skills.map((skill, index) => ({
         name: typeof skill.name === 'string' ? skill.name : typeof skill.skill_id === 'string' ? skill.skill_id : `runtime-skill-${index + 1}`,
         detail: typeof skill.description === 'string' ? skill.description : 'Runtime-managed skill',
@@ -72,7 +73,8 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
       }))
       setLiveSkills(mapped)
       setEnabled(new Set(mapped.filter((skill) => skill.installed).map((skill) => skill.name)))
-      setSelected((current) => mapped.some((skill) => skill.name === current) ? current : mapped[0].name)
+      setSelected((current) => mapped.some((skill) => skill.name === current) ? current : mapped[0]?.name ?? current)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Local catalog remains usable while the backend is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
@@ -134,7 +136,7 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
             <Icon name="spark" size={15} />
             <span className="qoder-discovery__subject">Skills<svg className="qoder-discovery__squiggle" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M2 4C22 1.5 38 5 58 2.8 78 .6 96 4.6 118 2.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></span>
           </h1>
-          <p>With {categories.slice(0, 3).map(([name]) => name).join(', ')}.</p>
+          {categories.length > 0 && <p>With {categories.slice(0, 3).map(([name]) => name).join(', ')}.</p>}
         </div>
       </header>
       <div className="qoder-filterbar">
@@ -159,17 +161,17 @@ export default function SkillsStudio({ onAction }: { onAction: (message: string)
           }}>{item}</button>)}
         </div>
         <div id="skills-list-panel" className="skills-list" role="tabpanel" aria-labelledby={'skills-tab-' + tab.toLowerCase()} tabIndex={0}>
-          {visible.map((skill) => <button type="button" key={skill.name} className={current.name === skill.name ? 'skill-list-row skill-list-row--active' : 'skill-list-row'} onClick={() => setSelected(skill.name)}><span className="skill-list-icon"><Icon name={skill.category === 'Design' ? 'layout' : skill.category === 'Automation' ? 'activity' : 'spark'} size={13} /></span><span><strong>{skill.name}</strong><small>{skill.category} · {formatVersion(skill.version)}</small></span><span className={enabled.has(skill.name) ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
-          {visible.length === 0 && <div className="skills-empty">No skills match the current filter.</div>}
+          {visible.map((skill) => <button type="button" key={skill.name} className={current?.name === skill.name ? 'skill-list-row skill-list-row--active' : 'skill-list-row'} onClick={() => setSelected(skill.name)}><span className="skill-list-icon"><Icon name={skill.category === 'Design' ? 'layout' : skill.category === 'Automation' ? 'activity' : 'spark'} size={13} /></span><span><strong>{skill.name}</strong><small>{skill.category} · {formatVersion(skill.version)}</small></span><span className={enabled.has(skill.name) ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} /></button>)}
+          {visible.length === 0 && <div className="skills-empty">{liveSkills.length === 0 ? 'The runtime answered with no skills.' : 'No skills match the current filter.'}</div>}
         </div>
       </aside>
-      <section className="skills-studio__detail">
-        <div className="skills-detail-head"><div><span className="eyebrow">{current.category} · {runtimeSyncing ? 'syncing' : 'runtime catalog'}</span><h2>{current.name}</h2><p>{current.detail}</p></div><span className={enabled.has(current.name) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled.has(current.name) ? 'Enabled' : 'Available'}</span></div>
+      {current ? <section className="skills-studio__detail">
+        <div className="skills-detail-head"><div><span className="eyebrow">{current.category} · {runtimeSyncing ? 'syncing' : runtimeBacked ? 'runtime catalog' : 'preview catalog · offline'}</span><h2>{current.name}</h2><p>{current.detail}</p></div><span className={enabled.has(current.name) ? 'state-pill state-pill--active' : 'state-pill state-pill--pending'}>{enabled.has(current.name) ? 'Enabled' : 'Available'}</span></div>
         <div className="skills-detail-grid"><div><span>Version</span><strong>{current.version}</strong></div><div><span>Category</span><strong>{current.category}</strong></div><div><span>Last update</span><strong>{current.updated}</strong></div><div><span>State</span><strong>{enabled.has(current.name) ? 'Enabled' : 'Available'}</strong></div></div>
         <div className="skills-capabilities"><div className="surface-block__heading"><span>Capabilities</span><span className="mono-text">runtime contract</span></div><p className="skills-notice">The runtime reports a name, description, category, version and enabled state per skill. A per-skill capability list is not part of this build, so none is shown.</p></div>
         <div className="skills-permissions"><div className="surface-block__heading"><span>Permissions</span><span className="mono-text">policy</span></div><p className="skills-notice">Per-skill permissions are not part of this build. Tool authorization is governed by the Tool Policy surface, not by the skill record.</p></div>
         <div className="platform-actions"><button className={enabled.has(current.name) ? 'studio-button' : 'studio-button studio-button--active'} type="button" onClick={() => toggle(current.name)}>{enabled.has(current.name) ? 'Disable skill' : 'Enable skill'}</button><button className="studio-button" type="button" onClick={() => onAction(current.name + ' documentation opened in preview')}>View docs</button><button className="studio-button studio-button--active" type="button" onClick={() => onAction(current.name + ' configuration opened in preview')}><Icon name="settings" size={13} /> Configure</button></div>
-      </section>
+      </section> : <section className="skills-studio__detail"><div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="spark" size={18} /></span><strong>No runtime skills</strong><p>The runtime answered with no skills, so there is no catalog entry to show.</p></div></section>}
       </div>
     </div>
   )

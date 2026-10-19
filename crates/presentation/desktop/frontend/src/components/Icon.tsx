@@ -128,7 +128,7 @@ const paths: Record<IconName, string[]> = {
 
 export default function Icon({ name, size = 18, ...props }: IconProps) {
   return (
-    <svg aria-hidden="true" fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" vectorEffect="non-scaling-stroke" shapeRendering="geometricPrecision" viewBox="0 0 24 24" width={size} {...props}>
+    <svg aria-hidden="true" fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" vectorEffect="non-scaling-stroke" shapeRendering="geometricPrecision" viewBox="0 0 24 24" width={size} {...props}>
       {paths[name].map((path, index) => <path d={path} key={index} />)}
     </svg>
   )

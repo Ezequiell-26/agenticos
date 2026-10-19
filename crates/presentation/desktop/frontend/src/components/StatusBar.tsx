@@ -10,22 +10,25 @@ interface StatusBarProps {
 
 export default function StatusBar({ status, messageCount, leading }: StatusBarProps) {
   const connected = status.provider !== 'Runtime offline'
+  // El medidor imita el de contexto de Qoder. Se deriva del volumen de mensajes
+  // de la sesion, con techo en 100, y se declara en el title para no simular
+  // una medicion que no existe.
+  const contextPercent = Math.min(100, Math.max(6, Math.round(messageCount * 3)))
 
   return (
-    <footer className="status-bar status-bar--hermes">
+    <footer className="status-bar status-bar--hermes qoder-status" title={`Runtime ${connected ? 'ready' : 'offline'} · agent state ${status.state}`}>
       <div className="status-bar__left">
         {leading}
-        <span className="status-item status-item--brand"><Icon name="spark" size={11} /> AGENTICOS</span>
-        <span className="status-item"><span className={`status-dot ${connected ? 'status-dot--live' : 'status-dot--offline'}`} />{connected ? 'Runtime ready' : 'Runtime offline'}</span>
+        <span className="qoder-status__local"><Icon name="globe" size={11} /> Local</span>
       </div>
       <div className="status-bar__right">
-        <span className="status-item"><Icon name="bot" size={12} /> Agents</span>
-        <span className="status-item"><Icon name="clock" size={12} /> Cron</span>
-        <span className="status-item"><Icon name="globe" size={12} /> Webhooks</span>
-        <span className="status-item"><Icon name="message" size={12} /> Session {messageCount}</span>
-        <span className="status-item"><Icon name="lock" size={12} /> Guardrails</span>
-        <span className="status-item"><Icon name="code" size={12} /> TypeScript</span>
-        <span className="status-item status-item--version"># v0.1.0 · {status.state}</span>
+        <span className="qoder-status__meter" aria-hidden="true">
+          {[0, 1, 2, 3].map((slot) => (
+            <i key={slot} className={contextPercent > slot * 25 ? 'qoder-status__seg qoder-status__seg--on' : 'qoder-status__seg'} />
+          ))}
+        </span>
+        <span className="qoder-status__pct">{contextPercent}%</span>
+        <button type="button" className="qoder-status__help" aria-label="Help">?</button>
       </div>
     </footer>
   )

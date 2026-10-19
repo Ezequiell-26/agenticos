@@ -434,6 +434,14 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub: 
   return <div className="provider-metric-card"><span>{label}</span><strong>{value}</strong><small>{sub}</small></div>
 }
 
+function tagTone(label: string): string {
+  const key = label.trim().toLowerCase()
+  if (key === 'critical' || key === 'high' || key === 'blocked' || key === 'failed') return ' platform-tag--danger'
+  if (key === 'medium' || key === 'approval' || key === 'pending') return ' platform-tag--warning'
+  if (key === 'low' || key === 'allowed' || key === 'enabled') return ' platform-tag--success'
+  return ''
+}
+
 function Tag({ label }: { label: string }) {
-  return <span className="platform-tag">{label}</span>
+  return <span className={'platform-tag' + tagTone(label)}>{label}</span>
 }

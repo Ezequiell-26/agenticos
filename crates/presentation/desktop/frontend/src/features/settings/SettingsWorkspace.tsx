@@ -27,32 +27,36 @@ interface WorkspaceSection {
 
 /* Presentation-only settings shell. Values persist locally and never invent runtime authority. */
 const sections: WorkspaceSection[] = [
-  {
-    id: 'model',
-    label: 'Model',
-    icon: 'layers',
-    detail: 'Applies to new sessions. Use the model picker in the composer to hot-swap the active chat.',
-    children: [
-      { id: 'model/main', label: 'Main model', detail: 'Main chat model, reasoning effort and context override.' },
-      { id: 'model/fallback', label: 'Fallback models', detail: 'Ordered fallback chain used when the main model fails.' },
-      { id: 'model/auxiliary', label: 'Auxiliary models', detail: 'Specialized models for vision, titles, compression and approvals.' },
-      { id: 'model/moa', label: 'Mixture of Agents', detail: 'Combine several models on one task and merge their answers.' },
-    ],
-  },
-  { id: 'chat', label: 'Chat', icon: 'message', detail: 'Conversation behavior, instructions and composer defaults.' },
+  { id: 'group-personal', label: 'Personal', icon: 'users', detail: '', groupLabel: true },
+  { id: 'profile', label: 'Profile', icon: 'users', detail: 'Local profile, workspace identity and plan.' },
+  { id: 'workspace', label: 'General', icon: 'layout', detail: 'Project paths, startup view and setup checklist.' },
+  { id: 'chat', label: 'Mode configuration', icon: 'message', detail: 'Conversation behavior, instructions and composer defaults.' },
+  { id: 'notifications', label: 'Task monitor', icon: 'bell', detail: 'Delivery position, push behavior and quiet state.' },
+  { id: 'advanced', label: 'Keyboard shortcuts', icon: 'tool', detail: 'Keymaps, scope resolution and the full control center.' },
   { id: 'appearance', label: 'Appearance', icon: 'spark', detail: 'Themes, accents, density and workspace presets.' },
-  { id: 'workspace', label: 'Workspace', icon: 'layout', detail: 'Project paths, startup view and setup checklist.' },
-  { id: 'safety', label: 'Safety', icon: 'shield', detail: 'Approvals, permissions and effective agent boundaries.' },
-  { id: 'browser', label: 'Browser', icon: 'globe', detail: 'Browser tool backend, sessions and recording.' },
-  { id: 'passwords', label: 'Passwords & Logins', icon: 'lock', detail: 'Stored logins handled through the credential boundary.' },
-  { id: 'memory', label: 'Memory & Context', icon: 'database', detail: 'Persistent memory, recall and context budgeting.' },
   { id: 'voice', label: 'Voice', icon: 'mic', detail: 'Voice input, speech output and wake presence.' },
-  { id: 'advanced', label: 'Advanced', icon: 'tool', detail: 'Keymaps, scope resolution and the full control center.' },
-  { id: 'notifications', label: 'Notifications', icon: 'bell', detail: 'Delivery position, push behavior and quiet state.' },
-  { id: 'billing', label: 'Billing', icon: 'activity', detail: 'Plan and usage presentation; charges stay with the provider.' },
-  { id: 'providers', label: 'Providers', icon: 'network', detail: 'Connections, health and model catalogs per provider.' },
-  { id: 'gateways', label: 'Gateways', icon: 'cloud', detail: 'Channel gateways and delivery endpoints.' },
+  { id: 'models', label: 'Models', icon: 'layers', detail: 'Main model, fallback chain and auxiliary models.' },
+  { id: 'safety', label: 'Agent', icon: 'shield', beta: true, detail: 'Approvals, permissions and effective agent boundaries.' },
+  { id: 'agent-team', label: 'Agent Team', icon: 'users', beta: true, detail: 'Collaborative agents in one workspace.' },
+  { id: 'desktop-pet', label: 'Desktop pet', icon: 'spark', detail: 'Desktop companion settings.' },
+  { id: 'memory', label: 'Memory', icon: 'database', detail: 'Persistent memory, recall and context budgeting.' },
+  { id: 'data-import', label: 'Data import', icon: 'upload', detail: 'Import local data into the workspace.' },
+  { id: 'group-integrations', label: 'Integrations', icon: 'network', detail: '', groupLabel: true },
+  { id: 'providers', label: 'Extension management', icon: 'network', detail: 'Connections, health and model catalogs per provider.' },
+  { id: 'gateways', label: 'Hooks', icon: 'cloud', detail: 'Channel gateways and delivery endpoints.' },
+  { id: 'browser', label: 'Computer use', icon: 'globe', detail: 'Browser tool backend, sessions and recording.' },
+  { id: 'mobile', label: 'Mobile', icon: 'sliders', detail: 'Mobile access to this workspace.' },
 ]
+
+interface WorkspaceSection {
+  id: string
+  label: string
+  icon: IconName
+  detail: string
+  children?: Array<{ id: string; label: string; detail: string }>
+  groupLabel?: boolean
+  beta?: boolean
+}
 
 function flattenTarget(sectionId: string): { section: WorkspaceSection; child?: { id: string; label: string; detail: string } } {
   const [groupId, childId] = sectionId.split('/')
@@ -104,25 +108,32 @@ export default function SettingsWorkspace({ notify, onClose, onNavigate, initial
 
   return (
     <section className="settings-workspace" aria-label="Settings">
-      <div className="settings-workspace__searchbar">
-        <label className="settings-workspace__search">
-          <Icon name="search" size={13} />
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search"
-            aria-label="Search settings"
-          />
-          <kbd>Ctrl</kbd><kbd>K</kbd>
-        </label>
-      </div>
 
       <div className="settings-workspace__body">
         <nav className="settings-workspace__nav" aria-label="Settings sections">
+          <button type="button" className="sw-back" onClick={onClose}>
+            <Icon name="chevron-left" size={13} />
+            <span>Back to app</span>
+          </button>
+
+          <div className="settings-workspace__searchbar settings-workspace__searchbar--nav">
+            <label className="settings-workspace__search">
+              <Icon name="search" size={13} />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search settings…"
+                aria-label="Search settings"
+              />
+              <kbd>Ctrl</kbd><kbd>K</kbd>
+            </label>
+          </div>
           {filteredSections.map((item) => (
             <div key={item.id} className="settings-workspace__group">
-              {item.children ? (
+              {item.groupLabel ? (
+                <div className="sw-group-label">{item.label}</div>
+              ) : item.children ? (
                 <>
                   <button
                     type="button"
@@ -156,6 +167,7 @@ export default function SettingsWorkspace({ notify, onClose, onNavigate, initial
                 >
                   <Icon name={item.icon} size={14} />
                   <span>{item.label}</span>
+                  {item.beta && <span className="sw-beta">Beta</span>}
                   <Icon name="chevron-right" size={12} className="sw-chevron" />
                 </button>
               )}
@@ -184,8 +196,78 @@ export default function SettingsWorkspace({ notify, onClose, onNavigate, initial
   )
 }
 
+function ProfilePanel({ notify }: { notify: (message: string) => void }) {
+  return (
+    <div className="qoder-profile">
+      <div className="qoder-profile__ornaments" aria-hidden="true">
+        <span className="qoder-profile__orb" />
+        <span className="qoder-profile__orb qoder-profile__orb--lg" />
+        <span className="qoder-profile__cone">365</span>
+      </div>
+      <div className="qoder-profile__head">
+        <span className="qoder-profile__avatar" aria-hidden="true">M</span>
+        <div className="qoder-profile__identity">
+          <div className="qoder-profile__name-row">
+            <h2>Matías González</h2>
+            <button type="button" className="qoder-profile__chip" onClick={() => notify('Role assignment requires an account backend')}>
+              <Icon name="users" size={12} /> Set role
+            </button>
+          </div>
+          <p>Local workspace · no account connected</p>
+        </div>
+        <div className="qoder-profile__actions">
+          <button type="button" className="sw-button" onClick={() => notify('Profile editing requires an account backend')}>Edit</button>
+          <button type="button" className="sw-button" onClick={() => notify('Sharing requires an account backend')}>Share</button>
+        </div>
+      </div>
+
+      <section className="qoder-profile__card">
+        <div className="qoder-profile__card-head"><span>AgentiCOS</span><Icon name="chevron-right" size={12} /></div>
+        <div className="qoder-profile__stats">
+          <div><strong>Local</strong><span>Workspace</span></div>
+          <div><strong>Offline</strong><span>Runtime</span></div>
+          <div><strong>Local</strong><span>Plan</span></div>
+          <div><strong>v0.1.0</strong><span>Version</span></div>
+        </div>
+      </section>
+
+      <section className="qoder-profile__card">
+        <div className="qoder-profile__card-head"><span>Account &amp; subscription</span></div>
+        <div className="qoder-profile__row">
+          <div><strong>Current plan</strong><p>This workspace runs without a hosted account.</p></div>
+          <span className="qoder-profile__pill">Local</span>
+        </div>
+        <div className="qoder-profile__divider" />
+        <div className="qoder-profile__row">
+          <div><strong>Sign out</strong><p>There is no account session in this build.</p></div>
+          <button type="button" className="qoder-profile__danger" onClick={() => notify('No account session in this build')}>Sign out</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function PlaceholderPanel({ title, detail, notify }: { title: string; detail: string; notify: (message: string) => void }) {
+  return (
+    <div className="sw-stack">
+      <section className="qoder-profile__card">
+        <div className="qoder-profile__card-head"><span>{title}</span></div>
+        <p className="sw-hint">{detail}</p>
+        <div className="qoder-profile__divider" />
+        <button type="button" className="sw-button" onClick={() => notify(title + ' is not part of this build')}>Learn more</button>
+      </section>
+    </div>
+  )
+}
+
 function SettingsPanel({ target, notify, onNavigate }: { target: string; notify: (message: string) => void; onNavigate?: (mode: RailMode) => void }) {
   switch (target) {
+    case 'profile': return <ProfilePanel notify={notify} />
+    case 'models': return <MainModelPanel notify={notify} />
+    case 'agent-team': return <PlaceholderPanel title="Agent Team" detail="Collaborative agents are not part of this build yet." notify={notify} />
+    case 'desktop-pet': return <PlaceholderPanel title="Desktop pet" detail="The desktop companion is not part of this build yet." notify={notify} />
+    case 'data-import': return <PlaceholderPanel title="Data import" detail="Importing local data is not part of this build yet." notify={notify} />
+    case 'mobile': return <PlaceholderPanel title="Mobile" detail="Mobile access is not part of this build yet." notify={notify} />
     case 'model/main': return <MainModelPanel notify={notify} />
     case 'model/fallback': return <FallbackPanel notify={notify} />
     case 'model/auxiliary': return <AuxiliaryPanel notify={notify} />

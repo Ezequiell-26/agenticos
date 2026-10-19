@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ChatSurface from './components/ChatSurface'
 import CommandPalette from './components/CommandPalette'
 import CustomizePopover from './components/CustomizePopover'
@@ -97,7 +97,7 @@ function App() {
   const [toast, setToast] = useState('')
   const [layoutsOpen, setLayoutsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState('model/main')
+  const [settingsSection, setSettingsSection] = useState('profile')
   const runtimeSyncSequence = useRef(0)
   const runtimeWasSynced = useRef(false)
   useExclusiveOverlay('palette', paletteOpen, () => setPaletteOpen(false))
@@ -346,6 +346,27 @@ function App() {
 
   return (
     <div className={'app-shell ' + (!leftPanelOpen ? 'app-shell--sidebar-collapsed ' : '') + (focusMode ? 'app-shell--focus ' : '') + (layoutsOpen ? 'app-shell--layout-editing' : '')} data-runtime={status.provider === 'Runtime offline' ? 'offline' : 'connected'}>
+      <header className="qoder-titlebar">
+        <div className="qoder-titlebar__left">
+          <button type="button" className="qoder-titlebar__icon" onClick={() => setLeftPanelOpen((open) => !open)} aria-label="Toggle sidebar"><Icon name="panel-left" size={14} /></button>
+          <button type="button" className="qoder-titlebar__icon" onClick={() => window.history.back()} aria-label="Go back"><Icon name="chevron-left" size={14} /></button>
+          <button type="button" className="qoder-titlebar__icon" onClick={() => window.history.forward()} aria-label="Go forward"><Icon name="chevron-right" size={14} /></button>
+          <div className="qoder-titlebar__menus" role="menubar" aria-label="Application menu">
+            {['File', 'Edit', 'View', 'Help'].map((label) => (
+              <button key={label} type="button" role="menuitem" className="qoder-titlebar__menu" onClick={() => setToast(label + ' menu is not part of this build')}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="qoder-titlebar__right">
+          <span className="qoder-titlebar__quick"><Icon name="folder" size={14} /><Icon name="arrow-down" size={10} /></span>
+          <span className="qoder-titlebar__quick"><Icon name="spark" size={14} /></span>
+          <span className="qoder-titlebar__quick"><Icon name="sliders" size={14} /></span>
+          <span className="qoder-titlebar__quick"><Icon name="panel-right" size={14} /></span>
+          <span className="qoder-window-control"><Icon name="minimize" size={12} /></span>
+          <span className="qoder-window-control"><Icon name="maximize" size={12} /></span>
+          <span className="qoder-window-control qoder-window-control--close"><Icon name="x" size={12} /></span>
+        </div>
+      </header>
       <WorkspaceSidebar
         activeConversation={sessionId}
         conversations={conversations}
@@ -357,7 +378,8 @@ function App() {
         onOpenNotifications={() => setNotificationsOpen((open) => !open)}
         notificationUnread={notificationUnread}
         onAction={setToast}
-        onOpenAppearance={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
+        onOpenAppearance={() => { setSettingsSection('appearance'); startTransition(() => setSettingsOpen(true)) }}
+        onOpenSettings={() => { setSettingsSection('profile'); startTransition(() => setSettingsOpen(true)) }}
         footerExtra={<CustomizePopover experience={experience} onExperienceChange={setExperience} onSelectMode={(nextMode) => setMode(nextMode)} iconOnly />}
         runtimeConnected={status.provider !== 'Runtime offline'}
       />
@@ -439,7 +461,7 @@ function App() {
           onClose={() => setContextMenu(null)}
           onCreateConversation={handleCreateConversation}
           onOpenPalette={() => setPaletteOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => startTransition(() => setSettingsOpen(true))}
           onOpenLayouts={() => setLayoutsOpen(true)}
           onAction={setToast}
         />

@@ -68,7 +68,7 @@ function MessageBubble({ message, onAction, onCopy }: { message: ChatMessage; on
   )
 }
 
-export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onSelectSession, onCreateSession, browserPanelVisible = false, onToggleBrowserPanel, availableModels = [] }: ChatSurfaceProps) {
+export default function ChatSurface({ sessionId, messages, disabled = false, running, onSend, onStop, onOpenPalette, sessions = [], onCreateSession, browserPanelVisible = false, onToggleBrowserPanel, availableModels = [] }: ChatSurfaceProps) {
   const [draft, setDraft] = useState('')
   const modelOptions = useMemo(() => Array.from(new Set(['Auto route', ...(availableModels.length > 0 ? availableModels : defaultModels)])), [availableModels])
   const [model, setModel] = useState('Auto route')
@@ -243,36 +243,25 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
   return (
     <section className="chat-surface">
       {sessions.length > 0 && (
-        <div className="session-tabs" role="tablist" aria-label="Open sessions">
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              type="button"
-              role="tab"
-              aria-selected={session.id === sessionId}
-              className={session.id === sessionId ? 'session-tab session-tab--active' : 'session-tab'}
-              onClick={() => onSelectSession?.(session.id)}
-            >
-              <span className={session.id === sessionId ? 'session-tab__dot session-tab__dot--active' : 'session-tab__dot'} aria-hidden="true" />
-              {session.title}
-            </button>
-          ))}
-          <button type="button" className="session-tab session-tab--new" aria-label="New session" title="New session · Ctrl+N" onClick={onCreateSession}>
-            <Icon name="plus" size={14} />
-          </button>
-          {onToggleBrowserPanel && (
-            <button
-              type="button"
-              className={browserPanelVisible ? 'session-tab session-tab--new session-tab--toggle-active' : 'session-tab session-tab--new'}
-              aria-label="Browser panel"
-              aria-pressed={browserPanelVisible}
-              title={browserPanelVisible ? 'Hide browser panel' : 'Open browser panel'}
-              onClick={onToggleBrowserPanel}
-            >
-              <Icon name="globe" size={14} />
-            </button>
-          )}
-        </div>
+        <header className="qoder-chat-head">
+          <span className="qoder-chat-head__title">{(sessions.find((session) => session.id === sessionId) ?? sessions[0]).title}</span>
+          <button type="button" className="qoder-chat-head__more" aria-label="Conversation actions" title="Conversation actions"><Icon name="more" size={14} /></button>
+          <div className="qoder-chat-head__actions">
+            <button type="button" className="qoder-chat-head__icon" aria-label="New session" title="New session · Ctrl+N" onClick={onCreateSession}><Icon name="plus" size={14} /></button>
+            {onToggleBrowserPanel && (
+              <button
+                type="button"
+                className={browserPanelVisible ? 'qoder-chat-head__icon qoder-chat-head__icon--active' : 'qoder-chat-head__icon'}
+                aria-label="Browser panel"
+                aria-pressed={browserPanelVisible}
+                title={browserPanelVisible ? 'Hide browser panel' : 'Open browser panel'}
+                onClick={onToggleBrowserPanel}
+              >
+                <Icon name="globe" size={14} />
+              </button>
+            )}
+          </div>
+        </header>
       )}
       {advancedOpen && (
         <div className="chat-control-stack">
@@ -295,6 +284,27 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
       )}
 
       <div className="chat-content" aria-busy={running}>
+        <div className="qoder-digest" role="group" aria-label="Files changed in this session">
+          <div className="qoder-digest__head">
+            <span className="qoder-digest__icon"><Icon name="file-code" size={14} /></span>
+            <span className="qoder-digest__title">
+              <strong>Edited 3 files</strong>
+              <span className="qoder-digest__counts"><em>+395</em> <b>−0</b></span>
+            </span>
+            <button type="button" className="qoder-digest__undo" onClick={() => setNotice('Undo is a preview action in this build')}>Undo</button>
+          </div>
+          <div className="qoder-digest__row"><span className="qoder-digest__path">agenticos/crates/presentation/desktop/frontend/src/main.tsx</span><span className="qoder-digest__delta"><em>+1</em> <b>−0</b></span></div>
+          <div className="qoder-digest__row"><span className="qoder-digest__path">agenticos/crates/presentation/desktop/frontend/src/qoder-theme.css</span><span className="qoder-digest__delta"><em>+323</em> <b>−0</b></span></div>
+          <div className="qoder-digest__row"><span className="qoder-digest__path">repo_record3.py</span><span className="qoder-digest__delta"><em>+71</em> <b>−0</b></span></div>
+        </div>
+        <div className="qoder-digest__actions">
+          <button type="button" title="Copy summary" aria-label="Copy summary" onClick={() => void copyResponse('Edited 3 files: +395 −0')}><Icon name="copy" size={13} /></button>
+          <button type="button" title="Good result" aria-label="Good result" onClick={() => setNotice('Thanks — noted')}><Icon name="arrow-up" size={13} /></button>
+          <button type="button" title="Bad result" aria-label="Bad result" onClick={() => setNotice('Feedback recorded')}><Icon name="arrow-down" size={13} /></button>
+          <button type="button" title="Share" aria-label="Share" onClick={() => setNotice('Sharing requires an account backend')}><Icon name="external" size={13} /></button>
+          <button type="button" title="Attach" aria-label="Attach" onClick={() => setNotice('Attach a file from the composer')}><Icon name="paperclip" size={13} /></button>
+          <button type="button" title="More" aria-label="More" onClick={() => setNotice('More actions are not part of this build')}><Icon name="more" size={13} /></button>
+        </div>
         {messages.length > 0 ? (
           <div className="message-stack">
             {messages.map((message) => <MessageBubble key={message.id} message={message} onAction={setNotice} onCopy={(content) => void copyResponse(content)} />)}
@@ -355,9 +365,14 @@ export default function ChatSurface({ sessionId, messages, disabled = false, run
                 </div>
               )}
             </div>
-            <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Add more context" rows={1} value={draft} />
+            <button className="composer-icon" type="button" title="Composer tools" aria-label="Composer tools" onClick={() => setToolsOpen((value) => !value)}><Icon name="tool" size={14} /></button>
+            <button className="composer-access" type="button" title="Access level" onClick={() => setNotice('Full access is the default for this workspace')}>
+              <Icon name="alert" size={12} /> Full access <Icon name="chevron-right" size={10} />
+            </button>
+            <textarea ref={textareaRef} aria-label="Message AgentiCOS" className="composer-input" disabled={disabled} onChange={(event) => { const value = event.target.value; setDraft(value); const open = value.trimStart().startsWith('/'); setSlashOpen(open); if (!open) setSlashIndex(0) }} onKeyDown={handleKeyDown} placeholder="Press and hold the mouse to dictate text" rows={1} value={draft} />
             <div className="composer-right">
               <span className="composer-model-wrap" title="Model routing">
+                <span className="composer-model-icon" aria-hidden="true"><Icon name="spark" size={13} /></span>
                 <button
                   type="button"
                   className={`composer-select composer-select--button ${modelOpen ? 'composer-select--open' : ''}`}

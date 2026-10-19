@@ -1,0 +1,343 @@
+/* ============================================================================
+ * Qoder skin — AgentiCOS
+ * Valores medidos sobre la ventana real de Qoder (captura 1360x720):
+ *   barra superior #112820, 44 px, borde inferior #27332e
+ *   lienzo #0b110e · composer #0a0f0d · borde #27332e
+ *   botón de envío #62c9a8 · texto primario cerca de #eaf3ef
+ *   marco de ventana de 4 px #112820 en los cuatro lados
+ * Capa aditiva: se importa después de harness-theme.css y redefine la paleta
+ * y el chrome. No trae activos, íconos ni CSS de Qoder; reproduce medidas.
+ * ==========================================================================*/
+
+:root {
+  /* Paleta medida */
+  --q-canvas: #0b110e;
+  --q-chrome: #112820;
+  --q-border: #27332e;
+  --q-border-soft: #1d2722;
+  --q-surface: #0a0f0d;
+  --q-raised: #1a2420;
+  --q-hover: #232e29;
+  /* bg-primary-bg-hover del bloque mint-dark de Qoder: el estado hover de la pill de workspace. */
+  --q-pill-hover: #18362e;
+  --q-selected: rgba(98, 201, 168, 0.10);
+  --q-text: #eaf3ef;
+  --q-text-2: #b0c3ba;
+  --q-text-3: #788f85;
+  --q-accent: #62c9a8;
+  --q-accent-hover: #76d9b9;
+  --q-on-accent: #07130f;
+  --q-warning: #ff8a6b;
+  --q-danger: #ff6b6b;
+  --q-info: #75b5ba;
+  --q-topbar: 44px;
+  --q-status: 24px;
+  --q-radius-lg: 14px;
+  --q-radius-md: 8px;
+  --q-radius-sm: 6px;
+
+  /* Reescritura de las variables del proyecto y de la capa anterior */
+  --bg: #0b110e;
+  --bg-deep: #0b110e;
+  --panel: #0b110e;
+  --panel-2: #0f1713;
+  --line: #27332e;
+  --line-strong: #35443c;
+  --text: #eaf3ef;
+  --muted: #b0c3ba;
+  --muted-2: #788f85;
+  --surface-0: #0b110e;
+  --surface-1: #0b110e;
+  --surface-2: #0f1713;
+  --surface-3: #1a2420;
+  --border-subtle: #1d2722;
+  --border-default: #27332e;
+  --border-strong: #35443c;
+  --text-strong: #eaf3ef;
+  --text-default: #c8d6ce;
+  --text-muted: #b0c3ba;
+  --text-dim: #788f85;
+  --focus-ring: #62c9a8;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --h-bg: #0b110e;
+  --h-bg-raised: #0f1713;
+  --h-bg-elevated: #1a2420;
+  --h-highlight: #232e29;
+  --h-selected: #232e29;
+  --h-control: #1a2420;
+  --h-control-hover: #232e29;
+  --h-border: #27332e;
+  --h-border-strong: #35443c;
+  --h-text: #eaf3ef;
+  --h-text-secondary: rgba(234, 243, 239, 0.62);
+  --h-text-tertiary: rgba(234, 243, 239, 0.42);
+  --h-text-quaternary: rgba(234, 243, 239, 0.22);
+  --h-accent: #62c9a8;
+  --h-accent-hover: #76d9b9;
+  --h-accent-soft: rgba(98, 201, 168, 0.14);
+  --h-on-accent: #07130f;
+  --h-link: #75b5ba;
+  --h-focus: #62c9a8;
+  --h-success: #62c9a8;
+  --h-success-bg: rgba(98, 201, 168, 0.12);
+  --h-success-border: rgba(98, 201, 168, 0.32);
+  --h-warning: #ff8a6b;
+  --h-warning-bg: rgba(255, 138, 107, 0.12);
+  --h-warning-border: rgba(255, 138, 107, 0.32);
+  --h-danger: #ff6b6b;
+  --h-danger-bg: rgba(255, 107, 107, 0.12);
+  --h-danger-border: rgba(255, 107, 107, 0.32);
+  --h-info: #75b5ba;
+  --h-info-bg: rgba(117, 181, 186, 0.12);
+  --h-info-border: rgba(117, 181, 186, 0.32);
+
+  /* Aliases que el resto del proyecto usa pero nadie definía. Sin definición, un
+     var(--x) sin fallback queda invalid al computar: border-color cae a
+     currentColor (los pelos salían casi blancos) y background-color a transparent
+     (los hovers no se veían). Todos apuntan a tokens ya medidos de arriba. */
+  --border: var(--q-border);
+  --q-border-strong: var(--border-strong);
+  --surface: var(--q-surface);
+  --panel-strong: var(--q-raised);
+  --panel-hover: var(--q-hover);
+  --accent: var(--q-accent);
+  --danger: var(--q-danger);
+  --warning: var(--q-warning);
+  --text-primary: var(--q-text);
+  --font-mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+/* Marco de ventana de Qoder: 4 px de chrome alrededor del lienzo.
+   Hay que incluir :root en el selector: index.css fija el fondo del documento con
+   `:root { background:#181818 }`, y esa especificidad (0,1,0) le gana a un simple
+   `html` (0,0,1) sin importar que esta hoja se importe despues. */
+html, :root { background: var(--q-chrome); }
+body {
+  padding: 4px;
+  background: var(--q-chrome);
+  color: var(--q-text);
+  font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 20px;
+}
+#root {
+  height: 100%;
+  background: var(--q-canvas);
+  overflow: hidden;
+}
+::selection { background: rgba(98, 201, 168, 0.25); color: var(--q-text); }
+
+/* --- Chrome superior ----------------------------------------------------- */
+.app-shell { background: var(--q-canvas); }
+
+.sidebar-tabs,
+.session-tabs {
+  height: var(--q-topbar);
+  align-items: center;
+  background: var(--q-chrome);
+  border-bottom: 1px solid var(--q-border);
+}
+.sidebar-tab,
+.session-tab {
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--q-text-3);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.sidebar-tab:hover,
+.session-tab:hover { color: var(--q-text); background: rgba(255, 255, 255, 0.03); }
+.sidebar-tab--active,
+.session-tab--active {
+  color: var(--q-text);
+  border-bottom-color: var(--q-accent);
+  background: transparent;
+}
+
+.workspace-sidebar,
+.workspace-main,
+.workspace-dock {
+  background: var(--q-canvas);
+  border-color: var(--q-border);
+}
+.workspace-sidebar { border-right: 1px solid var(--q-border); }
+
+.eyebrow,
+.sidebar-section__title,
+.panel-label,
+.section-label {
+  color: var(--q-text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.workspace-title { color: var(--q-text); }
+
+/* --- Navegación ---------------------------------------------------------- */
+.conversation-row,
+.list-row,
+.batch-row,
+.capability-row { border-radius: var(--q-radius-sm); color: var(--q-text-2); }
+.conversation-row:hover,
+.list-row:hover,
+.batch-row:hover,
+.capability-row:hover { background: var(--q-hover); color: var(--q-text); }
+.conversation-row--active,
+.list-row--active {
+  background: var(--q-selected);
+  color: var(--q-text);
+  box-shadow: inset 2px 0 0 var(--q-accent);
+}
+
+/* --- Controles ----------------------------------------------------------- */
+.soft-button,
+.studio-button,
+.icon-button,
+.ghost-button,
+button.chip {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  color: var(--q-text);
+}
+.soft-button:hover,
+.studio-button:hover,
+.icon-button:hover,
+.ghost-button:hover { background: var(--q-hover); border-color: var(--q-border-strong, #35443c); }
+
+.studio-button--active,
+.soft-button--primary,
+.primary-button {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: var(--q-on-accent);
+  font-weight: 600;
+}
+.studio-button--active:hover,
+.soft-button--primary:hover,
+.primary-button:hover {
+  background: var(--q-accent-hover);
+  border-color: var(--q-accent-hover);
+}
+
+input, textarea, select {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  color: var(--q-text);
+}
+input::placeholder, textarea::placeholder { color: var(--q-text-3); }
+input:focus, textarea:focus, select:focus { border-color: var(--q-accent); outline: none; }
+
+kbd {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  color: var(--q-text-2);
+}
+
+/* --- Composer ------------------------------------------------------------ */
+.composer-shell {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-lg);
+  box-shadow: none;
+  /* Qoder centra la columna de chat y el composer: medido ~48 % del ancho. */
+  width: 100%;
+  max-width: 780px;
+  margin-inline: auto;
+}
+.composer-shell.composer-shell--hermes {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-lg);
+  box-shadow: none;
+}
+.composer-shell.composer-shell--hermes:focus-within {
+  border-color: rgba(98, 201, 168, 0.55) !important;
+  box-shadow: none !important;
+}
+
+.send-button {
+  background: var(--q-accent);
+  border: 1px solid var(--q-accent);
+  border-radius: var(--q-radius-md);
+  color: var(--q-on-accent);
+}
+.send-button:hover:not(:disabled) { background: var(--q-accent-hover); border-color: var(--q-accent-hover); }
+.send-button:disabled { opacity: 0.4; }
+.send-button--stop {
+  background: var(--q-danger);
+  border-color: var(--q-danger);
+  color: #1a0b0b;
+}
+
+/* --- Chips, etiquetas y severidad --------------------------------------- */
+.count-pill, .chip, .badge, .tag, .platform-tag, .state-pill {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  color: var(--q-text-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+.platform-tag--danger { color: var(--q-danger); background: rgba(255, 107, 107, 0.12); border-color: rgba(255, 107, 107, 0.32); }
+.platform-tag--warning { color: var(--q-warning); background: rgba(255, 138, 107, 0.12); border-color: rgba(255, 138, 107, 0.32); }
+.platform-tag--success { color: var(--q-accent); background: rgba(98, 201, 168, 0.12); border-color: rgba(98, 201, 168, 0.32); }
+
+/* --- Barra de estado ---------------------------------------------------- */
+.status-bar {
+  height: var(--q-status);
+  background: var(--q-canvas);
+  border-top: 1px solid var(--q-border);
+  color: var(--q-text-3);
+  font-size: 11px;
+}
+.status-bar__left, .status-bar__right { color: var(--q-text-3); }
+
+/* --- Superficies y modales ---------------------------------------------- */
+.card, .panel-card, .info-card, .surface-card, .workspace-switcher, .search-field {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+}
+.settings-modal, .command-palette, .quick-actions-menu, .notification-drawer,
+.slash-command-menu, .workspace-context-menu {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-lg);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+.settings-modal-backdrop, .modal-backdrop { background: rgba(3, 8, 5, 0.66); }
+.studio-toast, .toast {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  color: var(--q-text);
+}
+
+/* --- Tipografía ---------------------------------------------------------- */
+.chat-wordmark strong, .chat-wordmark {
+  font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--q-text);
+}
+h1, .h1 { color: var(--q-text); }
+h2, h3 { color: var(--q-text); }
+
+/* Scrollbars de Qoder: finas y verde-gris. */
+* { scrollbar-color: #2f3d36 transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #2f3d36; border: 2px solid transparent; border-radius: 999px; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #3d4d45; background-clip: content-box; }

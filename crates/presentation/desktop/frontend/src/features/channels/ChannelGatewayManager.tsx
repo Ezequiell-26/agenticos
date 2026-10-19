@@ -28,5 +28,6 @@ function Section({title,description,children}:{title:string;description:string;c
 function Field({label,children}:{label:string;children:ReactNode}){return <label className="channel-gateway-manager__field"><span>{label}</span>{children}</label>}
 function Select({value,options,onChange}:{value:string;options:string[];onChange:(value:string)=>void}){return <select value={value} onChange={e=>onChange(e.target.value)}>{options.map(option=><option key={option}>{option}</option>)}</select>}
 function Toggle({label,value,onChange}:{label:string;value:boolean;onChange:(value:boolean)=>void}){return <button type="button" className={value?'channel-gateway-manager__toggle channel-gateway-manager__toggle--active':'channel-gateway-manager__toggle'} aria-pressed={value} onClick={()=>onChange(!value)}><span><strong>{label}</strong><small>{value?'Enabled':'Disabled'}</small></span><span className="switch"><span/></span></button>}
-function Tag({label}:{label:string}){return <span className="platform-tag">{label}</span>}
+function tagTone(label:string):string{const k=label.trim().toLowerCase();if(k==='critical'||k==='high'||k==='blocked'||k==='failed')return ' platform-tag--danger';if(k==='medium'||k==='approval'||k==='pending')return ' platform-tag--warning';if(k==='low'||k==='allowed'||k==='enabled')return ' platform-tag--success';return ''}
+function Tag({label}:{label:string}){return <span className={'platform-tag'+tagTone(label)}>{label}</span>}
 function Stat({label,value}:{label:string;value:string}){return <div><span>{label}</span><strong>{value}</strong></div>}

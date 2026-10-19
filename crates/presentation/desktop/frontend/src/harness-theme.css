@@ -1,0 +1,466 @@
+/* ============================================================================
+ * Harness theme layer — AgentiCOS
+ * Tokens y chrome extraídos del panel "Harness insights" de Qoder.
+ * Fuente de los valores: lingma-tokens.ts (adaptador VS Code -> Canvas del SDK
+ * de Canvas de Qoder, fallback oscuro) y qoder-harness-insights.canvas.tsx.
+ * Este archivo se importa al final para que gane sobre index.css y
+ * workspace-enhancements.css. No trae activos ni fuentes de Qoder: reproduce
+ * paleta, ritmo, jerarquía y estados.
+ * ==========================================================================*/
+
+:root {
+  /* --- Superficies ancladas al harness --------------------------------- */
+  --h-bg: #181818;
+  --h-bg-raised: #1e1e1e;
+  --h-bg-elevated: #232323;
+  --h-highlight: #282828;
+  --h-selected: #363636;
+  --h-control: #2d2d2d;
+  --h-control-hover: #3d3d3d;
+  --h-overlay: #00000080;
+
+  /* --- Borde ----------------------------------------------------------- */
+  --h-border: #333333;
+  --h-border-strong: #3d3d3d;
+  --h-border-soft: rgba(228, 228, 228, 0.07);
+
+  /* --- Texto: #E4E4E4 y sus pasos alfa --------------------------------- */
+  --h-text: #e4e4e4;
+  --h-text-secondary: rgba(228, 228, 228, 0.6);
+  --h-text-tertiary: rgba(228, 228, 228, 0.4);
+  --h-text-quaternary: rgba(228, 228, 228, 0.2);
+
+  /* --- Acento y enlaces ------------------------------------------------  */
+  --h-accent: #2a3a6e;
+  --h-accent-hover: #3a4a8e;
+  --h-accent-soft: rgba(42, 58, 110, 0.4);
+  --h-on-accent: #ffffff;
+  --h-link: #75beff;
+  --h-focus: #2a3a6e;
+
+  /* --- Tonos semánticos del harness (bg = color+22, borde = color+55) -- */
+  --h-danger: #fc6b83;
+  --h-danger-bg: rgba(252, 107, 131, 0.13);
+  --h-danger-border: rgba(252, 107, 131, 0.33);
+  --h-warning: #ffa500;
+  --h-warning-bg: rgba(255, 165, 0, 0.13);
+  --h-warning-border: rgba(255, 165, 0, 0.33);
+  --h-success: #3fa266;
+  --h-success-bg: rgba(63, 162, 102, 0.13);
+  --h-success-border: rgba(63, 162, 102, 0.33);
+  --h-info: #0b83f1;
+  --h-info-bg: rgba(11, 131, 241, 0.13);
+  --h-info-border: rgba(11, 131, 241, 0.33);
+
+  /* --- Radio (xs/sm 2, md 4, lg 6, xl 8, full 999) --------------------- */
+  --h-radius-xs: 2px;
+  --h-radius-sm: 2px;
+  --h-radius-md: 4px;
+  --h-radius-lg: 6px;
+  --h-radius-xl: 8px;
+  --h-radius-full: 999px;
+
+  /* --- Sombra ---------------------------------------------------------- */
+  --h-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --h-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.27);
+  --h-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.33);
+
+  /* --- Escala tipográfica literal del harness -------------------------- */
+  --h-fs-xs: 11px;
+  --h-fs-sm: 11px;
+  --h-fs-base: 13px;
+  --h-fs-lg: 14px;
+  --h-fs-xl: 16px;
+  --h-fs-2xl: 18px;
+  --h-fs-3xl: 22px;
+  --h-fs-4xl: 28px;
+  --h-lh-base: 18px;
+  --h-lh-sm: 14px;
+  --h-lh-lg: 20px;
+  --h-lh-xl: 22px;
+  --h-lh-2xl: 24px;
+  --h-tracking-label: 0.04em;
+  --h-tracking-tight: -0.01em;
+  --h-weight-semibold: 600;
+
+  /* --- Espaciado (escala del SDK) -------------------------------------- */
+  --h-sp-1: 4px;
+  --h-sp-1-5: 6px;
+  --h-sp-2: 8px;
+  --h-sp-2-5: 10px;
+  --h-sp-3: 12px;
+  --h-sp-4: 16px;
+  --h-sp-5: 20px;
+  --h-sp-6: 24px;
+  --h-sp-8: 32px;
+  --h-card-padding: 16px;
+  --h-card-padding-sm: 12px;
+  --h-measure: 940px;
+
+  /* --- Movimiento (120 / 200 / 320 ms) --------------------------------- */
+  --h-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --h-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --h-fast: 120ms;
+  --h-base: 200ms;
+  --h-slow: 320ms;
+
+  /* --- Reescritura de las variables propias del proyecto --------------- */
+  --bg: #181818;
+  --bg-deep: #181818;
+  --panel: #1e1e1e;
+  --panel-2: #232323;
+  --line: #333333;
+  --line-strong: #3d3d3d;
+  --text: #e4e4e4;
+  --muted: rgba(228, 228, 228, 0.5);
+  --muted-2: rgba(228, 228, 228, 0.4);
+  --surface-0: #181818;
+  --surface-1: #1e1e1e;
+  --surface-2: #232323;
+  --surface-3: #282828;
+  --border-subtle: rgba(228, 228, 228, 0.07);
+  --border-default: #333333;
+  --border-strong: #3d3d3d;
+  --text-strong: #e4e4e4;
+  --text-default: rgba(228, 228, 228, 0.72);
+  --text-muted: rgba(228, 228, 228, 0.5);
+  --text-dim: rgba(228, 228, 228, 0.34);
+  --focus-ring: #2a3a6e;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+}
+
+/* --- Base ----------------------------------------------------------------- */
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: var(--h-fs-base);
+  line-height: var(--h-lh-base);
+  font-weight: 400;
+  color: var(--h-text);
+  background: var(--h-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--h-accent-soft);
+  color: var(--h-text);
+}
+
+h1, .h1 { font-size: var(--h-fs-2xl); line-height: var(--h-lh-2xl); font-weight: var(--h-weight-semibold); letter-spacing: var(--h-tracking-tight); }
+h2, .h2 { font-size: var(--h-fs-xl); line-height: var(--h-lh-xl); font-weight: var(--h-weight-semibold); letter-spacing: var(--h-tracking-tight); }
+h3, .h3 { font-size: var(--h-fs-lg); line-height: var(--h-lh-lg); font-weight: var(--h-weight-semibold); }
+h4, h5, h6 { font-size: var(--h-fs-base); line-height: var(--h-lh-base); font-weight: var(--h-weight-semibold); }
+
+a { color: var(--h-link); }
+
+code, pre, kbd, samp, .mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* El foco del harness es el borde de acento, no un anillo gris. */
+button:focus-visible, textarea:focus-visible, input:focus-visible,
+select:focus-visible, [tabindex]:focus-visible, a:focus-visible {
+  outline: 1px solid var(--h-focus);
+  outline-offset: 2px;
+}
+
+/* Scrollbars de panel: finos, sin flecha, pulgar por luminancia. */
+* { scrollbar-width: thin; scrollbar-color: rgba(228, 228, 228, 0.2) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(228, 228, 228, 0.16);
+  border: 2px solid transparent;
+  border-radius: var(--h-radius-full);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(228, 228, 228, 0.28); background-clip: content-box; }
+
+/* --- Chrome del workspace ------------------------------------------------ */
+.app-shell { background: var(--h-bg); }
+
+.activity-rail,
+.workspace-sidebar,
+.workspace-dock,
+.status-bar,
+.topbar {
+  background: var(--h-bg);
+  border-color: var(--h-border) !important;
+}
+
+.activity-rail { background: #1a1a1a; }
+.activity-brand .brand-mark {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--h-border-strong);
+  border-radius: var(--h-radius-md);
+  font-size: var(--h-fs-base);
+  font-weight: var(--h-weight-semibold);
+  letter-spacing: 0;
+  background: var(--h-bg-raised);
+  color: var(--h-text);
+}
+
+/* Monograma de una letra, radio 4, sin glow: es el patron de icono del harness. */
+.rail-button {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--h-radius-md);
+  color: var(--h-text-tertiary);
+  transition: background var(--h-fast) var(--h-ease-out), color var(--h-fast) var(--h-ease-out);
+}
+.rail-button:hover { background: var(--h-highlight); color: var(--h-text); }
+.rail-button--active {
+  background: var(--h-accent-soft);
+  color: var(--h-text);
+  box-shadow: inset 0 0 0 1px rgba(42, 58, 110, 0.6);
+}
+.rail-indicator { background: var(--h-link); width: 2px; height: 16px; border-radius: var(--h-radius-xs); }
+
+/* Etiquetas de sección: 11px semibold con tracking mínimo, no mayúsculas
+   exageradas (la fuente define 11px semibold y ninguna familia tipográfica). */
+.eyebrow,
+.sidebar-section__title,
+.panel-label,
+.section-label {
+  font-size: var(--h-fs-xs);
+  line-height: var(--h-lh-sm);
+  font-weight: var(--h-weight-semibold);
+  letter-spacing: var(--h-tracking-label);
+  color: var(--h-text-secondary);
+}
+
+.workspace-title { font-size: var(--h-fs-lg); line-height: var(--h-lh-lg); font-weight: var(--h-weight-semibold); }
+
+.workspace-switcher,
+.search-field,
+.card,
+.panel-card,
+.info-card,
+.surface-card {
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-lg);
+  background: var(--h-bg-raised);
+  /* La fuente pinta las tarjetas planas sobre el campo: la sombra queda
+     reservada para las capas flotantes (modales, menus, toasts). */
+  box-shadow: none;
+}
+
+.conversation-row,
+.list-row,
+.batch-row,
+.capability-row,
+.checkpoint-row,
+.security-row,
+.permission-matrix__row {
+  border-radius: var(--h-radius-md);
+  transition: background var(--h-fast) var(--h-ease-out);
+}
+.conversation-row:hover, .list-row:hover, .batch-row:hover, .capability-row:hover { background: var(--h-highlight); }
+.conversation-row--active, .list-row--active {
+  background: var(--h-selected);
+  color: var(--h-text);
+}
+
+/* --- Controles ----------------------------------------------------------- */
+.soft-button,
+.studio-button,
+.icon-button,
+.ghost-button,
+button.chip {
+  border-radius: var(--h-radius-md);
+  border: 1px solid var(--h-border);
+  background: var(--h-control);
+  color: var(--h-text);
+  font-size: var(--h-fs-base);
+  line-height: var(--h-lh-base);
+  padding: 6px 10px;
+  transition: background var(--h-fast) var(--h-ease-out), border-color var(--h-fast) var(--h-ease-out);
+}
+.soft-button:hover, .studio-button:hover, .icon-button:hover, .ghost-button:hover {
+  background: var(--h-control-hover);
+  border-color: var(--h-border-strong);
+}
+.soft-button:disabled, .studio-button:disabled, .icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.studio-button--active,
+.soft-button--primary,
+.primary-button {
+  background: var(--h-accent);
+  border-color: var(--h-accent);
+  color: var(--h-on-accent);
+}
+.studio-button--active:hover, .soft-button--primary:hover, .primary-button:hover {
+  background: var(--h-accent-hover);
+  border-color: var(--h-accent-hover);
+}
+
+input, textarea, select, .settings-field input, .settings-field textarea {
+  background: var(--h-bg);
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-md);
+  color: var(--h-text);
+  font-size: var(--h-fs-base);
+  line-height: var(--h-lh-base);
+}
+input::placeholder, textarea::placeholder { color: var(--h-text-quaternary); }
+input:focus, textarea:focus, select:focus { border-color: var(--h-focus); }
+
+kbd {
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-sm);
+  background: var(--h-bg-raised);
+  color: var(--h-text-secondary);
+  font-size: var(--h-fs-xs);
+  padding: 1px 5px;
+}
+
+/* Chips y contadores: radio 4 y 11px semibold, como la fuente. */
+.count-pill, .chip, .badge, .tag, .platform-tag, .state-pill {
+  border-radius: var(--h-radius-md);
+  border: 1px solid var(--h-border);
+  background: var(--h-bg-raised);
+  color: var(--h-text-secondary);
+  font-size: var(--h-fs-xs);
+  line-height: var(--h-lh-sm);
+  font-weight: var(--h-weight-semibold);
+  padding: 1px 7px;
+}
+
+/* --- Tonos semánticos ---------------------------------------------------- */
+.tone-danger, .status-danger, .sev-critical, .sev-high {
+  color: var(--h-danger);
+  background: var(--h-danger-bg);
+  border-color: var(--h-danger-border) !important;
+}
+.tone-warning, .status-warning, .sev-medium {
+  color: var(--h-warning);
+  background: var(--h-warning-bg);
+  border-color: var(--h-warning-border) !important;
+}
+.tone-success, .status-success, .sev-low {
+  color: var(--h-success);
+  background: var(--h-success-bg);
+  border-color: var(--h-success-border) !important;
+}
+.tone-info, .status-info {
+  color: var(--h-info);
+  background: var(--h-info-bg);
+  border-color: var(--h-info-border) !important;
+}
+.tone-neutral, .status-neutral {
+  color: var(--h-text-secondary);
+  background: rgba(228, 228, 228, 0.06);
+  border-color: var(--h-border) !important;
+}
+
+/* --- Modales, dock y toasts -------------------------------------------- */
+.settings-modal, .command-palette, .quick-actions-menu, .notification-drawer,
+.slash-command-menu, .workspace-context-menu {
+  background: var(--h-bg-elevated);
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-xl);
+  box-shadow: var(--h-shadow-lg);
+}
+.settings-modal-backdrop, .modal-backdrop { background: var(--h-overlay); }
+
+.studio-toast, .toast {
+  background: var(--h-bg-elevated);
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-lg);
+  box-shadow: var(--h-shadow-md);
+  color: var(--h-text);
+  font-size: var(--h-fs-base);
+}
+
+/* Lectura cómoda: la fuente usa 940px de línea de lectura. */
+.composer-shell, .chat-surface, .message-list, .studio-surface { max-width: var(--h-measure); }
+
+/* --- Pisos de tamaño y ritmo de lectura --------------------------------- */
+/* El harness no baja de 11px en ninguna etiqueta: los contadores del proyecto
+   estaban en 7px y se suben a la escala, con caja minima para no deformarse. */
+.notification-badge,
+.count-pill,
+.badge-count {
+  font-size: var(--h-fs-xs);
+  line-height: var(--h-lh-sm);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+}
+
+/* Cuerpo de lectura del harness: 13px con 1.6 de ritmo (21px), no 1.4. */
+.message-body, .chat-message, .markdown-body, .studio-surface p, .composer-input {
+  font-size: var(--h-fs-base);
+  line-height: 21px;
+}
+
+/* --- Escalera de severidad ----------------------------------------------- */
+/* Regla literal del panel: critical y high van al tono de peligro, medium al de
+   aviso, low al de éxito, y lo que no puntúa queda neutro. */
+.platform-tag--danger { color: var(--h-danger); background: var(--h-danger-bg); border-color: var(--h-danger-border); }
+.platform-tag--warning { color: var(--h-warning); background: var(--h-warning-bg); border-color: var(--h-warning-border); }
+.platform-tag--success { color: var(--h-success); background: var(--h-success-bg); border-color: var(--h-success-border); }
+
+.state-pill--failed, .state-pill--blocked { color: var(--h-danger); border-color: var(--h-danger-border); background: var(--h-danger-bg); }
+/* `--pending` se deja neutro: el proyecto lo reúsa para la etiqueta "Preview",
+   y pintarlo de aviso confundiría mas de lo que informa. */
+.state-pill--pending { color: var(--h-text-secondary); border-color: var(--h-border); background: rgba(228, 228, 228, 0.06); }
+.state-pill--completed, .state-pill--active { color: var(--h-success); border-color: var(--h-success-border); background: var(--h-success-bg); }
+.state-pill--cancelled { color: var(--h-text-tertiary); border-color: var(--h-border); background: rgba(228, 228, 228, 0.06); }
+
+/* --- Techo de display ---------------------------------------------------- */
+/* El harness no tiene tipografia display: su tope es 34px y su único peso fuerte
+   es 600. El proyecto tenia un wordmark serif en Georgia a 44px con clamp y
+   títulos de 28px con peso 650 y tracking negativo; se llevan a la escala. */
+.chat-wordmark strong,
+.chat-wordmark {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: var(--h-fs-3xl);
+  line-height: var(--h-lh-2xl);
+  font-weight: var(--h-weight-semibold);
+  letter-spacing: var(--h-tracking-tight);
+  text-transform: none;
+  color: rgba(228, 228, 228, 0.85);
+}
+
+.feature-workbench__hero h1,
+.final-suite__hero h1,
+.agent-arena__hero h1,
+.mission-control__hero h1,
+.browser-workspace__header h1,
+.design-system__hero h1,
+.environment-lab__hero h1,
+.evidence-inspector__hero h1,
+.collab-review__hero h1 {
+  font-size: var(--h-fs-3xl);
+  line-height: var(--h-lh-2xl);
+  font-weight: var(--h-weight-semibold);
+  letter-spacing: var(--h-tracking-tight);
+}
+
+/* --- Movimiento ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

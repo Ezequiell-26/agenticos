@@ -21,8 +21,18 @@ export function List({ items }: { items: string[] }) {
   return <div className="platform-list">{items.map((item, index) => <div key={String(index) + '-' + item}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item}</strong></div>)}</div>
 }
 
+/** Etiqueta de riesgo/permiso con el tono del panel de insights:
+ *  critical y high al tono de peligro, medium al de aviso, low al de éxito. */
+export function tagTone(label: string): string {
+  const key = label.trim().toLowerCase()
+  if (key === 'critical' || key === 'high' || key === 'blocked' || key === 'failed' || key === 'denied') return ' platform-tag--danger'
+  if (key === 'medium' || key === 'approval' || key === 'pending' || key === 'review') return ' platform-tag--warning'
+  if (key === 'low' || key === 'allowed' || key === 'enabled' || key === 'passed' || key === 'ok') return ' platform-tag--success'
+  return ''
+}
+
 export function Tag({ label }: { label: string }) {
-  return <span className="platform-tag">{label}</span>
+  return <span className={'platform-tag' + tagTone(label)}>{label}</span>
 }
 
 export function Toast({ message }: { message: string }) {

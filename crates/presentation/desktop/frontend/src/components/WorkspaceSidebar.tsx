@@ -22,21 +22,14 @@ interface WorkspaceSidebarProps {
   notificationUnread?: number
   onAction?: (message: string) => void
   onOpenAppearance?: () => void
+  onOpenSettings?: () => void
   footerExtra?: ReactNode
   runtimeConnected: boolean
 }
 
-const quickNav: Array<{ label: string; icon: Parameters<typeof Icon>[0]['name']; mode: RailMode | 'new-session' }> = [
-  { label: 'New session', icon: 'plus', mode: 'new-session' },
-  { label: 'Capabilities', icon: 'spark', mode: 'tools' },
-  { label: 'Messaging', icon: 'message', mode: 'channels' },
-  { label: 'Artifacts', icon: 'archive', mode: 'artifacts' },
-  { label: 'Scheduled jobs', icon: 'clock', mode: 'automations' },
-  { label: 'Memory', icon: 'database', mode: 'memory' },
-  { label: 'RSS', icon: 'globe', mode: 'integrations' },
-  { label: 'Kanban', icon: 'layers', mode: 'kanban' },
-  { label: 'Newswire', icon: 'search', mode: 'research' },
-  { label: 'Resetwatch', icon: 'activity', mode: 'operations' },
+const quickNav: Array<{ label: string; icon: Parameters<typeof Icon>[0]['name']; mode: RailMode | 'new-session' | 'search' }> = [
+  { label: 'New Task', icon: 'plus', mode: 'new-session' },
+  { label: 'Search', icon: 'search', mode: 'search' },
 ]
 
 const bots: Array<{ name: string; role: string; mode: RailMode }> = [
@@ -62,14 +55,12 @@ export default function WorkspaceSidebar({
   onOpenSearch,
   onConversationAction,
   onNavigate,
-  onOpenNotifications,
-  notificationUnread = 0,
   onAction,
   onOpenAppearance,
-  footerExtra,
-  runtimeConnected,
+  onOpenSettings,
 }: WorkspaceSidebarProps) {
   const [query, setQuery] = useState('')
+  const [gearOpen, setGearOpen] = useState(false)
   const [filter, setFilter] = useState<SidebarFilter>('All')
   const [tab, setTab] = useState<SidebarTab>('SESSIONS')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
@@ -193,6 +184,14 @@ export default function WorkspaceSidebar({
   return (
     <aside className="workspace-sidebar">
       <PanelResizeHandle axis="sidebar" />
+      <div className="qoder-sidebar-head">
+        <span className="qoder-sidebar-head__app" aria-hidden="true"><Icon name="folder" size={13} /></span>
+        <button type="button" className="qoder-workspace-pill">
+          <Icon name="spark" size={12} />
+          <span>General</span>
+          <Icon name="chevron-right" size={10} />
+        </button>
+      </div>
       <div className="sidebar-tabs" role="tablist" aria-label="Sidebar views" aria-orientation="horizontal">
         {(['SESSIONS', 'BOTS', 'TERMINAL'] as SidebarTab[]).map((item) => (
           <button
@@ -232,7 +231,7 @@ export default function WorkspaceSidebar({
             key={item.label}
             type="button"
             className="sidebar-quicknav__row"
-            onClick={() => item.mode === 'new-session' ? onCreateConversation() : onNavigate?.(item.mode)}
+            onClick={() => item.mode === 'new-session' ? onCreateConversation() : item.mode === 'search' ? onOpenSearch() : onNavigate?.(item.mode)}
           >
             <Icon name={item.icon} size={15} />
             <span>{item.label}</span>
@@ -259,8 +258,17 @@ export default function WorkspaceSidebar({
 
           <div className="sidebar-section">
             <div className="sidebar-section__title">
+              <span>Workspaces</span>
+              <button className="sidebar-section__action" type="button" aria-label="New workspace" title="New workspace" onClick={() => onAction?.('Workspaces are not part of this build')}>
+                <Icon name="plus" size={12} />
+              </button>
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section__title">
               <Icon name="message" size={11} />
-              <span>Sessions</span>
+              <span>Recent tasks</span>
               <button className="sidebar-section__action" type="button" aria-label={'Filter sessions (current: ' + filter + ')'} title={'Filter sessions (current: ' + filter + ')'} onClick={() => setFilter(filter === 'All' ? 'Recent' : filter === 'Recent' ? 'Pinned' : 'All')}>
                 <Icon name="filter" size={12} />
               </button>
@@ -273,6 +281,8 @@ export default function WorkspaceSidebar({
                 <div className="sidebar-empty">{query ? 'No sessions match “' + query + '”.' : 'No sessions in this filter.'}</div>
               ) : sessionRows.map(renderConversationRow)}
             </div>
+            <button type="button" className="qoder-side-row" onClick={() => onNavigate?.('agents')}>Límite de agentes</button>
+            <button type="button" className="qoder-side-row" onClick={() => onAction?.('Access to my PC is handled by the desktop runtime')}>Acceso a mi pc</button>
           </div>
         </>
       )}
@@ -311,31 +321,41 @@ export default function WorkspaceSidebar({
       )}
 
       <div className="sidebar-footer sidebar-footer--icons">
-        <button className="sidebar-footer__action" aria-label="Workspace overview" title="Workspace overview" type="button" onClick={() => onNavigate?.('overview')}>
-          <Icon name="home" size={15} />
-        </button>
-        <button className="sidebar-footer__action" aria-label="New conversation" title="New conversation" type="button" onClick={onCreateConversation}>
-          <Icon name="plus" size={15} />
-        </button>
-        <button className="sidebar-footer__action" aria-label="Workspace navigator" title="Workspace navigator" type="button" onClick={() => onNavigate?.('navigation-center')}>
-          <Icon name="layers" size={15} />
-        </button>
-        <button className="sidebar-footer__action" aria-label="Sessions" title="Sessions" type="button" onClick={() => onNavigate?.('sessions')}>
-          <Icon name="history" size={15} />
-        </button>
-        <span className="mini-status mini-status--inline" title={runtimeConnected ? 'Runtime online' : 'Runtime offline'}>
-          <span className={runtimeConnected ? 'status-dot status-dot--live' : 'status-dot status-dot--offline'} />
-        </span>
-        {onOpenNotifications && (
-          <button className="sidebar-footer__action sidebar-footer__action--badge" aria-label={'Notifications · ' + notificationUnread + ' unread'} title="Notifications" type="button" onClick={onOpenNotifications}>
-            <Icon name="bell" size={15} />
-            {notificationUnread > 0 && <span className="notification-badge" aria-hidden="true">{notificationUnread > 9 ? '9+' : notificationUnread}</span>}
+        <nav className="qoder-bottom-nav" aria-label="Workspace tools">
+          <button type="button" className="qoder-bottom-row" onClick={() => onNavigate?.('knowledge')}>
+            <Icon name="layers" size={15} /><span>Knowledge Center</span>
           </button>
-        )}
-        {footerExtra}
-        <button className="sidebar-footer__action" title="Command palette" aria-label="Command palette" type="button" onClick={onOpenSearch}>
-          <Icon name="command" size={15} />
-        </button>
+          <button type="button" className="qoder-bottom-row" onClick={() => onAction?.('Sites is not part of this build')}>
+            <Icon name="globe" size={15} /><span>Sites</span>
+          </button>
+          <button type="button" className="qoder-bottom-row" onClick={() => onNavigate?.('automations')}>
+            <Icon name="clock" size={15} /><span>Automations</span>
+          </button>
+          <button type="button" className="qoder-bottom-row" onClick={() => onNavigate?.('marketplace')}>
+            <Icon name="sliders" size={15} /><span>Extensions</span>
+          </button>
+        </nav>
+        <div className="qoder-user">
+          <span className="qoder-user__avatar" aria-hidden="true">M</span>
+          <span className="qoder-user__name">Matías González</span>
+          <button className="qoder-user__action" aria-label="Token usage" title="Token usage" type="button" onClick={() => onAction?.('Token usage is summarised in the status bar')}><Icon name="activity" size={14} /></button>
+          <span className="qoder-gear-wrap">
+            <button className="qoder-user__action" aria-label="Settings menu" title="Settings" type="button" aria-haspopup="menu" aria-expanded={gearOpen} onClick={() => setGearOpen((open) => !open)}><Icon name="settings" size={14} /></button>
+            {gearOpen && (
+              <div className="qoder-gear-menu" role="menu" aria-label="Settings menu">
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onOpenSettings?.() }}><Icon name="settings" size={13} /><span>Settings</span><kbd>Ctrl+,</kbd></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onAction?.('Rewards are not part of this build') }}><Icon name="spark" size={13} /><span>Rewards center</span></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onAction?.('The desktop pet is not part of this build') }}><Icon name="bot" size={13} /><span>Hide pet</span></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onOpenAppearance?.() }}><Icon name="spark" size={13} /><span>Appearance</span><Icon name="chevron-right" size={11} /></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onAction?.('Changelog is not part of this build') }}><Icon name="history" size={13} /><span>Changelog</span><Icon name="external" size={11} /></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onAction?.('The mobile app is not part of this build') }}><Icon name="external" size={13} /><span>Get the mobile app</span></button>
+                <button type="button" role="menuitem" onClick={() => { setGearOpen(false); onAction?.('AgentiCOS · local build') }}><Icon name="info" size={13} /><span>About AgentiCOS</span></button>
+                <div className="qoder-gear-menu__divider" />
+                <button type="button" role="menuitem" className="qoder-gear-menu__danger" onClick={() => { setGearOpen(false); onAction?.('There is no account session in this build') }}><Icon name="x" size={13} /><span>Sign out</span></button>
+              </div>
+            )}
+          </span>
+        </div>
       </div>
     </aside>
   )

@@ -89,6 +89,7 @@ import './GitControlCenter.css'
 
 import { projects, indexEntries, ruleSources, backgroundJobs, checkpoints, bots, integrations } from './platformData'
 import { Shell, Panel, Metric, MetricCard, List, Tag, Toast } from './PlatformPrimitives'
+import ExtensionsTabs from './ExtensionsTabs'
 
 function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNavigate?: (mode: RailMode) => void }) {
   const [query, setQuery] = useState('')
@@ -150,6 +151,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   if (mode === 'skills') return (
     <Shell>
+      <ExtensionsTabs active="skills" onNavigate={onNavigate} />
       <SkillsStudio onAction={notify} />
       <Toast message={notice} />
     </Shell>
@@ -229,6 +231,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   if (mode === 'marketplace') return (
     <Shell>
+      <ExtensionsTabs active="plugins" onNavigate={onNavigate} />
       <MarketplaceStudio onAction={notify} />
       <Toast message={notice} />
     </Shell>
@@ -506,6 +509,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   if (mode === 'mcp') return (
     <Shell>
+      <ExtensionsTabs active="connectors" onNavigate={onNavigate} />
       <McpManager onAction={notify} />
       <Toast message={notice} />
     </Shell>

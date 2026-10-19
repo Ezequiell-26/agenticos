@@ -11,7 +11,7 @@ const initial: Memory[] = [
   {id:'MEM-1028',title:'Provider routing experiment',type:'Episodic',scope:'Session',importance:'Low',source:'Run R-871',ttl:'7 days',status:'Expiring'},
 ]
 export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
-  const [items,setItems]=useState(initial); const [selected,setSelected]=useState(initial[0].id); const [query,setQuery]=useState(''); const [kind,setKind]=useState('All')
+  const [items,setItems]=useState(initial); const [selected,setSelected]=useState(initial[0].id); const [query,setQuery]=useState(''); const [kind,setKind]=useState('All'); const [view,setView]=useState<'list'|'grid'>('list')
   const [runtimeSyncing,setRuntimeSyncing]=useState(true)
 
   useEffect(()=>{
@@ -34,6 +34,7 @@ export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
     return ()=>{cancelled=true}
   },[])
   const filtered=useMemo(()=>items.filter(m=>(kind==='All'||m.type===kind)&&m.title.toLowerCase().includes(query.toLowerCase())),[items,query,kind])
+  const filtersActive=query.trim().length>0||kind!=='All'
   const current=items.find(m=>m.id===selected) ?? items[0]
   const remove=async()=>{
     const currentItem=items.find(item=>item.id===selected)
@@ -57,9 +58,9 @@ export function MemoryStudio({onAction}:{onAction:(message:string)=>void}) {
     }catch(error){onAction(error instanceof Error?error.message:'Runtime memory creation failed')}
   }
   return <div className="memory-studio">
-    <div className="memory-toolbar"><span className="mono-text">{runtimeSyncing?'Syncing runtime memory…':'Runtime memory · agenticos'}</span><input className="global-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search memories, sources, concepts…" /><div className="segmented-control">{['All','Semantic','Episodic'].map(v=><button type="button" key={v} className={kind===v?'is-active':''} onClick={()=>setKind(v)}>{v}</button>)}</div><button className="studio-button studio-button--active" type="button" onClick={()=>void create()}><Icon name="plus" size={13}/> Add memory</button></div>
+    <div className="memory-toolbar"><span className="mono-text">{runtimeSyncing?'Syncing runtime memory…':'Runtime memory · agenticos'}</span><input className="global-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search memories, sources, concepts…" /><div className="segmented-control">{['All','Semantic','Episodic'].map(v=><button type="button" key={v} className={kind===v?'is-active':''} onClick={()=>setKind(v)}>{v}</button>)}</div><button className="studio-button studio-button--active" type="button" onClick={()=>void create()}><Icon name="plus" size={13}/> Add memory</button><div className="qoder-view-toggle" role="group" aria-label="Knowledge item view"><button type="button" aria-pressed={view==='list'} title="List view" onClick={()=>setView('list')}><Icon name="layers" size={13}/></button><button type="button" aria-pressed={view==='grid'} title="Grid view" onClick={()=>setView('grid')}><Icon name="layout" size={13}/></button></div></div>
     <div className="memory-layout">
-      <div className="memory-list">{filtered.map(m=><button type="button" key={m.id} className={selected===m.id?'memory-row memory-row--active':'memory-row'} onClick={()=>setSelected(m.id)}><span className="memory-row__icon"><Icon name={m.type==='Semantic'?'database':'history'} size={14}/></span><div><strong>{m.title}</strong><span>{m.id} · {m.scope}</span></div><Tag label={m.importance}/></button>)}</div>
+      {filtered.length===0?<div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="search" size={18}/></span><strong>No knowledge items match</strong><p>{filtersActive?'Adjust the search or the type filter to see the rest of the stored memory.':'Memory items appear here once the runtime stores them.'}</p>{filtersActive&&<button type="button" onClick={()=>{setQuery('');setKind('All')}}>Clear filters</button>}</div>:view==='grid'?<div className="memory-grid">{filtered.map(m=><button type="button" key={m.id} className={selected===m.id?'memory-card memory-card--active':'memory-card'} onClick={()=>setSelected(m.id)}><span className="memory-card__head"><Icon name={m.type==='Semantic'?'database':'history'} size={13}/><strong>{m.title}</strong></span><span>{m.id} · {m.scope}</span><p>{m.type} memory · importance {m.importance.toLowerCase()} · {m.ttl}</p></button>)}</div>:<div className="memory-list">{filtered.map(m=><button type="button" key={m.id} className={selected===m.id?'memory-row memory-row--active':'memory-row'} onClick={()=>setSelected(m.id)}><span className="memory-row__icon"><Icon name={m.type==='Semantic'?'database':'history'} size={14}/></span><div><strong>{m.title}</strong><span>{m.id} · {m.scope}</span></div><Tag label={m.importance}/></button>)}</div>}
       <Panel title={current?.title ?? 'Memory'}>
         {current&&<><div className="platform-grid platform-grid--2"><Metric label="Type" value={current.type}/><Metric label="Scope" value={current.scope}/><Metric label="Importance" value={current.importance}/><Metric label="TTL" value={current.ttl}/></div>
         <div className="memory-detail-block"><span className="eyebrow">Provenance</span><p>Captured from <strong>{current.source}</strong>. Future runtime integration must retain source references and confidence instead of silently promoting inferred text to durable memory.</p></div>

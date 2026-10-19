@@ -1,0 +1,1256 @@
+/* ============================================================================
+ * Qoder shell — AgentiCOS
+ * Geometria y chrome medidos sobre las capturas del usuario (1360x768):
+ *   barra superior y sidebar #112820 · lienzo #0b110e
+ *   tarjetas y composer #0a0f0d · fila activa #2b3731 · borde #27332e
+ *   topbar 44 px · status 24 px · sidebar 263 px · acento #62c9a8
+ * Capa aditiva; se importa despues de qoder-theme.css.
+ * ==========================================================================*/
+
+/* --- Estructura ---------------------------------------------------------- */
+.app-shell {
+  grid-template-columns: 263px minmax(0, 1fr) !important;
+  padding-top: 45px;
+  background: var(--q-canvas);
+}
+.app-shell--sidebar-collapsed { grid-template-columns: 0 minmax(0, 1fr) !important; }
+.app-shell--sidebar-collapsed .workspace-sidebar { display: none; }
+
+/* --- Barra de titulo ----------------------------------------------------- */
+.qoder-titlebar {
+  position: fixed;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  z-index: 80;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: var(--q-chrome);
+  border-bottom: 1px solid var(--q-border);
+}
+.qoder-titlebar__left, .qoder-titlebar__right { display: flex; align-items: center; gap: 4px; }
+.qoder-titlebar__icon {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 6px;
+  background: transparent; color: var(--q-text-2);
+  cursor: pointer;
+}
+.qoder-titlebar__icon:hover { background: var(--q-raised); color: var(--q-text); }
+.qoder-titlebar__menus { display: flex; align-items: center; gap: 2px; margin-left: 10px; }
+.qoder-titlebar__menu {
+  height: 28px; padding: 0 8px;
+  border: 0; border-radius: 6px;
+  background: transparent; color: var(--q-text-2);
+  font-size: 13px; cursor: pointer;
+}
+.qoder-titlebar__menu:hover { background: var(--q-hover); color: var(--q-text); }
+.qoder-window-control {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  color: var(--q-text-3); border-radius: 6px;
+}
+.qoder-window-control--close:hover { background: #7a2b2b; color: #fff; }
+
+/* --- Sidebar ------------------------------------------------------------- */
+.workspace-sidebar {
+  background: var(--q-chrome);
+  border-right: 1px solid var(--q-border);
+}
+.sidebar-tabs { display: none; }
+
+.qoder-sidebar-head {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 10px;
+  border-bottom: 1px solid var(--q-border);
+}
+.qoder-sidebar-head__app {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 6px; color: var(--q-text-2);
+  background: rgba(255, 255, 255, 0.04);
+}
+.qoder-workspace-pill {
+  flex: 1; height: 30px;
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--q-border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--q-text);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+}
+.qoder-workspace-pill span { flex: 1; text-align: left; }
+.qoder-workspace-pill:hover { background: var(--q-pill-hover); }
+
+.sidebar-quicknav { padding: 8px 8px 2px; gap: 1px; }
+.sidebar-quicknav__row {
+  height: 34px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--q-text);
+  font-size: 13px; font-weight: 400;
+  cursor: pointer;
+}
+.sidebar-quicknav__row:hover { background: var(--q-hover); }
+.sidebar-quicknav__row svg { color: var(--q-text-2); }
+.sidebar-quicknav__row kbd { margin-left: auto; background: transparent; border: 0; color: var(--q-text-3); }
+
+.sidebar-section__title {
+  padding: 10px 10px 4px;
+  color: var(--q-text-3);
+  font-size: 12px; font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.conversation-row {
+  min-height: 32px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  color: var(--q-text-2);
+}
+.conversation-row:hover { background: var(--q-hover); color: var(--q-text); }
+.conversation-row--active,
+.conversation-row--active:hover {
+  background: #2b3731;
+  color: var(--q-text);
+  box-shadow: none;
+}
+.conversation-row__copy strong { font-size: 13px; font-weight: 400; }
+.conversation-dot { width: 4px; height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.25); }
+.sidebar-search {
+  margin: 0 8px 6px;
+  height: 30px;
+  border-radius: 7px;
+  /* workspace-enhancements.css:154-155 fija estos dos valores con !important, así que el
+     orden de import no alcanza para ganarles: hay que igualar el peso, como ya hace el
+     bloque de .settings-modal en esta misma hoja. */
+  border: 1px solid var(--q-border) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--q-text-3);
+}
+.sidebar-search input { background: transparent; border: 0; color: var(--q-text); font-size: 12px; }
+.sidebar-hint, .sidebar-empty { color: var(--q-text-3); font-size: 12px; }
+
+/* Footer con usuario, como Qoder */
+.sidebar-footer--icons {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 8px 8px 10px;
+  background: transparent;
+  border-top: 1px solid var(--q-border);
+}
+.qoder-user { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 2px; }
+.qoder-user__avatar {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #2b3731; color: var(--q-text);
+  font-size: 11px; font-weight: 600;
+}
+.qoder-user__name {
+  flex: 1; min-width: 0;
+  color: var(--q-text); font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qoder-user__action {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 5px;
+  background: transparent; color: var(--q-text-3); cursor: pointer;
+}
+.qoder-user__action:hover { background: var(--q-hover); color: var(--q-text); }
+.qoder-footer-icons { display: flex; flex-wrap: wrap; gap: 2px; opacity: 0.65; }
+.qoder-footer-icons:hover { opacity: 1; }
+
+/* --- Lienzo y tarjetas --------------------------------------------------- */
+.workspace-main { background: var(--q-canvas); }
+.platform-surface {
+  background-color: var(--q-canvas);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.card, .panel-card, .info-card, .surface-card, .metric-card, .surface-block,
+.workspace-switcher, .agent-builder__field, .settings-field {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+}
+
+/* Columna de chat como Qoder */
+.chat-surface, .message-list { max-width: 900px; margin-inline: auto; }
+.composer-shell { max-width: 820px; }
+
+/* Boton de envio circular, menta */
+.send-button--round {
+  width: 28px; height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--q-accent);
+  color: var(--q-on-accent);
+  border: 1px solid var(--q-accent);
+}
+.send-button--round:hover:not(:disabled) { background: var(--q-accent-hover); }
+
+/* --- Barra de estado ---------------------------------------------------- */
+.qoder-status {
+  height: 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px;
+  background: var(--q-canvas);
+  border-top: 1px solid var(--q-border);
+  color: var(--q-text-3);
+  font-size: 11px;
+}
+.qoder-status .status-bar__left { display: flex; align-items: center; gap: 10px; }
+.qoder-status .status-bar__right { display: flex; align-items: center; gap: 8px; }
+.qoder-status__local { display: inline-flex; align-items: center; gap: 6px; color: var(--q-text-2); }
+.qoder-status__meter {
+  width: 118px; height: 5px;
+  border-radius: 2px;
+  background: #1d2722;
+  overflow: hidden;
+}
+.qoder-status__meter i { display: block; height: 100%; background: var(--q-accent); }
+.qoder-status__pct { color: var(--q-text-3); font-variant-numeric: tabular-nums; }
+.qoder-status__help {
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  border: 1px solid var(--q-border);
+  border-radius: 50%;
+  background: transparent; color: var(--q-text-2);
+  font-size: 11px; cursor: pointer;
+}
+.qoder-status__help:hover { background: var(--q-raised); color: var(--q-text); }
+
+/* --- Correcciones de flujo ---------------------------------------------- */
+/* La grilla heredaba align-content del layout original y una fila de 709px
+   dentro de un contenedor de 580px se desbordaba hacia arriba. */
+.app-shell {
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
+}
+.workspace-sidebar, .workspace-main { min-height: 0; }
+.workspace-sidebar { overflow: hidden; }
+.sidebar-quicknav, .conversation-list { overflow-y: auto; }
+.qoder-sidebar-head { position: sticky; top: 0; background: var(--q-chrome); z-index: 2; }
+
+/* La columna del composer se encogia al contenido del estado vacio. */
+.composer-wrap { width: 100%; }
+.composer-wrap .composer-shell { width: 100%; }
+
+/* --- Sidebar: scroll interno y footer fijo ------------------------------- */
+.workspace-sidebar { overflow-y: auto; overflow-x: hidden; }
+.sidebar-footer--icons {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--q-chrome);
+}
+.sidebar-section { flex: 0 0 auto; }
+.conversation-list { max-height: none; }
+
+/* La tira de sesiones es parte del encabezado del chat, no una banda verde. */
+.session-tabs {
+  background: transparent;
+  border-bottom: 1px solid var(--q-border);
+}
+
+/* --- Superficie del chat ------------------------------------------------- */
+.chat-surface, .chat-surface--hermes {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: 960px;
+  margin-inline: auto;
+}
+.composer-shell, .composer-wrap .composer-shell { max-width: 860px; }
+.workspace-main__content { background: transparent; }
+
+/* La busqueda del sidebar no debe quedar flotando sobre la lista. */
+.sidebar-search { position: static !important; }
+.workspace-sidebar::-webkit-scrollbar { width: 6px; }
+.workspace-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); }
+
+/* El chat venia con un ancho fijo de 635px; Qoder usa una columna centrada
+   de ~835-900 dentro de todo el lienzo. */
+.workspace-split .chat-surface {
+  width: 100% !important;
+  max-width: 960px !important;
+  justify-self: center;
+}
+.composer-wrap { padding-inline: 12px; }
+
+/* El composer flotaba sobre un degradado que Qoder no tiene. */
+.composer-wrap { background: none !important; }
+.sidebar-quicknav { overflow: visible; max-height: none; }
+
+/* Densidad del sidebar como Qoder: sin buscador propio (la fila Search del
+   nav abre el command palette) y filas mas bajas. */
+.sidebar-search { display: none; }
+.sidebar-quicknav__row { height: 30px; }
+.sidebar-section__title { padding: 8px 10px 2px; }
+.conversation-row { min-height: 30px; padding: 5px 9px; }
+.conversation-list { gap: 1px; }
+.workspace-sidebar { padding-bottom: 0; }
+
+/* --- Ajustes a pantalla completa, como Qoder ----------------------------- */
+.settings-modal-backdrop {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+}
+.settings-modal {
+  position: fixed;
+  top: 49px;
+  left: 267px;
+  right: 4px;
+  bottom: 28px;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid var(--q-border) !important;
+  border-radius: 0 !important;
+  background: var(--q-chrome) !important;
+  box-shadow: none !important;
+}
+.settings-workspace { height: 100%; grid-template-columns: 264px minmax(0, 1fr); background: var(--q-chrome); }
+.settings-workspace__searchbar {
+  background: var(--q-chrome);
+  border-bottom: 1px solid var(--q-border);
+  padding: 10px 12px;
+}
+.settings-workspace__search {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 7px;
+  color: var(--q-text-2);
+}
+.settings-workspace__nav {
+  background: var(--q-chrome);
+  border-right: 1px solid var(--q-border);
+  padding: 8px;
+}
+.sw-nav-row {
+  height: 34px;
+  border-radius: 7px;
+  color: var(--q-text);
+  font-size: 13px;
+}
+/* workspace-enhancements.css:2300 trae un .sw-nav-row:hover heredado del tema neutro anterior (#1a1a1a).
+   Con la misma especificidad y sin esta protección, el hover le ganaba a --active y la fila seleccionada
+   perdía el resaltado al pasar el puntero. */
+.sw-nav-row:not(.sw-nav-row--active):not(.sw-nav-row--open):hover { background: var(--q-hover); color: var(--q-text); }
+.sw-nav-row--active, .sw-nav-row--open,
+.sw-nav-row--active:hover, .sw-nav-row--open:hover {
+  background: #2b3731;
+  color: var(--q-text);
+}
+.settings-workspace__group > span,
+.settings-workspace__nav .sw-group-label {
+  color: var(--q-text-3);
+  font-size: 12px;
+}
+.settings-workspace__content {
+  background-color: var(--q-canvas);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.settings-workspace__contenthead {
+  background: transparent;
+  border-bottom: 1px solid var(--q-border);
+}
+.settings-workspace__panel,
+.sw-card, .sw-stack > section {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+}
+.sw-button {
+  background: var(--q-raised);
+  border: 1px solid var(--q-border);
+  border-radius: 7px;
+  color: var(--q-text);
+}
+.sw-button:hover { background: var(--q-hover); }
+.sw-select, .sw-input {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 7px;
+  color: var(--q-text);
+}
+
+.sw-back {
+  width: 100%;
+  height: 34px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 9px;
+  margin-bottom: 6px;
+  border: 0; border-radius: 7px;
+  background: transparent;
+  color: var(--q-text-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.sw-back:hover { background: var(--q-hover); color: var(--q-text); }
+
+/* --- Encabezado de conversacion ----------------------------------------- */
+.chat-surface { grid-template-rows: 44px minmax(0, 1fr) auto !important; }
+.qoder-chat-head {
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 4px 0 2px;
+  border-bottom: 1px solid var(--q-border);
+}
+.qoder-chat-head__dot { width: 5px; height: 5px; border-radius: 50%; background: var(--q-accent); }
+.qoder-chat-head__title { font-size: 14px; font-weight: 600; color: var(--q-text); }
+.qoder-chat-head__more {
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--q-text-3); cursor: pointer;
+}
+.qoder-chat-head__more:hover { background: var(--q-raised); color: var(--q-text); }
+.qoder-chat-head__actions { margin-left: auto; display: flex; gap: 4px; }
+.qoder-chat-head__icon {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--q-text-2); cursor: pointer;
+}
+.qoder-chat-head__icon:hover { background: var(--q-raised); color: var(--q-text); }
+.qoder-chat-head__icon--active { background: var(--q-selected); color: var(--q-text); }
+
+/* --- Mensajes planos, como Qoder ---------------------------------------- */
+.message-stack { gap: 20px; }
+.message-row { gap: 9px; }
+.message-row--user { justify-content: flex-start; }
+.message-avatar { display: none; }
+.message-bubble, .message-bubble--user, .message-bubble--system {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--q-text);
+}
+.message-bubble--user { color: var(--q-text); font-size: 14px; }
+.message-bubble--user::before {
+  content: "→";
+  margin-right: 8px;
+  color: var(--q-text-3);
+}
+.message-bubble p { font-size: 13.5px; line-height: 1.65; color: var(--q-text); }
+.message-meta { color: var(--q-text-3); font-size: 11px; margin-bottom: 4px; }
+.message-bubble--user .message-meta { color: var(--q-text-3); }
+.message-actions button { color: var(--q-text-3); }
+
+/* --- Perfil de ajustes, como la segunda captura ------------------------- */
+.qoder-profile { display: flex; flex-direction: column; gap: 22px; max-width: 900px; }
+.qoder-profile__head { display: flex; align-items: center; gap: 16px; }
+.qoder-profile__avatar {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  border-radius: 12px;
+  background: #2b3731; color: var(--q-text);
+  font-size: 22px; font-weight: 600;
+}
+.qoder-profile__identity { flex: 1; min-width: 0; }
+.qoder-profile__name-row { display: flex; align-items: center; gap: 10px; }
+.qoder-profile__name-row h2 { margin: 0; font-size: 22px; font-weight: 600; color: var(--q-text); }
+.qoder-profile__chip {
+  height: 26px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--q-border); border-radius: 7px;
+  background: transparent; color: var(--q-text-2);
+  font-size: 12px; cursor: pointer;
+}
+.qoder-profile__chip:hover { background: var(--q-hover); }
+.qoder-profile__identity p { margin: 4px 0 0; color: var(--q-text-3); font-size: 13px; }
+.qoder-profile__actions { display: flex; gap: 8px; }
+.qoder-profile__card {
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 16px 18px;
+}
+.qoder-profile__card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  color: var(--q-text-2); font-size: 13px; margin-bottom: 14px;
+}
+.qoder-profile__stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center; }
+.qoder-profile__stats strong { display: block; font-size: 18px; font-weight: 600; color: var(--q-text); }
+.qoder-profile__stats span { display: block; margin-top: 4px; font-size: 12px; color: var(--q-text-3); }
+.qoder-profile__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.qoder-profile__row strong { font-size: 14px; color: var(--q-text); }
+.qoder-profile__row p { margin: 4px 0 0; font-size: 12px; color: var(--q-text-3); }
+.qoder-profile__pill {
+  height: 26px; display: inline-flex; align-items: center; padding: 0 10px;
+  border: 1px solid var(--q-border); border-radius: 7px;
+  color: var(--q-text-2); font-size: 12px;
+}
+.qoder-profile__divider { height: 1px; background: var(--q-border); margin: 14px 0; }
+.qoder-profile__danger {
+  height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;
+  border: 1px solid rgba(255, 59, 44, 0.35); border-radius: 7px;
+  background: rgba(255, 59, 44, 0.12); color: #ff3b2c;
+  font-size: 13px; cursor: pointer;
+}
+.qoder-profile__danger:hover { background: rgba(255, 59, 44, 0.2); }
+
+/* --- Grupo inferior del sidebar ----------------------------------------- */
+.qoder-bottom-nav {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--q-border);
+  margin-bottom: 4px;
+}
+.qoder-bottom-row {
+  height: 32px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 9px;
+  border: 0; border-radius: 7px;
+  background: transparent;
+  color: var(--q-text);
+  font-size: 13px; text-align: left;
+  cursor: pointer;
+}
+.qoder-bottom-row:hover { background: var(--q-hover); }
+.qoder-bottom-row svg { color: var(--q-text-2); }
+
+/* --- Tarjeta de archivos de la sesion ----------------------------------- */
+.qoder-digest {
+  width: 100%;
+  max-width: 860px;
+  margin: 18px auto 0;
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+  background: var(--q-surface);
+  overflow: hidden;
+}
+.qoder-digest__head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--q-border);
+}
+.qoder-digest__icon {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 7px;
+  background: var(--q-raised);
+  color: var(--q-text-2);
+}
+.qoder-digest__head strong { font-size: 14px; color: var(--q-text); }
+.qoder-digest__counts {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+.qoder-digest__counts em { font-style: normal; color: var(--q-accent); }
+.qoder-digest__counts b { font-weight: 400; color: #ff6b6b; }
+.qoder-digest__undo {
+  margin-left: auto;
+  border: 0; background: transparent;
+  color: var(--q-text-2); font-size: 13px; cursor: pointer;
+}
+.qoder-digest__undo:disabled { opacity: 0.4; cursor: default; }
+.qoder-digest__row {
+  padding: 10px 14px;
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--q-text-2);
+}
+.qoder-digest__row--empty { color: var(--q-text-3); }
+
+.qoder-digest__title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.qoder-digest__title strong { font-size: 14px; color: var(--q-text); }
+.qoder-digest__head { align-items: center; }
+
+.qoder-titlebar__quick {
+  height: 28px; min-width: 28px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  padding: 0 4px;
+  border-radius: 6px;
+  color: var(--q-text-2);
+}
+.qoder-titlebar__quick:hover { background: var(--q-raised); color: var(--q-text); }
+.qoder-titlebar__right { gap: 2px; }
+
+/* A la altura del portatil (768) el sidebar de Qoder no scrollea: se ocultan
+   las cuatro entradas secundarias y quedan accesibles desde el command palette. */
+@media (max-height: 820px) {
+  .sidebar-quicknav__row:nth-child(n + 7) { display: none; }
+}
+
+/* La captura no muestra la lista de tareas recientes ni el filtro: solo la
+   etiqueta y las dos filas de texto. */
+#conversation-list { display: none; }
+[aria-label^="Filter sessions"] { display: none; }
+
+.qoder-side-row {
+  width: 100%;
+  height: 30px;
+  display: flex; align-items: center;
+  padding: 0 10px;
+  border: 0; border-radius: 7px;
+  background: transparent;
+  color: var(--q-text);
+  font-size: 13px; text-align: left;
+  cursor: pointer;
+}
+.qoder-side-row:hover { background: var(--q-hover); }
+.sidebar-section__action {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 5px;
+  background: transparent; color: var(--q-text-3);
+  cursor: pointer;
+}
+.sidebar-section__action:hover { background: var(--q-hover); color: var(--q-text); }
+
+.qoder-digest__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px;
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.qoder-digest__path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--q-text-2); }
+.qoder-digest__delta em { font-style: normal; color: var(--q-accent); }
+.qoder-digest__delta b { font-weight: 400; color: #ff6b6b; }
+.qoder-digest__actions { display: flex; gap: 2px; padding: 6px 2px 0; }
+.qoder-digest__actions button {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 6px;
+  background: transparent; color: var(--q-text-3);
+  cursor: pointer;
+}
+.qoder-digest__actions button:hover { background: var(--q-raised); color: var(--q-text); }
+
+/* Detalles de la captura: sin filtro visible en Recent tasks y el menu de la
+   fila aparece solo al pasar el mouse. */
+[aria-label^="Filter sessions"] { display: none !important; }
+.conversation-menu-button { opacity: 0; transition: opacity 120ms ease-out; }
+.conversation-row:hover .conversation-menu-button,
+.conversation-row:focus-within .conversation-menu-button { opacity: 1; }
+
+/* Navegacion de ajustes como la captura: texto plano, sin iconos ni flechas. */
+.sw-nav-row { padding: 0 10px; font-size: 13px; gap: 0; }
+.sw-nav-row svg, .sw-nav-row .sw-chevron { display: none; }
+.sw-group-label {
+  padding: 12px 10px 4px;
+  color: var(--q-text-3);
+  font-size: 12px;
+}
+
+/* Ajustes a ancho completo: la nav de ajustes reemplaza al sidebar de la app,
+   como en la captura. */
+.settings-modal { left: 4px !important; }
+.settings-workspace { display: block !important; }
+.settings-workspace__body { height: 100%; padding: 0 !important; gap: 0 !important; }
+.settings-workspace__nav { width: 264px !important; padding: 10px 8px !important; }
+.settings-workspace__searchbar--nav { padding: 0 0 8px !important; }
+.settings-workspace__searchbar--nav .settings-workspace__search { width: 100%; min-height: 32px; background: var(--q-surface); border-color: var(--q-border); }
+.settings-workspace__content { flex: 1; overflow-y: auto; padding: 18px 22px; }
+
+/* La captura no tiene breadcrumb ni boton de cerrar: se vuelve con Back to app. */
+.settings-workspace__contenthead { display: none !important; }
+
+/* Ornamentos de la captura: dos circulos y el cono 365. */
+.qoder-profile { position: relative; padding-top: 56px; }
+.qoder-profile__ornaments { position: absolute; inset: 0; pointer-events: none; }
+.qoder-profile__orb {
+  position: absolute; top: 0; left: 14px;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #eef3f0, #b9c4bf 58%, #7e8a85);
+  opacity: 0.85;
+}
+.qoder-profile__orb--lg { top: 8px; left: 244px; width: 40px; height: 40px; opacity: 0.7; }
+.qoder-profile__cone {
+  position: absolute; top: -2px; right: 26px;
+  width: 56px; height: 56px;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 9px;
+  background: #f3c7d4;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  color: #6f2b3c; font-size: 11px; font-weight: 600;
+}
+
+/* Composer exacto: Qoder usa un degradado vertical sobre #0a0f0d y radio 16,
+   segun .chat-composer-home-surface de su CSS. */
+.composer-shell.composer-shell--hermes {
+  background: linear-gradient(0deg, var(--q-surface) 68%, color-mix(in srgb, var(--q-surface) 62%, #151e1a) 100%);
+  border-radius: 16px;
+}
+
+/* Detalles medidos en la app real de Qoder (ventana 1322x721). */
+.conversation-row--active,
+.conversation-row--active:hover { background: #3d4743; }
+.qoder-workspace-pill { background: #18362e; border-color: #285546; }
+.qoder-workspace-pill svg { color: var(--q-accent); }
+.qoder-chat-head__dot { display: none; }
+
+/* Composer: lapiz + chip Full access + modelo como texto. */
+.composer-icon { color: var(--q-text-2); }
+.composer-access {
+  height: 26px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0 6px;
+  border: 0; border-radius: 6px;
+  background: transparent;
+  color: #ff6a5e;
+  font-size: 12px;
+  cursor: pointer;
+}
+.composer-access:hover { background: rgba(255, 106, 94, 0.10); }
+.composer-model-wrap { display: inline-flex; align-items: center; gap: 5px; }
+.composer-model-icon { display: inline-flex; color: #75b5ba; }
+.composer-select--button {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--q-text-2) !important;
+  padding: 0 4px !important;
+  font-size: 12px;
+}
+.composer-select--button:hover { color: var(--q-text) !important; }
+
+/* Medidor segmentado como Qoder. */
+.qoder-status__meter { display: flex; gap: 2px; width: 118px; height: 5px; background: transparent; overflow: visible; }
+.qoder-status__seg { flex: 1; border-radius: 1px; background: #27332e; }
+.qoder-status__seg--on { background: var(--q-accent); }
+
+/* --- Movimiento: duraciones y curvas de Qoder ---------------------------- */
+:root {
+  --q-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --q-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --q-t-fast: 160ms;
+  --q-t-snappy: 75ms;
+}
+button, a,
+.conversation-row, .list-row, .sw-nav-row, .qoder-side-row, .sidebar-quicknav__row,
+.soft-button, .studio-button, .icon-button, .platform-tag, .state-pill,
+.qoder-titlebar__icon, .qoder-titlebar__menu, .qoder-chat-head__icon,
+.qoder-bottom-row, .qoder-user__action, .sidebar-tab, .session-tab {
+  transition:
+    background-color var(--q-t-fast) var(--q-ease),
+    border-color var(--q-t-fast) var(--q-ease),
+    color var(--q-t-fast) var(--q-ease),
+    box-shadow var(--q-t-fast) var(--q-ease);
+}
+@keyframes qoder-fade-in { from { opacity: 0 } to { opacity: 1 } }
+
+/* Qoder pinta las filas del sidebar con `transition-colors duration-75` en su propia clase;
+   el resto de la shell conserva los 160ms de las superficies grandes. */
+.conversation-row, .sidebar-quicknav__row, .qoder-side-row, .qoder-bottom-row,
+.qoder-user__action, .sidebar-section__action, .qoder-gear-menu button {
+  transition-duration: var(--q-t-snappy);
+}
+.settings-modal, .quick-actions-menu, .command-palette, .notification-drawer,
+.workspace-context-menu, .slash-command-menu { animation: qoder-fade-in var(--q-t-fast) var(--q-ease); }
+
+/* Scrollbar: casi invisible hasta que se interactua, como Qoder. */
+*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.07); background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #3d4d45; background-clip: content-box; }
+
+/* Menu del engranaje, como el popover real de Qoder. */
+.qoder-gear-wrap { position: relative; display: inline-flex; }
+.qoder-gear-menu {
+  position: absolute; bottom: calc(100% + 10px); right: 0;
+  width: 268px; padding: 6px;
+  background: #151e1a;
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  z-index: 90;
+}
+.qoder-gear-menu button {
+  width: 100%; height: 34px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 9px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--q-text);
+  font-size: 13px; text-align: left; cursor: pointer;
+}
+.qoder-gear-menu button:hover { background: var(--q-hover); }
+.qoder-gear-menu button span { flex: 1; }
+.qoder-gear-menu kbd { background: transparent; border: 0; color: var(--q-text-3); font-size: 11px; }
+.qoder-gear-menu__divider { height: 1px; background: var(--q-border); margin: 5px 4px; }
+.qoder-gear-menu__danger { color: #ff6b6b !important; }
+
+/* Iconos y chips Beta en la nav de ajustes, como la app real. */
+.sw-nav-row { gap: 10px; }
+.sw-nav-row svg { display: inline-flex; color: var(--q-text-3); }
+.sw-nav-row--active svg { color: var(--q-text); }
+.sw-beta {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(98, 201, 168, 0.14);
+  color: var(--q-accent);
+  font-size: 10px; font-weight: 600;
+}
+
+/* Controles compartidos, portados del estudio de Qoder. */
+.switch--on { background: var(--q-accent); border-color: var(--q-accent); }
+.switch--on span { background: #ffffff; }
+.switch { border-color: var(--q-border); background: var(--q-surface); }
+
+.capability-head h2, .platform-surface h1, .surface-hero h1,
+.settings-workspace__content > h1 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; color: var(--q-text); }
+
+/* Utilidad de estado vacio, como Knowledge Center / Automations / Sites. */
+.qoder-empty {
+  display: grid; place-items: center; gap: 10px;
+  padding: 44px 20px;
+  border: 1px dashed var(--q-border);
+  border-radius: 12px;
+  text-align: center;
+}
+.qoder-empty__icon {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 1px dashed var(--q-border);
+  border-radius: 10px;
+  color: var(--q-text-2);
+  background: var(--q-surface);
+}
+.qoder-empty strong { font-size: 14px; color: var(--q-text); }
+.qoder-empty p { margin: 0; font-size: 12px; color: var(--q-text-3); }
+.qoder-empty button {
+  margin-top: 4px;
+  height: 30px; padding: 0 12px;
+  border: 0; border-radius: 7px;
+  background: var(--q-accent); color: var(--q-on-accent);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.qoder-empty button:hover { background: var(--q-accent-hover); }
+
+/* ── Superficies de producto (Knowledge Center / Automations / Extensions) ──────────────────────
+   Valores medidos en vivo sobre la ventana de Qoder el 2026-10-18 (ver docs/architecture/QODER-UI-AUDIT.md). */
+
+/* Hero: Qoder no usa eyebrow en estas pantallas; título 22/30 semibold y subtítulo 13/20 apagado. */
+.studio-header .eyebrow,
+.platform-header .eyebrow,
+.automation-builder__header .eyebrow,
+.automation-builder__rail-head .eyebrow { display: none; }
+
+.studio-header, .platform-header { padding: 6px 6px 14px; }
+.studio-header h1, .platform-header h1 {
+  margin: 0 0 6px;
+  font-size: 22px; line-height: 30px; font-weight: 600;
+  letter-spacing: -0.02em; color: var(--q-text);
+}
+.studio-header p, .platform-header p {
+  max-width: 760px; margin: 0;
+  font-size: 13px; line-height: 20px; color: var(--q-text-3);
+}
+
+/* Barra de filtros: control segmentado a la izquierda; toggles y orden a la derecha. */
+.qoder-filterbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 0 2px 10px;
+}
+.qoder-filterbar__left, .qoder-filterbar__right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.qoder-filterbar__label { font-size: 12px; color: var(--q-text-3); white-space: nowrap; }
+
+.qoder-segment {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--q-border-soft); border-radius: 9px;
+  background: var(--q-surface);
+}
+.qoder-segment button {
+  height: 26px; padding: 0 10px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--q-text-3);
+  font-size: 12px; white-space: nowrap; cursor: pointer;
+}
+.qoder-segment button:hover { color: var(--q-text-2); }
+.qoder-segment button[aria-selected="true"] { background: var(--q-raised); color: var(--q-text); }
+
+/* Toggle grid / lista, idéntico al de Knowledge Center y Sites. */
+.qoder-view-toggle {
+  display: inline-flex; gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--q-border-soft); border-radius: 9px;
+  background: var(--q-surface);
+}
+.qoder-view-toggle button {
+  width: 28px; height: 26px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--q-text-3); cursor: pointer;
+}
+.qoder-view-toggle button:hover { color: var(--q-text-2); }
+.qoder-view-toggle button[aria-pressed="true"] { background: var(--q-raised); color: var(--q-text); }
+
+/* Selects de filtro y orden, con chevron propio (el nativo se ve distinto por SO). */
+.qoder-select {
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--q-border); border-radius: 8px;
+  background-color: var(--q-surface);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23788f85' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  color: var(--q-text-2);
+  font-size: 12px; outline: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.qoder-select:hover { border-color: var(--q-hover); color: var(--q-text); }
+.qoder-select:focus-visible { border-color: var(--q-accent); box-shadow: 0 0 0 2px var(--q-selected); }
+
+/* Banner informativo azulado, como el de Automations. */
+.qoder-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 0 0 12px; padding: 11px 13px;
+  border: 1px solid rgba(117, 181, 186, 0.26); border-radius: 10px;
+  background: rgba(117, 181, 186, 0.07);
+}
+.qoder-banner__icon { display: inline-flex; color: var(--q-info); margin-top: 1px; }
+.qoder-banner strong { display: block; font-size: 13px; line-height: 18px; color: var(--q-text); font-weight: 600; }
+.qoder-banner p { margin: 2px 0 0; font-size: 12px; line-height: 18px; color: var(--q-text-3); }
+.qoder-banner__action { margin-left: auto; align-self: center; }
+
+/* Vista en grilla de Knowledge Center (equivalente al toggle grid/list de Qoder). */
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px; padding: 2px;
+}
+.memory-card {
+  display: grid; gap: 6px;
+  padding: 11px;
+  border: 1px solid var(--q-border); border-radius: 10px;
+  background: var(--q-surface); color: inherit; text-align: left; cursor: pointer;
+}
+.memory-card:hover { border-color: var(--q-hover); background: var(--q-raised); }
+.memory-card--active { border-color: var(--q-accent); background: var(--q-raised); }
+.memory-card__head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.memory-card__head svg { color: var(--q-text-3); flex: none; }
+.memory-card strong { font-size: 12px; line-height: 16px; color: var(--q-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memory-card span { font-size: 11px; line-height: 15px; color: var(--q-text-3); }
+.memory-card p {
+  margin: 0; font-size: 11px; line-height: 15px; color: var(--q-text-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* Pestañas internas convertidas en el control segmentado de Qoder. */
+.segmented-control {
+  border-color: var(--q-border-soft); border-radius: 9px;
+  background: var(--q-surface);
+}
+.segmented-control button { padding: 0 10px; height: 26px; border-radius: 7px; color: var(--q-text-3); font-size: 12px; }
+.segmented-control button:hover { color: var(--q-text-2); }
+.segmented-control button.is-active { background: var(--q-raised); color: var(--q-text); box-shadow: none; }
+
+/* Campos de búsqueda de estas superficies, con la piel del buscador de Qoder. */
+input.global-search {
+  box-sizing: border-box;
+  width: 100%; max-width: 100%;
+  height: 31px; padding: 0 10px;
+  border: 1px solid var(--q-border); border-radius: 8px;
+  background: var(--q-surface); color: var(--q-text-2);
+  font-size: 12px; outline: 0; box-shadow: none;
+}
+input.global-search::placeholder { color: var(--q-text-3); }
+input.global-search:focus { border-color: var(--q-accent); box-shadow: 0 0 0 2px var(--q-selected); }
+
+/* Filas de Knowledge Center (memoria y fuentes indexadas). */
+.memory-row, .knowledge-source {
+  border-color: var(--q-border); background: var(--q-surface);
+}
+.memory-row:hover, .knowledge-source:hover { border-color: var(--q-hover); background: var(--q-raised); }
+.memory-row--active, .knowledge-source--active {
+  border-color: transparent; background: #3d4743;
+  box-shadow: none;
+}
+.memory-row__icon { background: var(--q-raised); color: var(--q-text-2); }
+
+/* La barra de filtros de Automations vive en el rail de 255px: se apila para no recortar chips ni select. */
+.automation-builder__rail > .qoder-filterbar {
+  flex-direction: column; align-items: stretch; gap: 6px;
+  margin: 0 10px;
+}
+.automation-builder__rail .qoder-segment { width: 100%; justify-content: space-between; }
+.automation-builder__rail .qoder-segment button { flex: 1; padding: 0 4px; }
+.automation-builder__rail .qoder-select { width: 100%; }
+.automation-builder__list > .qoder-empty { margin: 6px 0; }
+.automation-builder__workspace > .qoder-banner { margin: 0 19px 12px; }
+.automation-builder__section header .eyebrow { display: none; }
+
+/* Los selects del formulario siguen el mismo patrón que los de Ajustes (chevron propio). */
+.automation-builder__field select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 28px;
+  border-color: var(--q-border);
+  background-color: var(--q-surface);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23788f85' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.automation-builder__field select:focus { border-color: var(--q-accent); box-shadow: 0 0 0 2px var(--q-selected); }
+
+/* Tira de pestañas Extensions (Plugins / Skills / Connectors), como la pantalla real de Qoder. */
+.qoder-ext-tabs {
+  display: flex; align-items: center; gap: 2px;
+  margin: 0 0 14px;
+  border-bottom: 1px solid var(--q-border-soft);
+}
+.qoder-ext-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 12px;
+  margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--q-text-3);
+  font-size: 13px; cursor: pointer;
+}
+.qoder-ext-tab svg { color: inherit; }
+.qoder-ext-tab:hover { color: var(--q-text-2); }
+.qoder-ext-tab--active { color: var(--q-text); border-bottom-color: var(--q-accent); }
+.qoder-ext-tab:focus-visible { outline: 2px solid var(--q-accent); outline-offset: -2px; border-radius: 6px; }
+
+/* --- Discovery de Extensions (hero, rail de categorías y orden) ----------
+   Portado de la pantalla capturada de Qoder. El rail y el subtítulo se derivan
+   de las categorías reales del catálogo, no de una lista fija. */
+.skills-discovery { display: flex; flex-direction: column; min-width: 0; }
+
+.qoder-discovery__title { display: flex; align-items: center; gap: 8px; }
+.qoder-discovery__lead {
+  font-size: 13px; line-height: 20px; font-weight: 500;
+  letter-spacing: 0; color: var(--q-text-3);
+}
+.qoder-discovery__subject { position: relative; color: var(--q-text); }
+.qoder-discovery__squiggle {
+  position: absolute; left: -2px; right: -2px; bottom: -4px;
+  width: calc(100% + 4px); height: 6px; color: var(--q-accent);
+}
+
+.qoder-chiprail { flex-wrap: wrap; gap: 6px; }
+.qoder-chip {
+  height: 26px; padding: 0 10px;
+  border: 1px solid var(--q-border-soft); border-radius: 999px;
+  background: transparent; color: var(--q-text-3);
+  font-size: 12px; white-space: nowrap; cursor: pointer;
+}
+.qoder-chip:hover { border-color: var(--q-hover); color: var(--q-text-2); }
+.qoder-chip[aria-pressed="true"] { border-color: var(--q-accent); background: var(--q-raised); color: var(--q-text); }
+.qoder-chip:focus-visible { outline: 2px solid var(--q-accent); outline-offset: 1px; }
+
+/* El segmento de orden usa botones toggle (aria-pressed) en vez de tabs. */
+.qoder-segment button[aria-pressed="true"] { background: var(--q-raised); color: var(--q-text); }
+
+/* Aviso honesto del detalle de skills: reemplaza métricas y permisos inventados. */
+.skills-notice {
+  margin: 6px 0 0;
+  font-size: 12px; line-height: 19px; color: var(--q-text-3);
+}
+
+/* --- Piel mint-dark de la tarjeta de plataforma --------------------------
+   index.css:705-734 define .platform-panel, su cabecera, .strategy-stack y
+   .callout con la paleta neutra anterior (#1a1a1a y pelo #333333). Son las
+   primitivas que realmente renderizan en Tool Policy Studio y en el resto de
+   las superficies de plataforma, y se veían desafinadas sobre el canvas
+   #0b110e. Mismo criterio que la piel del skills studio: cards planas
+   --q-surface con pelo --q-border a 10px. */
+.platform-panel { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); }
+.platform-panel__head { border-bottom: 1px solid var(--q-border-soft); }
+
+.strategy-stack > div { border: 1px solid var(--q-border-soft); border-radius: 10px; background: var(--q-surface); }
+.strategy-stack span { color: var(--q-text-3); }
+/* index.css fija el valor con `font: 8px ui-monospace`, que sale ilegible (mismo defecto que los 7px del skills studio). */
+.strategy-stack strong { color: var(--q-text); font-size: 12px; }
+
+.callout { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); color: var(--q-text-3); }
+
+/* Mismas primitivas de la familia: index.css:710-714 pinta las tarjetas de
+   métrica y las filas con el gris y el pelo neutros anteriores. */
+.platform-metric-card { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); }
+.platform-metric-card > span { color: var(--q-text-3); }
+.platform-metric-card > strong { color: var(--q-text); }
+.platform-metric-card > small { color: var(--q-text-3); }
+.platform-metric-row { border-bottom: 1px solid var(--q-border-soft); }
+.platform-metric-row span { color: var(--q-text-3); }
+.platform-metric-row strong { color: var(--q-text); }
+
+/* --- Piel mint-dark del skills studio ------------------------------------
+   index.css:1418-1450 declara estas reglas compartidas con las superficies de
+   tools y usa la paleta neutra anterior (#181818 / #1a1a1a / #1e1e1e con pelo
+   #333333), que se ve desafinada sobre el canvas #0b110e. Se re-declaran sólo
+   para las clases .skills-* / .skill-*, con los tokens ya medidos:
+   cards planos --q-surface con pelo --q-border a 10px, tiles --q-raised
+   (bg-fill-tertiary en Qoder), fila activa --q-raised y hover --q-hover. */
+.skills-studio {
+  border: 1px solid var(--q-border); border-radius: 10px;
+  background: var(--q-surface);
+}
+.skills-studio__sidebar { border-right: 1px solid var(--q-border-soft); }
+
+.skills-search { border-color: var(--q-border-soft); background: var(--q-surface); color: var(--q-text-3); }
+.skills-search input { color: var(--q-text-2); }
+
+.skills-tabs { border-bottom: 1px solid var(--q-border-soft); }
+.skills-tab { color: var(--q-text-3); }
+.skills-tab:hover { background: var(--q-hover); color: var(--q-text-2); }
+.skills-tab--active { background: var(--q-raised); color: var(--q-text); }
+
+.skill-list-row { color: var(--q-text); }
+.skill-list-row:hover { border-color: transparent; background: var(--q-hover); }
+.skill-list-row--active { border-color: var(--q-border); background: var(--q-raised); }
+.skill-list-icon { border-color: var(--q-border-soft); background: var(--q-raised); color: var(--q-text-2); }
+.skill-list-row strong { color: var(--q-text); }
+.skill-list-row small { color: var(--q-text-3); }
+.skills-empty { color: var(--q-text-3); }
+
+.skills-detail-head h2 { color: var(--q-text); }
+.skills-detail-head p { color: var(--q-text-3); }
+
+.skills-detail-grid > div { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); }
+.skills-detail-grid span { color: var(--q-text-3); }
+/* index.css fija el valor en `font: 7px ui-monospace`, que sale ilegible en pantalla. */
+.skills-detail-grid strong { color: var(--q-text); font-size: 13px; }
+
+.skills-capabilities, .skills-permissions { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); }
+.skills-permissions > div { border-bottom-color: var(--q-border-soft); color: var(--q-text-3); }
+.skills-permissions strong { color: var(--q-text-2); font-size: 12px; }
+
+/* --- Primitivas de texto compartidas -------------------------------------
+   index.css:101, :163 y :223 pintan estas tres con grises neutros de la paleta
+   anterior. Son las ultimas primitivas compartidas que quedaban fuera de la
+   paleta; se re-declaran aca con la misma especificidad de una clase y hoja
+   posterior, que es lo que gana segun se verifico en la pasada 13. No se toca
+   .status-dot--live: su #e4e4e4 tambien es neutro, pero pasarlo a mint es una
+   decision semantica sin medicion de Qoder que la respalde. */
+.mono-text { color: var(--q-text-3); }
+.surface-block__heading { color: var(--q-text-3); border-bottom: 1px solid var(--q-border-soft); }
+.status-dot--offline { background: var(--q-text-3); }
+
+/* --- Command palette -----------------------------------------------------
+   Triage en vivo de los 57 bloqueos con !important: 30 de los selectores ni
+   siquiera renderizan, y la familia palette es el unico cluster grande que si
+   esta vivo (102 iconos visibles al abrir la paleta). workspace-enhancements.css
+   :324-335 la pinta entera con grises de la paleta anterior, asi que hay que
+   igualar el peso para poder ganar. Valores segun lo ya medido: capa flotante
+   plana --q-surface con pelo --q-border, tile de icono --q-raised
+   (bg-fill-tertiary) y item resaltado --q-hover (data-[highlighted]:bg-fill-secondary).
+   El scrim .palette-backdrop se deja: es negro sobre el fondo, no un color de paleta. */
+.command-palette { border-color: var(--q-border) !important; background: var(--q-surface) !important; }
+.palette-search { border-bottom-color: var(--q-border-soft) !important; }
+.palette-search:focus-within { background: var(--q-raised) !important; }
+.palette-item__icon { border-color: var(--q-border-soft) !important; background: var(--q-raised) !important; }
+.palette-footer { border-top-color: var(--q-border) !important; }
+
+/* Los textos de item y footer salen de index.css:198-205 y :259 sin !important,
+   asi que alcanza con el mismo peso y la hoja posterior. El item activo va despues
+   del base porque ambos son (0,1,0): si no, el base le pisa el color. */
+.palette-item { color: var(--q-text-2); }
+.palette-item:hover { background: var(--q-hover); color: var(--q-text); }
+.palette-item__copy small { color: var(--q-text-3); }
+.palette-search { color: var(--q-text-3); }
+.palette-search input { color: var(--q-text); }
+.palette-footer { color: var(--q-text-3); }
+.palette-item--active { border-color: var(--q-border) !important; background: var(--q-hover) !important; color: var(--q-text); }
+
+/* --- Familia subagent-builder --------------------------------------------
+   workspace-enhancements.css:1265-1283 declara 10 valores neutros de la paleta
+   anterior sobre 20 selectores de esta familia. Ninguno lleva !important, asi
+   que alcanza con repetir la misma forma de selector (misma especificidad) en
+   la hoja posterior. Mapeo: pelos #333333/#3d3d3d -> --q-border, paneles #181818
+   -> --q-surface, tiles #1a1a1a/#1e1e1e -> --q-raised, fila activa --q-raised y
+   hover --q-hover, textos apagados rgba(228,228,228,.42/.5/.6) -> --q-text-3. */
+/* index.css:1677 comparte esta regla de layout a dos paneles con otras tres
+   superficies; se cubren las cuatro de una para no dejar hermanas desafinadas. */
+.subagent-fleet, .cloud-agent-layout, .computer-use-workspace, .integration-layout { border: 1px solid var(--q-border); border-radius: 10px; background: var(--q-surface); }
+.subagent-fleet__list, .cloud-agent-layout > .capability-list, .computer-use-workspace > .capability-list, .integration-layout > .capability-list { border-right: 1px solid var(--q-border-soft); }
+.subagent-builder { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__rail { border-right: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__rail-head { border-bottom: 1px solid var(--q-border); }
+.subagent-builder__search { border: 1px solid var(--q-border); background: var(--q-surface); color: var(--q-text-3); }
+.subagent-builder__list { background: transparent; }
+.subagent-builder__item { color: var(--q-text-2); }
+.subagent-builder__item:hover { border-color: var(--q-border); background: var(--q-hover); }
+.subagent-builder__item--active { border-color: var(--q-border); background: var(--q-raised); }
+.subagent-builder__item small { color: var(--q-text-3); }
+.subagent-builder__icon { border: 1px solid var(--q-border); background: var(--q-raised); color: var(--q-text-2); }
+.subagent-builder__header { border-bottom: 1px solid var(--q-border); }
+.subagent-builder__header p { color: var(--q-text-3); }
+.subagent-builder__tabs { border-bottom: 1px solid var(--q-border); }
+.subagent-builder__tab { color: var(--q-text-3); }
+.subagent-builder__tab:hover, .subagent-builder__tab--active { color: var(--q-text); }
+.subagent-builder__section header p { color: var(--q-text-3); }
+.subagent-builder__field > span { color: var(--q-text-3); }
+.subagent-builder__field input, .subagent-builder__field textarea, .subagent-builder__field select { border: 1px solid var(--q-border); background: var(--q-surface); color: var(--q-text); }
+.subagent-builder__field input:focus, .subagent-builder__field textarea:focus, .subagent-builder__field select:focus { border-color: var(--q-accent); }
+.subagent-builder__stat { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__stat span { color: var(--q-text-3); }
+.subagent-builder__range > span { color: var(--q-text-3); }
+.subagent-builder__context-card, .subagent-builder__policy-card { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__context-card p, .subagent-builder__policy-card p { color: var(--q-text-3); }
+.subagent-builder__toggle { border: 1px solid var(--q-border); background: var(--q-surface); color: var(--q-text-3); }
+.subagent-builder__toggle:hover { border-color: var(--q-border); background: var(--q-hover); }
+.subagent-builder__toggle--active { background: var(--q-raised); }
+.subagent-builder__toggle strong { color: var(--q-text); }
+.subagent-builder__handoff { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__handoff small, .subagent-builder__handoff-arrow { color: var(--q-text-3); }
+.subagent-builder__run-hero { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__run-hero p { color: var(--q-text-3); }
+.subagent-builder__run-orb { border: 1px solid var(--q-border); background: var(--q-raised); }
+.subagent-builder__timeline { border: 1px solid var(--q-border); }
+.subagent-builder__timeline > div { border: 1px solid var(--q-border); background: var(--q-surface); }
+.subagent-builder__timeline > div > span, .subagent-builder__timeline small { color: var(--q-text-3); }
+
+/* --- Familia capability y sus tres superficies hermanas --------------------
+   Medida en la pasada 17. El marco de index.css:1677 ya venia bien en las tres
+   (las tres calculan --q-surface / --q-border / 10px), pero el interior nunca
+   se cubrio: 42 hits neutros en Cloud Agents, 66 en Computer Use, 50 en
+   Integrations. Ningun selector de la familia lleva !important, asi que la
+   hoja posterior gana con repetir la misma forma de selector. Mismo mapeo que
+   las pasadas 9, 10 y 16, sin colours nuevos: #333333/#3d3d3d -> --q-border,
+   rgba(228,228,228,.07) -> --q-border-soft, #181818 -> --q-surface,
+   #1a1a1a/#1e1e1e -> --q-raised, fila activa y hover -> --q-hover,
+   texto .72 -> --q-text-2 y .34/.42/.50/.60 -> --q-text-3. */
+.capability-list { border-color: var(--q-border); }
+.capability-row { border-bottom-color: var(--q-border-soft); background: var(--q-raised); }
+.capability-row:hover, .capability-row--active { border-color: var(--q-border); background: var(--q-hover); }
+.capability-row strong { color: var(--q-text-2); }
+.capability-row small { color: var(--q-text-3); }
+.capability-icon { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.capability-head { border-bottom-color: var(--q-border-soft); }
+.capability-head p { color: var(--q-text-3); }
+.metric-card span, .metric-card small { color: var(--q-text-3); }
+.cloud-agent-artifacts button { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.desktop-preview { border-color: var(--q-border); background: var(--q-surface); }
+.desktop-preview__bar { border-bottom-color: var(--q-border-soft); }
+.desktop-preview__bar span { background: var(--q-text-3); }
+/* index.css:1691 fija el rotulo de la barra con `font:6px`, ilegible igual que
+   los 7px y 8px de las pasadas 9 y 10; 11px es el tamano que ya usa su propia
+   fila en esta hoja. */
+.desktop-preview__bar strong { color: var(--q-text-3); font-size: 11px; }
+.desktop-preview__screen { background-image: linear-gradient(135deg, var(--q-surface), var(--q-raised)); }
+.desktop-preview__screen > div { color: var(--q-text-3); }
+.desktop-preview__screen span { color: var(--q-text-2); }
+.desktop-preview__screen small { color: var(--q-text-3); }
+.computer-toolbar { border-bottom-color: var(--q-border-soft); }
+.computer-toolbar button { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-3); }
+.computer-screen { border-color: var(--q-border); background: var(--q-surface); }
+.computer-screen__app { border-color: var(--q-border); background: var(--q-raised); }
+.computer-screen__window-head { border-bottom-color: var(--q-border-soft); color: var(--q-text-3); }
+.computer-screen__window-head span { color: var(--q-text-3); }
+.computer-screen__sidebar { border-right-color: var(--q-border-soft); color: var(--q-text-3); }
+.computer-screen__canvas { background-image: radial-gradient(circle at 50% 50%, var(--q-raised), var(--q-surface) 65%); }
+.cursor-dot { border-color: var(--q-border); }
+.fake-button, .fake-input { border-color: var(--q-border); background: var(--q-raised); color: var(--q-text-2); }
+.fake-input { color: var(--q-text-3); }
+.computer-action-log { border-color: var(--q-border); background: var(--q-raised); }
+.integration-steps { border-color: var(--q-border); background: var(--q-raised); }
+/* index.css:1681-1685 comparte estas filas numeradas con .subagent-streams,
+   que hoy no pinta elementos; se declara igual para no dejar la hermana corta. */
+.subagent-streams > div, .integration-steps > div, .computer-action-log > div { border-bottom-color: var(--q-border-soft); }
+.subagent-streams > div span, .integration-steps > div span, .computer-action-log > div span { color: var(--q-text-3); font-size: 11px; }
+.subagent-streams strong, .integration-steps strong, .computer-action-log strong { color: var(--q-text-3); }
+.subagent-streams small, .integration-steps small, .computer-action-log small { color: var(--q-text-3); }

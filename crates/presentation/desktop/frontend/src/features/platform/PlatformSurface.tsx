@@ -344,7 +344,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   if (mode === 'memory') return (
     <Shell>
-      {renderHeader('Persistent context', 'Memory Studio', 'Inspect semantic, episodic and workspace memory with provenance, retention and conflict policies.', <span className="state-pill state-pill--pending">Preview</span>)}
+      {renderHeader('Persistent context', 'Memory Studio', 'Inspect semantic, episodic and workspace memory with provenance, retention and conflict policies.')}
       <MemoryStudio onAction={notify} />
       <Toast message={notice} />
     </Shell>
@@ -380,7 +380,7 @@ function PlatformSurfaceContent({ mode, onNavigate }: { mode: PlatformMode; onNa
 
   if (mode === 'agent-control') return (
     <Shell>
-      {renderHeader('Agent configuration', 'Agent Control Plane', 'Configure autonomy, policy, budgets, behavior and lifecycle without coupling the frontend to runtime execution.', <span className="state-pill state-pill--pending">Preview</span>)}
+      {renderHeader('Agent configuration', 'Agent Control Plane', 'Configure autonomy, policy, budgets, behavior and lifecycle without coupling the frontend to runtime execution.')}
       <AgentControlPlane onAction={notify} />
       <Toast message={notice} />
     </Shell>

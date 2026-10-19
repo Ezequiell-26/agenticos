@@ -263,6 +263,20 @@ pub async fn get_agent_status(api_url: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    /// A backend URL whose port is proven closed, so the two network tests assert what they
+    /// mean instead of depending on whether this machine happens to be running the runtime.
+    fn closed_backend_url() -> String {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("binding an ephemeral port");
+        let addr = listener.local_addr().expect("reading the bound address");
+        drop(listener);
+        assert!(
+            std::net::TcpStream::connect(addr).is_err(),
+            "expected port {addr} to be closed before asserting the client fails"
+        );
+        format!("http://{addr}")
+    }
+
     #[test]
     fn test_user_message_serialization() {
         let msg = UserMessage {
@@ -290,13 +304,13 @@ mod tests {
             content: "test".to_string(),
             session_id: Some("session-1".to_string()),
         };
-        let response = send_message(msg, "http://127.0.0.1:8080").await;
+        let response = send_message(msg, &closed_backend_url()).await;
         assert!(response.is_err());
     }
 
     #[tokio::test]
     async fn test_get_agent_status() {
-        let status = get_agent_status("http://127.0.0.1:8080").await;
+        let status = get_agent_status(&closed_backend_url()).await;
         assert!(status.is_err());
     }
 

@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "agenticos")]
+#[command(version)]
 #[command(about = "AgentiCOS - Universal agent runtime platform", long_about = None)]
 struct Cli {
     /// Verbose output

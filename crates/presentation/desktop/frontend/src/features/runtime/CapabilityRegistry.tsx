@@ -34,11 +34,12 @@ export default function CapabilityRegistry() {
   const [group, setGroup] = useState('All')
   const [query, setQuery] = useState('')
   const [runtimeSyncing, setRuntimeSyncing] = useState(true)
+  const [runtimeBacked, setRuntimeBacked] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void runtime.capabilities.list().then((grants) => {
-      if (cancelled || grants.length === 0) return
+      if (cancelled) return
       const mapped: Capability[] = grants.map((grant, index) => {
         const type = typeof grant.capability_type === 'string' ? grant.capability_type : 'Unknown'
         const resource = typeof grant.resource === 'string' ? grant.resource : 'unknown'
@@ -53,6 +54,7 @@ export default function CapabilityRegistry() {
         }
       })
       setItems(mapped)
+      setRuntimeBacked(true)
     }).catch(() => {
       // Keep the local catalog while the runtime is unavailable.
     }).finally(() => { if (!cancelled) setRuntimeSyncing(false) })
@@ -79,8 +81,8 @@ export default function CapabilityRegistry() {
   return (
     <div className="capability-registry">
       <div className="capability-summary">{(['Available','Requires setup','Unavailable','Disabled'] as CapabilityState[]).map((state) => <div key={state}><small>{state}</small><strong>{counts[state]}</strong></div>)}</div>
-      <div className="capability-toolbar"><span className="mono-text">{runtimeSyncing ? 'Syncing runtime grants…' : 'Runtime grants'}</span><label className="control-center-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" /></label><div className="customize-manager__filters">{groups.map((item) => <button type="button" key={item} className={group === item ? 'customize-filter customize-filter--active' : 'customize-filter'} onClick={() => setGroup(item)}>{item}</button>)}</div></div>
-      <div className="capability-list">{visible.map((item) => <div className="capability-row" key={item.id}><span className="customize-row__icon"><Icon name={item.group === 'AI' ? 'bot' : item.group === 'Execution' ? 'terminal' : item.group === 'Web' ? 'globe' : item.group === 'Media' ? 'layout' : 'network'} size={13} /></span><div><strong>{item.label}</strong><small>{item.detail}</small></div><span className={`capability-pill capability-pill--${item.state.toLowerCase().replace(/\\s+/g, '-')}`}>{item.state}</span><small className="capability-latency">{item.latency}</small>{!runtimeSyncing && item.id.startsWith('grant-') === false && <button type="button" className="studio-button" onClick={() => void revoke(item.id).catch(() => undefined)}>Revoke</button>}</div>)}</div>
+      <div className="capability-toolbar"><span className="mono-text">{runtimeSyncing ? 'Syncing runtime grants…' : runtimeBacked ? 'Runtime grants' : 'Preview grants · offline'}</span><label className="control-center-search"><Icon name="search" size={13} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" /></label><div className="customize-manager__filters">{groups.map((item) => <button type="button" key={item} className={group === item ? 'customize-filter customize-filter--active' : 'customize-filter'} onClick={() => setGroup(item)}>{item}</button>)}</div></div>
+      {visible.length === 0 ? <div className="qoder-empty"><span className="qoder-empty__icon"><Icon name="shield" size={18} /></span><strong>{items.length === 0 ? 'No runtime capability grants' : 'No capabilities match the filter'}</strong><p>{items.length === 0 ? 'The runtime answered with no grants, so there is nothing to inspect or revoke.' : 'Adjust the search or the group filter to see the rest.'}</p></div> : <div className="capability-list">{visible.map((item) => <div className="capability-row" key={item.id}><span className="customize-row__icon"><Icon name={item.group === 'AI' ? 'bot' : item.group === 'Execution' ? 'terminal' : item.group === 'Web' ? 'globe' : item.group === 'Media' ? 'layout' : 'network'} size={13} /></span><div><strong>{item.label}</strong><small>{item.detail}</small></div><span className={`capability-pill capability-pill--${item.state.toLowerCase().replace(/\\s+/g, '-')}`}>{item.state}</span><small className="capability-latency">{item.latency}</small>{!runtimeSyncing && item.id.startsWith('grant-') === false && <button type="button" className="studio-button" onClick={() => void revoke(item.id).catch(() => undefined)}>Revoke</button>}</div>)}</div>}
     </div>
   )
 }

@@ -1,0 +1,98 @@
+name: Windows desktop package
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/windows-desktop-package.yml"
+      - "crates/presentation/desktop/**"
+      - "crates/application/**"
+      - "crates/domain/**"
+      - "crates/infrastructure/**"
+      - "crates/utilities/**"
+      - "scripts/Start-Agenticos-Desktop.*"
+  push:
+    branches: ["main"]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/windows-desktop-package.yml"
+      - "crates/presentation/desktop/**"
+      - "crates/application/**"
+      - "crates/domain/**"
+      - "crates/infrastructure/**"
+      - "crates/utilities/**"
+      - "scripts/Start-Agenticos-Desktop.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agenticos-windows-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo git sources
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache Cargo build output
+        uses: actions/cache@v5
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+
+      - name: Install desktop frontend dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: crates/presentation/desktop/frontend
+
+      - name: Install Tauri CLI
+        run: npm install --global "@tauri-apps/cli@^2" --no-audit --no-fund
+
+      - name: Build and bundle AgentiCOS for Windows
+        run: tauri build
+        working-directory: crates/presentation/desktop
+        env:
+          VITE_AGENTICOS_API_URL: http://127.0.0.1:8080
+
+      - name: Upload installer and bundle outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: agenticos-windows-desktop
+          path: target/release/bundle/**
+          if-no-files-found: error
+          retention-days: 14
